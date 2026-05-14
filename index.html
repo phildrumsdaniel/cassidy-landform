@@ -21,13 +21,26 @@ const { useState, useEffect } = React;
 // Paste your Google Apps Script Web App URL below after deployment.
 const ACCESS_CONFIG = {
   expiryDate: "2027-12-31",
-  sheetWebhook: "https://script.google.com/macros/s/AKfycbw2duV5U3Gk5XfXwq3hLolEF5tc213CRVsE9V8jm0ilHrPQmSTQz4S8SFN2u2pTmM8O/exec",
+  sheetWebhook: "https://script.google.com/macros/s/AKfycbxyLkqr5Jo2WnKmqprVx-g0CS0a7rltvb6tW0diQYLvcVTor2dPZQY5mBkfSFdkNe-J/exec",
 };
 
 // ─── LOGGING ENGINE ───────────────────────────────────────────────────────────
 const logEvent = async (user, eventType, details) => {
   if (!ACCESS_CONFIG.sheetWebhook || ACCESS_CONFIG.sheetWebhook.includes("YOUR_GOOGLE")) return;
   try {
+    const params = new URLSearchParams({
+      action: "log",
+      timestamp: new Date().toISOString(),
+      user: user?.name || "Unknown",
+      company: user?.company || "Unknown",
+      role: user?.role || "demo",
+      event: eventType,
+      details: typeof details === "object" ? JSON.stringify(details).substring(0,200) : String(details).substring(0,200),
+      userAgent: navigator.userAgent.substring(0, 80),
+    });
+    fetch(ACCESS_CONFIG.sheetWebhook + "?" + params.toString()).catch(()=>{});
+    return;
+    // Legacy POST kept below for reference
     await fetch(ACCESS_CONFIG.sheetWebhook, {
       method: "POST",
       mode: "no-cors",
@@ -76,17 +89,15 @@ const AccessGate = ({ onLogin }) => {
     }
 
     try {
-      const res = await fetch(ACCESS_CONFIG.sheetWebhook, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "verify",
-          password: pwd.trim(),
-          name: name.trim(),
-          company: company.trim(),
-          userAgent: navigator.userAgent.substring(0, 80),
-        }),
+      // Use GET with query params — avoids CORS preflight issues
+      const params = new URLSearchParams({
+        action: "verify",
+        password: pwd.trim(),
+        name: name.trim(),
+        company: company.trim(),
+        userAgent: navigator.userAgent.substring(0, 80),
       });
+      const res = await fetch(ACCESS_CONFIG.sheetWebhook + "?" + params.toString());
       const data = await res.json();
       if (data.status === "ok" && data.user) {
         onLogin({ ...data.user, loginTime: new Date().toISOString() });
@@ -94,8 +105,7 @@ const AccessGate = ({ onLogin }) => {
         setError(data.message || "Incorrect access code. Please contact Cassidy Group.");
       }
     } catch(e) {
-      // Network error — could be CORS on first load, try no-cors fallback
-      setError("Could not connect to access server. Check your internet connection.");
+      setError("Could not connect to access server. Please check your internet connection and try again.");
     }
     setLoading(false);
   };
