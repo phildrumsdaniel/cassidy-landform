@@ -21,13 +21,22 @@ const { useState, useEffect } = React;
 // Paste your Google Apps Script Web App URL below after deployment.
 const ACCESS_CONFIG = {
   expiryDate: "2027-12-31",
-  sheetWebhook: "https://script.google.com/macros/s/AKfycbxyLkqr5Jo2WnKmqprVx-g0CS0a7rltvb6tW0diQYLvcVTor2dPZQY5mBkfSFdkNe-J/exec",
-};
-
+  sheetWebhook: "https://script.google.com/macros/s/AKfycbz1_KT5gj1rsO5OuwAivh0U6TyXQ1zFSu58Sd5sRpCQ0cGWSzVl4u0wz0MLbQk2Xv6q/exec
 // ─── LOGGING ENGINE ───────────────────────────────────────────────────────────
 const logEvent = async (user, eventType, details) => {
   if (!ACCESS_CONFIG.sheetWebhook || ACCESS_CONFIG.sheetWebhook.includes("YOUR_GOOGLE")) return;
   try {
+    // Truncate and clean details for logging
+    let detailStr = "";
+    if (typeof details === "object") {
+      // Extract the most useful fields only
+      const useful = {};
+      const keys = ["postcode","city","acres","price","units","stage","result","url","address","schType","gdv","rlv","margin"];
+      keys.forEach(k => { if (details[k] !== undefined && details[k] !== "" && details[k] !== null) useful[k] = details[k]; });
+      detailStr = JSON.stringify(useful).substring(0, 500);
+    } else {
+      detailStr = String(details).substring(0, 500);
+    }
     const params = new URLSearchParams({
       action: "log",
       timestamp: new Date().toISOString(),
@@ -35,13 +44,35 @@ const logEvent = async (user, eventType, details) => {
       company: user?.company || "Unknown",
       role: user?.role || "demo",
       event: eventType,
-      details: typeof details === "object" ? JSON.stringify(details).substring(0,200) : String(details).substring(0,200),
+      details: detailStr,
       userAgent: navigator.userAgent.substring(0, 80),
     });
     fetch(ACCESS_CONFIG.sheetWebhook + "?" + params.toString()).catch(()=>{});
-    return;
-    // Legacy POST kept below for reference
-    await fetch(ACCESS_CONFIG.sheetWebhook, {
+  } catch(e) { /* silent */ }
+};
+
+// Log page navigation
+const logPageView = (user, stageName) => {
+  logEvent(user, "PAGE_VIEW", { stage: stageName });
+};
+
+// Log field data entry (called when key fields are filled)
+const logFieldData = (user, stage, fields) => {
+  logEvent(user, "FIELD_DATA", { stage, ...fields });
+};
+
+// Log AI result (truncated)
+const logAIResult = (user, stage, prompt, result) => {
+  logEvent(user, "RESULT", {
+    stage,
+    result: (result||"").substring(0, 400)
+  });
+};
+
+// ─── DUMMY (replaced above) ───────────────────────────────────────────────────
+const _legacyLog = async (user, eventType, details) => {
+  // Legacy — kept for reference only, not called
+  await fetch(ACCESS_CONFIG.sheetWebhook, {
       method: "POST",
       mode: "no-cors",
       headers: { "Content-Type": "application/json" },
@@ -154,19 +185,216 @@ const AccessGate = ({ onLogin }) => {
   );
 };
 
-// ─── WRAPPER APP WITH ACCESS CONTROL ─────────────────────────────────────────
+// ─── DEAL STORAGE HELPERS ────────────────────────────────────────────────────
+const DEALS_KEY = "cassidy_landform_deals_v1";
+
+const loadDeals = () => {
+  try {
+    const raw = localStorage.getItem(DEALS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) { return []; }
+};
+
+const saveDeals = (deals) => {
+  try { localStorage.setItem(DEALS_KEY, JSON.stringify(deals)); } catch(e) {}
+};
+
+// ─── DEAL MANAGER COMPONENT ───────────────────────────────────────────────────
+const DealManager = ({ user, onOpen, onNew }) => {
+  const [deals, setDeals] = React.useState(loadDeals);
+  const [filter, setFilter] = React.useState("active");
+  const [search, setSearch] = React.useState("");
+
+  const updateDeal = (id, updates) => {
+    const updated = deals.map(d => d.id === id ? {...d, ...updates, updatedAt: new Date().toISOString()} : d);
+    setDeals(updated); saveDeals(updated);
+  };
+
+  const deleteDeal = (id) => {
+    if (!window.confirm("Delete this deal permanently?")) return;
+    const updated = deals.filter(d => d.id !== id);
+    setDeals(updated); saveDeals(updated);
+  };
+
+  const filtered = deals
+    .filter(d => filter === "all" ? true : filter === "active" ? d.status !== "archived" : d.status === "archived")
+    .filter(d => !search || (d.name||"").toLowerCase().includes(search.toLowerCase()) || (d.address||"").toLowerCase().includes(search.toLowerCase()));
+
+  const statusColors = { active:"#2D7A65", reviewing:"#9A7B3E", archived:"#7278A0", paused:"#B05A35" };
+
+  return (
+    <div style={{minHeight:"100vh",background:"#F4F5F9",fontFamily:"DM Sans,sans-serif"}}>
+      {/* Header */}
+      <div style={{background:"#1E1F5C",padding:"20px 32px",display:"flex",alignItems:"center",gap:16}}>
+        <img src={"data:image/webp;base64,"+CASSIDY_LOGO} alt="Cassidy Group" style={{width:80,height:"auto",filter:"drop-shadow(0 1px 4px rgba(0,0,0,0.3))"}}/> 
+        <div>
+          <div style={{color:"#fff",fontSize:18,fontWeight:800,letterSpacing:".02em"}}>Land Intelligence</div>
+          <div style={{color:"rgba(255,255,255,0.4)",fontSize:11,letterSpacing:".15em",textTransform:"uppercase"}}>Deal Management</div>
+        </div>
+        <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:12}}>
+          <div style={{color:"rgba(255,255,255,0.5)",fontSize:12}}>Welcome, {user?.name}</div>
+          <button onClick={onNew} style={{padding:"9px 20px",background:"#EDE84A",border:"none",borderRadius:6,color:"#1E1F5C",fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}>
+            + New Deal
+          </button>
+        </div>
+      </div>
+
+      <div style={{padding:"28px 32px",maxWidth:1100,margin:"0 auto"}}>
+        {/* Stats */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:24}}>
+          {[
+            {l:"Total Deals",   v:deals.length,                          c:"var(--cb)"},
+            {l:"Active",        v:deals.filter(d=>d.status==="active"||!d.status).length, c:"#2D7A65"},
+            {l:"Under Review",  v:deals.filter(d=>d.status==="reviewing").length, c:"#9A7B3E"},
+            {l:"Archived",      v:deals.filter(d=>d.status==="archived").length,  c:"#7278A0"},
+          ].map(({l,v,c})=>(
+            <div key={l} style={{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"16px 18px"}}>
+              <div style={{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",marginBottom:5}}>{l}</div>
+              <div style={{fontSize:28,fontWeight:800,color:c,lineHeight:1}}>{v}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Filters + Search */}
+        <div style={{display:"flex",gap:12,marginBottom:16,alignItems:"center"}}>
+          <div style={{display:"flex",gap:6}}>
+            {[["active","Active"],["reviewing","Reviewing"],["archived","Archived"],["all","All"]].map(([val,label])=>(
+              <button key={val} onClick={()=>setFilter(val)} style={{padding:"6px 14px",border:`1px solid ${filter===val?"var(--cb)":"#DDE0ED"}`,background:filter===val?"var(--cb)":"#fff",color:filter===val?"#fff":"#7278A0",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}>{label}</button>
+            ))}
+          </div>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search deals..." style={{flex:1,padding:"8px 12px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:12,fontFamily:"DM Sans,sans-serif",outline:"none"}}/>
+        </div>
+
+        {/* Deal Cards */}
+        {filtered.length === 0 ? (
+          <div style={{background:"#fff",border:"1px solid #DDE0ED",borderRadius:12,padding:"48px",textAlign:"center"}}>
+            <div style={{fontSize:32,marginBottom:12}}>🏗</div>
+            <div style={{fontSize:16,fontWeight:700,color:"#2E2F8A",marginBottom:8}}>{deals.length===0?"No deals yet":"No deals match your filter"}</div>
+            <div style={{fontSize:13,color:"#7278A0",marginBottom:20}}>Click New Deal to start your first land appraisal</div>
+            <button onClick={onNew} style={{padding:"10px 24px",background:"var(--cb)",border:"none",borderRadius:6,color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}>+ New Deal</button>
+          </div>
+        ) : (
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {filtered.map(deal=>(
+              <div key={deal.id} style={{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",display:"grid",gridTemplateColumns:"1fr auto",gap:16,alignItems:"center",transition:"box-shadow .15s",cursor:"pointer"}}
+                onMouseOver={e=>e.currentTarget.style.boxShadow="0 2px 12px rgba(74,75,174,0.1)"}
+                onMouseOut={e=>e.currentTarget.style.boxShadow="none"}>
+                <div onClick={()=>onOpen(deal)}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:5}}>
+                    <span style={{fontSize:15,fontWeight:800,color:"#2E2F8A"}}>{deal.name||"Untitled Deal"}</span>
+                    <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:3,background:`${statusColors[deal.status||"active"]}15`,color:statusColors[deal.status||"active"]}}>{(deal.status||"active").toUpperCase()}</span>
+                    {deal.assetType&&<span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:3,background:"rgba(74,75,174,0.08)",color:"var(--cb)"}}>{deal.assetType.toUpperCase()}</span>}
+                  </div>
+                  <div style={{fontSize:12,color:"#7278A0",marginBottom:4}}>{deal.address||deal.land?.address||"Address not set"}{deal.land?.city&&" · "+deal.land.city.replace(/_/g," ").replace(/\w/g,l=>l.toUpperCase())}</div>
+                  <div style={{display:"flex",gap:16,fontSize:11,color:"#A0A4C0"}}>
+                    {deal.land?.acres&&<span>📐 {deal.land.acres} acres</span>}
+                    {deal.land?.price&&<span>💰 £{Number(deal.land.price).toLocaleString()}</span>}
+                    {deal.planning?.units&&<span>🏠 {deal.planning.units} units</span>}
+                    <span>🕐 {deal.updatedAt ? new Date(deal.updatedAt).toLocaleDateString("en-GB") : new Date(deal.createdAt||Date.now()).toLocaleDateString("en-GB")}</span>
+                    {deal.notes&&<span>📝 Has notes</span>}
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:8,flexShrink:0}}>
+                  <button onClick={()=>onOpen(deal)} style={{padding:"7px 14px",background:"var(--cb)",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}>Open →</button>
+                  <select value={deal.status||"active"} onChange={e=>updateDeal(deal.id,{status:e.target.value})} onClick={e=>e.stopPropagation()} style={{padding:"6px 8px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:11,fontFamily:"DM Sans,sans-serif",cursor:"pointer",background:"#fff"}}>
+                    <option value="active">Active</option>
+                    <option value="reviewing">Reviewing</option>
+                    <option value="paused">Paused</option>
+                    <option value="archived">Archive</option>
+                  </select>
+                  <button onClick={e=>{e.stopPropagation();deleteDeal(deal.id);}} style={{padding:"7px 10px",background:"transparent",border:"1px solid #DDE0ED",borderRadius:5,color:"#B05A35",fontSize:11,cursor:"pointer"}}>✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ─── WRAPPER APP WITH ACCESS CONTROL + DEAL MANAGEMENT ────────────────────────
 const AppWithAccess = () => {
   const [user, setUser] = React.useState(null);
-  const [aiCallCount, setAiCallCount] = React.useState(0);
+  const [view, setView] = React.useState("manager"); // "manager" | "deal"
+  const [currentDeal, setCurrentDeal] = React.useState(null);
+  const [deals, setDeals] = React.useState(loadDeals);
 
-  const handleLogin = (u) => setUser(u);
+  const handleLogin = (u) => { setUser(u); setView("manager"); };
+
+  const openDeal = (deal) => { setCurrentDeal(deal); setView("deal"); };
+
+  const newDeal = () => {
+    const deal = {
+      id: Date.now(),
+      name: "New Deal — " + new Date().toLocaleDateString("en-GB"),
+      status: "active",
+      assetType: "btr",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    const updated = [deal, ...deals];
+    setDeals(updated); saveDeals(updated);
+    setCurrentDeal(deal); setView("deal");
+  };
+
+  const saveDeal = (data) => {
+    // Auto-save deal data whenever it changes
+    const updated = deals.map(d => d.id === currentDeal.id ? {
+      ...d, ...data,
+      id: currentDeal.id,
+      name: data.dealName || d.name,
+      address: data.land?.address || d.address,
+      updatedAt: new Date().toISOString(),
+    } : d);
+    setDeals(updated);
+    saveDeals(updated);
+    setCurrentDeal(prev => ({...prev, ...data, name: data.dealName || prev.name}));
+  };
 
   if (!user) return React.createElement(AccessGate, { onLogin: handleLogin });
-  return React.createElement(App, { currentUser: user, logEvent, onAiCall: (stage, ctx) => {
-    const newCount = aiCallCount + 1;
-    setAiCallCount(newCount);
-    logEvent(user, "AI_ANALYSIS", { stage, callNumber: newCount, context: ctx });
-  }});
+
+  if (view === "manager") return React.createElement(DealManager, {
+    user, onOpen: openDeal, onNew: newDeal,
+  });
+
+  return (
+    <div>
+      {/* Back to Deal Manager bar */}
+      <div style={{background:"#1E1F5C",padding:"8px 24px",display:"flex",alignItems:"center",gap:12,position:"sticky",top:0,zIndex:999}}>
+        <button onClick={()=>setView("manager")} style={{padding:"5px 12px",background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:4,color:"rgba(255,255,255,0.7)",fontSize:11,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}>
+          ← All Deals
+        </button>
+        <input
+          value={currentDeal?.name||""}
+          onChange={e=>{
+            const updated = deals.map(d=>d.id===currentDeal.id?{...d,name:e.target.value,updatedAt:new Date().toISOString()}:d);
+            setDeals(updated); saveDeals(updated);
+            setCurrentDeal(prev=>({...prev,name:e.target.value}));
+          }}
+          style={{background:"transparent",border:"none",color:"#fff",fontSize:14,fontWeight:700,fontFamily:"DM Sans,sans-serif",outline:"none",flex:1,minWidth:200}}
+          placeholder="Deal name..."
+        />
+        <span style={{fontSize:11,color:"rgba(255,255,255,0.35)"}}>Auto-saved · {currentDeal?.updatedAt?new Date(currentDeal.updatedAt).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}):"—"}</span>
+        <select value={currentDeal?.status||"active"} onChange={e=>{
+          const updated = deals.map(d=>d.id===currentDeal.id?{...d,status:e.target.value,updatedAt:new Date().toISOString()}:d);
+          setDeals(updated); saveDeals(updated);
+          setCurrentDeal(prev=>({...prev,status:e.target.value}));
+        }} style={{padding:"4px 8px",background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:4,color:"#fff",fontSize:11,fontFamily:"DM Sans,sans-serif",cursor:"pointer"}}>
+          <option value="active">● Active</option>
+          <option value="reviewing">● Reviewing</option>
+          <option value="paused">● Paused</option>
+          <option value="archived">● Archive</option>
+        </select>
+      </div>
+      {React.createElement(App, {
+        currentUser: user,
+        data: currentDeal || {},
+        setData: saveDeal,
+        logEvent,
+      })}
+    </div>
+  );
 };
 
 
@@ -407,6 +635,337 @@ const AIPanel = ({ prompt, ctx, label="⚡ Run AI Analysis" }) => {
       </button>
       {res&&<div className="ai-box"><pre className="ai-txt">{res}</pre></div>}
       {load&&<div className="ai-box"><div className="ai-load"><span className="spin"/>Processing...</div></div>}
+    </div>
+  );
+};
+
+
+// ─── LAND OPPORTUNITY FINDER ──────────────────────────────────────────────────
+const LandScraper = ({ data, setData, setActive }) => {
+  const [url, setUrl] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [result, setResult] = React.useState(null);
+  const [error, setError] = React.useState("");
+  const [imported, setImported] = React.useState(false);
+  const [pipeline, setPipeline] = React.useState(data.pipeline || []);
+
+  const SOURCES = [
+    { name:"Bruton Knowles",  url:"https://www.brutonknowles.co.uk/property-search/strategic-land/", hint:"Strategic land listings" },
+    { name:"Savills Land",    url:"https://www.savills.co.uk/search/#?country=gb&Type=SL&SearchType=2", hint:"UK land for sale" },
+    { name:"Knight Frank",    url:"https://www.knightfrank.co.uk/land-for-sale", hint:"Development land" },
+    { name:"Aston Rose",      url:"https://www.astonrose.co.uk/properties/land-development/", hint:"London & SE land" },
+    { name:"Rightmove Land",  url:"https://www.rightmove.co.uk/commercial-property-for-sale/land.html", hint:"All UK land listings" },
+    { name:"Planning Portal", url:"https://www.planningportal.co.uk/", hint:"Planning applications" },
+    { name:"LandInsight",     url:"https://app.landinsight.io/", hint:"Off-market land data" },
+    { name:"EPC Register",    url:"https://find-energy-certificate.service.gov.uk/", hint:"Property energy data" },
+  ];
+
+  const scrape = async () => {
+    if (!url.trim()) { setError("Please enter a URL"); return; }
+    setLoading(true); setError(""); setResult(null); setImported(false);
+
+    try {
+      // Use Claude AI via Apps Script to scrape and extract structured data
+      const prompt = `You are a UK land and property data extraction specialist. 
+      
+I need you to extract structured data from this land/property listing URL: ${url}
+
+Fetch the page content and extract ALL of these fields if present:
+- address: full property address
+- postcode: UK postcode (e.g. WR2 5SJ)
+- city: nearest city or town
+- acreage: site area in acres (number only)
+- hectares: site area in hectares (number only)  
+- askingPrice: asking price in £ (number only, no symbols)
+- priceType: "fixed", "oieo" (offers in excess of), "informal tender", "option", "promotion", "expression of interest"
+- planningStatus: current planning status
+- localAuthority: local planning authority name
+- propertyType: type of land/property
+- description: 2-3 sentence summary of the opportunity
+- agent: selling agent name
+- agentContact: agent contact email or phone
+- dealType: "sale", "option", "promotion", "hybrid"
+- developmentPotential: what could be built (e.g. "residential", "mixed use", "commercial")
+- estimatedUnits: estimated number of dwellings if mentioned
+- constraints: any planning constraints mentioned
+- source: the website domain
+
+If you cannot fetch the URL directly, extract as much as possible from the URL structure itself and return what you can.
+
+IMPORTANT: Return ONLY a valid JSON object, no markdown, no explanation. Example:
+{"address":"Land at Main Street, Bretforton, Evesham, Worcestershire","postcode":"WR11 7JH","city":"Evesham","acreage":3.52,"hectares":1.42,"askingPrice":null,"priceType":"informal tender","planningStatus":"No consent","localAuthority":"Wychavon District Council","propertyType":"Strategic Land","description":"Agricultural grassland in village centre. Site of 3.52 acres bordered by three roads. Unconditional freehold sale.","agent":"Bruton Knowles","agentContact":"bryn.evans@brutonknowles.co.uk","dealType":"sale","developmentPotential":"residential","estimatedUnits":null,"constraints":"Village location, edge of settlement","source":"brutonknowles.co.uk"}`;
+
+      const res = await fetch(ACCESS_CONFIG.sheetWebhook + "?" + new URLSearchParams({
+        action: "verify", password: "scrape_internal", name: "system", company: "system", userAgent: "scraper"
+      }));
+      
+      // Use AI to scrape via Apps Script proxy
+      const aiRes = await fetch(ACCESS_CONFIG.sheetWebhook + "?" + new URLSearchParams({
+        action: "scrape",
+        url: url,
+        userAgent: navigator.userAgent.substring(0,80),
+      }));
+      
+      let extracted = null;
+      try {
+        const aiData = await aiRes.json();
+        if (aiData.status === "ok" && aiData.data) {
+          extracted = aiData.data;
+        }
+      } catch(e) {}
+
+      // Fallback: use Claude directly via the AI panel approach
+      if (!extracted) {
+        const aiPromptRes = await fetch(ACCESS_CONFIG.sheetWebhook, {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({
+            action: "ai",
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 1000,
+            system: "You are a UK land data extraction specialist. Return only valid JSON, no markdown.",
+            messages: [{ role: "user", content: prompt }],
+            user: data.currentUser?.name || "User",
+            company: data.currentUser?.company || "",
+            stage: "Land Scraper",
+            logDetails: "URL scraped: " + url,
+          })
+        });
+        const aiResult = await aiPromptRes.json();
+        if (aiResult.status === "ok" && aiResult.content) {
+          const text = aiResult.content.find(b => b.type === "text")?.text || "";
+          const clean = text.replace(/```json|```/g, "").trim();
+          try { extracted = JSON.parse(clean); } catch(e) {}
+        }
+      }
+
+      if (extracted) {
+        setResult(extracted);
+      } else {
+        setError("Could not extract data from this URL. Try a direct property listing page rather than a search results page.");
+      }
+    } catch(e) {
+      setError("Failed to fetch: " + e.message);
+    }
+    setLoading(false);
+  };
+
+  const importToDeal = () => {
+    if (!result) return;
+    // Pre-fill all relevant Landform fields
+    setData(d => ({
+      ...d,
+      land: {
+        ...d.land,
+        address: result.address || "",
+        city: (result.city || "").toLowerCase().replace(/ /g,"_"),
+        acres: result.acreage || "",
+        price: result.askingPrice || "",
+        postcode: result.postcode || "",
+        agent: result.agent || "",
+        dealType: result.dealType || "",
+        localAuthority: result.localAuthority || "",
+      },
+      planning: {
+        ...d.planning,
+        lpa: result.localAuthority || "",
+        status: result.planningStatus?.toLowerCase().includes("full") ? "full" :
+                result.planningStatus?.toLowerCase().includes("outline") ? "outline" :
+                result.planningStatus?.toLowerCase().includes("alloc") ? "allocated" : "none",
+        units: result.estimatedUnits || "",
+      },
+      rlv: {
+        ...d.rlv,
+        postcode: result.postcode || "",
+        acres: result.acreage || "",
+        schType: result.developmentPotential?.toLowerCase().includes("student") ? "PBSA (Student)" :
+                 result.developmentPotential?.toLowerCase().includes("apart") ? "Residential apartments" :
+                 "Residential houses",
+      },
+      sfh: {
+        ...d.sfh,
+        acres: result.acreage || "",
+        city: (result.city || "").toLowerCase().replace(/ /g,"_"),
+      },
+      epe: {
+        ...d.epe,
+        postcode: result.postcode || "",
+        propType: result.propertyType || "",
+      },
+      scrapeResult: result,
+    }));
+    // Add to pipeline
+    const newEntry = { ...result, id: Date.now(), importedAt: new Date().toISOString(), url };
+    const newPipeline = [newEntry, ...pipeline];
+    setPipeline(newPipeline);
+    setData(d => ({ ...d, pipeline: newPipeline }));
+    setImported(true);
+  };
+
+  const addToPipeline = () => {
+    if (!result) return;
+    const newEntry = { ...result, id: Date.now(), savedAt: new Date().toISOString(), url };
+    const newPipeline = [newEntry, ...pipeline];
+    setPipeline(newPipeline);
+    setData(d => ({ ...d, pipeline: newPipeline }));
+    setImported(true);
+  };
+
+  const FMT2 = n => !n||isNaN(n)?"—":n>=1e6?`£${(n/1e6).toFixed(2)}m`:n>=1000?`£${Math.round(n/1000)}k`:`£${Math.round(n).toLocaleString()}`;
+
+  return (
+    <div className="stage">
+      <div className="sh">
+        <h2>Land Opportunity Finder</h2>
+        <p>Paste any land agent URL — AI extracts the key data and pre-fills your Landform appraisal fields automatically</p>
+      </div>
+
+      {/* QUICK LINKS */}
+      <div className="card">
+        <div className="ct">Quick Links — Major Land Agents & Portals</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
+          {SOURCES.map(s=>(
+            <div key={s.name} onClick={()=>setUrl(s.url)} style={{background:"#fff",border:"1px solid var(--border)",borderRadius:8,padding:"12px 14px",cursor:"pointer",transition:"all .15s"}}
+              onMouseOver={e=>e.currentTarget.style.borderColor="var(--cb)"} onMouseOut={e=>e.currentTarget.style.borderColor="var(--border)"}>
+              <div style={{fontSize:12,fontWeight:700,color:"var(--cd)",marginBottom:3}}>{s.name}</div>
+              <div style={{fontSize:10,color:"var(--td)"}}>{s.hint}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* URL INPUT */}
+      <div className="card">
+        <div className="ct">Paste Land Listing URL</div>
+        <p style={{fontSize:12,color:"var(--td)",marginBottom:12}}>Paste the URL of any individual property listing page. Works with Bruton Knowles, Savills, Knight Frank, Rightmove, Zoopla, planning portals and most UK land agent websites.</p>
+        <div style={{display:"flex",gap:12,alignItems:"flex-end"}}>
+          <div className="fg" style={{flex:1}}>
+            <label>URL to scrape</label>
+            <input value={url} onChange={e=>setUrl(e.target.value)} onKeyDown={e=>e.key==="Enter"&&scrape()} placeholder="e.g. https://www.brutonknowles.co.uk/property/strategic-land-..." style={{fontSize:12}}/>
+          </div>
+          <button className="ai-btn" onClick={scrape} disabled={loading||!url} style={{flexShrink:0,padding:"9px 20px"}}>
+            {loading?<><span className="spin"/>Extracting...</>:"🔍 Extract Data"}
+          </button>
+        </div>
+        {error&&<div style={{background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.25)",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#B05A35",marginTop:8}}>{error}</div>}
+      </div>
+
+      {/* RESULTS */}
+      {result&&(
+        <div className="card">
+          <div className="ct" style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span>Extracted Data — {result.source||"Land Listing"}</span>
+            <span style={{fontSize:10,color:"#2D7A65",fontWeight:700}}>✓ Data extracted successfully</span>
+          </div>
+
+          {/* KEY METRICS */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:4}}>
+            {[
+              {l:"Asking Price", v:result.askingPrice?FMT2(result.askingPrice):result.priceType||"POA"},
+              {l:"Site Area",    v:result.acreage?`${result.acreage} acres / ${result.hectares||"—"} ha`:"—"},
+              {l:"Deal Type",    v:result.dealType||"—"},
+              {l:"Local Authority", v:result.localAuthority||"—"},
+            ].map(({l,v})=>(
+              <div key={l} style={{background:"var(--surface3)",border:"1px solid var(--border)",borderRadius:8,padding:"12px 14px"}}>
+                <div style={{fontSize:9,color:"var(--td)",textTransform:"uppercase",letterSpacing:".1em",marginBottom:5}}>{l}</div>
+                <div style={{fontSize:14,fontWeight:700,color:"var(--cb)"}}>{v}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* FULL DETAILS */}
+          <div style={{background:"#fff",border:"1px solid var(--border)",borderRadius:8,overflow:"hidden"}}>
+            {[
+              ["Address",           result.address],
+              ["Postcode",          result.postcode],
+              ["City / Area",       result.city],
+              ["Property Type",     result.propertyType],
+              ["Planning Status",   result.planningStatus],
+              ["Development Potential", result.developmentPotential],
+              ["Estimated Units",   result.estimatedUnits],
+              ["Planning Constraints", result.constraints],
+              ["Selling Agent",     result.agent],
+              ["Agent Contact",     result.agentContact],
+            ].filter(([,v])=>v).map(([label,value])=>(
+              <div key={label} style={{display:"grid",gridTemplateColumns:"160px 1fr",padding:"9px 16px",borderBottom:"1px solid var(--border)",fontSize:12,gap:12}}>
+                <span style={{color:"var(--td)",fontWeight:600}}>{label}</span>
+                <span style={{color:"var(--text)"}}>{value}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* DESCRIPTION */}
+          {result.description&&(
+            <div style={{background:"rgba(74,75,174,0.05)",border:"1px solid rgba(74,75,174,0.15)",borderRadius:8,padding:"14px 16px",fontSize:12,color:"var(--tm)",lineHeight:1.7}}>
+              {result.description}
+            </div>
+          )}
+
+          {/* ACTION BUTTONS */}
+          {imported?(
+            <div style={{background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.25)",borderRadius:8,padding:"14px 16px",fontSize:13,color:"#2D7A65",fontWeight:600,textAlign:"center"}}>
+              ✓ Imported — fields pre-filled across Landform. Navigate to any appraisal stage to see the data.
+              <div style={{marginTop:10,display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+                {[["🏡 SFH Appraisal","sfh"],["🏢 High-Rise","hra"],["◆ Land Valuation","rlv"],["⬟ Land Appraisal","land"]].map(([label,id])=>(
+                  <button key={id} onClick={()=>setActive(id)} style={{padding:"7px 14px",background:"var(--cb)",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>{label}</button>
+                ))}
+              </div>
+            </div>
+          ):(
+            <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+              <button onClick={importToDeal} style={{flex:1,padding:"11px",background:"var(--cb)",border:"none",borderRadius:7,color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}>
+                ⚡ Import & Pre-fill All Landform Fields
+              </button>
+              <button onClick={addToPipeline} style={{padding:"11px 18px",background:"var(--surface3)",border:"1px solid var(--border)",borderRadius:7,color:"var(--tm)",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}>
+                + Save to Pipeline
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* PIPELINE */}
+      {pipeline.length>0&&(
+        <div className="card">
+          <div className="ct">Deal Pipeline ({pipeline.length} opportunities saved)</div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {pipeline.map((deal,i)=>(
+              <div key={deal.id||i} style={{background:"#fff",border:"1px solid var(--border)",borderRadius:8,padding:"14px 16px",display:"grid",gridTemplateColumns:"1fr auto auto",gap:12,alignItems:"center"}}>
+                <div>
+                  <div style={{fontSize:13,fontWeight:700,color:"var(--cd)",marginBottom:3}}>{deal.address||deal.url}</div>
+                  <div style={{fontSize:11,color:"var(--td)"}}>{[deal.acreage&&deal.acreage+" acres",deal.localAuthority,deal.dealType,deal.askingPrice&&FMT2(deal.askingPrice)].filter(Boolean).join(" · ")}</div>
+                </div>
+                <button onClick={()=>{setResult(deal);setUrl(deal.url||"");setImported(false);}} style={{padding:"6px 12px",background:"var(--surface3)",border:"1px solid var(--border)",borderRadius:5,fontSize:11,fontWeight:600,cursor:"pointer",color:"var(--tm)",whiteSpace:"nowrap"}}>View</button>
+                <button onClick={()=>{
+                  setData(d=>({...d,land:{...d.land,address:deal.address||"",city:(deal.city||"").toLowerCase().replace(/ /g,"_"),acres:deal.acreage||"",price:deal.askingPrice||""},planning:{...d.planning,lpa:deal.localAuthority||""},rlv:{...d.rlv,postcode:deal.postcode||"",acres:deal.acreage||""}}));
+                  setActive("land");
+                }} style={{padding:"6px 12px",background:"var(--cb)",border:"none",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",color:"#fff",whiteSpace:"nowrap"}}>Import</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* HOW IT WORKS */}
+      {!result&&!loading&&(
+        <div className="card">
+          <div className="ct">How It Works</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14}}>
+            {[
+              {n:"1",t:"Find a listing",d:"Browse Bruton Knowles, Savills, Rightmove Land or any agent site. Copy the URL of the individual property page."},
+              {n:"2",t:"Paste & extract",d:"Paste the URL above and click Extract Data. AI reads the page and pulls out address, acreage, price, planning status and more."},
+              {n:"3",t:"Review the data",d:"Check the extracted fields. Edit anything the AI got wrong before importing."},
+              {n:"4",t:"Import to Landform",d:"One click pre-fills Land Appraisal, Land Valuation, SFH and Financial Modelling with the site data. Run your appraisal immediately."},
+            ].map(({n,t,d})=>(
+              <div key={n} style={{background:"var(--surface3)",borderRadius:8,padding:"16px"}}>
+                <div style={{width:28,height:28,borderRadius:"50%",background:"var(--cb)",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:800,marginBottom:10}}>{n}</div>
+                <div style={{fontSize:12,fontWeight:700,color:"var(--cd)",marginBottom:5}}>{t}</div>
+                <div style={{fontSize:11,color:"var(--td)",lineHeight:1.6}}>{d}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -1285,6 +1844,7 @@ const Exit = ({data,setData}) => {
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 const STAGES = [
   {id:"dashboard",  label:"Deal Dashboard",        icon:"◈", group:"Overview"},
+  {id:"scraper",    label:"Land Opportunity Finder",icon:"🔍", group:"Overview"},
   {id:"sfh",        label:"Single Family Housing",  icon:"🏡", group:"Appraisal Tools"},
   {id:"hra",        label:"High-Rise Apartments",   icon:"🏢", group:"Appraisal Tools"},
   {id:"epe",        label:"Property Evaluator",     icon:"🏠", group:"Appraisal Tools"},
@@ -1296,7 +1856,7 @@ const STAGES = [
   {id:"risks",      label:"Risk Register",          icon:"⬡", group:"Asset Management"},
   {id:"exit",       label:"Investment Exit",        icon:"◆", group:"Asset Management"},
 ];
-const COMPS = {dashboard:Dashboard,sfh:SFH,hra:HighRise,epe:PropertyEval,rlv:LandValuation,land:LandAppraisal,planning:Planning,fin:FinancialModelling,dd:DueDiligence,risks:RiskRegister,exit:Exit};
+const COMPS = {dashboard:Dashboard,scraper:LandScraper,sfh:SFH,hra:HighRise,epe:PropertyEval,rlv:LandValuation,land:LandAppraisal,planning:Planning,fin:FinancialModelling,dd:DueDiligence,risks:RiskRegister,exit:Exit};
 
 function App() {
   const [active,setActive]=useState("dashboard");
@@ -1430,7 +1990,7 @@ function App() {
               {STAGES.filter(s=>s.group===g).map((s,i,arr)=>{
                 const globalIdx=STAGES.findIndex(x=>x.id===s.id);
                 return (
-                  <div key={s.id} className={`nav-item ${active===s.id?"active":""}`} onClick={()=>setActive(s.id)}>
+                  <div key={s.id} className={`nav-item ${active===s.id?"active":""}`} onClick={()=>{ setActive(s.id); if(ACCESS_CONFIG._currentUser) logPageView(ACCESS_CONFIG._currentUser, s.label); }}>
                     <span className="nav-num">{String(globalIdx).padStart(2,"0")}</span>
                     <span className="nav-icon">{s.icon}</span>
                     <span className="nav-label">{s.label}</span>
