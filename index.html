@@ -210,15 +210,18 @@ function logEvent(user,event,details){
 async function callAI(user,stage,systemPrompt,userPrompt){
   logEvent(user,"AI_ANALYSIS",{stage:stage});
   // Use GET to avoid CORS preflight blocks from GitHub Pages
-  var params=new URLSearchParams({
-    action:"ai",
-    stage:stage,
-    user:(user&&user.name)||"",
-    company:(user&&user.company)||"",
-    system:systemPrompt||"You are a senior UK real estate development advisor. Be specific, commercially sharp, use UK conventions. Plain text only.",
-    prompt:userPrompt.substring(0,3000)
+  var res=await fetch(WEBHOOK,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      action:"ai",
+      stage:stage,
+      user:(user&&user.name)||"",
+      company:(user&&user.company)||"",
+      system:systemPrompt||"You are a senior UK real estate development advisor. Be specific, commercially sharp, use UK conventions. Plain text only.",
+      prompt:userPrompt.substring(0,3000)
+    })
   });
-  var res=await fetch(WEBHOOK+"?"+params.toString());
   var data=await res.json();
   if(data.status==="ok"&&data.result){
     return data.result;
@@ -1146,16 +1149,18 @@ function Tool(props){
         "\"constraints\": \"any constraints mentioned\""+
         "}";
 
-      var p=new URLSearchParams({
-        action:"ai",
-        stage:"Land Finder",
-        user:(user&&user.name)||"",
-        company:(user&&user.company)||"",
-        system:sysPrompt,
-        prompt:userPrompt.substring(0,3500)
-      });
-
-      fetch(WEBHOOK+"?"+p.toString())
+      fetch(WEBHOOK,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          action:"ai",
+          stage:"Land Finder",
+          user:(user&&user.name)||"",
+          company:(user&&user.company)||"",
+          system:sysPrompt,
+          prompt:userPrompt.substring(0,3500)
+        })
+      })
       .then(function(res){return res.json();})
       .then(function(data2){
         var text=data2.result||"";
@@ -1235,7 +1240,18 @@ function Tool(props){
           e("textarea",{value:sc2.pastedText||"",onChange:function(ev){up("scraper","pastedText",ev.target.value);},
             placeholder:"Copy and paste the full property description from any land agent website, email circular or PDF brochure. Then click Extract Data above. This works even when the URL cannot be fetched directly.",
             style:{width:"100%",height:130,padding:"10px 12px",border:"1px solid #C8CDE0",borderRadius:6,fontSize:12,fontFamily:"DM Sans,sans-serif",resize:"vertical",outline:"none",color:"#1A1A3E",background:"#fff"}}),
-          e("div",{style:{fontSize:10,color:"#A0A4C0",marginTop:4}},"Tip: Works with Bruton Knowles circulars, Savills emails, Rightmove listings or any text source.")
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8}},
+            e("div",{style:{fontSize:10,color:"#A0A4C0"}},"Works with agent emails, Rightmove listings, brochures or any text source."),
+            e("button",{
+              onClick:function(){
+                if(!sc2.pastedText){up("scraper","error","Please paste some listing text first");return;}
+                up("scraper","url",sc2.url||"pasted-text");
+                doScrape();
+              },
+              disabled:scrLoading||!sc2.pastedText,
+              style:Object.assign({},S.btn,{flexShrink:0,padding:"9px 20px",opacity:(!sc2.pastedText||scrLoading)?0.5:1,cursor:(!sc2.pastedText||scrLoading)?"not-allowed":"pointer"})
+            }, scrLoading?"⏳ Extracting...":"📋 Extract from Text")
+          )
         )
       ),
       scrResult&&e("div",{style:S.card},
