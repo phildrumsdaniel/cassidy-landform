@@ -553,7 +553,139 @@ function Tool(props){
         )
       ),
       e(AIPanel,{user:user,stage:"dashboard",label:"Generate Deal Summary",
-        prompt:"Provide a comprehensive deal summary with investment thesis, key strengths, risks and next steps for a "+at.toUpperCase()+" development in "+cityName(city)+". GDV: "+fmt(gdv)+", Total cost: "+fmt(tc)+", Profit: "+fmt(profit)+", Margin: "+pct(margin)+". Rate the deal 1-10 with justification."})
+        prompt:"Provide a comprehensive deal summary with investment thesis, key strengths, risks and next steps for a "+at.toUpperCase()+" development in "+cityName(city)+". GDV: "+fmt(gdv)+", Total cost: "+fmt(tc)+", Profit: "+fmt(profit)+", Margin: "+pct(margin)+". Rate the deal 1-10 with justification."}),
+
+      // ── WORKFLOW FLOWCHART ──────────────────────────────────────────────
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Deal Workflow — Your Journey"),
+        e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:16}},"Follow this workflow for your selected asset type. Click any stage to navigate there. Completed stages show green."),
+
+        // Asset type selector at top
+        e("div",{style:{display:"flex",gap:8,marginBottom:20,padding:"12px 14px",background:"#F7F8FC",borderRadius:8}},
+          e("span",{style:{fontSize:11,color:"#7278A0",fontWeight:600,marginRight:4}},"Workflow for:"),
+          [
+            {id:"btr",label:"BTR — Build to Rent"},
+            {id:"pbsa",label:"PBSA — Student Accommodation"},
+            {id:"sfh",label:"SFH — Housing Estate"},
+          ].map(function(t){
+            return e("button",{key:t.id,
+              onClick:function(){setData(function(d){return Object.assign({},d,{assetType:t.id});});},
+              style:{padding:"6px 14px",background:at===t.id?"#4A4BAE":"#fff",border:"1px solid "+(at===t.id?"#4A4BAE":"#DDE0ED"),color:at===t.id?"#fff":"#7278A0",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+            },t.label);
+          })
+        ),
+
+        // Flowchart
+        (function(){
+          var steps={
+            btr:[
+              {phase:"1. FIND",color:"#4A4BAE",steps:[
+                {id:"scraper",label:"Land Finder",desc:"Browse Bruton Knowles, Savills, Rightmove. Paste listing text to auto-extract data.",icon:"🔍",key:"land.address"},
+                {id:"land",label:"Land Appraisal",desc:"Score the site — location, transport, contamination, tenure, constraints. Get Go/No-Go.",icon:"⬟",key:"land.city"},
+                {id:"rlv",label:"Land Valuation",desc:"Run live Land Registry data. Calculate maximum bid using residual valuation.",icon:"◆",key:"rlv.units"},
+              ]},
+              {phase:"2. APPRAISE",color:"#7B6CB0",steps:[
+                {id:"hra",label:"BTR Block Appraisal",desc:"Model the apartment block — storeys, unit mix (studio/1/2 bed), GIA efficiency, BSA compliance.",icon:"🏢",key:"hra.storeys"},
+                {id:"planning",label:"Planning & Viability",desc:"NPPF compliance, LPA strategy, S106, BNG, affordable housing, fire gateway.",icon:"▲",key:"planning.lpa"},
+              ]},
+              {phase:"3. MODEL",color:"#2D7A65",steps:[
+                {id:"fin",label:"Financial Modelling",desc:"Full appraisal — GDV, NOI, exit yield, TDC, developer profit, bear/base/bull scenarios.",icon:"◉",key:"fin.exitYield"},
+                {id:"dd",label:"Due Diligence",desc:"Legal, technical, planning and commercial checklist. Clear all items before exchange.",icon:"◈",key:null},
+                {id:"risks",label:"Risk Register",desc:"RAG-rate all risks. Red risks must have mitigation before proceeding.",icon:"⬡",key:null},
+              ]},
+              {phase:"4. EXIT",color:"#9A7B3E",steps:[
+                {id:"exit",label:"Investment Exit",desc:"Forward fund, forward sale or stabilised exit. Generate HoTs and Investment Memorandum.",icon:"◆",key:"exit.strategy"},
+              ]},
+            ],
+            pbsa:[
+              {phase:"1. FIND",color:"#4A4BAE",steps:[
+                {id:"scraper",label:"Land Finder",desc:"Find sites near universities. Bruton Knowles, Savills, Knight Frank all list PBSA opportunities.",icon:"🔍",key:"land.address"},
+                {id:"land",label:"Land Appraisal",desc:"PBSA needs to be within 10-15 min walk of university. Score proximity heavily.",icon:"⬟",key:"land.city"},
+                {id:"rlv",label:"Land Valuation",desc:"PBSA land values are higher near Russell Group unis. Run residual at PBSA yields (5-6%).",icon:"◆",key:"rlv.units"},
+              ]},
+              {phase:"2. APPRAISE",color:"#7B6CB0",steps:[
+                {id:"hra",label:"PBSA Block Appraisal",desc:"Model bed count, cluster flats vs studios, amenity space, communal areas, management fees.",icon:"🏢",key:"hra.storeys"},
+                {id:"planning",label:"Planning & Viability",desc:"Article 4 directions, HMO policy, university endorsement letters, student demand evidence.",icon:"▲",key:"planning.lpa"},
+              ]},
+              {phase:"3. MODEL",color:"#2D7A65",steps:[
+                {id:"fin",label:"Financial Modelling",desc:"Model weekly rents × 51 weeks. PBSA void typically 3%. OpEx includes management (15-20% of income).",icon:"◉",key:"fin.exitYield"},
+                {id:"dd",label:"Due Diligence",desc:"University nomination agreements, Article 4 compliance, fire strategy, accessibility.",icon:"◈",key:null},
+                {id:"risks",label:"Risk Register",desc:"Key PBSA risks: university enrolment decline, operator default, Article 4 refusal.",icon:"⬡",key:null},
+              ]},
+              {phase:"4. EXIT",color:"#9A7B3E",steps:[
+                {id:"exit",label:"Investment Exit",desc:"PBSA exits to specialist funds (Blackstone/iQ, Unite, Hines). Forward fund typical at 5-5.5% yield.",icon:"◆",key:"exit.strategy"},
+              ]},
+            ],
+            sfh:[
+              {phase:"1. FIND",color:"#4A4BAE",steps:[
+                {id:"scraper",label:"Land Finder",desc:"Look for greenfield sites with local plan allocation, or brownfield with residential use class. Bruton Knowles specialise in strategic land.",icon:"🔍",key:"land.address"},
+                {id:"land",label:"Land Appraisal",desc:"SFH needs good school catchments, transport links and proximity to employment. Min 30 dph density.",icon:"⬟",key:"land.city"},
+                {id:"rlv",label:"Land Valuation",desc:"Value by £/plot or £/acre. Typical SFH land £150k-500k/acre depending on location and consent.",icon:"◆",key:"rlv.units"},
+              ]},
+              {phase:"2. APPRAISE",color:"#7B6CB0",steps:[
+                {id:"sfh",label:"SFH Scheme Design",desc:"Set house type mix (2/3/4 bed). Run plot-by-plot appraisal with roads adoption (S38/S104) and SuDS.",icon:"🏡",key:"sfh.acres"},
+                {id:"planning",label:"Planning & Viability",desc:"Outline application strategy, affordable housing (typically 25-40%), BNG, highways, drainage.",icon:"▲",key:"planning.lpa"},
+              ]},
+              {phase:"3. MODEL",color:"#2D7A65",steps:[
+                {id:"fin",label:"Financial Modelling",desc:"Phase the development — typically 30-50 plots/year. Model sales cashflow by phase.",icon:"◉",key:"fin.exitYield"},
+                {id:"dd",label:"Due Diligence",desc:"Title, ground conditions, utilities capacity, s38/s104 adoption agreements, section 278.",icon:"◈",key:null},
+                {id:"risks",label:"Risk Register",desc:"SFH risks: planning refusal, build cost inflation, absorption rate slower than forecast.",icon:"⬡",key:null},
+              ]},
+              {phase:"4. EXIT",color:"#9A7B3E",steps:[
+                {id:"exit",label:"Investment Exit",desc:"SFH exits via plot sales (open market) or bulk sale to housing association / BTR operator for affordable element.",icon:"◆",key:"exit.strategy"},
+              ]},
+            ],
+          };
+
+          var workflow=steps[at]||steps.btr;
+          
+          function isComplete(step) {
+            if(!step.key) return false;
+            var parts=step.key.split(".");
+            var obj=data[parts[0]];
+            return obj&&obj[parts[1]]&&obj[parts[1]]!=="";
+          }
+
+          return e("div",null,
+            workflow.map(function(phase,pi){
+              return e("div",{key:phase.phase,style:{marginBottom:20}},
+                e("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:12}},
+                  e("div",{style:{background:phase.color,color:"#fff",padding:"4px 14px",borderRadius:20,fontSize:10,fontWeight:700,letterSpacing:".1em"}},phase.phase),
+                  e("div",{style:{flex:1,height:1,background:phase.color+"40"}})
+                ),
+                e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:10,paddingLeft:8}},
+                  phase.steps.map(function(step,si){
+                    var complete=isComplete(step);
+                    var active=stage===step.id;
+                    return e("div",{key:step.id,
+                      onClick:function(){navTo(step.id);},
+                      style:{
+                        background:active?"rgba(74,75,174,0.08)":complete?"rgba(45,122,101,0.06)":"#fff",
+                        border:"1px solid "+(active?"#4A4BAE":complete?"#2D7A65":"#DDE0ED"),
+                        borderLeft:"4px solid "+(active?"#4A4BAE":complete?"#2D7A65":phase.color+"60"),
+                        borderRadius:8,padding:"14px 16px",cursor:"pointer",transition:"all .15s",
+                      },
+                      onMouseOver:function(ev){if(!active)ev.currentTarget.style.borderColor=phase.color;},
+                      onMouseOut:function(ev){if(!active)ev.currentTarget.style.borderColor=complete?"#2D7A65":"#DDE0ED";}
+                    },
+                      e("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:6}},
+                        e("span",{style:{fontSize:16}},step.icon),
+                        e("span",{style:{fontSize:13,fontWeight:700,color:active?"#4A4BAE":complete?"#2D7A65":"#2E2F8A"}},step.label),
+                        complete&&e("span",{style:{marginLeft:"auto",fontSize:11,color:"#2D7A65",fontWeight:700}},"✓"),
+                        active&&e("span",{style:{marginLeft:"auto",fontSize:10,color:"#4A4BAE",fontWeight:700}},"● HERE"),
+                      ),
+                      e("div",{style:{fontSize:11,color:"#7278A0",lineHeight:1.6}},step.desc),
+                      e("div",{style:{marginTop:8,fontSize:10,fontWeight:700,color:active?"#4A4BAE":complete?"#2D7A65":"#A0A4C0"}},
+                        active?"→ Currently here":complete?"✓ Data entered — click to review":"Click to open →"
+                      )
+                    );
+                  })
+                )
+              );
+            })
+          );
+        })()
+      )
     );
   }
 
@@ -1479,18 +1611,97 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
 
         function doImport(){
       if(!scrResult)return;
-      var c=(scrResult.city||"").toLowerCase().replace(/\s/g,"_");
+      var c=(scrResult.city||"").toLowerCase().replace(/\s/g,"_").replace(/-/g,"_");
+      var addr=scrResult.address||"";
+      var pc=scrResult.postcode||"";
+      var acres=scrResult.acreage||"";
+      var price=scrResult.askingPrice||"";
+      var lpa=scrResult.localAuthority||"";
+      var units=scrResult.estimatedUnits||"";
+      var agent=scrResult.agent||"";
+      var dealType=scrResult.dealType||"sale";
+      var devPot=scrResult.developmentPotential||"";
+      var planStatus=scrResult.planningStatus||"";
+      var constraints=scrResult.constraints||"";
+      var desc=scrResult.description||"";
+
+      // Determine scheme type from development potential
+      var schemeType="Residential houses";
+      var assetGuess=at;
+      if(devPot.toLowerCase().indexOf("student")>=0){schemeType="PBSA (Student)";assetGuess="pbsa";}
+      else if(devPot.toLowerCase().indexOf("apart")>=0||devPot.toLowerCase().indexOf("flat")>=0){schemeType="Residential apartments";assetGuess="btr";}
+      else if(devPot.toLowerCase().indexOf("mixed")>=0){schemeType="Mixed use";}
+      else if(devPot.toLowerCase().indexOf("commercial")>=0){schemeType="Industrial/Warehouse";}
+
+      // Estimate units from acres if not provided
+      var estUnits=units||"";
+      if(!estUnits&&acres){
+        var ha=parseFloat(acres)*0.404686;
+        estUnits=Math.floor(ha*30)+""; // 30dph default
+      }
+
       setData(function(d){
         return Object.assign({},d,{
-          land:Object.assign({},d.land||{},{address:scrResult.address||"",city:c||d.land&&d.land.city||"",acres:scrResult.acreage||"",price:scrResult.askingPrice||""}),
-          planning:Object.assign({},d.planning||{},{lpa:scrResult.localAuthority||"",units:scrResult.estimatedUnits||""}),
-          rlv:Object.assign({},d.rlv||{},{postcode:scrResult.postcode||"",acres:scrResult.acreage||""}),
-          sfh:Object.assign({},d.sfh||{},{acres:scrResult.acreage||"",city:c||""}),
-          epe:Object.assign({},d.epe||{},{postcode:scrResult.postcode||"",propType:scrResult.propertyType||""}),
+          assetType: assetGuess,
+          // Land Appraisal
+          land: Object.assign({},d.land||{},{
+            address:addr, city:c, acres:acres, price:price,
+            agent:agent, dealType:dealType,
+            localAuthority:lpa,
+            planStatus:planStatus.toLowerCase().indexOf("full")>=0?"full":
+                       planStatus.toLowerCase().indexOf("outline")>=0?"outline":
+                       planStatus.toLowerCase().indexOf("alloc")>=0?"allocated":"none",
+          }),
+          // Land Valuation
+          rlv: Object.assign({},d.rlv||{},{
+            postcode:pc, acres:acres,
+            units:estUnits,
+            schType:schemeType,
+            avgSqft:schemeType.indexOf("PBSA")>=0?"310":"850",
+          }),
+          // Planning
+          planning: Object.assign({},d.planning||{},{
+            lpa:lpa,
+            units:estUnits,
+            status:planStatus.toLowerCase().indexOf("full")>=0?"full":
+                   planStatus.toLowerCase().indexOf("outline")>=0?"outline":
+                   planStatus.toLowerCase().indexOf("alloc")>=0?"allocated":"none",
+          }),
+          // SFH
+          sfh: Object.assign({},d.sfh||{},{
+            acres:acres, city:c,
+            dph:"30",
+          }),
+          // High Rise / BTR
+          hra: Object.assign({},d.hra||{},{
+            city:c,
+          }),
+          // Financial Modelling - pre-fill city for market rates
+          fin: Object.assign({},d.fin||{}),
+          // Property Evaluator
+          epe: Object.assign({},d.epe||{},{
+            postcode:pc,
+            propType:scrResult.propertyType||"",
+            streetAddress:addr,
+          }),
+          // Risk Register - add site-specific risks
+          risks: d.risks||RISK_DEFAULTS.map(function(r){return Object.assign({},r);}),
+          // Exit - pre-fill city
+          exit: Object.assign({},d.exit||{}),
+          // Store import metadata
+          importedFrom: {
+            url:sc2.url||"",
+            agent:agent,
+            importedAt:new Date().toISOString(),
+            description:desc,
+            constraints:constraints,
+          },
         });
       });
       up("scraper","imported",true);
-      logEvent(user,"IMPORT",{address:scrResult.address||"unknown",postcode:scrResult.postcode||""});
+      logEvent(user,"IMPORT",{address:addr,postcode:pc,city:c,acres:acres,price:price,agent:agent});
+      // Navigate to dashboard to show the workflow
+      setTimeout(function(){navTo("dashboard");},500);
     }
 
     return e("div",null,
