@@ -4,1922 +4,548 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Cassidy Group — Land & Development Intelligence</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
-<script src="https://unpkg.com/react@17/umd/react.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js" crossorigin></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone@7.23.2/babel.min.js"></script>
-<style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}body{font-family:'DM Sans',sans-serif;background:#F4F5F9}#root{min-height:100vh}</style>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:#F4F5F9;color:#1A1A3E}
+</style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel" data-presets="react">
-const { useState, useEffect } = React;
+var useState = React.useState;
+var useEffect = React.useEffect;
 
-// ─── ACCESS CONTROL CONFIG ────────────────────────────────────────────────────
-// Passwords are stored ONLY in your Google Sheet — not here.
-// Paste your Google Apps Script Web App URL below after deployment.
-const ACCESS_CONFIG = {
-  expiryDate: "2027-12-31",
-  sheetWebhook: "https://script.google.com/macros/s/AKfycbz1_KT5gj1rsO5OuwAivh0U6TyXQ1zFSu58Sd5sRpCQ0cGWSzVl4u0wz0MLbQk2Xv6q/exec",
+var LOGO = "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";
+var WEBHOOK = "https://script.google.com/macros/s/AKfycbz1_KT5gj1rsO5OuwAivh0U6TyXQ1zFSu58Sd5sRpCQ0cGWSzVl4u0wz0MLbQk2Xv6q/exec";
+var EXPIRY = new Date("2027-12-31");
+
+// ── MARKET DATA ──────────────────────────────────────────────────────────────
+var MKT = {
+  london:{btr:2450,pbsa:380,yield:0.042,land:18000000,build:290},
+  manchester:{btr:1380,pbsa:195,yield:0.052,land:4200000,build:215},
+  birmingham:{btr:1180,pbsa:175,yield:0.053,land:3800000,build:210},
+  leeds:{btr:1120,pbsa:168,yield:0.055,land:3200000,build:205},
+  bristol:{btr:1650,pbsa:215,yield:0.048,land:5500000,build:230},
+  edinburgh:{btr:1750,pbsa:230,yield:0.047,land:6000000,build:235},
+  liverpool:{btr:980,pbsa:155,yield:0.058,land:2600000,build:200},
+  sheffield:{btr:950,pbsa:148,yield:0.060,land:2200000,build:198},
+  nottingham:{btr:850,pbsa:148,yield:0.062,land:1800000,build:192},
+  coventry:{btr:820,pbsa:145,yield:0.063,land:1600000,build:190},
+  leicester:{btr:800,pbsa:142,yield:0.063,land:1500000,build:188},
+  newcastle:{btr:820,pbsa:145,yield:0.062,land:1600000,build:190},
+  glasgow:{btr:900,pbsa:158,yield:0.060,land:1900000,build:198},
+  cardiff:{btr:880,pbsa:148,yield:0.061,land:1700000,build:192},
+  oxford:{btr:1800,pbsa:280,yield:0.045,land:8000000,build:265},
+  cambridge:{btr:1900,pbsa:295,yield:0.044,land:9000000,build:268},
+  reading:{btr:1350,pbsa:195,yield:0.050,land:5000000,build:225},
+  brighton:{btr:1500,pbsa:210,yield:0.049,land:5500000,build:235},
+  bath:{btr:1600,pbsa:210,yield:0.048,land:6500000,build:240},
+  york:{btr:1050,pbsa:165,yield:0.055,land:3000000,build:208},
+  exeter:{btr:1050,pbsa:165,yield:0.055,land:2900000,build:208},
+  chester:{btr:950,pbsa:155,yield:0.058,land:2200000,build:200},
+  derby:{btr:800,pbsa:138,yield:0.063,land:1500000,build:188},
+  hull:{btr:650,pbsa:125,yield:0.068,land:800000,build:178},
+  harrogate:{btr:1150,pbsa:165,yield:0.054,land:3500000,build:212},
 };
 
-// ─── LOGGING ENGINE ───────────────────────────────────────────────────────────
-const logEvent = async (user, eventType, details) => {
-  if (!ACCESS_CONFIG.sheetWebhook || ACCESS_CONFIG.sheetWebhook.includes("YOUR_GOOGLE")) return;
+var CITIES = Object.keys(MKT);
+
+function fmt(n) {
+  if (!n || isNaN(n)) return "—";
+  var abs = Math.abs(n);
+  if (abs >= 1000000) return "£" + (n/1000000).toFixed(2) + "m";
+  if (abs >= 1000) return "£" + Math.round(n/1000) + "k";
+  return "£" + Math.round(n).toLocaleString();
+}
+function num(v) { return parseFloat(v) || 0; }
+
+// ── LOG EVENT ─────────────────────────────────────────────────────────────────
+function logEvent(user, event, details) {
   try {
-    // Truncate and clean details for logging
-    let detailStr = "";
-    if (typeof details === "object") {
-      // Extract the most useful fields only
-      const useful = {};
-      const keys = ["postcode","city","acres","price","units","stage","result","url","address","schType","gdv","rlv","margin"];
-      keys.forEach(k => { if (details[k] !== undefined && details[k] !== "" && details[k] !== null) useful[k] = details[k]; });
-      detailStr = JSON.stringify(useful).substring(0, 500);
-    } else {
-      detailStr = String(details).substring(0, 500);
-    }
-    const params = new URLSearchParams({
+    var params = new URLSearchParams({
       action: "log",
       timestamp: new Date().toISOString(),
       user: (user && user.name) || "Unknown",
       company: (user && user.company) || "Unknown",
       role: (user && user.role) || "demo",
-      event: eventType,
-      details: detailStr,
-      userAgent: navigator.userAgent.substring(0, 80),
+      event: event,
+      details: typeof details === "object" ? JSON.stringify(details).substring(0,300) : String(details).substring(0,300),
+      userAgent: navigator.userAgent.substring(0,80)
     });
-    fetch(ACCESS_CONFIG.sheetWebhook + "?" + params.toString()).catch(()=>{});
-  } catch(e) { /* silent */ }
-};
+    fetch(WEBHOOK + "?" + params.toString()).catch(function(){});
+  } catch(e) {}
+}
 
-// Log page navigation
-const logPageView = (user, stageName) => {
-  logEvent(user, "PAGE_VIEW", { stage: stageName });
-};
-
-// Log field data entry (called when key fields are filled)
-const logFieldData = (user, stage, fields) => {
-  logEvent(user, "FIELD_DATA", { stage, ...fields });
-};
-
-// Log AI result (truncated)
-const logAIResult = (user, stage, prompt, result) => {
-  logEvent(user, "RESULT", {
-    stage,
-    result: (result||"").substring(0, 400)
+// ── AI CALL ───────────────────────────────────────────────────────────────────
+async function callAI(user, stage, prompt, ctx) {
+  logEvent(user, "AI_ANALYSIS", {stage: stage});
+  var res = await fetch(WEBHOOK, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      action: "ai",
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 900,
+      system: "You are a senior UK real estate development advisor. Be specific, commercially sharp, use UK conventions. Plain text only.",
+      messages: [{role: "user", content: prompt + "\n\nData: " + JSON.stringify(ctx)}],
+      user: (user && user.name) || "",
+      stage: stage
+    })
   });
-};
-
-// ─── DEAL STORAGE HELPERS ────────────────────────────────────────────────────
-// In-memory store (persists during session, resets on page reload)
-// storage removed — caused blank page crashes on GitHub Pages
-const DEALS_KEY = "cassidy_landform_deals_v1";
-let _dealsStore = [];
-
-const loadDeals = () => { return _dealsStore; };
-const saveDeals = (deals) => { _dealsStore = deals; };
-
-// ─── DEAL MANAGER COMPONENT ───────────────────────────────────────────────────
-const DealManager = ({ user, onOpen, onNew }) => {
-  const [deals, setDeals] = React.useState(function() { return loadDeals(); });
-  const [filter, setFilter] = React.useState("active");
-  const [search, setSearch] = React.useState("");
-
-  const updateDeal = (id, updates) => {
-    const updated = deals.map(d => d.id === id ? {...d, ...updates, updatedAt: new Date().toISOString()} : d);
-    setDeals(updated); saveDeals(updated);
-  };
-
-  const deleteDeal = (id) => {
-    if (!window.confirm("Delete this deal permanently?")) return;
-    const updated = deals.filter(d => d.id !== id);
-    setDeals(updated); saveDeals(updated);
-  };
-
-  const filtered = deals
-    .filter(d => filter === "all" ? true : filter === "active" ? d.status !== "archived" : d.status === "archived")
-    .filter(d => !search || (d.name||"").toLowerCase().includes(search.toLowerCase()) || (d.address||"").toLowerCase().includes(search.toLowerCase()));
-
-  const statusColors = { active:"#2D7A65", reviewing:"#9A7B3E", archived:"#7278A0", paused:"#B05A35" };
-
-  return (
-    <div style={{minHeight:"100vh",background:"#F4F5F9",fontFamily:"DM Sans,sans-serif"}}>
-      {/* Header */}
-      <div style={{background:"#1E1F5C",padding:"20px 32px",display:"flex",alignItems:"center",gap:16}}>
-        <img src={"data:image/webp;base64,"+CASSIDY_LOGO} alt="Cassidy Group" style={{width:80,height:"auto",filter:"drop-shadow(0 1px 4px rgba(0,0,0,0.3))"}}/> 
-        <div>
-          <div style={{color:"#fff",fontSize:18,fontWeight:800,letterSpacing:".02em"}}>Land Intelligence</div>
-          <div style={{color:"rgba(255,255,255,0.4)",fontSize:11,letterSpacing:".15em",textTransform:"uppercase"}}>Deal Management</div>
-        </div>
-        <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:12}}>
-          <div style={{color:"rgba(255,255,255,0.5)",fontSize:12}}>Welcome, {(user && user.name)}</div>
-          <button onClick={onNew} style={{padding:"9px 20px",background:"#EDE84A",border:"none",borderRadius:6,color:"#1E1F5C",fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}>
-            + New Deal
-          </button>
-        </div>
-      </div>
-
-      <div style={{padding:"28px 32px",maxWidth:1100,margin:"0 auto"}}>
-        {/* Stats */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:24}}>
-          {[
-            {l:"Total Deals",   v:deals.length,                          c:"var(--cb)"},
-            {l:"Active",        v:deals.filter(d=>d.status==="active"||!d.status).length, c:"#2D7A65"},
-            {l:"Under Review",  v:deals.filter(d=>d.status==="reviewing").length, c:"#9A7B3E"},
-            {l:"Archived",      v:deals.filter(d=>d.status==="archived").length,  c:"#7278A0"},
-          ].map(({l,v,c})=>(
-            <div key={l} style={{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"16px 18px"}}>
-              <div style={{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",marginBottom:5}}>{l}</div>
-              <div style={{fontSize:28,fontWeight:800,color:c,lineHeight:1}}>{v}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Filters + Search */}
-        <div style={{display:"flex",gap:12,marginBottom:16,alignItems:"center"}}>
-          <div style={{display:"flex",gap:6}}>
-            {[["active","Active"],["reviewing","Reviewing"],["archived","Archived"],["all","All"]].map(([val,label])=>(
-              <button key={val} onClick={()=>setFilter(val)} style={{padding:"6px 14px",border:`1px solid ${filter===val?"var(--cb)":"#DDE0ED"}`,background:filter===val?"var(--cb)":"#fff",color:filter===val?"#fff":"#7278A0",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}>{label}</button>
-            ))}
-          </div>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search deals..." style={{flex:1,padding:"8px 12px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:12,fontFamily:"DM Sans,sans-serif",outline:"none"}}/>
-        </div>
-
-        {/* Deal Cards */}
-        {filtered.length === 0 ? (
-          <div style={{background:"#fff",border:"1px solid #DDE0ED",borderRadius:12,padding:"48px",textAlign:"center"}}>
-            <div style={{fontSize:32,marginBottom:12}}>🏗</div>
-            <div style={{fontSize:16,fontWeight:700,color:"#2E2F8A",marginBottom:8}}>{deals.length===0?"No deals yet":"No deals match your filter"}</div>
-            <div style={{fontSize:13,color:"#7278A0",marginBottom:20}}>Click New Deal to start your first land appraisal</div>
-            <button onClick={onNew} style={{padding:"10px 24px",background:"var(--cb)",border:"none",borderRadius:6,color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}>+ New Deal</button>
-          </div>
-        ) : (
-          <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            {filtered.map(deal=>(
-              <div key={deal.id} style={{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",display:"grid",gridTemplateColumns:"1fr auto",gap:16,alignItems:"center",transition:"box-shadow .15s",cursor:"pointer"}}
-                onMouseOver={e=>e.currentTarget.style.boxShadow="0 2px 12px rgba(74,75,174,0.1)"}
-                onMouseOut={e=>e.currentTarget.style.boxShadow="none"}>
-                <div onClick={()=>onOpen(deal)}>
-                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:5}}>
-                    <span style={{fontSize:15,fontWeight:800,color:"#2E2F8A"}}>{deal.name||"Untitled Deal"}</span>
-                    <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:3,background:`${statusColors[deal.status||"active"]}15`,color:statusColors[deal.status||"active"]}}>{(deal.status||"active").toUpperCase()}</span>
-                    {deal.assetType&&<span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:3,background:"rgba(74,75,174,0.08)",color:"var(--cb)"}}>{deal.assetType.toUpperCase()}</span>}
-                  </div>
-                  <div style={{fontSize:12,color:"#7278A0",marginBottom:4}}>{deal.address||(deal.land && deal.land.address)||"Address not set"}{(deal.land && deal.land.city)&&" · "+deal.land.city.replace(/_/g," ").replace(/\w/g,l=>l.toUpperCase())}</div>
-                  <div style={{display:"flex",gap:16,fontSize:11,color:"#A0A4C0"}}>
-                    {(deal.land && deal.land.acres)&&<span>📐 {deal.land.acres} acres</span>}
-                    {(deal.land && deal.land.price)&&<span>💰 £{Number(deal.land.price).toLocaleString()}</span>}
-                    {(deal.planning && deal.planning.units)&&<span>🏠 {deal.planning.units} units</span>}
-                    <span>🕐 {deal.updatedAt ? new Date(deal.updatedAt).toLocaleDateString("en-GB") : new Date(deal.createdAt||Date.now()).toLocaleDateString("en-GB")}</span>
-                    {deal.notes&&<span>📝 Has notes</span>}
-                  </div>
-                </div>
-                <div style={{display:"flex",gap:8,flexShrink:0}}>
-                  <button onClick={()=>onOpen(deal)} style={{padding:"7px 14px",background:"var(--cb)",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}>Open →</button>
-                  <select value={deal.status||"active"} onChange={e=>updateDeal(deal.id,{status:e.target.value})} onClick={e=>e.stopPropagation()} style={{padding:"6px 8px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:11,fontFamily:"DM Sans,sans-serif",cursor:"pointer",background:"#fff"}}>
-                    <option value="active">Active</option>
-                    <option value="reviewing">Reviewing</option>
-                    <option value="paused">Paused</option>
-                    <option value="archived">Archive</option>
-                  </select>
-                  <button onClick={e=>{e.stopPropagation();deleteDeal(deal.id);}} style={{padding:"7px 10px",background:"transparent",border:"1px solid #DDE0ED",borderRadius:5,color:"#B05A35",fontSize:11,cursor:"pointer"}}>✕</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// ─── WRAPPER APP WITH ACCESS CONTROL + DEAL MANAGEMENT ────────────────────────
-const AppWithAccess = () => {
-  const [user, setUser] = React.useState(null);
-  const [view, setView] = React.useState("manager"); // "manager" | "deal"
-  const [currentDeal, setCurrentDeal] = React.useState(null);
-  const [deals, setDeals] = React.useState(function() { return loadDeals(); });
-
-  const handleLogin = (u) => { setUser(u); setView("manager"); };
-
-  const openDeal = (deal) => { setCurrentDeal(deal); setView("deal"); };
-
-  const newDeal = () => {
-    const deal = {
-      id: Date.now(),
-      name: "New Deal — " + new Date().toLocaleDateString("en-GB"),
-      status: "active",
-      assetType: "btr",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    const updated = [deal, ...deals];
-    setDeals(updated); saveDeals(updated);
-    setCurrentDeal(deal); setView("deal");
-  };
-
-  const saveDeal = (data) => {
-    // Auto-save deal data whenever it changes
-    const updated = deals.map(d => d.id === currentDeal.id ? {
-      ...d, ...data,
-      id: currentDeal.id,
-      name: data.dealName || d.name,
-      address: (data.land && data.land.address) || d.address,
-      updatedAt: new Date().toISOString(),
-    } : d);
-    setDeals(updated);
-    saveDeals(updated);
-    setCurrentDeal(prev => ({...prev, ...data, name: data.dealName || prev.name}));
-  };
-
-  if (!user) return React.createElement(AccessGate, { onLogin: handleLogin });
-
-  if (view === "manager") return React.createElement(DealManager, {
-    user, onOpen: openDeal, onNew: newDeal,
-  });
-
-  return (
-    <div>
-      {/* Back to Deal Manager bar */}
-      <div style={{background:"#1E1F5C",padding:"8px 24px",display:"flex",alignItems:"center",gap:12,position:"sticky",top:0,zIndex:999}}>
-        <button onClick={()=>setView("manager")} style={{padding:"5px 12px",background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:4,color:"rgba(255,255,255,0.7)",fontSize:11,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}>
-          ← All Deals
-        </button>
-        <input
-          value={(currentDeal && currentDeal.name)||""}
-          onChange={e=>{
-            const updated = deals.map(d=>d.id===currentDeal.id?{...d,name:e.target.value,updatedAt:new Date().toISOString()}:d);
-            setDeals(updated); saveDeals(updated);
-            setCurrentDeal(prev=>({...prev,name:e.target.value}));
-          }}
-          style={{background:"transparent",border:"none",color:"#fff",fontSize:14,fontWeight:700,fontFamily:"DM Sans,sans-serif",outline:"none",flex:1,minWidth:200}}
-          placeholder="Deal name..."
-        />
-        <span style={{fontSize:11,color:"rgba(255,255,255,0.35)"}}>Auto-saved · {(currentDeal && currentDeal.updatedAt)?new Date(currentDeal.updatedAt).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}):"—"}</span>
-        <select value={(currentDeal && currentDeal.status)||"active"} onChange={e=>{
-          const updated = deals.map(d=>d.id===currentDeal.id?{...d,status:e.target.value,updatedAt:new Date().toISOString()}:d);
-          setDeals(updated); saveDeals(updated);
-          setCurrentDeal(prev=>({...prev,status:e.target.value}));
-        }} style={{padding:"4px 8px",background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:4,color:"#fff",fontSize:11,fontFamily:"DM Sans,sans-serif",cursor:"pointer"}}>
-          <option value="active">● Active</option>
-          <option value="reviewing">● Reviewing</option>
-          <option value="paused">● Paused</option>
-          <option value="archived">● Archive</option>
-        </select>
-      </div>
-      {React.createElement(App, {
-        currentUser: user,
-        data: currentDeal || {},
-        setData: saveDeal,
-        logEvent,
-      })}
-    </div>
-  );
-};
-
-
-
-const CASSIDY_LOGO = "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";
-
-// ─── CORE DATA ───────────────────────────────────────────────────────────────
-const N = v => parseFloat(v)||0;
-const FMT = n => !n||isNaN(n)?"—":Math.abs(n)>=1e6?`£${(n/1e6).toFixed(2)}m`:Math.abs(n)>=1000?`£${Math.round(n/1000)}k`:`£${Math.round(n).toLocaleString()}`;
-const PCT = n => n?`${Number(n).toFixed(1)}%`:"—";
-
-const MKT = {
-  // BTR rents (£/mo), PBSA (£/wk), yield, land £/acre, build £/sqft
-  london:       {btr:2450,pbsa:380,yield:.042,land:18000000,build:290},
-  manchester:   {btr:1380,pbsa:195,yield:.052,land:4200000, build:215},
-  birmingham:   {btr:1180,pbsa:175,yield:.053,land:3800000, build:210},
-  leeds:        {btr:1120,pbsa:168,yield:.055,land:3200000, build:205},
-  bristol:      {btr:1650,pbsa:215,yield:.048,land:5500000, build:230},
-  edinburgh:    {btr:1750,pbsa:230,yield:.047,land:6000000, build:235},
-  liverpool:    {btr:980, pbsa:155,yield:.058,land:2600000, build:200},
-  sheffield:    {btr:950, pbsa:148,yield:.060,land:2200000, build:198},
-  nottingham:   {btr:850, pbsa:148,yield:.062,land:1800000, build:192},
-  coventry:     {btr:820, pbsa:145,yield:.063,land:1600000, build:190},
-  leicester:    {btr:800, pbsa:142,yield:.063,land:1500000, build:188},
-  newcastle:    {btr:820, pbsa:145,yield:.062,land:1600000, build:190},
-  glasgow:      {btr:900, pbsa:158,yield:.060,land:1900000, build:198},
-  cardiff:      {btr:880, pbsa:148,yield:.061,land:1700000, build:192},
-  oxford:       {btr:1800,pbsa:280,yield:.045,land:8000000, build:265},
-  cambridge:    {btr:1900,pbsa:295,yield:.044,land:9000000, build:268},
-  reading:      {btr:1350,pbsa:195,yield:.050,land:5000000, build:225},
-  brighton:     {btr:1500,pbsa:210,yield:.049,land:5500000, build:235},
-  bath:         {btr:1600,pbsa:210,yield:.048,land:6500000, build:240},
-  york:         {btr:1050,pbsa:165,yield:.055,land:3000000, build:208},
-  exeter:       {btr:1050,pbsa:165,yield:.055,land:2900000, build:208},
-  portsmouth:   {btr:950, pbsa:148,yield:.058,land:2200000, build:198},
-  southampton:  {btr:980, pbsa:150,yield:.058,land:2300000, build:200},
-  bournemouth:  {btr:1100,pbsa:165,yield:.055,land:3200000, build:210},
-  chester:      {btr:950, pbsa:155,yield:.058,land:2200000, build:200},
-  derby:        {btr:800, pbsa:138,yield:.063,land:1500000, build:188},
-  hull:         {btr:650, pbsa:125,yield:.068,land:800000,  build:178},
-  stoke:        {btr:680, pbsa:130,yield:.068,land:850000,  build:178},
-  harrogate:    {btr:1150,pbsa:165,yield:.054,land:3500000, build:212},
-  milton_keynes:{btr:1050,pbsa:160,yield:.056,land:2800000, build:205},
-  guildford:    {btr:1650,pbsa:220,yield:.046,land:7500000, build:248},
-  cheltenham:   {btr:1050,pbsa:165,yield:.055,land:3000000, build:208},
-  aberdeen:     {btr:750, pbsa:145,yield:.065,land:1100000, build:185},
-  dundee:       {btr:720, pbsa:140,yield:.066,land:1000000, build:182},
-  swansea:      {btr:720, pbsa:135,yield:.066,land:1000000, build:182},
-  bradford:     {btr:680, pbsa:125,yield:.068,land:850000,  build:178},
-  wakefield:    {btr:750, pbsa:130,yield:.065,land:1100000, build:182},
-};
-
-// Postcode → city mapping (first 3-4 chars)
-const PC_CITY = {
-  SW1:"london",SW3:"london",SW7:"london",W1:"london",W8:"london",WC1:"london",WC2:"london",
-  EC1:"london",EC2:"london",EC3:"london",EC4:"london",N1:"london",N4:"london",N5:"london",
-  N7:"london",NW1:"london",NW3:"london",NW6:"london",E1:"london",E2:"london",E3:"london",
-  E8:"london",E14:"london",E20:"london",SE1:"london",SE4:"london",SE10:"london",SE16:"london",
-  SW4:"london",SW8:"london",SW11:"london",SW12:"london",SW18:"london",SW19:"london",
-  W4:"london",W6:"london",W9:"london",W11:"london",TW9:"london",KT1:"london",
-  HA1:"london",CR0:"london",BR1:"london",IG1:"london",RM1:"london",EN1:"london",
-  M1:"manchester",M2:"manchester",M3:"manchester",M4:"manchester",M5:"manchester",
-  M6:"manchester",M8:"manchester",M13:"manchester",M14:"manchester",M15:"manchester",
-  M16:"manchester",M20:"manchester",M21:"manchester",M25:"manchester",M28:"manchester",
-  M30:"manchester",M33:"manchester",M41:"manchester",SK1:"manchester",SK4:"manchester",
-  SK8:"manchester",SK9:"manchester",OL1:"manchester",BL1:"manchester",WN1:"manchester",
-  WA1:"manchester",
-  B1:"birmingham",B2:"birmingham",B3:"birmingham",B5:"birmingham",B6:"birmingham",
-  B12:"birmingham",B13:"birmingham",B15:"birmingham",B17:"birmingham",B29:"birmingham",
-  B30:"birmingham",
-  CV1:"coventry",CV2:"coventry",CV3:"coventry",CV4:"coventry",CV5:"coventry",
-  CV6:"coventry",CV7:"coventry",CV8:"coventry",
-  WV1:"wolverhampton",WS1:"walsall",DY1:"dudley",
-  LS1:"leeds",LS2:"leeds",LS6:"leeds",LS7:"leeds",LS8:"leeds",LS16:"leeds",
-  LS17:"leeds",LS18:"leeds",LS25:"leeds",
-  BD1:"bradford",BD2:"bradford",BD9:"bradford",BD18:"bradford",
-  HX1:"halifax",HD1:"huddersfield",WF1:"wakefield",
-  S1:"sheffield",S7:"sheffield",S10:"sheffield",S11:"sheffield",S17:"sheffield",
-  DN1:"doncaster",
-  L1:"liverpool",L2:"liverpool",L3:"liverpool",L8:"liverpool",L17:"liverpool",L18:"liverpool",
-  PR1:"preston",PR2:"preston",CH1:"chester",CH2:"chester",
-  BS1:"bristol",BS2:"bristol",BS3:"bristol",BS6:"bristol",BS7:"bristol",BS8:"bristol",BS9:"bristol",
-  BA1:"bath",BA2:"bath",
-  GL50:"cheltenham",EX1:"exeter",EX2:"exeter",
-  PO1:"portsmouth",SO14:"southampton",SO17:"southampton",
-  BH1:"bournemouth",BH3:"bournemouth",
-  CB1:"cambridge",CB2:"cambridge",CB3:"cambridge",CB4:"cambridge",
-  NR1:"norwich",IP1:"ipswich",LU1:"luton",AL1:"st_albans",WD1:"watford",
-  NG1:"nottingham",NG7:"nottingham",NG9:"nottingham",
-  DE1:"derby",DE22:"derby",
-  LE1:"leicester",LE2:"leicester",LE3:"leicester",LE5:"leicester",
-  NN1:"northampton",
-  OX1:"oxford",OX2:"oxford",OX3:"oxford",OX4:"oxford",
-  RG1:"reading",RG2:"reading",GU1:"guildford",
-  BN1:"brighton",BN2:"brighton",BN3:"brighton",
-  MK9:"milton_keynes",MK3:"milton_keynes",
-  NE1:"newcastle",NE2:"newcastle",NE3:"newcastle",SR1:"sunderland",DH1:"durham",
-  YO1:"york",YO10:"york",HG1:"harrogate",
-  EH1:"edinburgh",EH2:"edinburgh",EH3:"edinburgh",EH4:"edinburgh",EH6:"edinburgh",
-  EH8:"edinburgh",EH9:"edinburgh",EH10:"edinburgh",EH12:"edinburgh",
-  G1:"glasgow",G2:"glasgow",G3:"glasgow",G11:"glasgow",G12:"glasgow",G41:"glasgow",G77:"glasgow",
-  AB10:"aberdeen",AB15:"aberdeen",AB25:"aberdeen",
-  DD1:"dundee",DD2:"dundee",
-  CF10:"cardiff",CF11:"cardiff",CF14:"cardiff",CF24:"cardiff",
-  SA1:"swansea",SA2:"swansea",
-  HU1:"hull",HU5:"hull",ST1:"stoke",ST4:"stoke",
-  WR1:"worcester",YO24:"york",CA1:"carlisle",
-};
-
-const PC_PSF = {
-  SW1:1650,SW3:1450,SW7:1550,W1:1800,W8:1400,WC1:980,WC2:950,EC1:920,EC2:880,
-  N1:820,NW3:1050,NW1:850,E1:750,E2:700,E8:720,E14:680,SE1:780,SE10:560,
-  SW4:680,SW8:720,SW11:720,SW12:660,SW18:700,SW19:680,W4:760,W6:720,W11:1100,
-  HA1:420,CR0:360,BR1:420,
-  M1:320,M4:310,M5:285,M20:340,M21:320,M25:280,SK9:420,
-  B1:295,B15:340,B17:310,B29:230,B30:280,
-  CV1:200,CV2:185,CV3:200,CV5:215,CV6:195,CV8:320,
-  LS1:280,LS6:260,LS7:270,LS8:310,LS16:310,LS17:330,
-  BD1:130,BD18:190,
-  S1:195,S10:240,S11:270,S17:310,
-  L1:210,L17:230,L18:260,
-  BS1:380,BS6:450,BS8:430,BS9:420,
-  BA1:520,BA2:490,
-  GL50:295,EX1:280,PO1:240,SO14:235,BH1:290,
-  CB1:610,CB2:590,CB3:620,CB4:560,
-  NR1:225,NG1:220,NG7:195,LE1:195,LE3:200,DE1:195,OX1:580,OX4:480,
-  RG1:380,GU1:480,BN1:420,BN3:400,MK9:290,
-  NE1:190,NE2:240,YO1:310,HG1:310,
-  EH1:400,EH2:490,EH3:480,EH4:380,EH8:360,EH9:430,
-  G1:200,G3:220,G12:250,G77:270,
-  AB10:185,AB15:220,DD1:150,
-  CF10:215,CF11:250,SA1:155,HU1:110,ST1:130,
-};
-
-const lookupPostcode = (pc) => {
-  const clean = pc.toUpperCase().replace(/\s/g,"");
-  // Try longest match first
-  for (let len = 4; len >= 2; len--) {
-    const key = clean.substring(0, len);
-    if (PC_CITY[key]) {
-      return { city: PC_CITY[key], salePsf: PC_PSF[key] || null };
+  var data = await res.json();
+  if (data.status === "ok" && data.content) {
+    var block = null;
+    for (var i = 0; i < data.content.length; i++) {
+      if (data.content[i].type === "text") { block = data.content[i]; break; }
     }
+    return block ? block.text : "No response";
   }
-  return null;
-};
+  return "Analysis failed";
+}
 
-const BUILD = {
-  "Residential apartments":  {lo:185,mid:220,hi:280,fees:.12,plan:8000},
-  "Residential houses":      {lo:160,mid:195,hi:240,fees:.10,plan:5000},
-  "BTR (Build to Rent)":     {lo:200,mid:235,hi:300,fees:.13,plan:10000},
-  "PBSA (Student)":          {lo:175,mid:210,hi:265,fees:.12,plan:8500},
-  "Later Living":            {lo:195,mid:230,hi:290,fees:.13,plan:9000},
-  "Pub conversion":          {lo:180,mid:230,hi:300,fees:.14,plan:12000},
-  "Office conversion":       {lo:160,mid:200,hi:260,fees:.13,plan:10000},
-  "Church conversion":       {lo:220,mid:280,hi:380,fees:.15,plan:15000},
-  "Barn conversion":         {lo:200,mid:260,hi:360,fees:.14,plan:12000},
-  "Office (Grade A)":        {lo:220,mid:275,hi:360,fees:.14,plan:15000},
-  "Industrial / Warehouse":  {lo:80, mid:110,hi:150,fees:.08,plan:5000},
-  "Hotel (3-4 star)":        {lo:220,mid:285,hi:380,fees:.14,plan:18000},
-  "Care home":               {lo:210,mid:260,hi:330,fees:.13,plan:12000},
-  "Mixed use (resi+retail)": {lo:200,mid:240,hi:300,fees:.13,plan:12000},
-};
+// ── ACCESS GATE ──────────────────────────────────────────────────────────────
+function AccessGate(props) {
+  var s = useState(""); var name = s[0]; var setName = s[1];
+  var c = useState(""); var company = c[0]; var setCompany = c[1];
+  var p = useState(""); var pwd = p[0]; var setPwd = p[1];
+  var er = useState(""); var error = er[0]; var setError = er[1];
+  var ld = useState(false); var loading = ld[0]; var setLoading = ld[1];
 
-const HOUSE_TYPES = {
-  "2-bed terrace":  {sqft:720, adj:.88},
-  "2-bed semi":     {sqft:820, adj:.90},
-  "3-bed terrace":  {sqft:920, adj:.95},
-  "3-bed semi":     {sqft:1020,adj:1.00},
-  "3-bed detached": {sqft:1150,adj:1.08},
-  "4-bed detached": {sqft:1500,adj:1.18},
-  "4-bed executive":{sqft:1900,adj:1.28},
-  "5-bed detached": {sqft:2400,adj:1.40},
-  "Bungalow 2-bed": {sqft:800, adj:1.05},
-  "Bungalow 3-bed": {sqft:1050,adj:1.12},
-};
+  if (new Date() > EXPIRY) {
+    return React.createElement("div", {style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#F4F5F9",fontFamily:"DM Sans,sans-serif"}},
+      React.createElement("div", {style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:16,padding:"48px 40px",maxWidth:400,textAlign:"center"}},
+        React.createElement("img", {src:"data:image/webp;base64,"+LOGO,style:{width:100,marginBottom:20}}),
+        React.createElement("h2", {style:{color:"#2E2F8A",marginBottom:12}}, "Demo Expired"),
+        React.createElement("p", {style:{color:"#7278A0",fontSize:14}}, "Please contact Cassidy Group to arrange continued access.")
+      )
+    );
+  }
 
-const DD_ITEMS = {
-  Legal:["Title register & plan","Searches pack","Planning history","Restrictive covenants","Rights of light","Party wall agreements","Collateral warranties","Telecoms wayleaves"],
-  Technical:["Phase 1 study","Phase 2 (if required)","Topographical survey","Structural report","Fire safety strategy","Flood risk assessment","Acoustic report","Drainage strategy"],
-  Planning:["Planning consent","Pre-commencement conditions","S106 executed","CIL confirmed","AH tenure confirmed","BNG assessment"],
-  Commercial:["Appraisal stress-tested","QS cost plan","Contractor procurement","JCT contract","Senior debt term sheet","Insurance schedule"],
-};
-
-const RISK_DEFAULTS = [
-  {id:1,cat:"Planning",   desc:"Consent delayed",          rag:"amber",mit:"Pre-app engaged, LPA meeting scheduled"},
-  {id:2,cat:"Ground",     desc:"Unknown contamination",     rag:"amber",mit:"Phase 1 instructed, contingency in appraisal"},
-  {id:3,cat:"Construction",desc:"Build cost inflation",     rag:"red",  mit:"Fixed price D&B, QS monthly review"},
-  {id:4,cat:"Market",     desc:"Rental void >8% year 1",   rag:"green", mit:"Pre-marketing 9 months pre-completion"},
-  {id:5,cat:"Finance",    desc:"Senior debt facility pulled",rag:"amber",mit:"Two lenders in parallel"},
-  {id:6,cat:"Exit",       desc:"Yield compression at exit", rag:"amber",mit:"Forward fund terms agreed"},
-];
-
-const BUYERS = {
-  btr: [
-    {name:"Greystar",      type:"REIM",    minM:50,  status:"Active"},
-    {name:"Legal & General",type:"Pension",minM:100, status:"Active"},
-    {name:"Grainger plc",  type:"REIT",    minM:30,  status:"Active"},
-    {name:"M&G Real Estate",type:"Fund",   minM:75,  status:"Active"},
-    {name:"Aware Super",   type:"Sovereign",minM:150,status:"Active"},
-    {name:"Heimstaden",    type:"Private", minM:50,  status:"Active"},
-    {name:"Apache Capital",type:"REIM",    minM:40,  status:"Active"},
-    {name:"Invesco RE",    type:"Fund",    minM:100, status:"Selective"},
-  ],
-  pbsa: [
-    {name:"Blackstone/iQ", type:"PE",      minM:200, status:"Active"},
-    {name:"Unite Group",   type:"REIT",    minM:50,  status:"Active"},
-    {name:"Hines",         type:"REIM",    minM:75,  status:"Active"},
-    {name:"Nuveen RE",     type:"Fund",    minM:100, status:"Active"},
-    {name:"GIC Singapore", type:"Sovereign",minM:200,status:"Selective"},
-    {name:"Harrison Street",type:"REIM",   minM:60,  status:"Active"},
-    {name:"AEW Europe",    type:"Fund",    minM:80,  status:"Active"},
-    {name:"Mapletree",     type:"REIT",    minM:150, status:"Active"},
-  ],
-};
-
-const SYSTEM_PROMPT = `You are a senior UK real estate development advisor specialising in BTR, PBSA, SFH and high-rise residential. Expert in NPPF 2024, development finance, construction procurement and institutional capital markets. Be specific, commercially sharp and use UK conventions. Plain text only.`;
-
-// ─── AI ──────────────────────────────────────────────────────────────────────
-const AIPanel = ({ prompt, ctx, label="⚡ Run AI Analysis" }) => {
-  const [res,setRes]=useState(""); const [load,setLoad]=useState(false); const [done,setDone]=useState(false);
-  const run = async () => {
-    setLoad(true); setDone(false); setRes("");
+  async function login() {
+    if (!name.trim()) { setError("Please enter your name"); return; }
+    if (!company.trim()) { setError("Please enter your company"); return; }
+    if (!pwd.trim()) { setError("Please enter your access code"); return; }
+    setLoading(true); setError("");
     try {
-      const r = await fetch("https://api.anthropic.com/v1/messages",{
-        method:"POST", headers:{"Content-Type":"application/json","anthropic-dangerous-direct-browser-access":"true",},
-        body:JSON.stringify({action:"ai",model:"claude-sonnet-4-20250514",max_tokens:900,system:SYSTEM_PROMPT,
-          messages:[{role:"user",content:`${prompt}\n\nData: ${JSON.stringify(ctx)}`}]})
-      });
-      const d = await r.json();
-      setRes((d.content && d.content.find(b=>b.type==="text") ? d.content.find(b=>b.type==="text").text : null) || "No response.");
-    } catch { setRes("Analysis failed — check connection."); }
-    setLoad(false); setDone(true);
-  };
-  return (
-    <div className="ai-wrap">
-      <button className="ai-btn" onClick={run} disabled={load}>
-        {load?<><span className="spin"/>Analysing...</>:done?"↻ Re-analyse":label}
-      </button>
-      {res&&<div className="ai-box"><pre className="ai-txt">{res}</pre></div>}
-      {load&&<div className="ai-box"><div className="ai-load"><span className="spin"/>Processing...</div></div>}
-    </div>
-  );
-};
-
-
-// ─── LAND OPPORTUNITY FINDER ──────────────────────────────────────────────────
-const LandScraper = ({ data, setData, setActive }) => {
-  const [url, setUrl] = React.useState("");
-  const [loading, setLoading] = React.useState(false);
-  const [result, setResult] = React.useState(null);
-  const [error, setError] = React.useState("");
-  const [imported, setImported] = React.useState(false);
-  const [pipeline, setPipeline] = React.useState(data.pipeline || []);
-
-  const SOURCES = [
-    { name:"Bruton Knowles",  url:"https://www.brutonknowles.co.uk/property-search/strategic-land/", hint:"Strategic land listings" },
-    { name:"Savills Land",    url:"https://www.savills.co.uk/search/#?country=gb&Type=SL&SearchType=2", hint:"UK land for sale" },
-    { name:"Knight Frank",    url:"https://www.knightfrank.co.uk/land-for-sale", hint:"Development land" },
-    { name:"Aston Rose",      url:"https://www.astonrose.co.uk/properties/land-development/", hint:"London & SE land" },
-    { name:"Rightmove Land",  url:"https://www.rightmove.co.uk/commercial-property-for-sale/land.html", hint:"All UK land listings" },
-    { name:"Planning Portal", url:"https://www.planningportal.co.uk/", hint:"Planning applications" },
-    { name:"LandInsight",     url:"https://app.landinsight.io/", hint:"Off-market land data" },
-    { name:"EPC Register",    url:"https://find-energy-certificate.service.gov.uk/", hint:"Property energy data" },
-  ];
-
-  const scrape = async () => {
-    if (!url.trim()) { setError("Please enter a URL"); return; }
-    setLoading(true); setError(""); setResult(null); setImported(false);
-
-    try {
-      // Use Claude AI via Apps Script to scrape and extract structured data
-      const prompt = `You are a UK land and property data extraction specialist. 
-      
-I need you to extract structured data from this land/property listing URL: ${url}
-
-Fetch the page content and extract ALL of these fields if present:
-- address: full property address
-- postcode: UK postcode (e.g. WR2 5SJ)
-- city: nearest city or town
-- acreage: site area in acres (number only)
-- hectares: site area in hectares (number only)  
-- askingPrice: asking price in £ (number only, no symbols)
-- priceType: "fixed", "oieo" (offers in excess of), "informal tender", "option", "promotion", "expression of interest"
-- planningStatus: current planning status
-- localAuthority: local planning authority name
-- propertyType: type of land/property
-- description: 2-3 sentence summary of the opportunity
-- agent: selling agent name
-- agentContact: agent contact email or phone
-- dealType: "sale", "option", "promotion", "hybrid"
-- developmentPotential: what could be built (e.g. "residential", "mixed use", "commercial")
-- estimatedUnits: estimated number of dwellings if mentioned
-- constraints: any planning constraints mentioned
-- source: the website domain
-
-If you cannot fetch the URL directly, extract as much as possible from the URL structure itself and return what you can.
-
-IMPORTANT: Return ONLY a valid JSON object, no markdown, no explanation. Example:
-{"address":"Land at Main Street, Bretforton, Evesham, Worcestershire","postcode":"WR11 7JH","city":"Evesham","acreage":3.52,"hectares":1.42,"askingPrice":null,"priceType":"informal tender","planningStatus":"No consent","localAuthority":"Wychavon District Council","propertyType":"Strategic Land","description":"Agricultural grassland in village centre. Site of 3.52 acres bordered by three roads. Unconditional freehold sale.","agent":"Bruton Knowles","agentContact":"bryn.evans@brutonknowles.co.uk","dealType":"sale","developmentPotential":"residential","estimatedUnits":null,"constraints":"Village location, edge of settlement","source":"brutonknowles.co.uk"}`;
-
-      const res = await fetch(ACCESS_CONFIG.sheetWebhook + "?" + new URLSearchParams({
-        action: "verify", password: "scrape_internal", name: "system", company: "system", userAgent: "scraper"
-      }));
-      
-      // Use AI to scrape via Apps Script proxy
-      const aiRes = await fetch(ACCESS_CONFIG.sheetWebhook + "?" + new URLSearchParams({
-        action: "scrape",
-        url: url,
-        userAgent: navigator.userAgent.substring(0,80),
-      }));
-      
-      let extracted = null;
-      try {
-        const aiData = await aiRes.json();
-        if (aiData.status === "ok" && aiData.data) {
-          extracted = aiData.data;
-        }
-      } catch(e) {}
-
-      // Fallback: use Claude directly via the AI panel approach
-      if (!extracted) {
-        const aiPromptRes = await fetch(ACCESS_CONFIG.sheetWebhook, {
-          method: "POST",
-          headers: {"Content-Type":"application/json"},
-          body: JSON.stringify({
-            action: "ai",
-            model: "claude-sonnet-4-20250514",
-            max_tokens: 1000,
-            system: "You are a UK land data extraction specialist. Return only valid JSON, no markdown.",
-            messages: [{ role: "user", content: prompt }],
-            user: (data.currentUser && data.currentUser.name) || "User",
-            company: data.(currentUser && currentUser.company) || "",
-            stage: "Land Scraper",
-            logDetails: "URL scraped: " + url,
-          })
-        });
-        const aiResult = await aiPromptRes.json();
-        if (aiResult.status === "ok" && aiResult.content) {
-          const text = aiResult.content.find(b => b.type === "text") ? .find(b => b.type === "text").text : null || "";
-          const clean = text.replace(/```json|```/g, "").trim();
-          try { extracted = JSON.parse(clean); } catch(e) {}
-        }
-      }
-
-      if (extracted) {
-        setResult(extracted);
+      var params = new URLSearchParams({action:"verify",password:pwd.trim(),name:name.trim(),company:company.trim(),userAgent:navigator.userAgent.substring(0,80)});
+      var res = await fetch(WEBHOOK + "?" + params.toString());
+      var data = await res.json();
+      if (data.status === "ok") {
+        props.onLogin(data.user);
       } else {
-        setError("Could not extract data from this URL. Try a direct property listing page rather than a search results page.");
+        setError(data.message || "Incorrect access code");
       }
     } catch(e) {
-      setError("Failed to fetch: " + e.message);
+      setError("Connection error — check internet connection");
     }
     setLoading(false);
-  };
+  }
 
-  const importToDeal = () => {
-    if (!result) return;
-    // Pre-fill all relevant Landform fields
-    setData(d => ({
-      ...d,
-      land: {
-        ...d.land,
-        address: result.address || "",
-        city: (result.city || "").toLowerCase().replace(/ /g,"_"),
-        acres: result.acreage || "",
-        price: result.askingPrice || "",
-        postcode: result.postcode || "",
-        agent: result.agent || "",
-        dealType: result.dealType || "",
-        localAuthority: result.localAuthority || "",
-      },
-      planning: {
-        ...d.planning,
-        lpa: result.localAuthority || "",
-        status: result.(planningStatus && planningStatus.toLowerCase)().includes("full") ? "full" :
-                result.(planningStatus && planningStatus.toLowerCase)().includes("outline") ? "outline" :
-                result.(planningStatus && planningStatus.toLowerCase)().includes("alloc") ? "allocated" : "none",
-        units: result.estimatedUnits || "",
-      },
-      rlv: {
-        ...d.rlv,
-        postcode: result.postcode || "",
-        acres: result.acreage || "",
-        schType: result.(developmentPotential && developmentPotential.toLowerCase)().includes("student") ? "PBSA (Student)" :
-                 result.(developmentPotential && developmentPotential.toLowerCase)().includes("apart") ? "Residential apartments" :
-                 "Residential houses",
-      },
-      sfh: {
-        ...d.sfh,
-        acres: result.acreage || "",
-        city: (result.city || "").toLowerCase().replace(/ /g,"_"),
-      },
-      epe: {
-        ...d.epe,
-        postcode: result.postcode || "",
-        propType: result.propertyType || "",
-      },
-      scrapeResult: result,
-    }));
-    // Add to pipeline
-    const newEntry = { ...result, id: Date.now(), importedAt: new Date().toISOString(), url };
-    const newPipeline = [newEntry, ...pipeline];
-    setPipeline(newPipeline);
-    setData(d => ({ ...d, pipeline: newPipeline }));
-    setImported(true);
-  };
-
-  const addToPipeline = () => {
-    if (!result) return;
-    const newEntry = { ...result, id: Date.now(), savedAt: new Date().toISOString(), url };
-    const newPipeline = [newEntry, ...pipeline];
-    setPipeline(newPipeline);
-    setData(d => ({ ...d, pipeline: newPipeline }));
-    setImported(true);
-  };
-
-  const FMT2 = n => !n||isNaN(n)?"—":n>=1e6?`£${(n/1e6).toFixed(2)}m`:n>=1000?`£${Math.round(n/1000)}k`:`£${Math.round(n).toLocaleString()}`;
-
-  return (
-    <div className="stage">
-      <div className="sh">
-        <h2>Land Opportunity Finder</h2>
-        <p>Paste any land agent URL — AI extracts the key data and pre-fills your Landform appraisal fields automatically</p>
-      </div>
-
-      {/* QUICK LINKS */}
-      <div className="card">
-        <div className="ct">Quick Links — Major Land Agents & Portals</div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
-          {SOURCES.map(s=>(
-            <div key={s.name} onClick={()=>setUrl(s.url)} style={{background:"#fff",border:"1px solid var(--border)",borderRadius:8,padding:"12px 14px",cursor:"pointer",transition:"all .15s"}}
-              onMouseOver={e=>e.currentTarget.style.borderColor="var(--cb)"} onMouseOut={e=>e.currentTarget.style.borderColor="var(--border)"}>
-              <div style={{fontSize:12,fontWeight:700,color:"var(--cd)",marginBottom:3}}>{s.name}</div>
-              <div style={{fontSize:10,color:"var(--td)"}}>{s.hint}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* URL INPUT */}
-      <div className="card">
-        <div className="ct">Paste Land Listing URL</div>
-        <p style={{fontSize:12,color:"var(--td)",marginBottom:12}}>Paste the URL of any individual property listing page. Works with Bruton Knowles, Savills, Knight Frank, Rightmove, Zoopla, planning portals and most UK land agent websites.</p>
-        <div style={{display:"flex",gap:12,alignItems:"flex-end"}}>
-          <div className="fg" style={{flex:1}}>
-            <label>URL to scrape</label>
-            <input value={url} onChange={e=>setUrl(e.target.value)} onKeyDown={e=>e.key==="Enter"&&scrape()} placeholder="e.g. https://www.brutonknowles.co.uk/property/strategic-land-..." style={{fontSize:12}}/>
-          </div>
-          <button className="ai-btn" onClick={scrape} disabled={loading||!url} style={{flexShrink:0,padding:"9px 20px"}}>
-            {loading?<><span className="spin"/>Extracting...</>:"🔍 Extract Data"}
-          </button>
-        </div>
-        {error&&<div style={{background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.25)",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#B05A35",marginTop:8}}>{error}</div>}
-      </div>
-
-      {/* RESULTS */}
-      {result&&(
-        <div className="card">
-          <div className="ct" style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <span>Extracted Data — {result.source||"Land Listing"}</span>
-            <span style={{fontSize:10,color:"#2D7A65",fontWeight:700}}>✓ Data extracted successfully</span>
-          </div>
-
-          {/* KEY METRICS */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:4}}>
-            {[
-              {l:"Asking Price", v:result.askingPrice?FMT2(result.askingPrice):result.priceType||"POA"},
-              {l:"Site Area",    v:result.acreage?`${result.acreage} acres / ${result.hectares||"—"} ha`:"—"},
-              {l:"Deal Type",    v:result.dealType||"—"},
-              {l:"Local Authority", v:result.localAuthority||"—"},
-            ].map(({l,v})=>(
-              <div key={l} style={{background:"var(--surface3)",border:"1px solid var(--border)",borderRadius:8,padding:"12px 14px"}}>
-                <div style={{fontSize:9,color:"var(--td)",textTransform:"uppercase",letterSpacing:".1em",marginBottom:5}}>{l}</div>
-                <div style={{fontSize:14,fontWeight:700,color:"var(--cb)"}}>{v}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* FULL DETAILS */}
-          <div style={{background:"#fff",border:"1px solid var(--border)",borderRadius:8,overflow:"hidden"}}>
-            {[
-              ["Address",           result.address],
-              ["Postcode",          result.postcode],
-              ["City / Area",       result.city],
-              ["Property Type",     result.propertyType],
-              ["Planning Status",   result.planningStatus],
-              ["Development Potential", result.developmentPotential],
-              ["Estimated Units",   result.estimatedUnits],
-              ["Planning Constraints", result.constraints],
-              ["Selling Agent",     result.agent],
-              ["Agent Contact",     result.agentContact],
-            ].filter(([,v])=>v).map(([label,value])=>(
-              <div key={label} style={{display:"grid",gridTemplateColumns:"160px 1fr",padding:"9px 16px",borderBottom:"1px solid var(--border)",fontSize:12,gap:12}}>
-                <span style={{color:"var(--td)",fontWeight:600}}>{label}</span>
-                <span style={{color:"var(--text)"}}>{value}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* DESCRIPTION */}
-          {result.description&&(
-            <div style={{background:"rgba(74,75,174,0.05)",border:"1px solid rgba(74,75,174,0.15)",borderRadius:8,padding:"14px 16px",fontSize:12,color:"var(--tm)",lineHeight:1.7}}>
-              {result.description}
-            </div>
-          )}
-
-          {/* ACTION BUTTONS */}
-          {imported?(
-            <div style={{background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.25)",borderRadius:8,padding:"14px 16px",fontSize:13,color:"#2D7A65",fontWeight:600,textAlign:"center"}}>
-              ✓ Imported — fields pre-filled across Landform. Navigate to any appraisal stage to see the data.
-              <div style={{marginTop:10,display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
-                {[["🏡 SFH Appraisal","sfh"],["🏢 High-Rise","hra"],["◆ Land Valuation","rlv"],["⬟ Land Appraisal","land"]].map(([label,id])=>(
-                  <button key={id} onClick={()=>setActive(id)} style={{padding:"7px 14px",background:"var(--cb)",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>{label}</button>
-                ))}
-              </div>
-            </div>
-          ):(
-            <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-              <button onClick={importToDeal} style={{flex:1,padding:"11px",background:"var(--cb)",border:"none",borderRadius:7,color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}>
-                ⚡ Import & Pre-fill All Landform Fields
-              </button>
-              <button onClick={addToPipeline} style={{padding:"11px 18px",background:"var(--surface3)",border:"1px solid var(--border)",borderRadius:7,color:"var(--tm)",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}>
-                + Save to Pipeline
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* PIPELINE */}
-      {pipeline.length>0&&(
-        <div className="card">
-          <div className="ct">Deal Pipeline ({pipeline.length} opportunities saved)</div>
-          <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            {pipeline.map((deal,i)=>(
-              <div key={deal.id||i} style={{background:"#fff",border:"1px solid var(--border)",borderRadius:8,padding:"14px 16px",display:"grid",gridTemplateColumns:"1fr auto auto",gap:12,alignItems:"center"}}>
-                <div>
-                  <div style={{fontSize:13,fontWeight:700,color:"var(--cd)",marginBottom:3}}>{deal.address||deal.url}</div>
-                  <div style={{fontSize:11,color:"var(--td)"}}>{[deal.acreage&&deal.acreage+" acres",deal.localAuthority,deal.dealType,deal.askingPrice&&FMT2(deal.askingPrice)].filter(Boolean).join(" · ")}</div>
-                </div>
-                <button onClick={()=>{setResult(deal);setUrl(deal.url||"");setImported(false);}} style={{padding:"6px 12px",background:"var(--surface3)",border:"1px solid var(--border)",borderRadius:5,fontSize:11,fontWeight:600,cursor:"pointer",color:"var(--tm)",whiteSpace:"nowrap"}}>View</button>
-                <button onClick={()=>{
-                  setData(d=>({...d,land:{...d.land,address:deal.address||"",city:(deal.city||"").toLowerCase().replace(/ /g,"_"),acres:deal.acreage||"",price:deal.askingPrice||""},planning:{...d.planning,lpa:deal.localAuthority||""},rlv:{...d.rlv,postcode:deal.postcode||"",acres:deal.acreage||""}}));
-                  setActive("land");
-                }} style={{padding:"6px 12px",background:"var(--cb)",border:"none",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",color:"#fff",whiteSpace:"nowrap"}}>Import</button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* HOW IT WORKS */}
-      {!result&&!loading&&(
-        <div className="card">
-          <div className="ct">How It Works</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14}}>
-            {[
-              {n:"1",t:"Find a listing",d:"Browse Bruton Knowles, Savills, Rightmove Land or any agent site. Copy the URL of the individual property page."},
-              {n:"2",t:"Paste & extract",d:"Paste the URL above and click Extract Data. AI reads the page and pulls out address, acreage, price, planning status and more."},
-              {n:"3",t:"Review the data",d:"Check the extracted fields. Edit anything the AI got wrong before importing."},
-              {n:"4",t:"Import to Landform",d:"One click pre-fills Land Appraisal, Land Valuation, SFH and Financial Modelling with the site data. Run your appraisal immediately."},
-            ].map(({n,t,d})=>(
-              <div key={n} style={{background:"var(--surface3)",borderRadius:8,padding:"16px"}}>
-                <div style={{width:28,height:28,borderRadius:"50%",background:"var(--cb)",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:800,marginBottom:10}}>{n}</div>
-                <div style={{fontSize:12,fontWeight:700,color:"var(--cd)",marginBottom:5}}>{t}</div>
-                <div style={{fontSize:11,color:"var(--td)",lineHeight:1.6}}>{d}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+  return React.createElement("div", {style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",fontFamily:"DM Sans,sans-serif"}},
+    React.createElement("div", {style:{background:"#fff",borderRadius:16,padding:"48px 40px",maxWidth:440,width:"90%",boxShadow:"0 8px 40px rgba(0,0,0,0.25)"}},
+      React.createElement("div", {style:{textAlign:"center",marginBottom:28}},
+        React.createElement("img", {src:"data:image/webp;base64,"+LOGO,alt:"Cassidy Group",style:{width:130,height:"auto",marginBottom:16}}),
+        React.createElement("h1", {style:{color:"#2E2F8A",fontWeight:800,fontSize:20,marginBottom:6}}, "Land & Development Intelligence"),
+        React.createElement("p", {style:{color:"#7278A0",fontSize:13}}, "Enter your details and access code to continue")
+      ),
+      React.createElement("div", {style:{display:"flex",flexDirection:"column",gap:14}},
+        ["Name", "Company"].map(function(label, i) {
+          var val = i === 0 ? name : company;
+          var setter = i === 0 ? setName : setCompany;
+          return React.createElement("div", {key:label, style:{display:"flex",flexDirection:"column",gap:4}},
+            React.createElement("label", {style:{fontSize:10,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:700}}, label),
+            React.createElement("input", {value:val, onChange:function(e){setter(e.target.value);}, placeholder:"e.g. "+(i===0?"Phil Daniel":"Cassidy Group"), style:{padding:"11px 14px",border:"1px solid #C8CDE0",borderRadius:7,fontSize:14,fontFamily:"DM Sans,sans-serif",outline:"none"}}));
+        }),
+        React.createElement("div", {style:{display:"flex",flexDirection:"column",gap:4}},
+          React.createElement("label", {style:{fontSize:10,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:700}}, "Access Code"),
+          React.createElement("input", {type:"password",value:pwd,onChange:function(e){setPwd(e.target.value);},onKeyDown:function(e){if(e.key==="Enter")login();},placeholder:"Enter access code",style:{padding:"11px 14px",border:"1px solid "+(error?"#B05A35":"#C8CDE0"),borderRadius:7,fontSize:14,fontFamily:"DM Sans,sans-serif",outline:"none"}})),
+        error && React.createElement("div", {style:{background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.3)",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#B05A35"}}, error),
+        React.createElement("button", {onClick:login,disabled:loading,style:{padding:12,background:loading?"#8889C8":"#4A4BAE",border:"none",borderRadius:7,color:"#fff",fontSize:14,fontWeight:700,cursor:loading?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif"}}, loading ? "Verifying..." : "Access Tool →")
+      ),
+      React.createElement("p", {style:{textAlign:"center",fontSize:11,color:"#A0A4C0",marginTop:20}}, "Demo expires 31 Dec 2027 · Cassidy Group © 2026")
+    )
   );
-};
+}
 
-// ─── STAGES ──────────────────────────────────────────────────────────────────
-const CITIES = Object.keys(MKT);
+// ── MAIN TOOL ─────────────────────────────────────────────────────────────────
+function Tool(props) {
+  var user = props.user;
+  var st = useState("dashboard"); var stage = st[0]; var setStage = st[1];
+  var dt = useState({assetType:"btr"}); var data = dt[0]; var setData = dt[1];
+  var ai = useState(""); var aiRes = ai[0]; var setAiRes = ai[1];
+  var al = useState(false); var aiLoad = al[0]; var setAiLoad = al[1];
 
-const CitySelect = ({val,onChange}) => (
-  <select value={val||""} onChange={onChange}>
-    <option value="">Select city...</option>
-    {CITIES.map(c=><option key={c} value={c}>{c.replace(/_/g," ").replace(/\b\w/g,l=>l.toUpperCase())}</option>)}
-  </select>
-);
-
-// ── Dashboard ──
-const Dashboard = ({data,setActive}) => {
-  const at=data.assetType||"btr"; const l=data.land||{}; const p=data.planning||{}; const f=data.fin||{};
-  const city=l.city||"manchester"; const m=MKT[city]||MKT.manchester;
-  const units=N(p.units); const gia=N(l.acres)*43560*.65;
-  const bcp=N(f.buildPsf)||m.build; const bc=gia*bcp;
-  const lc=N(l.price); const s106=N(p.s106);
-  const tc=bc+lc+s106+bc*.12+bc*.05+(bc+lc)*.075+lc*.05;
-  const ru=at==="pbsa"?N(f.rent)||m.pbsa:N(f.rent)||m.btr;
-  const gr=at==="pbsa"?units*ru*52:units*ru*12;
-  const noi=gr*.95-.12*gr*.95;
-  const ey=N(f.exitYield)/100||m.yield;
-  const gdv=noi/ey; const profit=gdv-tc;
-  const margin=gdv>0?(profit/gdv)*100:0;
-  const sc=margin>=15?"#2D7A65":"#B05A35";
-  return (
-    <div className="stage">
-      <div className="sh"><h2>Deal Dashboard</h2><p>Live overview — fill in the stages to see metrics update</p></div>
-      <div className="dash-grid">
-        {[{l:"GDV",v:FMT(gdv)},{l:"Total Dev Cost",v:FMT(tc)},{l:"Developer Profit",v:FMT(profit),c:sc},
-          {l:"Margin on GDV",v:PCT(margin),c:sc},{l:"NOI (pa)",v:FMT(noi)},{l:"Exit Yield",v:PCT(ey*100)},
-          {l:at==="pbsa"?"Total Beds":"Total Units",v:units||"—"},{l:"City",v:city.replace(/_/g," ").replace(/\b\w/g,l=>l.toUpperCase())||"—"}
-        ].map(({l:lb,v,c})=>(
-          <div key={lb} className="dash-card"><div className="dc-l">{lb}</div><div className="dc-v" style={{color:c||"var(--text)"}}>{v}</div></div>
-        ))}
-      </div>
-      <div className="card">
-        <div className="ct">Quick Actions</div>
-        <div className="qa-grid">
-          {[["🏡","Single Family Housing","sfh"],["🏢","High-Rise Apartments","hra"],["🏠","Property Evaluator","epe"],["◆","Land Valuation","rlv"],["⬟","Land Appraisal","land"],["▲","Planning & Viability","planning"],["◉","Financial Modelling","fin"],["◈","Investment Exit","exit"]].map(([icon,label,id])=>(
-            <button key={id} className="qa-btn" onClick={()=>setActive(id)}>{icon} {label}</button>
-          ))}
-        </div>
-      </div>
-      <AIPanel label="⚡ Full Deal Summary" prompt="Generate a comprehensive deal summary with investment thesis, strengths, risks and next steps. Rate the deal 1-10." ctx={{at,city,gdv,tc,profit,margin,noi,units}}/>
-    </div>
-  );
-};
-
-// ── Land Appraisal ──
-const LandAppraisal = ({data,setData}) => {
-  const up=(k,v)=>setData(d=>({...d,land:{...d.land,[k]:v}}));
-  const l=data.land||{}; const at=data.assetType||"btr";
-  const city=l.city||"manchester"; const m=MKT[city]||MKT.manchester;
-  const score=(()=>{
-    let s=0;
-    const vm={proximity:{excellent:25,good:15,fair:8,poor:0},transport:{excellent:20,good:12,fair:6,poor:0},
-      contamination:{clean:20,minor:10,major:0,unknown:4},tenure:{freehold:15,long_leasehold:10,short_leasehold:3},
-      constraint:{none:20,minor:12,moderate:6,major:0}};
-    for(const[k,v] of Object.entries(vm)) s+=v[l[k]]||0;
-    return s;
-  })();
-  const sc=score>=70?"#2D7A65":score>=45?"#9A7B3E":"#B05A35";
-  const lv=N(l.price); const mv=m.land||0;
-  const diff=mv>0?((lv-mv)/mv*100):null;
-  return (
-    <div className="stage">
-      <div className="sh"><h2>Land Appraisal</h2><p>Site evaluation, location scoring and market benchmarking</p></div>
-      <div className="card"><div className="ct">Site Details</div>
-        <div className="fg2">
-          <div className="fg"><label>Site Address</label><input value={l.address||""} onChange={e=>up("address",e.target.value)} placeholder="e.g. Former Printworks, Manchester M4"/></div>
-          <div className="fg"><label>City / Market</label><CitySelect val={l.city} onChange={e=>up("city",e.target.value)}/></div>
-          <div className="fg"><label>Site Area (acres)</label><input type="number" value={l.acres||""} onChange={e=>up("acres",e.target.value)} placeholder="e.g. 1.8"/></div>
-          <div className="fg"><label>Asking Price (£)</label><input type="number" value={l.price||""} onChange={e=>up("price",e.target.value)} placeholder="e.g. 4500000"/></div>
-          {[{k:"proximity",label:"Proximity to Demand",opts:[["excellent","<10 min walk"],["good","<20 min / 5 min cycle"],["fair","Public transport needed"],["poor","Car dependent"]]},
-            {k:"transport",label:"Transport Connectivity",opts:[["excellent","Train+Bus+Cycle"],["good","Bus+Cycle"],["fair","Bus only"],["poor","Limited"]]},
-            {k:"contamination",label:"Ground Contamination",opts:[["clean","Phase 1 clear"],["minor","Remediation <£200k"],["major","Significant remediation"],["unknown","Not surveyed"]]},
-            {k:"tenure",label:"Land Tenure",opts:[["freehold","Freehold"],["long_leasehold","Long Leasehold 250yr+"],["short_leasehold","Short Leasehold"]]},
-            {k:"constraint",label:"Planning Constraints",opts:[["none","None / outline consent"],["minor","TPO / listed adj."],["moderate","Conservation / Flood Z2"],["major","Green belt / Flood Z3"]]}
-          ].map(({k,label,opts})=>(
-            <div key={k} className="fg"><label>{label}</label>
-              <select value={l[k]||""} onChange={e=>up(k,e.target.value)}>
-                <option value="">Select...</option>{opts.map(([v,t])=><option key={v} value={v}>{t}</option>)}
-              </select>
-            </div>
-          ))}
-        </div>
-        <div className="score-row">
-          <div className="score-orb" style={{borderColor:sc,color:sc}}><div className="score-n">{score}</div><div className="score-d">/100</div></div>
-          <div className="score-info">
-            <div className="score-bar-w"><div className="score-bar-f" style={{width:`${score}%`,background:sc}}/></div>
-            <div style={{fontSize:12,color:sc,fontWeight:600,marginTop:6}}>{score>=70?"✓ Strong — proceed to viability":score>=45?"⚠ Moderate — enhanced DD required":"✗ High risk — review alternatives"}</div>
-          </div>
-        </div>
-      </div>
-      {city&&m.land&&<div className="card"><div className="ct">Market Benchmarks — {city.replace(/_/g," ").replace(/\b\w/g,l=>l.toUpperCase())}</div>
-        <div className="bench-row">
-          {[{l:"Market Land Value",v:FMT(m.land),s:"Typical for "+at.toUpperCase()},{l:"Your Asking Price",v:FMT(lv)||"—",s:diff!==null?`${diff>0?"+":""}${diff.toFixed(1)}% vs market`:""},
-            {l:at==="pbsa"?"PBSA Rent":"BTR Rent",v:at==="pbsa"?`£${m.pbsa}/wk`:`£${m.btr}/mo`,s:"Market average"},{l:"Exit Yield",v:PCT(m.yield*100),s:"Institutional target"}
-          ].map(({l:lb,v,s})=>(
-            <div key={lb} className="bench-card"><div className="bl">{lb}</div><div className="bv">{v}</div><div className="bs">{s}</div></div>
-          ))}
-        </div>
-      </div>}
-      <AIPanel label="⚡ Analyse Site" prompt={`Evaluate this ${at.toUpperCase()} land in ${city}. Score: ${score}/100. Provide: 1) Strengths & red flags, 2) Land value vs market, 3) DD priorities, 4) Go/No-Go with conditions, 5) Negotiation points.`} ctx={{...l,assetType:at,score,marketLand:m.land}}/>
-    </div>
-  );
-};
-
-// ── Planning ──
-const Planning = ({data,setData}) => {
-  const up=(k,v)=>setData(d=>({...d,planning:{...d.planning,[k]:v}}));
-  const p=data.planning||{}; const at=data.assetType||"btr";
-  const checks=[
-    {l:"NPPF 2024",s:p.status==="full"||p.status==="outline"?"pass":"pending"},
-    {l:"Local Plan allocation",s:p.status==="full"||p.status==="allocated"?"pass":"review"},
-    {l:"Affordable housing",s:at==="btr"?(p.ahPct?"pass":"pending"):"na"},
-    {l:"BNG 10%",s:p.bng?"pass":"pending"},
-    {l:"Fire Safety Gateway",s:p.gateway&&p.gateway!=="na"?"pass":N(p.storeys)>6?"pending":"na"},
-    {l:"S106 / CIL",s:p.s106?"pass":"pending"},
-  ];
-  return (
-    <div className="stage">
-      <div className="sh"><h2>Planning & Viability</h2><p>Planning strategy, policy compliance and S106 negotiation</p></div>
-      <div className="card"><div className="ct">Planning Position</div>
-        <div className="fg2">
-          <div className="fg"><label>Local Planning Authority</label><input value={p.lpa||""} onChange={e=>up("lpa",e.target.value)} placeholder="e.g. Manchester City Council"/></div>
-          <div className="fg"><label>Planning Status</label>
-            <select value={p.status||""} onChange={e=>up("status",e.target.value)}>
-              <option value="">Select...</option><option value="full">Full consent</option><option value="outline">Outline consent</option>
-              <option value="allocated">Local Plan allocation</option><option value="pre_app">Pre-application</option><option value="none">None</option>
-            </select>
-          </div>
-          <div className="fg"><label>{at==="pbsa"?"Beds":"Units"} Proposed</label><input type="number" value={p.units||""} onChange={e=>up("units",e.target.value)} placeholder="e.g. 180"/></div>
-          <div className="fg"><label>Storeys</label><input type="number" value={p.storeys||""} onChange={e=>up("storeys",e.target.value)} placeholder="e.g. 12"/></div>
-          {at==="btr"&&<div className="fg"><label>Affordable Housing %</label><input type="number" value={p.ahPct||""} onChange={e=>up("ahPct",e.target.value)} placeholder="e.g. 25"/></div>}
-          <div className="fg"><label>S106 / CIL (£)</label><input type="number" value={p.s106||""} onChange={e=>up("s106",e.target.value)} placeholder="e.g. 850000"/></div>
-          <div className="fg"><label>Biodiversity Net Gain</label>
-            <select value={p.bng||""} onChange={e=>up("bng",e.target.value)}>
-              <option value="">Select...</option><option value="on_site">On-site 10%</option><option value="off_site">Off-site credits</option><option value="exempt">Exempt — brownfield</option>
-            </select>
-          </div>
-          <div className="fg"><label>Fire Safety Gateway</label>
-            <select value={p.gateway||""} onChange={e=>up("gateway",e.target.value)}>
-              <option value="">Select...</option><option value="na">N/A — under 11m</option><option value="g2">Gateway 2 submitted</option>
-              <option value="g2a">Gateway 2 approved</option><option value="g3">Gateway 3 planned</option>
-            </select>
-          </div>
-        </div>
-      </div>
-      <div className="card"><div className="ct">Policy Compliance</div>
-        {checks.map(({l,s})=>(
-          <div key={l} className="check-row">
-            <div className={`check-dot ${s}`}/>
-            <span className="check-l">{l}</span>
-            <span className={`check-s ${s}`}>{s==="pass"?"Compliant":s==="pending"?"To confirm":s==="review"?"Under review":"N/A"}</span>
-          </div>
-        ))}
-      </div>
-      <AIPanel label="⚡ Planning Strategy" prompt={`Planning strategy for ${at.toUpperCase()} scheme. Provide: 1) Risk rating, 2) NPPF hooks, 3) S106 negotiation, 4) AH viability argument, 5) Timeline, 6) Top 3 officer objections.`} ctx={{...p,assetType:at}}/>
-    </div>
-  );
-};
-
-// ── Financial Modelling ──
-const FinancialModelling = ({data,setData}) => {
-  const up=(k,v)=>setData(d=>({...d,fin:{...d.fin,[k]:v}}));
-  const f=data.fin||{}; const l=data.land||{}; const p=data.planning||{};
-  const at=data.assetType||"btr"; const city=l.city||"manchester";
-  const m=MKT[city]||MKT.manchester;
-  const units=N(p.units); const gia=N(l.acres)*43560*.65;
-  const bcp=N(f.buildPsf)||m.build;
-  const bc=gia*bcp; const lc=N(l.price); const s106=N(p.s106);
-  const cont=bc*(N(f.contingency)/100||.05);
-  const fees=bc*.12; const fin=(bc+lc)*(N(f.finRate)/100||.075);
-  const sdlt=lc*.05;
-  const tc=bc+lc+s106+cont+fees+fin+sdlt;
-  const ru=at==="pbsa"?N(f.rent)||m.pbsa:N(f.rent)||m.btr;
-  const gr=at==="pbsa"?units*ru*52:units*ru*12;
-  const voidAdj=at==="pbsa" ? .97 : .95;
-  const opex=units*(at==="pbsa"?600:1050)+gr*voidAdj*.12;
-  const noi=gr*voidAdj-opex;
-  const ey=N(f.exitYield)/100||m.yield;
-  const gdv=noi/ey; const profit=gdv-tc;
-  const margin=gdv>0?(profit/gdv)*100:0;
-  const roc=tc>0?(profit/tc)*100:0;
-  const viable=margin>=15; const sc=viable?"#2D7A65":"#B05A35";
-  const scen=[{l:"Bear",sm:-.10,bm:+.15},{l:"Base",sm:0,bm:0},{l:"Bull",sm:+.08,bm:-.05}].map(s=>{
-    const sG=(gr*(1+s.sm))*voidAdj-opex; const sGdv=sG/ey;
-    const sCost=tc*(1+s.bm); const sProfit=sGdv-sCost;
-    return {...s,gdv:sGdv,profit:sProfit,margin:sGdv>0?(sProfit/sGdv)*100:0};
-  });
-  return (
-    <div className="stage">
-      <div className="sh"><h2>Financial Modelling</h2><p>Full development appraisal, returns and scenario analysis</p></div>
-      <div className="card"><div className="ct">Inputs</div>
-        <div className="fg2">
-          <div className="fg"><label>Build Cost psf (£) — market: £{m.build}</label><input type="number" value={f.buildPsf||""} onChange={e=>up("buildPsf",e.target.value)} placeholder={`£${m.build}/sqft`}/></div>
-          <div className="fg"><label>{at==="pbsa"?"Weekly Rent/Bed":"Monthly Rent/Unit"} (£)</label><input type="number" value={f.rent||""} onChange={e=>up("rent",e.target.value)} placeholder={`Market: £${at==="pbsa"?m.pbsa:m.btr}`}/></div>
-          <div className="fg"><label>Exit Yield (%)</label><input type="number" step="0.05" value={f.exitYield||""} onChange={e=>up("exitYield",e.target.value)} placeholder={`Market: ${(m.yield*100).toFixed(2)}%`}/></div>
-          <div className="fg"><label>Finance Rate (%)</label><input type="number" step="0.1" value={f.finRate||""} onChange={e=>up("finRate",e.target.value)} placeholder="7.5"/></div>
-          <div className="fg"><label>Contingency (%)</label><input type="number" value={f.contingency||""} onChange={e=>up("contingency",e.target.value)} placeholder="5"/></div>
-        </div>
-      </div>
-      {units>0&&gia>0&&<>
-        <div className="card"><div className="ct">Development Appraisal</div>
-          <div className="ap-cols">
-            <div><div className="ap-t">COSTS</div>
-              {[["Land",lc],[`Build (${Math.round(gia).toLocaleString()} sqft @ £${bcp}/sqft)`,bc],["S106/CIL",s106],["Contingency",cont],["Prof Fees (12%)",fees],["Finance",fin],["SDLT (5%)",sdlt]].map(([lb,v])=>(
-                <div key={lb} className="ap-row"><span>{lb}</span><span>{FMT(v)}</span></div>
-              ))}
-              <div className="ap-row tot"><span>Total Dev Cost</span><span>{FMT(tc)}</span></div>
-            </div>
-            <div><div className="ap-t">INCOME & GDV</div>
-              {[["Gross Rent (pa)",gr],["Effective Rent",gr*voidAdj],["OpEx (pa)",-opex],["NOI (pa)",noi],[`Exit Yield`,null,PCT(ey*100)]].map(([lb,v,ov])=>(
-                <div key={lb} className="ap-row"><span>{lb}</span><span>{ov||FMT(v)}</span></div>
-              ))}
-              <div className="ap-row tot"><span>GDV</span><span>{FMT(gdv)}</span></div>
-            </div>
-          </div>
-          <div className="ret-grid">
-            {[{l:"Profit",v:FMT(profit),ok:viable},{l:"Margin on GDV",v:PCT(margin),ok:viable},{l:"Return on Cost",v:PCT(roc),ok:roc>20},{l:`Price/${at==="pbsa"?"Bed":"Unit"}`,v:units>0?FMT(gdv/units):"—",ok:false}].map(({l:lb,v,ok})=>(
-              <div key={lb} className="ret-card" style={{borderColor:ok?"#2D7A65":"var(--border)"}}><div className="ret-l">{lb}</div><div className="ret-v" style={{color:ok?"#2D7A65":"var(--text)"}}>{v}</div></div>
-            ))}
-          </div>
-          <div className={`viab ${viable?"viab-y":"viab-n"}`}>{viable?`✓ Viable — ${margin.toFixed(1)}% margin on GDV`:`✗ Not viable — ${margin.toFixed(1)}% (${(15-margin).toFixed(1)}% below 15% threshold)`}</div>
-        </div>
-        <div className="card"><div className="ct">Scenario Analysis</div>
-          <div className="scen-t">
-            <div className="scen-h"><span>Scenario</span><span>GDV</span><span>Profit</span><span>Margin</span></div>
-            {scen.map(s=><div key={s.l} className="scen-r"><span style={{fontWeight:700}}>{s.l}</span><span>{FMT(s.gdv)}</span><span style={{color:s.profit>0?"#2D7A65":"#B05A35"}}>{FMT(s.profit)}</span><span style={{color:s.margin>=15?"#2D7A65":"#B05A35"}}>{PCT(s.margin)}</span></div>)}
-          </div>
-        </div>
-      </>}
-      <AIPanel label="⚡ Deep Financial Analysis" prompt={`Analyse this ${at.toUpperCase()} appraisal. GDV ${FMT(gdv)}, TDC ${FMT(tc)}, margin ${PCT(margin)}. Provide: 1) Return benchmarking, 2) Key value drivers, 3) Recommended deal structure, 4) Value engineering options, 5) Most critical assumption.`} ctx={{gdv,tc,noi,margin,roc,units,ey,at,city}}/>
-    </div>
-  );
-};
-
-// ── SFH ──
-const SFH = ({data,setData}) => {
-  const up=(k,v)=>setData(d=>({...d,sfh:{...d.sfh,[k]:v}}));
-  const s=data.sfh||{};
-  const city=s.city||data.(land && land.city)||"manchester"; const m=MKT[city]||MKT.manchester;
-  const acres=N(s.acres); const dph=N(s.dph)||30;
-  const ha=acres*.404686; const maxUnits=Math.floor(ha*dph);
-  const mix=s.mix||[{type:"3-bed semi",count:"",psf:""},{type:"4-bed detached",count:"",psf:""},{type:"3-bed detached",count:"",psf:""}];
-  const updMix=(i,k,v)=>{const m=[...mix];m[i]={...m[i],[k]:v};up("mix",m);};
-  const basePsf=N(s.basePsf)||m.btr*8.5||280;
-  const buildPsf=N(s.buildPsf)||195;
-  const hc=mix.map(row=>{
-    const count=N(row.count); if(!count||!row.type) return null;
-    const info=HOUSE_TYPES[row.type]||HOUSE_TYPES["3-bed semi"];
-    const sp=N(row.psf)||(basePsf*info.adj);
-    return {type:row.type,count,sqft:info.sqft,sp,unitGdv:info.sqft*sp,totalGdv:info.sqft*sp*count,build:info.sqft*buildPsf*count};
-  }).filter(Boolean);
-  const totalUnits=hc.reduce((a,h)=>a+h.count,0);
-  const totalGdv=hc.reduce((a,h)=>a+h.totalGdv,0);
-  const totalBuild=hc.reduce((a,h)=>a+h.build,0);
-  const totalGia=hc.reduce((a,h)=>a+h.sqft*h.count,0);
-  const profitPct=N(s.profitPct)||20;
-  const fees=totalBuild*.10; const cont=totalBuild*(N(s.contingency)||5)/100;
-  const fin=(totalBuild+fees)*(N(s.finRate)||7.5)/100;
-  const s106=totalUnits*(N(s.s106pu)||8000);
-  const roads=totalUnits*(N(s.roads)||12000);
-  const infra=acres*53000;
-  const devProfit=totalGdv*(profitPct/100);
-  const tc=totalBuild+fees+cont+fin+s106+roads+infra;
-  const rlv=totalGdv-tc-devProfit;
-  const rlvPu=totalUnits>0?rlv/totalUnits:0;
-  const margin=totalGdv>0?(devProfit/totalGdv)*100:0;
-  const sc=rlv>0?"#2D7A65":"#B05A35";
-  return (
-    <div className="stage">
-      <div className="sh"><h2>Single Family Housing</h2><p>Plot-by-plot residential appraisal with house type mix, roads adoption and SuDS</p></div>
-      <div className="card"><div className="ct">Site Details</div>
-        <div className="fg2">
-          <div className="fg"><label>City</label><CitySelect val={s.city} onChange={e=>up("city",e.target.value)}/></div>
-          <div className="fg"><label>Site Area (acres)</label><input type="number" step="0.1" value={s.acres||""} onChange={e=>up("acres",e.target.value)} placeholder="e.g. 5.0"/></div>
-          <div className="fg"><label>Density (dph)</label><input type="number" value={s.dph||""} onChange={e=>up("dph",e.target.value)} placeholder="30"/></div>
-          <div className="fg"><label>Base Sale Price psf (£)</label><input type="number" value={s.basePsf||""} onChange={e=>up("basePsf",e.target.value)} placeholder={`£${Math.round(basePsf)}`}/></div>
-          <div className="fg"><label>Build Cost psf (£)</label><input type="number" value={s.buildPsf||""} onChange={e=>up("buildPsf",e.target.value)} placeholder="£195"/></div>
-          <div className="fg"><label>Developer Profit (% GDV)</label><input type="number" value={s.profitPct||""} onChange={e=>up("profitPct",e.target.value)} placeholder="20"/></div>
-          <div className="fg"><label>S106 per Plot (£)</label><input type="number" value={s.s106pu||""} onChange={e=>up("s106pu",e.target.value)} placeholder="8000"/></div>
-          <div className="fg"><label>Roads/Sewers per Plot (£)</label><input type="number" value={s.roads||""} onChange={e=>up("roads",e.target.value)} placeholder="12000 (S38/S104)"/></div>
-          <div className="fg"><label>Affordable Housing %</label><input type="number" value={s.ahPct||""} onChange={e=>up("ahPct",e.target.value)} placeholder="e.g. 25"/></div>
-        </div>
-        {acres>0&&<div className="site-sum"><span>{acres} acres / {ha.toFixed(2)} ha</span><span>·</span><span>~{maxUnits} units at {dph} dph</span><span>·</span><span>{dph<25?"Low density":dph<35?"Standard suburban":dph<45?"Medium density":"High density"}</span></div>}
-      </div>
-      <div className="card"><div className="ct">House Type Mix</div>
-        <div className="sfh-t">
-          <div className="sfh-h"><span>Type</span><span>Plots</span><span>sqft</span><span>£/sqft</span><span>Unit GDV</span><span>Total</span></div>
-          {mix.map((row,i)=>{
-            const info=HOUSE_TYPES[row.type]||HOUSE_TYPES["3-bed semi"];
-            const sp=N(row.psf)||(basePsf*info.adj); const cnt=N(row.count);
-            return (<div key={i} className="sfh-r">
-              <span><select value={row.type} onChange={e=>updMix(i,"type",e.target.value)} style={{fontSize:11,padding:"5px 6px",width:"100%"}}>{Object.keys(HOUSE_TYPES).map(t=><option key={t} value={t}>{t}</option>)}</select></span>
-              <span><input type="number" value={row.count||""} onChange={e=>updMix(i,"count",e.target.value)} placeholder="0" style={{width:60,padding:"5px 6px",fontSize:12}}/></span>
-              <span style={{fontSize:12,color:"var(--tm)"}}>{info.sqft}</span>
-              <span><input type="number" value={row.psf||""} onChange={e=>updMix(i,"psf",e.target.value)} placeholder={`£${Math.round(sp)}`} style={{width:72,padding:"5px 6px",fontSize:12}}/></span>
-              <span style={{fontSize:12,fontWeight:600}}>{cnt>0?FMT(info.sqft*sp):"—"}</span>
-              <span style={{fontWeight:700,color:cnt>0?"var(--cb)":"var(--td)"}}>{cnt>0?FMT(info.sqft*sp*cnt):"—"}</span>
-            </div>);
-          })}
-          {totalUnits>0&&<div className="sfh-tot"><span>TOTAL</span><span>{totalUnits}</span><span>{totalGia.toLocaleString()} sqft</span><span></span><span></span><span style={{color:"var(--cb)",fontWeight:800}}>{FMT(totalGdv)}</span></div>}
-        </div>
-        <button className="add-row-btn" onClick={()=>up("mix",[...mix,{type:"3-bed semi",count:"",psf:""}])}>+ Add Row</button>
-      </div>
-      {totalUnits>0&&totalGdv>0&&<div className="card"><div className="ct">SFH Appraisal</div>
-        <div className="ap-cols">
-          <div><div className="ap-t">INCOME</div>
-            {hc.map(h=><div key={h.type} className="ap-row"><span>{h.count}× {h.type}</span><span>{FMT(h.totalGdv)}</span></div>)}
-            <div className="ap-row tot"><span>GDV ({totalUnits} plots)</span><span>{FMT(totalGdv)}</span></div>
-          </div>
-          <div><div className="ap-t">COSTS</div>
-            {[[`Build (${totalGia.toLocaleString()} sqft @ £${buildPsf}/sqft)`,totalBuild],["Prof Fees (10%)",fees],[`Contingency (${N(s.contingency)||5}%)`,cont],[`Finance (${N(s.finRate)||7.5}%)`,fin],["S106/CIL",s106],["Roads & Sewers (S38/S104)",roads],["Site Infra & SuDS",infra],[`Dev Profit (${profitPct}%)`,devProfit]].map(([l,v])=>(
-              <div key={l} className="ap-row"><span>{l}</span><span style={{color:"var(--td)"}}>({FMT(v)})</span></div>
-            ))}
-          </div>
-        </div>
-        <div className="rlv-result" style={{borderColor:sc,background:`${sc}08`}}>
-          <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",color:sc,marginBottom:6}}>Residual Land Value</div>
-          <div style={{fontSize:32,fontWeight:800,color:sc,lineHeight:1,marginBottom:8}}>{FMT(rlv)}</div>
-          <div style={{display:"flex",gap:20,fontSize:12,color:"var(--td)",flexWrap:"wrap"}}>
-            <span>{FMT(rlvPu)} per plot</span><span>{acres>0?FMT(rlv/acres)+" per acre":""}</span>
-            <span>Margin: {PCT(margin)}</span><span style={{color:sc,fontWeight:700}}>{rlv>0&&margin>=15?"✓ Viable":"✗ Below threshold"}</span>
-          </div>
-        </div>
-      </div>}
-      <AIPanel label="⚡ SFH Analysis" prompt={`Analyse this SFH development. ${acres} acres in ${city}, ${dph} dph, ${totalUnits} plots. Mix: ${hc.map(h=>`${h.count}x ${h.type}`).join(", ")}. GDV: ${FMT(totalGdv)}, RLV: ${FMT(rlv)} (${FMT(rlvPu)}/plot). AH: ${s.ahPct||0}%. Provide: 1) Mix assessment, 2) Price sense check, 3) AH strategy, 4) Infrastructure costs adequacy, 5) Phasing strategy, 6) Key risks.`} ctx={{city,acres,dph,totalUnits,totalGdv,rlv,rlvPu,margin}}/>
-    </div>
-  );
-};
-
-// ── High-Rise ──
-const HighRise = ({data,setData}) => {
-  const up=(k,v)=>setData(d=>({...d,hra:{...d.hra,[k]:v}}));
-  const h=data.hra||{};
-  const city=h.city||data.(land && land.city)||"manchester"; const m=MKT[city]||MKT.manchester;
-  const storeys=N(h.storeys); const fp=N(h.fp); const eff=N(h.eff)||80;
-  const gia=fp*storeys; const nia=gia*(eff/100);
-  const ss=N(h.ss)||20; const os=N(h.os)||50; const ts=N(h.ts)||30;
-  const ssqft=N(h.ssqft)||380; const osqft=N(h.osqft)||520; const tsqft=N(h.tsqft)||750;
-  const su=nia>0?Math.round(nia*(ss/100)/ssqft):0;
-  const ou=nia>0?Math.round(nia*(os/100)/osqft):0;
-  const tu=nia>0?Math.round(nia*(ts/100)/tsqft):0;
-  const total=su+ou+tu;
-  const sPsf=N(h.sPsf)||(m.btr*7.8)||260;
-  const oPsf=N(h.oPsf)||(m.btr*8.2)||280;
-  const tPsf=N(h.tPsf)||(m.btr*8.8)||300;
-  const fl=N(h.fl)||.5; const blend=1+(storeys>1?(storeys/2)*fl/100:0);
-  const sGdv=su*ssqft*sPsf*blend; const oGdv=ou*osqft*oPsf*blend; const tGdv=tu*tsqft*tPsf*blend;
-  const gdv=sGdv+oGdv+tGdv; const avgPsf=nia>0?gdv/nia:0;
-  const bcp=N(h.bcp)||(storeys>=20?310:storeys>=15?280:storeys>=10?255:230);
-  const bc=gia*bcp;
-  const liftCost=(N(h.cores)||Math.max(1,Math.ceil(gia/40000)))*storeys*18000;
-  const sprCost=gia*18;
-  const ewsCost=storeys>=11?25000:0;
-  const g2Cost=storeys>=18?45000:storeys>=11?28000:0;
-  const structP=storeys>=20?gia*15:storeys>=15?gia*10:gia*6;
-  const amenity=Math.min(total*3500,500000);
-  const fees=bc*.13; const cont=bc*(N(h.contingency)||6)/100;
-  const fin=(bc+fees)*(N(h.finRate)||8)/100;
-  const s106=total*(N(h.s106pu)||10000); const plan=total*12000;
-  const devProfit=gdv*(N(h.profitPct)||20)/100;
-  const hrCosts=liftCost+sprCost+ewsCost+g2Cost+structP+amenity;
-  const tc=bc+fees+cont+fin+s106+plan+hrCosts;
-  const rlv=gdv-tc-devProfit;
-  const margin=gdv>0?(devProfit/gdv)*100:0;
-  const sc=rlv>0?"#2D7A65":"#B05A35";
-  const bsa=storeys>=18; const ews=storeys>=11;
-  return (
-    <div className="stage">
-      <div className="sh"><h2>High-Rise Apartments</h2><p>Multi-storey flatted development — BSA Gateway 2/3, EWS1, lift provision, efficiency ratio and fire strategy</p></div>
-      {storeys>0&&<div style={{padding:"14px 18px",borderRadius:10,border:`1px solid ${bsa?"#B05A35":"var(--cb)"}`,background:bsa?"rgba(176,90,53,0.07)":"rgba(74,75,174,0.06)",marginBottom:4}}>
-        <div style={{fontWeight:700,fontSize:13,color:bsa?"#B05A35":"var(--cb)",marginBottom:10}}>{bsa?"🔴 Higher Risk Building — Building Safety Act 2022 applies":"🟡 Medium-rise — Fire Safety (England) Regulations apply"}</div>
-        {[["BSA 2022 / HRB",bsa?`Required — Principal Designer & Contractor`:"Not applicable (<18m)"],
-          ["Gateway 2 (pre-construction)",storeys>=18?"Required — HSE submission":"Not required"],
-          ["Gateway 3 (pre-occupation)",storeys>=18?"Required — BSR completion certificate":"Not required"],
-          ["EWS1 Form",ews?"Required for mortgage lending":"Not required (<11m)"],
-          ["Sprinkler system",ews?"Mandatory — Building Regs Part B":"Recommended"],
-          ["Fire Engineer",storeys>=6?"Required from 6+ storeys":"Consult building regs"],
-        ].map(([l,v])=><div key={l} style={{display:"grid",gridTemplateColumns:"180px 1fr",gap:8,fontSize:11,padding:"4px 0",borderBottom:"1px solid rgba(0,0,0,0.05)"}}><span style={{fontWeight:600,color:"var(--tm)"}}>{l}</span><span style={{color:"var(--td)"}}>{v}</span></div>)}
-      </div>}
-      <div className="card"><div className="ct">Building Specification</div>
-        <div className="fg2">
-          <div className="fg"><label>City</label><CitySelect val={h.city} onChange={e=>up("city",e.target.value)}/></div>
-          <div className="fg"><label>Storeys</label><input type="number" value={h.storeys||""} onChange={e=>up("storeys",e.target.value)} placeholder="e.g. 12"/></div>
-          <div className="fg"><label>Floorplate sqft per floor</label><input type="number" value={h.fp||""} onChange={e=>up("fp",e.target.value)} placeholder="e.g. 8000"/></div>
-          <div className="fg"><label>Efficiency Ratio % (NIA of GIA)</label><input type="number" value={h.eff||""} onChange={e=>up("eff",e.target.value)} placeholder="80 (typical 78–85%)"/></div>
-          <div className="fg"><label>Studio split %</label><input type="number" value={h.ss||""} onChange={e=>up("ss",e.target.value)} placeholder="20"/></div>
-          <div className="fg"><label>1-bed split %</label><input type="number" value={h.os||""} onChange={e=>up("os",e.target.value)} placeholder="50"/></div>
-          <div className="fg"><label>2-bed split %</label><input type="number" value={h.ts||""} onChange={e=>up("ts",e.target.value)} placeholder="30"/></div>
-          <div className="fg"><label>Studio size sqft</label><input type="number" value={h.ssqft||""} onChange={e=>up("ssqft",e.target.value)} placeholder="380"/></div>
-          <div className="fg"><label>1-bed size sqft</label><input type="number" value={h.osqft||""} onChange={e=>up("osqft",e.target.value)} placeholder="520"/></div>
-          <div className="fg"><label>2-bed size sqft</label><input type="number" value={h.tsqft||""} onChange={e=>up("tsqft",e.target.value)} placeholder="750"/></div>
-          <div className="fg"><label>Studio £/sqft</label><input type="number" value={h.sPsf||""} onChange={e=>up("sPsf",e.target.value)} placeholder={`£${Math.round(sPsf)}`}/></div>
-          <div className="fg"><label>1-bed £/sqft</label><input type="number" value={h.oPsf||""} onChange={e=>up("oPsf",e.target.value)} placeholder={`£${Math.round(oPsf)}`}/></div>
-          <div className="fg"><label>2-bed £/sqft</label><input type="number" value={h.tPsf||""} onChange={e=>up("tPsf",e.target.value)} placeholder={`£${Math.round(tPsf)}`}/></div>
-          <div className="fg"><label>Floor premium % per floor</label><input type="number" step="0.1" value={h.fl||""} onChange={e=>up("fl",e.target.value)} placeholder="0.5"/></div>
-          <div className="fg"><label>Build cost psf GIA (£) — auto: £{bcp}</label><input type="number" value={h.bcp||""} onChange={e=>up("bcp",e.target.value)} placeholder={`£${bcp}/sqft`}/></div>
-          <div className="fg"><label>Developer Profit % GDV</label><input type="number" value={h.profitPct||""} onChange={e=>up("profitPct",e.target.value)} placeholder="20"/></div>
-          <div className="fg"><label>Finance Rate %</label><input type="number" step="0.1" value={h.finRate||""} onChange={e=>up("finRate",e.target.value)} placeholder="8.0"/></div>
-          <div className="fg"><label>S106/CIL per unit (£)</label><input type="number" value={h.s106pu||""} onChange={e=>up("s106pu",e.target.value)} placeholder="10000"/></div>
-          <div className="fg"><label>Contingency %</label><input type="number" value={h.contingency||""} onChange={e=>up("contingency",e.target.value)} placeholder="6"/></div>
-        </div>
-        {gia>0&&<div className="site-sum"><span>GIA: {gia.toLocaleString()} sqft</span><span>·</span><span>NIA ({eff}%): {Math.round(nia).toLocaleString()} sqft</span><span>·</span><span>~{total} units</span></div>}
-      </div>
-      {total>0&&gdv>0&&<div className="card"><div className="ct">High-Rise Appraisal</div>
-        <div className="ap-cols">
-          <div><div className="ap-t">GDV</div>
-            {[[`${su} studios × ${ssqft}sqft × £${Math.round(sPsf)}/sqft`,sGdv],[`${ou} 1-beds × ${osqft}sqft × £${Math.round(oPsf)}/sqft`,oGdv],[`${tu} 2-beds × ${tsqft}sqft × £${Math.round(tPsf)}/sqft`,tGdv]].map(([l,v])=>(
-              <div key={l} className="ap-row"><span>{l}</span><span>{FMT(v)}</span></div>
-            ))}
-            <div className="ap-row tot"><span>Total GDV ({total} units)</span><span>{FMT(gdv)}</span></div>
-          </div>
-          <div><div className="ap-t">COSTS</div>
-            {[[`Build (${gia.toLocaleString()} sqft @ £${bcp}/sqft)`,bc],["Prof Fees (13%)",fees],[`Contingency (${N(h.contingency)||6}%)`,cont],[`Finance (${N(h.finRate)||8}%)`,fin],["Planning fees",plan],["S106/CIL",s106],
-              [`Lifts`,liftCost],[`Sprinklers (${ews?"mandatory":"rec."})`,sprCost],["Structural premium",structP],["Amenity spaces",amenity],
-              ...(ewsCost>0?[["EWS1",ewsCost]]:[]),...(g2Cost>0?[["BSA Gateway 2&3",g2Cost]]:[]),
-              [`Dev Profit (${N(h.profitPct)||20}%)`,devProfit]
-            ].map(([l,v])=><div key={l} className="ap-row"><span>{l}</span><span style={{color:"var(--td)"}}>({FMT(v)})</span></div>)}
-          </div>
-        </div>
-        <div className="rlv-result" style={{borderColor:sc,background:`${sc}08`}}>
-          <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",color:sc,marginBottom:6}}>Residual Land Value</div>
-          <div style={{fontSize:32,fontWeight:800,color:sc,lineHeight:1,marginBottom:8}}>{FMT(rlv)}</div>
-          <div style={{display:"flex",gap:20,fontSize:12,color:"var(--td)",flexWrap:"wrap"}}>
-            <span>{FMT(rlv/Math.max(total,1))} per unit</span><span>£{Math.round(avgPsf)}/sqft NIA</span>
-            <span>Margin: {PCT(margin)}</span><span style={{color:sc,fontWeight:700}}>{rlv>0&&margin>=15?"✓ Viable":"✗ Below threshold"}</span>
-          </div>
-        </div>
-        <div style={{background:"rgba(176,90,53,0.06)",border:"1px solid rgba(176,90,53,0.2)",borderRadius:8,padding:"12px 16px",marginTop:10,fontSize:11,color:"#8A4020"}}>
-          ⚠ Est. service charge: £{(total*2400).toLocaleString()}/year total. Sinking fund required under BSA 2022. High service charges reduce investor pricing by ~2%.
-        </div>
-      </div>}
-      <AIPanel label="⚡ High-Rise Analysis" prompt={`Analyse this ${storeys}-storey scheme in ${city}. ${total} units (${su} studio, ${ou} 1-bed, ${tu} 2-bed). GDV: ${FMT(gdv)}, RLV: ${FMT(rlv)}, margin: ${PCT(margin)}. ${bsa?"Higher Risk Building — BSA 2022 applies.":""} Provide: 1) Viability vs ${city} market, 2) BSA 2022 compliance roadmap, 3) EWS1 strategy, 4) Structural form recommendation, 5) Service charge impact on exit pricing, 6) Mix optimisation.`} ctx={{city,storeys,gia,nia,total,gdv,rlv,margin,bsa,ews}}/>
-    </div>
-  );
-};
-
-// ── Property Evaluator ──
-const PropertyEval = ({data,setData}) => {
-  const up=(k,v)=>setData(d=>({...d,epe:{...d.epe,[k]:v}}));
-  const e=data.epe||{};
-  const pcData = e.postcode ? lookupPostcode(e.postcode) : null;
-  const city = (pcData && pcData.city) || e.city || "manchester";
-  const m=MKT[city]||MKT.manchester;
-  const salePsf=N(e.salePsf)||(pcData && pcData.salePsf)||m.btr*8.5||280;
-  const propSqft=N(e.propSqft)||900;
-  const condMod={excellent:1.15,good:1.05,average:1.0,poor:.88,derelict:.70}[e.condition]||1.0;
-  const gLen=N(e.gLen); const gWid=N(e.gWid); const gardenSqft=gLen*gWid;
-  const gPsf=salePsf>600?160:salePsf>350?75:salePsf>220?48:32;
-  const gVal=gardenSqft>0?Math.round((Math.min(gardenSqft,500)*gPsf+Math.max(0,Math.min(gardenSqft-500,500))*gPsf*.65+Math.max(0,gardenSqft-1000)*gPsf*.3)*({south:1.08,south_west:1.05,west:1.02,east:1,north:.95}[e.aspect]||1)):0;
-  const parkMod={garage_drive:1.08,drive_2:1.06,drive_1:1.04,on_street:1,cpz:.97}[e.parking]||1;
-  const houseVal=Math.round(propSqft*salePsf*condMod);
-  const currentVal=Math.round((houseVal+gVal)*parkMod);
-  const newUnits=N(e.newUnits); const newSqft=N(e.newSqft)||900; const newPsf=N(e.newPsf)||salePsf;
-  const buildPsf=N(e.buildPsf)||195; const profitPct=N(e.profitPct)||20;
-  const newGdv=newUnits*newSqft*newPsf;
-  const newBuild=newUnits*newSqft*buildPsf;
-  const demolish=15000+gardenSqft>5000?8000:0;
-  const fees=newBuild*.10; const fin=(newBuild+fees)*(N(e.finRate)||7.5)/100;
-  const devProfit=newGdv*(profitPct/100);
-  const tc=newBuild+fees+fin+newUnits*(N(e.s106pu)||8000)+demolish;
-  const devRlv=newGdv-tc-devProfit; const uplift=devRlv-currentVal;
-  const viable=devRlv>currentVal*1.1;
-  const sc=uplift>0?"#2D7A65":"#B05A35";
-  return (
-    <div className="stage">
-      <div className="sh"><h2>Property Evaluator</h2><p>Current value as standing vs development potential — bungalows, pubs, offices, large plots</p></div>
-      <div className="card"><div className="ct">Step 1 — Existing Property</div>
-        <div className="fg2">
-          <div className="fg"><label>Postcode (auto-lookup city & price)</label><input value={e.postcode||""} onChange={ev=>up("postcode",ev.target.value.toUpperCase())} placeholder="e.g. CV6 2DL" style={{textTransform:"uppercase"}}/></div>
-          <div className="fg"><label>City (override if needed)</label><CitySelect val={e.city||city} onChange={ev=>up("city",ev.target.value)}/></div>
-          <div className="fg"><label>Property Type</label>
-            <select value={e.propType||""} onChange={ev=>up("propType",ev.target.value)}>
-              <option value="">Select...</option>
-              {["Bungalow (detached)","Bungalow (semi)","Detached house","Semi-detached house","Terraced house","Farmhouse / Rural","Flat / Apartment","Pub (traditional)","Pub (large)","Restaurant / Café","Hotel / Guest house","Office (small)","Office (large)","Shop / Retail","Warehouse / Industrial","Church / Chapel","Village hall","School","Care home","Barn","Agricultural building","Vacant land"].map(t=><option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-          <div className="fg"><label>Internal Floor Area (sqft)</label><input type="number" value={e.propSqft||""} onChange={ev=>up("propSqft",ev.target.value)} placeholder="e.g. 900"/></div>
-          <div className="fg"><label>Condition</label>
-            <select value={e.condition||""} onChange={ev=>up("condition",ev.target.value)}>
-              <option value="">Select...</option><option value="excellent">Excellent (+15%)</option><option value="good">Good (+5%)</option>
-              <option value="average">Average (0%)</option><option value="poor">Poor (-12%)</option><option value="derelict">Derelict (-30%)</option>
-            </select>
-          </div>
-          <div className="fg"><label>Sale Price psf (£) {(pcData && pcData.salePsf)?`— postcode: £${pcData.salePsf}`:""}</label><input type="number" value={e.salePsf||""} onChange={ev=>up("salePsf",ev.target.value)} placeholder={`£${Math.round(salePsf)}`}/></div>
-          <div className="fg"><label>Parking</label>
-            <select value={e.parking||""} onChange={ev=>up("parking",ev.target.value)}>
-              <option value="">Select...</option><option value="garage_drive">Garage + drive (+8%)</option><option value="drive_2">Double drive (+6%)</option>
-              <option value="drive_1">Single drive (+4%)</option><option value="on_street">On-street (0%)</option><option value="cpz">CPZ (-3%)</option>
-            </select>
-          </div>
-        </div>
-      </div>
-      <div className="card"><div className="ct">Step 2 — Garden / Plot</div>
-        <div className="fg2">
-          <div className="fg"><label>Rear Garden Length (ft)</label><input type="number" value={e.gLen||""} onChange={ev=>up("gLen",ev.target.value)} placeholder="e.g. 120"/></div>
-          <div className="fg"><label>Rear Garden Width (ft)</label><input type="number" value={e.gWid||""} onChange={ev=>up("gWid",ev.target.value)} placeholder="e.g. 40"/></div>
-          <div className="fg"><label>Aspect</label>
-            <select value={e.aspect||""} onChange={ev=>up("aspect",ev.target.value)}>
-              <option value="">Select...</option><option value="south">South (+8%)</option><option value="south_west">SW (+5%)</option>
-              <option value="west">West (+2%)</option><option value="east">East (0%)</option><option value="north">North (-5%)</option>
-            </select>
-          </div>
-          <div className="fg"><label>Side Garden — Length (ft)</label><input type="number" value={e.sLen||""} onChange={ev=>up("sLen",ev.target.value)} placeholder="e.g. 60"/></div>
-          <div className="fg"><label>Side Garden — Width (ft)</label><input type="number" value={e.sWid||""} onChange={ev=>up("sWid",ev.target.value)} placeholder="e.g. 15"/></div>
-        </div>
-        {gardenSqft>0&&<div className="site-sum"><span>{gardenSqft.toLocaleString()} sqft rear garden</span><span>·</span><span>{(gardenSqft/43560).toFixed(3)} acres</span><span>·</span><span>Garden premium: <strong>{FMT(gVal)}</strong></span></div>}
-      </div>
-      {propSqft>0&&salePsf>0&&<div className="card"><div className="ct">Current Value — As Standing</div>
-        {[["House value",`${propSqft.toLocaleString()} sqft × £${Math.round(salePsf)}/sqft × condition`,houseVal],
-          ["Garden premium",`${gardenSqft.toLocaleString()} sqft (diminishing returns applied)`,gVal],
-          ["Parking adjustment","Applied to total value",null],
-        ].filter(([,, v])=>v!==null).map(([l,note,v])=>(
-          <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:"1px solid var(--border)",fontSize:12}}>
-            <span style={{fontWeight:500}}>{l}</span><span style={{fontSize:10,color:"var(--td)"}}>{note}</span><span style={{fontWeight:600}}>{FMT(v)}</span>
-          </div>
-        ))}
-        <div style={{display:"flex",justifyContent:"space-between",padding:"12px 0 4px",fontWeight:700,fontSize:14,borderTop:"2px solid var(--border)",marginTop:4}}>
-          <span>Estimated Current Market Value</span><span style={{color:"var(--cb)",fontSize:18}}>{FMT(currentVal)}</span>
-        </div>
-        <div style={{fontSize:10,color:"var(--td)",fontStyle:"italic",marginTop:6}}>⚠ Indicative estimate only — RICS valuation required for lending or legal purposes</div>
-      </div>}
-      <div className="card"><div className="ct">Step 3 — Development Scenario</div>
-        <div className="fg2">
-          <div className="fg"><label>New Units to Build</label><input type="number" value={e.newUnits||""} onChange={ev=>up("newUnits",ev.target.value)} placeholder="e.g. 4"/></div>
-          <div className="fg"><label>New Unit Size (sqft)</label><input type="number" value={e.newSqft||""} onChange={ev=>up("newSqft",ev.target.value)} placeholder="900"/></div>
-          <div className="fg"><label>New Sale Price psf (£)</label><input type="number" value={e.newPsf||""} onChange={ev=>up("newPsf",ev.target.value)} placeholder={`£${Math.round(salePsf)}`}/></div>
-          <div className="fg"><label>Build Cost psf (£)</label><input type="number" value={e.buildPsf||""} onChange={ev=>up("buildPsf",ev.target.value)} placeholder="£195"/></div>
-          <div className="fg"><label>Developer Profit % GDV</label><input type="number" value={e.profitPct||""} onChange={ev=>up("profitPct",ev.target.value)} placeholder="20"/></div>
-          <div className="fg"><label>Finance Rate %</label><input type="number" step="0.1" value={e.finRate||""} onChange={ev=>up("finRate",ev.target.value)} placeholder="7.5"/></div>
-        </div>
-      </div>
-      {newUnits>0&&newGdv>0&&currentVal>0&&<div className="card"><div className="ct">The Decision</div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:16}}>
-          {[{l:"Sell As Standing",v:FMT(currentVal),desc:"Current market value. Clean exit — no planning or build risk.",tag:"Low risk · Immediate",c:"var(--cb)"},
-            {l:"Sell With Planning",v:FMT(Math.round(devRlv*.75)),desc:"Obtain consent then sell. You take planning risk, developer takes build risk. Typically 70-80% of development value.",tag:"Medium risk · 12-24 months",c:"#7B6CB0"},
-            {l:"Demolish & Develop",v:FMT(devRlv),desc:`Build ${newUnits} new units. Highest potential return — carries planning, build and market risk.`,tag:viable?"Viable — significant uplift":"Check viability",c:sc},
-          ].map(opt=>(
-            <div key={opt.l} style={{background:"#fff",border:"1px solid var(--border)",borderTop:`3px solid ${opt.c}`,borderRadius:8,padding:16}}>
-              <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",color:"var(--td)",marginBottom:6}}>{opt.l}</div>
-              <div style={{fontSize:22,fontWeight:800,color:"var(--cd)",marginBottom:8}}>{opt.v}</div>
-              <div style={{fontSize:11,color:"var(--td)",lineHeight:1.6,marginBottom:8}}>{opt.desc}</div>
-              <div style={{fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:4,background:`${opt.c}15`,color:opt.c,display:"inline-block"}}>{opt.tag}</div>
-            </div>
-          ))}
-        </div>
-        <div style={{border:`1px solid ${sc}`,borderRadius:8,padding:"16px 18px",background:`${sc}08`}}>
-          <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",color:sc,marginBottom:6}}>Development Uplift vs Selling As Standing</div>
-          <div style={{fontSize:26,fontWeight:800,color:sc,lineHeight:1,marginBottom:6}}>{uplift>=0?"+":""}{FMT(uplift)} ({uplift>=0?"+":""}{currentVal>0?((uplift/currentVal)*100).toFixed(1):0}%)</div>
-          <div style={{fontSize:12,color:"var(--tm)"}}>{viable?`Development adds ${FMT(uplift)} over current value — justifies planning and build risk.`:"Limited uplift — consider selling as-is or with planning permission only."}</div>
-        </div>
-      </div>}
-      <AIPanel label="⚡ Property & Development Analysis" prompt={`Analyse this property opportunity. Type: ${e.propType||"unknown"} at ${e.postcode||"postcode not given"}, ${propSqft}sqft, condition: ${e.condition||"average"}. Current value: £${currentVal.toLocaleString()}. Garden: ${gardenSqft}sqft (${e.aspect||"aspect unknown"}), premium: £${gVal.toLocaleString()}. Proposed: ${newUnits} new units. Dev RLV: £${devRlv.toLocaleString()}, uplift vs current: ${currentVal>0?((uplift/currentVal)*100).toFixed(1):0}%. Provide: 1) Current value sense check, 2) Development feasibility, 3) Planning risk for demolish and rebuild, 4) Best option recommendation, 5) What would change the recommendation.`} ctx={{propType:e.propType,postcode:e.postcode,propSqft,currentVal,gardenSqft,newUnits,newGdv,devRlv,uplift}}/>
-    </div>
-  );
-};
-
-// ── Land Valuation ──
-const LandValuation = ({data,setData}) => {
-  const up=(k,v)=>setData(d=>({...d,rlv:{...d.rlv,[k]:v}}));
-  const r=data.rlv||{};
-  const [lrRes,setLrRes]=useState(null); const [lrLoad,setLrLoad]=useState(false); const [lrErr,setLrErr]=useState(null);
-  const pcLookup = r.postcode ? lookupPostcode(r.postcode) : null;
-  const city = (pcLookup && pcLookup.city) || r.city || "manchester";
-  const m=MKT[city]||MKT.manchester;
-  const salePsf=N(r.salePsf)||(pcLookup && pcLookup.salePsf)||m.btr*8.5||280;
-  const schType=r.schType||"Residential houses";
-  const bc=BUILD[schType]||BUILD["Residential houses"];
-  const units=N(r.units); const avgSqft=N(r.avgSqft)||850;
-  const buildPsf=N(r.buildPsf)||bc.mid;
-  const profit=N(r.profitPct)||20; const finRate=N(r.finRate)||7.5;
-  const cont=N(r.contingency)||5; const s106Pu=N(r.s106pu)||8000;
-  const acres=N(r.acres);
-  const totalGia=units*avgSqft;
-  const gdv=totalGia*salePsf;
-  const buildCost=totalGia*buildPsf;
-  const fees=buildCost*bc.fees; const contCost=buildCost*cont/100;
-  const finCost=(buildCost+fees)*(finRate/100);
-  const planCost=units*bc.plan; const s106=units*s106Pu;
-  const devProfit=gdv*(profit/100);
-  const tc=buildCost+fees+contCost+finCost+planCost+s106;
-  const rlv=gdv-tc-devProfit;
-  const rlvPu=units>0?rlv/units:0; const rlvAcre=acres>0?rlv/acres:0;
-  const rlvPctGdv=gdv>0?(rlv/gdv)*100:0;
-  const sc=rlv>0?"#2D7A65":"#B05A35";
-
-  const fetchLR = async () => {
-    if (!r.postcode) return;
-    setLrLoad(true); setLrErr(null); setLrRes(null);
-    const pc = r.postcode.toUpperCase().replace(/\s/g,"");
-    const match = pc.match(/^([A-Z]{1,2}\d{1,2}[A-Z]?)\s*(\d)/);
-    if (!match) { setLrErr("Invalid postcode format"); setLrLoad(false); return; }
-    const sector = `${match[1]} ${match[2]}`;
-    const sparql = `PREFIX lrppi: <http://landregistry.data.gov.uk/def/ppi/>
-PREFIX lrcommon: <http://landregistry.data.gov.uk/def/common/>
-PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-SELECT ?paon ?street ?postcode ?amount ?date ?type WHERE {
-  ?addr lrcommon:postcode "${sector}"^^xsd:string .
-  ?t lrppi:propertyAddress ?addr ; lrppi:pricePaid ?amount ; lrppi:transactionDate ?date ; lrppi:propertyType ?typeUri .
-  OPTIONAL { ?addr lrcommon:paon ?paon } OPTIONAL { ?addr lrcommon:street ?street } OPTIONAL { ?addr lrcommon:postcode ?postcode }
-  BIND(STRAFTER(STR(?typeUri),"type/") AS ?type)
-} ORDER BY DESC(?date) LIMIT 30`;
-    try {
-      const res = await fetch(`https://landregistry.data.gov.uk/landregistry/query?query=${encodeURIComponent(sparql)}&output=json`,{headers:{"Accept":"application/json"}});
-      const json = await res.json();
-      const rows = (json && json.results && json.results.bindings || []).map(b=>({
-        addr:[b.(paon && paon.value),b.(street && street.value)].filter(Boolean).join(" "),
-        pc:b.(postcode && postcode.value)||pc, amount:parseInt(b.(amount && amount.value)||0),
-        date:(b.date && b.date.value ? b.date.value.substring(0,10) : ""), type:(b.type && b.type.value ? b.type.value.charAt(0) : "T")
-      })).filter(r=>r.amount>10000);
-      if(!rows.length){setLrErr(`No transactions found for ${sector}. Enter price manually.`);setLrLoad(false);return;}
-      const TYPE_SQF={D:1350,S:980,T:820,F:620,O:900};
-      const byType={};
-      rows.forEach(r=>{const tc=r.type.charAt(0).toUpperCase();if(!byType[tc])byType[tc]=[];byType[tc].push(r.amount);});
-      const typeStats=Object.entries(byType).map(([code,prices])=>{
-        const avg=prices.reduce((a,b)=>a+b,0)/prices.length;
-        const sqf=TYPE_SQF[code]||900;
-        return{code,label:{D:"Detached",S:"Semi-detached",T:"Terraced",F:"Flat",O:"Other"}[code]||"Other",avg:Math.round(avg),psf:Math.round(avg/sqf),count:prices.length};
-      }).sort((a,b)=>b.count-a.count);
-      const totalTx=rows.length;
-      const wPsf=Math.round(typeStats.reduce((a,t)=>a+t.psf*t.count,0)/totalTx);
-      setLrRes({sector,rows:rows.slice(0,10),typeStats,wPsf,totalTx});
-      if(wPsf>0&&!r.salePsf) up("salePsf",wPsf);
-    } catch(err) { setLrErr("Could not reach Land Registry. Enter price manually below."); }
-    setLrLoad(false);
-  };
-
-  return (
-    <div className="stage">
-      <div className="sh"><h2>Land Valuation Engine</h2><p>Live Land Registry data + residual land value calculation by postcode</p></div>
-      <div className="card"><div className="ct">Postcode Search — Land Registry Price Paid Data</div>
-        <div style={{display:"flex",gap:12,alignItems:"flex-end",marginBottom:16}}>
-          <div className="fg" style={{flex:2}}><label>Full Postcode (e.g. CV6 2DL)</label><input value={r.postcode||""} onChange={e=>up("postcode",e.target.value.toUpperCase())} onKeyDown={e=>e.key==="Enter"&&fetchLR()} placeholder="CV6 2DL" style={{textTransform:"uppercase"}}/></div>
-          <button className="ai-btn" onClick={fetchLR} disabled={lrLoad||!r.postcode} style={{flexShrink:0}}>{lrLoad?<><span className="spin"/>Searching LR...</>:"🔍 Search"}</button>
-        </div>
-        {pcLookup&&<div className="site-sum"><span>City identified: <strong>{city.replace(/_/g," ").replace(/\b\w/g,l=>l.toUpperCase())}</strong></span>{pcLookup.salePsf&&<><span>·</span><span>Local benchmark: <strong>£{pcLookup.salePsf}/sqft</strong></span></>}</div>}
-        {lrErr&&<div style={{background:"#FFF0EC",border:"1px solid #E8C4B0",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#8A3A1A",marginTop:8}}>{lrErr}</div>}
-        {lrRes&&<>
-          <div style={{textAlign:"center",padding:"18px",background:"linear-gradient(135deg,#EEEEF8,#E4E4F4)",borderRadius:10,margin:"12px 0"}}>
-            <div style={{fontSize:48,fontWeight:800,color:"var(--cb)",lineHeight:1}}>£{lrRes.wPsf.toLocaleString()}<span style={{fontSize:20,color:"var(--td)"}}>/sqft</span></div>
-            <div style={{fontSize:13,fontWeight:600,color:"var(--cd)",marginTop:6}}>Weighted average — {lrRes.totalTx} Land Registry transactions</div>
-            <div style={{fontSize:11,color:"var(--td)",marginTop:4}}>Sector: {lrRes.sector} · £/sqft inferred from BCIS property type benchmarks</div>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10,marginBottom:12}}>
-            {lrRes.typeStats.map(t=>(
-              <div key={t.code} style={{background:"#fff",border:"1px solid var(--border)",borderTop:"3px solid var(--cb)",borderRadius:8,padding:12}}>
-                <div style={{fontSize:10,fontWeight:700,color:"var(--td)",textTransform:"uppercase",marginBottom:6}}>{t.label}</div>
-                <div style={{fontSize:20,fontWeight:700,color:"var(--cd)"}}>{FMT(t.avg)}</div>
-                <div style={{fontSize:11,fontWeight:600,color:"var(--cb)"}}>£{t.psf}/sqft</div>
-                <div style={{fontSize:10,color:"var(--td)"}}>{t.count} sales</div>
-              </div>
-            ))}
-          </div>
-          <div style={{background:"#fff",border:"1px solid var(--border)",borderRadius:8,overflow:"hidden"}}>
-            <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",padding:"8px 12px",background:"var(--surface3)",fontSize:9,color:"var(--td)",textTransform:"uppercase",letterSpacing:".1em",fontWeight:700,borderBottom:"1px solid var(--border)"}}>
-              <span>Address</span><span>Postcode</span><span>Date</span><span>Price</span>
-            </div>
-            {lrRes.rows.map((t,i)=>(
-              <div key={i} style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",padding:"7px 12px",borderBottom:"1px solid var(--border)",fontSize:11,color:"var(--td)"}}>
-                <span style={{color:"var(--text)",fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.addr||"—"}</span>
-                <span style={{color:"var(--cb)",fontWeight:700}}>{t.pc}</span>
-                <span>{t.date}</span>
-                <span style={{fontWeight:600,color:"var(--text)"}}>{FMT(t.amount)}</span>
-              </div>
-            ))}
-          </div>
-          <div style={{fontSize:10,color:"var(--td)",fontStyle:"italic",padding:"8px 4px"}}>Source: HM Land Registry Price Paid Data (Open Government Licence)</div>
-        </>}
-      </div>
-      <div className="card"><div className="ct">Residual Land Valuation</div>
-        <div className="fg2">
-          <div className="fg"><label>Scheme Type</label>
-            <select value={r.schType||""} onChange={e=>up("schType",e.target.value)}>
-              <option value="">Select...</option>{Object.keys(BUILD).map(t=><option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-          <div className="fg"><label>Number of Units / Beds</label><input type="number" value={r.units||""} onChange={e=>up("units",e.target.value)} placeholder="e.g. 45"/></div>
-          <div className="fg"><label>Avg Unit Size (sqft)</label><input type="number" value={r.avgSqft||""} onChange={e=>up("avgSqft",e.target.value)} placeholder="850"/></div>
-          <div className="fg"><label>Sale Price psf (£) {(pcLookup && pcLookup.salePsf)?`— benchmark: £${pcLookup.salePsf}`:""}</label><input type="number" value={r.salePsf||""} onChange={e=>up("salePsf",e.target.value)} placeholder={`£${Math.round(salePsf)}`}/></div>
-          <div className="fg"><label>Build Cost psf — BCIS: £{bc.lo}–£{bc.hi}</label><input type="number" value={r.buildPsf||""} onChange={e=>up("buildPsf",e.target.value)} placeholder={`Mid: £${bc.mid}/sqft`}/></div>
-          <div className="fg"><label>Dev Profit % GDV</label><input type="number" value={r.profitPct||""} onChange={e=>up("profitPct",e.target.value)} placeholder="20"/></div>
-          <div className="fg"><label>Finance Rate %</label><input type="number" step="0.1" value={r.finRate||""} onChange={e=>up("finRate",e.target.value)} placeholder="7.5"/></div>
-          <div className="fg"><label>S106/CIL per Unit (£)</label><input type="number" value={r.s106pu||""} onChange={e=>up("s106pu",e.target.value)} placeholder="8000"/></div>
-          <div className="fg"><label>Site Area (acres)</label><input type="number" step="0.1" value={r.acres||""} onChange={e=>up("acres",e.target.value)} placeholder="e.g. 0.5"/></div>
-        </div>
-        {units>0&&gdv>0&&<>
-          <div className="ap-cols">
-            <div><div className="ap-t">GDV</div>
-              <div className="ap-row"><span>{units} units × {avgSqft} sqft × £{Math.round(salePsf)}/sqft</span><span>{FMT(gdv)}</span></div>
-              <div className="ap-row tot"><span>Gross Development Value</span><span>{FMT(gdv)}</span></div>
-            </div>
-            <div><div className="ap-t">DEDUCTIONS</div>
-              {[[`Build (${totalGia.toLocaleString()} sqft @ £${buildPsf}/sqft)`,buildCost],[`Fees (${(bc.fees*100).toFixed(0)}%)`,fees],[`Contingency (${cont}%)`,contCost],[`Finance (${finRate}%)`,finCost],["Planning",planCost],["S106/CIL",s106],[`Dev Profit (${profit}%)`,devProfit]].map(([l,v])=>(
-                <div key={l} className="ap-row"><span>{l}</span><span style={{color:"var(--td)"}}>({FMT(v)})</span></div>
-              ))}
-            </div>
-          </div>
-          <div className="rlv-result" style={{borderColor:sc,background:`${sc}08`}}>
-            <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",color:sc,marginBottom:6}}>Maximum Residual Land Value</div>
-            <div style={{fontSize:32,fontWeight:800,color:sc,lineHeight:1,marginBottom:8}}>{FMT(rlv)}</div>
-            <div style={{display:"flex",gap:16,fontSize:12,color:"var(--td)",flexWrap:"wrap"}}>
-              <span>{FMT(rlvPu)} per unit</span>{acres>0&&<span>{FMT(rlvAcre)} per acre</span>}
-              <span>Land: {PCT(rlvPctGdv)} of GDV</span>
-              <span style={{color:sc,fontWeight:700}}>{rlv>0&&rlvPctGdv>=15?"✓ Viable":"✗ Below 15% threshold"}</span>
-            </div>
-          </div>
-        </>}
-      </div>
-      <AIPanel label="⚡ RICS Land Valuation Report" prompt={`Professional residual land valuation. Postcode: ${r.postcode||"not given"}, scheme: ${r.schType||"residential"}, ${units} units. LR data: ${lrRes?`£${lrRes.wPsf}/sqft (${lrRes.totalTx} transactions)`:"not fetched"}. GDV: ${FMT(gdv)}, RLV: ${FMT(rlv)} (${PCT(rlvPctGdv)} of GDV). Provide: 1) RICS-style valuation summary, 2) Price per sqft validation for this postcode, 3) Negotiation strategy, 4) Key risks, 5) Planning uplift potential.`} ctx={{postcode:r.postcode,city,units,gdv,rlv,rlvPctGdv,salePsf,lrPsf:(lrRes && lrRes.wPsf)}}/>
-    </div>
-  );
-};
-
-// ── Due Diligence ──
-const DueDiligence = ({data,setData}) => {
-  const up=(k,v)=>setData(d=>({...d,dd:{...d.dd,[k]:v}}));
-  const dd=data.dd||{}; const checked=dd.checked||{};
-  const toggle=(cat,item)=>{const cur=checked[cat]||[];const next=cur.includes(item)?cur.filter(x=>x!==item):[...cur,item];up("checked",{...checked,[cat]:next});};
-  const total=Object.values(DD_ITEMS).flat().length;
-  const done=Object.values(checked).flat().length;
-  const pct=Math.round((done/total)*100);
-  const catC={Legal:"#8B9DC3",Technical:"#7FB3A0",Planning:"#9A7B3E",Commercial:"#B05A35"};
-  return (
-    <div className="stage">
-      <div className="sh"><h2>Due Diligence</h2><p>Structured checklist across legal, technical, planning and commercial</p></div>
-      <div className="card">
-        <div style={{display:"flex",alignItems:"center",gap:16}}>
-          <div style={{fontFamily:"DM Sans,sans-serif",fontSize:48,fontWeight:800,color:pct>=80?"#2D7A65":pct>=50?"#9A7B3E":"#B05A35",lineHeight:1,minWidth:80}}>{pct}%</div>
-          <div style={{flex:1}}><div style={{height:8,background:"var(--border)",borderRadius:4,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:pct>=80?"#2D7A65":pct>=50?"#9A7B3E":"#B05A35",borderRadius:4,transition:"width .4s"}}/></div><div style={{fontSize:12,color:"var(--td)",marginTop:6}}>{done} of {total} items confirmed</div></div>
-        </div>
-      </div>
-      {Object.entries(DD_ITEMS).map(([cat,items])=>{
-        const catDone=checked[cat]||[];
-        return (<div key={cat} className="card">
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}} className="ct"><span>{cat} Due Diligence</span><span style={{color:catC[cat],fontSize:12}}>{catDone.length}/{items.length}</span></div>
-          <div style={{display:"flex",flexDirection:"column",gap:6}}>
-            {items.map(item=>(
-              <label key={item} onClick={()=>toggle(cat,item)} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:6,cursor:"pointer",border:`1px solid ${catDone.includes(item)?catC[cat]:"transparent"}`,background:catDone.includes(item)?"var(--surface3)":"transparent",fontSize:12,color:catDone.includes(item)?"var(--text)":"var(--td)",transition:"all .12s"}}>
-                <div style={{width:16,height:16,borderRadius:3,border:`1px solid ${catDone.includes(item)?catC[cat]:"var(--border)"}`,background:catDone.includes(item)?catC[cat]:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:10,color:"#fff"}}>{catDone.includes(item)&&"✓"}</div>
-                {item}
-              </label>
-            ))}
-          </div>
-        </div>);
-      })}
-      <AIPanel label="⚡ DD Gap Analysis" prompt={`DD gap analysis. ${done}/${total} complete. Missing: ${Object.entries(DD_ITEMS).flatMap(([cat,items])=>items.filter(i=>!(checked[cat]||[]).includes(i)).map(i=>`${cat}: ${i}`)).join(", ")||"None"}. Provide: 1) Critical pre-exchange items, 2) Items to defer with protections, 3) Missing items, 4) Timeline to clear.`} ctx={{done,total,pct,checked}}/>
-    </div>
-  );
-};
-
-// ── Risk Register ──
-const RiskRegister = ({data,setData}) => {
-  const [risks,setRisks]=useState(data.(risks && risks.items)||RISK_DEFAULTS);
-  useEffect(()=>setData(d=>({...d,risks:{items:risks}})),[risks]);
-  const RC={red:"#B05A35",amber:"#9A7B3E",green:"#2D7A65"};
-  const counts={red:risks.filter(r=>r.rag==="red").length,amber:risks.filter(r=>r.rag==="amber").length,green:risks.filter(r=>r.rag==="green").length};
-  return (
-    <div className="stage">
-      <div className="sh"><h2>Risk Register</h2><p>Live RAG-rated risk tracking with mitigation strategies</p></div>
-      <div style={{display:"flex",gap:12,marginBottom:4}}>
-        {Object.entries(counts).map(([rag,count])=>(
-          <div key={rag} style={{flex:1,background:"var(--surface2)",border:`1px solid ${RC[rag]}`,borderRadius:8,padding:"14px 16px",textAlign:"center"}}>
-            <div style={{fontFamily:"DM Sans,sans-serif",fontSize:32,fontWeight:800,color:RC[rag],lineHeight:1}}>{count}</div>
-            <div style={{fontSize:10,color:"var(--td)",textTransform:"uppercase",letterSpacing:".1em",marginTop:4}}>{rag.charAt(0).toUpperCase()+rag.slice(1)}</div>
-          </div>
-        ))}
-      </div>
-      <div className="card">
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}} className="ct">
-          <span>Risk Register</span>
-          <button className="ai-btn" style={{padding:"4px 12px",fontSize:11}} onClick={()=>setRisks(r=>[...r,{id:Date.now(),cat:"Other",desc:"New risk",rag:"amber",mit:""}])}>+ Add Risk</button>
-        </div>
-        {risks.map(r=>(
-          <div key={r.id} style={{display:"grid",gridTemplateColumns:"40px 100px 1fr 80px 1fr",gap:10,padding:"9px 0",borderBottom:"1px solid var(--border)",alignItems:"start",fontSize:11}}>
-            <div style={{width:10,height:10,borderRadius:"50%",background:RC[r.rag],marginTop:2}}/>
-            <span style={{fontWeight:600,color:"var(--tm)"}}>{r.cat}</span>
-            <span style={{color:"var(--text)"}}>{r.desc}</span>
-            <select value={r.rag} onChange={e=>setRisks(rs=>rs.map(x=>x.id===r.id?{...x,rag:e.target.value}:x))} style={{padding:"3px 6px",fontSize:11}}>
-              <option value="red">Red</option><option value="amber">Amber</option><option value="green">Green</option>
-            </select>
-            <span style={{color:"var(--td)"}}>{r.mit}</span>
-          </div>
-        ))}
-      </div>
-      <AIPanel label="⚡ Risk Assessment" prompt={`Risk assessment. Red: ${risks.filter(r=>r.rag==="red").map(r=>r.desc).join(", ")||"None"}. Amber: ${risks.filter(r=>r.rag==="amber").map(r=>r.desc).join(", ")||"None"}. Provide: 1) Priority ranking, 2) Red risk mitigation, 3) Missing risks, 4) Risk-adjusted return recommendation.`} ctx={{risks}}/>
-    </div>
-  );
-};
-
-// ── Investment Exit ──
-const Exit = ({data,setData}) => {
-  const up=(k,v)=>setData(d=>({...d,exit:{...d.exit,[k]:v}}));
-  const e=data.exit||{}; const at=data.assetType||"btr";
-  const city=data.(land && land.city)||"manchester"; const m=MKT[city]||MKT.manchester;
-  const p=data.planning||{}; const f=data.fin||{};
-  const units=N(p.units);
-  const ru=at==="pbsa"?N(f.rent)||m.pbsa:N(f.rent)||m.btr;
-  const gr=at==="pbsa"?units*ru*52:units*ru*12;
-  const noi=gr*.95-.12*gr*.95;
-  const ey=N(e.exitYield)/100||m.yield;
-  const gdv=noi/ey;
-  const gdvM=gdv/1e6;
-  const buyers=BUYERS[at].filter(b=>gdvM>=b.minM*.7);
-  const [hot,setHot]=useState(""); const [hotL,setHotL]=useState(false);
-  const [memo,setMemo]=useState(""); const [memoL,setMemoL]=useState(false);
-  const genHoT=async()=>{setHotL(true);try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","anthropic-dangerous-direct-browser-access":"true",},body:JSON.stringify({action:"ai",model:"claude-sonnet-4-20250514",max_tokens:900,system:SYSTEM_PROMPT,messages:[{role:"user",content:`Generate professional Heads of Terms for ${at.toUpperCase()} asset. ${units} units in ${city}, GDV ${FMT(gdv)}, NOI ${FMT(noi)} pa, yield ${(ey*100).toFixed(2)}%, investor: ${e.investorType||"institutional fund"}. Number each HoT clause: purchase price, yield, payment milestones, practical completion, management, conditions precedent, break clauses, long stop date, warranties.`}]})});const d=await r.json();setHot((d.content && d.content.find(b=>b.type==="text") ? d.content.find(b=>b.type==="text").text : null)||"");} catch{setHot("Failed.");} setHotL(false);};
-  const genMemo=async()=>{setMemoL(true);try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","anthropic-dangerous-direct-browser-access":"true",},body:JSON.stringify({action:"ai",model:"claude-sonnet-4-20250514",max_tokens:900,system:SYSTEM_PROMPT,messages:[{role:"user",content:`Write an investment memorandum executive summary for institutional investors. ${at.toUpperCase()} asset, ${units} units in ${city}. GDV ${FMT(gdv)}, NOI ${FMT(noi)} pa, yield ${(ey*100).toFixed(2)}%. Include: investment thesis, asset overview, market context, financial summary, risk factors, exit thesis. Professional tone, ~400 words.`}]})});const d=await r.json();setMemo((d.content && d.content.find(b=>b.type==="text") ? d.content.find(b=>b.type==="text").text : null)||"");} catch{setMemo("Failed.");} setMemoL(false);};
-  return (
-    <div className="stage">
-      <div className="sh"><h2>Investment Exit</h2><p>Exit strategy, investor targeting, Heads of Terms and Investment Memorandum</p></div>
-      <div className="card"><div className="ct">Exit Parameters</div>
-        <div className="fg2">
-          <div className="fg"><label>Exit Strategy</label>
-            <select value={e.strategy||""} onChange={ev=>up("strategy",ev.target.value)}>
-              <option value="">Select...</option><option value="forward_fund">Forward Fund — pre-construction</option>
-              <option value="forward_sale">Forward Sale — post-consent</option><option value="stabilised">Stabilised Sale — post-occupancy</option>
-              <option value="retain">Retain & Refinance</option>
-            </select>
-          </div>
-          <div className="fg"><label>Target Exit Yield (%)</label><input type="number" step="0.05" value={e.exitYield||""} onChange={ev=>up("exitYield",ev.target.value)} placeholder={`Market: ${(m.yield*100).toFixed(2)}%`}/></div>
-          <div className="fg"><label>Target Investor Type</label>
-            <select value={e.investorType||""} onChange={ev=>up("investorType",ev.target.value)}>
-              <option value="">Select...</option><option value="pension_fund">UK Pension Fund</option><option value="sovereign_wealth">Sovereign Wealth</option>
-              <option value="reit">Listed REIT</option><option value="private_equity">Private Equity</option>
-              <option value="asset_manager">Specialist Asset Manager</option><option value="family_office">Family Office</option>
-            </select>
-          </div>
-          <div className="fg"><label>Transaction Agent</label><input value={e.agent||""} onChange={ev=>up("agent",ev.target.value)} placeholder="e.g. CBRE, JLL, Savills"/></div>
-        </div>
-        {units>0&&<div className="bench-row" style={{marginTop:8}}>
-          {[{l:"GDV",v:FMT(gdv)},{l:"NOI (pa)",v:FMT(noi)},{l:"Exit Yield",v:PCT(ey*100)},{l:`Price/${at==="pbsa"?"Bed":"Unit"}`,v:units>0?FMT(gdv/units):"—"}].map(({l,v})=>(
-            <div key={l} className="bench-card"><div className="bl">{l}</div><div className="bv">{v}</div></div>
-          ))}
-        </div>}
-      </div>
-      <div className="card"><div className="ct">Active Institutional Buyers — {at.toUpperCase()}</div>
-        <div style={{overflowX:"auto"}}>
-          <div style={{display:"grid",gridTemplateColumns:"1.5fr 70px 80px 70px 70px",padding:"8px 12px",background:"var(--surface3)",fontSize:9,color:"var(--td)",textTransform:"uppercase",letterSpacing:".1em",fontWeight:700,borderBottom:"1px solid var(--border)",borderRadius:"6px 6px 0 0"}}>
-            <span>Investor</span><span>Type</span><span>Focus</span><span>Min Lot</span><span>Status</span>
-          </div>
-          {buyers.map(b=>(
-            <div key={b.name} style={{display:"grid",gridTemplateColumns:"1.5fr 70px 80px 70px 70px",padding:"8px 12px",borderBottom:"1px solid var(--border)",fontSize:11,color:"var(--td)",alignItems:"center"}}>
-              <span style={{fontWeight:600,color:"var(--text)"}}>{b.name}</span>
-              <span style={{fontSize:10,fontWeight:700,color:"var(--cb)"}}>{b.type}</span>
-              <span>{b.status}</span>
-              <span>£{b.minM}m+</span>
-              <span style={{fontSize:10,fontWeight:700,padding:"2px 6px",borderRadius:3,background:b.status==="Active"?"rgba(45,122,101,0.12)":"rgba(154,123,62,0.12)",color:b.status==="Active"?"#2D7A65":"#9A7B3E"}}>{b.status}</span>
-            </div>
-          ))}
-          {buyers.length===0&&<div style={{padding:"14px 12px",fontSize:12,color:"var(--td)"}}>Enter deal data to match against active buyers</div>}
-        </div>
-      </div>
-      <div className="card"><div className="ct">Heads of Terms Generator</div>
-        <p style={{fontSize:12,color:"var(--td)",marginBottom:12}}>Generate market-standard HoTs from your deal data.</p>
-        <button className="ai-btn" onClick={genHoT} disabled={hotL}>{hotL?<><span className="spin"/>Generating...</>:"📄 Generate Heads of Terms"}</button>
-        {hot&&<div className="ai-box" style={{marginTop:12}}><pre className="ai-txt">{hot}</pre></div>}
-      </div>
-      <div className="card"><div className="ct">Investment Memorandum</div>
-        <p style={{fontSize:12,color:"var(--td)",marginBottom:12}}>Generate an institutional-grade IM executive summary.</p>
-        <button className="ai-btn" onClick={genMemo} disabled={memoL}>{memoL?<><span className="spin"/>Writing...</>:"📋 Generate Investment Memo"}</button>
-        {memo&&<div className="ai-box" style={{marginTop:12}}><pre className="ai-txt">{memo}</pre></div>}
-      </div>
-      <AIPanel label="⚡ Exit Strategy Analysis" prompt={`Exit strategy for ${at.toUpperCase()} in ${city}. Strategy: ${e.strategy||"not set"}, GDV ${FMT(gdv)}, investor: ${e.investorType||"not set"}. Provide: 1) Optimal exit route and timing, 2) Top 5 buyers to approach, 3) Investor DD requirements, 4) Key negotiation points, 5) Risk factors that could compress pricing.`} ctx={{...e,gdv,noi,units,city,at}}/>
-    </div>
-  );
-};
-
-// ─── MAIN APP ─────────────────────────────────────────────────────────────────
-const STAGES = [
-  {id:"dashboard",  label:"Deal Dashboard",        icon:"◈", group:"Overview"},
-  {id:"scraper",    label:"Land Opportunity Finder",icon:"🔍", group:"Overview"},
-  {id:"sfh",        label:"Single Family Housing",  icon:"🏡", group:"Appraisal Tools"},
-  {id:"hra",        label:"High-Rise Apartments",   icon:"🏢", group:"Appraisal Tools"},
-  {id:"epe",        label:"Property Evaluator",     icon:"🏠", group:"Appraisal Tools"},
-  {id:"rlv",        label:"Land Valuation",         icon:"◆", group:"Appraisal Tools"},
-  {id:"land",       label:"Land Appraisal",         icon:"⬟", group:"Development"},
-  {id:"planning",   label:"Planning & Viability",   icon:"▲", group:"Development"},
-  {id:"fin",        label:"Financial Modelling",    icon:"◉", group:"Development"},
-  {id:"dd",         label:"Due Diligence",          icon:"◈", group:"Asset Management"},
-  {id:"risks",      label:"Risk Register",          icon:"⬡", group:"Asset Management"},
-  {id:"exit",       label:"Investment Exit",        icon:"◆", group:"Asset Management"},
-];
-const COMPS = {dashboard:Dashboard,scraper:LandScraper,sfh:SFH,hra:HighRise,epe:PropertyEval,rlv:LandValuation,land:LandAppraisal,planning:Planning,fin:FinancialModelling,dd:DueDiligence,risks:RiskRegister,exit:Exit};
-
-function App({ currentUser, data: initialData, setData: saveDeal }) {
-  const [active,setActive]=useState("dashboard");
-  const [data,setDataLocal]=useState(initialData||{assetType:"btr"});
-  
-  const setData = (updater) => {
-    setDataLocal(prev => {
-      const next = typeof updater === "function" ? updater(prev) : updater;
-      if (saveDeal) saveDeal(next);
+  var city = (data.land && data.land.city) || "manchester";
+  var m = MKT[city] || MKT.manchester;
+  var up = function(section, key, val) {
+    setData(function(d) {
+      var sec = Object.assign({}, d[section] || {});
+      sec[key] = val;
+      var next = Object.assign({}, d);
+      next[section] = sec;
       return next;
     });
   };
 
-  React.useEffect(() => {
-    if (initialData && initialData.id && data && initialData.id !== data.id) {
-      setDataLocal(initialData);
-      setActive("dashboard");
+  async function runAI(prompt, ctx) {
+    setAiLoad(true); setAiRes("");
+    try {
+      var result = await callAI(user, stage, prompt, ctx);
+      setAiRes(result);
+      logEvent(user, "AI_RESULT", {stage:stage, result:result.substring(0,200)});
+    } catch(e) {
+      setAiRes("Analysis failed — please try again");
     }
-  }, [initialData && initialData.id]);
-  const idx=STAGES.findIndex(s=>s.id===active);
-  const Comp=COMPS[active];
-  const groups=[...new Set(STAGES.map(s=>s.group))];
+    setAiLoad(false);
+  }
 
-  return (
-    <>
-    <style>{`
-      *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-      :root{--bg:#F4F5F9;--surface:#fff;--surface2:#F7F8FC;--surface3:#ECEEF5;--border:#DDE0ED;--border2:#C8CDE0;
-        --cb:#4A4BAE;--cd:#2E2F8A;--cy:#EDE84A;--text:#1A1A3E;--tm:#3A3D6A;--td:#7278A0;--sw:248px;--hh:58px}
-      body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;line-height:1.6;overflow-x:hidden}
-      .app{display:flex;min-height:100vh}
-      .sidebar{width:var(--sw);background:#1E1F5C;border-right:none;display:flex;flex-direction:column;position:fixed;left:0;top:0;bottom:0;z-index:200;overflow-y:auto}
-      .s-logo{padding:16px 16px 12px;border-bottom:1px solid rgba(255,255,255,0.1)}
-      .asset-toggle{display:flex;gap:6px;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.08)}
-      .at-btn{flex:1;padding:5px 0;border:1px solid rgba(255,255,255,0.2);background:transparent;color:rgba(255,255,255,0.5);border-radius:4px;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:.12em;cursor:pointer;text-transform:uppercase;transition:all .15s}
-      .at-btn.active{background:var(--cy);border-color:var(--cy);color:#1E1F5C}
-      .s-nav{flex:1;padding:6px 0}
-      .sg-label{font-size:9px;color:rgba(255,255,255,0.3);letter-spacing:.18em;text-transform:uppercase;padding:12px 16px 3px;font-weight:700}
-      .nav-item{display:flex;align-items:center;gap:9px;padding:8px 16px;cursor:pointer;transition:all .12s;border-left:3px solid transparent}
-      .nav-item:hover{background:rgba(255,255,255,0.06)}
-      .nav-item.active{background:rgba(237,232,74,0.12);border-left-color:var(--cy)}
-      .nav-item.active .nav-label{color:#fff}
-      .nav-item.active .nav-num{color:var(--cy)}
-      .nav-icon{font-size:10px;color:rgba(255,255,255,0.3);width:14px;text-align:center;flex-shrink:0}
-      .nav-num{font-size:9px;color:rgba(255,255,255,0.28);font-weight:700;width:14px;flex-shrink:0}
-      .nav-label{font-size:12px;color:rgba(255,255,255,0.5)}
-      .main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column;min-height:100vh}
-      .topbar{height:var(--hh);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:12px;position:sticky;top:0;background:var(--surface);z-index:100;box-shadow:0 1px 3px rgba(46,47,138,0.08)}
-      .tb-title{font-size:15px;font-weight:700;color:var(--cd)}
-      .tb-right{margin-left:auto;font-size:11px;color:var(--td)}
-      .tb-right span{color:var(--cb);font-weight:600}
-      .prog-bar{height:3px;background:var(--border)}
-      .prog-fill{height:100%;background:linear-gradient(90deg,var(--cb),var(--cy));transition:width .4s}
-      .content{flex:1;padding:28px 32px;max-width:960px;width:100%}
-      .stage{display:flex;flex-direction:column;gap:20px}
-      .sh h2{font-size:24px;font-weight:800;color:var(--cd);line-height:1;margin-bottom:4px}
-      .sh p{font-size:12px;color:var(--td)}
-      .card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:18px 20px;display:flex;flex-direction:column;gap:14px}
-      .ct{font-size:10px;color:var(--cb);text-transform:uppercase;letter-spacing:.14em;font-weight:700;padding-bottom:12px;border-bottom:1px solid var(--border)}
-      .fg2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-      .fg{display:flex;flex-direction:column;gap:4px}
-      .fg label{font-size:10px;color:var(--td);text-transform:uppercase;letter-spacing:.1em;font-weight:600}
-      input,select{background:#fff;border:1px solid var(--border2);color:var(--text);padding:8px 11px;border-radius:6px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;transition:border-color .15s;width:100%;-webkit-appearance:none;box-shadow:0 1px 2px rgba(46,47,138,0.04)}
-      input:focus,select:focus{border-color:var(--cb);box-shadow:0 0 0 3px rgba(74,75,174,0.1)}
-      input::placeholder{color:#A0A4C0}
-      select option{background:#fff;color:var(--text)}
-      .score-row{display:flex;align-items:center;gap:16px;padding-top:14px;border-top:1px solid var(--border)}
-      .score-orb{width:64px;height:64px;border-radius:50%;border:2px solid;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0}
-      .score-n{font-size:22px;font-weight:800;line-height:1}
-      .score-d{font-size:9px;color:var(--td);margin-top:-2px}
-      .score-info{flex:1}
-      .score-bar-w{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:6px}
-      .score-bar-f{height:100%;border-radius:2px;transition:width .5s}
-      .bench-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-      .bench-card{background:#fff;border:1px solid var(--border);border-radius:8px;padding:13px}
-      .bl{font-size:9px;color:var(--td);text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px}
-      .bv{font-size:20px;font-weight:700;color:var(--cb);line-height:1;margin-bottom:3px}
-      .bs{font-size:10px;color:var(--td)}
-      .check-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;background:var(--surface3);border:1px solid var(--border);margin-bottom:6px}
-      .check-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-      .check-dot.pass{background:#2D7A65}.check-dot.pending{background:#9A7B3E}.check-dot.review{background:var(--cb)}.check-dot.na{background:var(--td)}
-      .check-l{flex:1;font-size:12px;color:var(--tm)}
-      .check-s{font-size:10px;font-weight:700}
-      .check-s.pass{color:#2D7A65}.check-s.pending{color:#9A7B3E}.check-s.review{color:var(--cb)}.check-s.na{color:var(--td)}
-      .ap-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px}
-      .ap-t{font-size:9px;color:var(--cb);text-transform:uppercase;letter-spacing:.14em;font-weight:700;margin-bottom:10px}
-      .ap-row{display:flex;justify-content:space-between;font-size:12px;color:var(--td);padding:4px 0;border-bottom:1px solid rgba(0,0,0,0.03)}
-      .ap-row.tot{font-weight:700;color:var(--text);border-top:1px solid var(--border);border-bottom:none;padding-top:8px;margin-top:5px}
-      .ret-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
-      .ret-card{background:var(--surface3);border:1px solid var(--border);border-radius:7px;padding:12px;transition:border-color .2s}
-      .ret-l{font-size:9px;color:var(--td);text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px}
-      .ret-v{font-size:18px;font-weight:700}
-      .viab{padding:10px 14px;border-radius:6px;font-size:12px;font-weight:700}
-      .viab-y{background:rgba(45,122,101,0.08);color:#2D7A65;border:1px solid rgba(45,122,101,0.25)}
-      .viab-n{background:rgba(176,90,53,0.08);color:#B05A35;border:1px solid rgba(176,90,53,0.25)}
-      .scen-t{border:1px solid var(--border);border-radius:8px;overflow:hidden}
-      .scen-h,.scen-r{display:grid;grid-template-columns:100px 1fr 1fr 100px;padding:8px 14px;font-size:12px;gap:8px;align-items:center}
-      .scen-h{background:var(--surface3);font-size:9px;color:var(--td);text-transform:uppercase;letter-spacing:.1em;font-weight:700;border-bottom:1px solid var(--border)}
-      .scen-r{color:var(--td);border-bottom:1px solid rgba(0,0,0,0.03)}
-      .site-sum{display:flex;gap:10px;align-items:center;background:linear-gradient(135deg,#EEEEF8,#E4E4F4);border-radius:7px;padding:10px 14px;font-size:12px;color:var(--tm)}
-      .site-sum strong{color:var(--cd);font-weight:700}
-      .sfh-t{border:1px solid var(--border);border-radius:8px;overflow:hidden}
-      .sfh-h{display:grid;grid-template-columns:1.8fr 70px 70px 80px 90px 100px;padding:8px 12px;background:var(--surface3);font-size:9px;color:var(--td);text-transform:uppercase;letter-spacing:.1em;font-weight:700;border-bottom:1px solid var(--border);gap:8px;align-items:center}
-      .sfh-r{display:grid;grid-template-columns:1.8fr 70px 70px 80px 90px 100px;padding:8px 12px;gap:8px;align-items:center;background:#fff;border-bottom:1px solid var(--border)}
-      .sfh-tot{display:grid;grid-template-columns:1.8fr 70px 70px 80px 90px 100px;padding:10px 12px;gap:8px;align-items:center;background:var(--surface3);border-top:2px solid var(--border);font-size:12px;font-weight:700;color:var(--cd)}
-      .add-row-btn{align-self:flex-start;padding:5px 12px;background:var(--surface3);border:1px solid var(--border);color:var(--td);border-radius:4px;font-size:11px;cursor:pointer;margin-top:4px}
-      .add-row-btn:hover{border-color:var(--cb);color:var(--cb)}
-      .rlv-result{padding:16px 18px;border-radius:8px;border:2px solid;margin-top:4px}
-      .dash-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}
-      .dash-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px}
-      .dc-l{font-size:9px;color:var(--td);text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px}
-      .dc-v{font-size:20px;font-weight:700;color:var(--text)}
-      .qa-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-      .qa-btn{padding:10px;background:#fff;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;color:var(--tm);cursor:pointer;text-align:center;transition:all .15s}
-      .qa-btn:hover{border-color:var(--cb);color:var(--cb);background:var(--surface3)}
-      .ai-wrap{display:flex;flex-direction:column;gap:12px}
-      .ai-btn{align-self:flex-start;display:flex;align-items:center;gap:7px;padding:9px 18px;background:rgba(74,75,174,0.08);border:1px solid var(--cb);color:var(--cb);border-radius:6px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.06em;transition:all .15s}
-      .ai-btn:hover{background:rgba(74,75,174,0.15)}.ai-btn:disabled{opacity:.5;cursor:not-allowed}
-      .ai-box{background:#F8F8FE;border:1px solid var(--border);border-left:3px solid var(--cb);border-radius:8px;padding:16px 20px}
-      .ai-txt{font-size:12px;line-height:1.8;color:var(--tm);white-space:pre-wrap;font-family:'DM Sans',sans-serif}
-      .ai-load{display:flex;align-items:center;gap:10px;color:var(--td);font-size:12px}
-      .spin{width:13px;height:13px;border-radius:50%;border:2px solid var(--cb);border-top-color:transparent;animation:spin .7s linear infinite;display:inline-block;flex-shrink:0}
-      @keyframes spin{to{transform:rotate(360deg)}}
-      .footer{padding:20px 32px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--surface)}
-      .fn-btn{padding:8px 18px;border-radius:6px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;letter-spacing:.04em}
-      .fn-btn.prev{background:transparent;border:1px solid var(--border);color:var(--td)}
-      .fn-btn.prev:hover{border-color:var(--cb);color:var(--cb)}
-      .fn-btn.next{background:var(--cb);border:1px solid var(--cb);color:#fff}
-      .fn-btn.next:hover{background:var(--cd)}.fn-btn:disabled{opacity:.3;cursor:not-allowed}
-      @media(max-width:768px){.sidebar{transform:translateX(-100%)}.main{margin-left:0}.content{padding:16px 14px}.fg2{grid-template-columns:1fr}.bench-row,.ret-grid,.dash-grid,.qa-grid{grid-template-columns:1fr 1fr}.ap-cols{grid-template-columns:1fr}.sfh-h,.sfh-r,.sfh-tot{grid-template-columns:1.5fr 60px 80px}}
-    `}</style>
-    <div className="app">
-      <aside className="sidebar">
-        <div className="s-logo">
-          <img src={`data:image/webp;base64,${CASSIDY_LOGO}`} alt="Cassidy Group" style={{width:120,height:"auto",display:"block",margin:"0 auto 6px",filter:"drop-shadow(0 1px 4px rgba(0,0,0,0.25))"}}/>
-          <div style={{textAlign:"center",fontSize:9,color:"rgba(255,255,255,0.35)",letterSpacing:".18em",textTransform:"uppercase"}}>Land & Development Intelligence</div>
-        </div>
-        <div className="asset-toggle">
-          <button className={`at-btn ${data.assetType==="btr"?"active":""}`} onClick={()=>setData(d=>({...d,assetType:"btr"}))}>BTR</button>
-          <button className={`at-btn ${data.assetType==="pbsa"?"active":""}`} onClick={()=>setData(d=>({...d,assetType:"pbsa"}))}>PBSA</button>
-        </div>
-        <nav className="s-nav">
-          {groups.map(g=>(
-            <div key={g}>
-              <div className="sg-label">{g}</div>
-              {STAGES.filter(s=>s.group===g).map((s,i,arr)=>{
-                const globalIdx=STAGES.findIndex(x=>x.id===s.id);
-                return (
-                  <div key={s.id} className={`nav-item ${active===s.id?"active":""}`} onClick={()=>{ setActive(s.id); if(ACCESS_CONFIG._currentUser) logPageView(ACCESS_CONFIG._currentUser, s.label); }}>
-                    <span className="nav-num">{String(globalIdx).padStart(2,"0")}</span>
-                    <span className="nav-icon">{s.icon}</span>
-                    <span className="nav-label">{s.label}</span>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-        </nav>
-      </aside>
-      <main className="main">
-        <div className="topbar">
-          <div className="tb-title">{(data.land && data.land.address)||"New Deal"}</div>
-          <div className="tb-right"><span>{data.(assetType && assetType.toUpperCase)()}</span> · {(STAGES[idx] && STAGES[idx].label)}</div>
-        </div>
-        <div className="prog-bar"><div className="prog-fill" style={{width:`${((idx+1)/STAGES.length)*100}%`}}/></div>
-        <div className="content">{Comp&&<Comp data={data} setData={setData} setActive={setActive}/>}</div>
-        <div className="footer">
-          <button className="fn-btn prev" disabled={idx===0} onClick={()=>setActive(STAGES[idx-1].id)}>← Previous</button>
-          <div style={{fontSize:11,color:"var(--td)"}}><strong style={{color:"var(--cd)"}}>{(STAGES[idx] && STAGES[idx].label)}</strong> · {idx+1} of {STAGES.length}</div>
-          <button className="fn-btn next" disabled={idx===STAGES.length-1} onClick={()=>setActive(STAGES[idx+1].id)}>Next →</button>
-        </div>
-      </main>
-    </div>
-    </>
+  var STAGES = [
+    {id:"dashboard", label:"Deal Dashboard", icon:"◈"},
+    {id:"land", label:"Land Appraisal", icon:"⬟"},
+    {id:"rlv", label:"Land Valuation", icon:"◆"},
+    {id:"sfh", label:"Single Family Housing", icon:"🏡"},
+    {id:"planning", label:"Planning & Viability", icon:"▲"},
+    {id:"fin", label:"Financial Modelling", icon:"◉"},
+    {id:"dd", label:"Due Diligence", icon:"◈"},
+    {id:"exit", label:"Investment Exit", icon:"◆"},
+  ];
+
+  // Computed financials
+  var units = num((data.planning && data.planning.units) || 0);
+  var acres = num((data.land && data.land.acres) || 0);
+  var gia = acres * 43560 * 0.65;
+  var buildPsf = num((data.fin && data.fin.buildPsf) || m.build);
+  var bc = gia * buildPsf;
+  var lc = num((data.land && data.land.price) || 0);
+  var rent = num((data.fin && data.fin.rent) || m.btr);
+  var at = data.assetType || "btr";
+  var gr = at === "pbsa" ? units * rent * 52 : units * rent * 12;
+  var noi = gr * 0.95 - gr * 0.95 * 0.12;
+  var ey = num((data.fin && data.fin.exitYield) || m.yield * 100) / 100 || m.yield;
+  var gdv = ey > 0 ? noi / ey : 0;
+  var tc = bc + lc + (data.planning && data.planning.s106 ? num(data.planning.s106) : 0) + bc * 0.12 + bc * 0.05 + (bc + lc) * 0.075;
+  var profit = gdv - tc;
+  var margin = gdv > 0 ? (profit / gdv) * 100 : 0;
+
+  function renderStage() {
+    var l = data.land || {};
+    var p = data.planning || {};
+    var f = data.fin || {};
+    var r = data.rlv || {};
+
+    if (stage === "dashboard") {
+      var cards = [
+        {l:"GDV", v:fmt(gdv)},
+        {l:"Total Dev Cost", v:fmt(tc)},
+        {l:"Profit", v:fmt(profit), c:margin >= 15 ? "#2D7A65" : "#B05A35"},
+        {l:"Margin", v:margin ? margin.toFixed(1)+"%" : "—", c:margin >= 15 ? "#2D7A65" : "#B05A35"},
+        {l:"NOI (pa)", v:fmt(noi)},
+        {l:"Exit Yield", v:ey ? (ey*100).toFixed(2)+"%" : "—"},
+        {l:"Units / Beds", v:units || "—"},
+        {l:"City", v:city.replace(/_/g," ").charAt(0).toUpperCase()+city.replace(/_/g," ").slice(1)},
+      ];
+      return React.createElement("div", {style:{display:"flex",flexDirection:"column",gap:20}},
+        React.createElement("div", {style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}},
+          cards.map(function(card) {
+            return React.createElement("div", {key:card.l,style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:16}},
+              React.createElement("div", {style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",marginBottom:6}}, card.l),
+              React.createElement("div", {style:{fontSize:22,fontWeight:700,color:card.c||"#2E2F8A"}}, card.v)
+            );
+          })
+        ),
+        React.createElement("div", {style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:18}},
+          React.createElement("div", {style:{fontSize:10,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,marginBottom:14,paddingBottom:12,borderBottom:"1px solid #DDE0ED"}}, "Quick Navigation"),
+          React.createElement("div", {style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}},
+            STAGES.slice(1).map(function(s) {
+              return React.createElement("button", {key:s.id,onClick:function(){setStage(s.id);},style:{padding:"10px 8px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:7,fontFamily:"DM Sans,sans-serif",fontSize:12,fontWeight:500,color:"#3A3D6A",cursor:"pointer",textAlign:"center"}}, s.icon+" "+s.label);
+            })
+          )
+        ),
+        aiPanel("Deal Summary", "Provide a deal summary with investment thesis, key strengths, risks and next steps. Rate 1-10.", {gdv:gdv,tc:tc,profit:profit,margin:margin,city:city,units:units})
+      );
+    }
+
+    if (stage === "land") {
+      return card("Land Appraisal", [
+        field2("Site Address", "text", l.address, function(v){up("land","address",v);}, "e.g. Former Factory, Birmingham B1"),
+        citySelect(l.city, function(v){up("land","city",v);}),
+        field("Site Area (acres)", "number", l.acres, function(v){up("land","acres",v);}, "e.g. 2.5"),
+        field("Asking Price (£)", "number", l.price, function(v){up("land","price",v);}, "e.g. 4500000"),
+        field("Planning Status", "select", l.planStatus, function(v){up("land","planStatus",v);}, "", ["","Full consent","Outline consent","Allocated","Pre-application","None"]),
+        field("Contamination", "select", l.contam, function(v){up("land","contam",v);}, "", ["","Clean — Phase 1 clear","Minor remediation","Major remediation","Unknown"]),
+        aiPanel("Site Analysis", "Analyse this development site. Provide: 1) Strengths & red flags, 2) Land value vs market, 3) DD priorities, 4) Go/No-Go recommendation.", l)
+      ]);
+    }
+
+    if (stage === "rlv") {
+      var rUnits = num(r.units); var rSqft = num(r.avgSqft) || 850; var rSalePsf = num(r.salePsf) || 280;
+      var rBuild = num(r.buildPsf) || m.build; var rProfit = num(r.profitPct) || 20;
+      var rGdv = rUnits * rSqft * rSalePsf;
+      var rBc = rUnits * rSqft * rBuild;
+      var rRlv = rGdv - rBc - rBc*0.12 - rBc*0.05 - (rBc+lc)*0.075 - rUnits*num(r.s106pu||8000) - rGdv*(rProfit/100);
+      var rlvPu = rUnits > 0 ? rRlv / rUnits : 0;
+      var sc = rRlv > 0 ? "#2D7A65" : "#B05A35";
+      return card("Land Valuation Engine", [
+        field("Postcode", "text", r.postcode, function(v){up("rlv","postcode",v);}, "e.g. CV6 2DL"),
+        field("Number of Units", "number", r.units, function(v){up("rlv","units",v);}, "e.g. 45"),
+        field("Avg Unit Size (sqft)", "number", r.avgSqft, function(v){up("rlv","avgSqft",v);}, "850"),
+        field("Sale Price psf (£)", "number", r.salePsf, function(v){up("rlv","salePsf",v);}, "e.g. 280"),
+        field("Build Cost psf (£)", "number", r.buildPsf, function(v){up("rlv","buildPsf",v);}, "e.g. "+m.build),
+        field("Developer Profit %", "number", r.profitPct, function(v){up("rlv","profitPct",v);}, "20"),
+        field("S106/CIL per Unit (£)", "number", r.s106pu, function(v){up("rlv","s106pu",v);}, "8000"),
+        rUnits > 0 && rGdv > 0 && React.createElement("div", {style:{background:sc+"10",border:"2px solid "+sc,borderRadius:8,padding:16,textAlign:"center"}},
+          React.createElement("div", {style:{fontSize:11,color:sc,fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",marginBottom:6}}, "Residual Land Value"),
+          React.createElement("div", {style:{fontSize:32,fontWeight:800,color:sc,lineHeight:1,marginBottom:6}}, fmt(rRlv)),
+          React.createElement("div", {style:{fontSize:12,color:"#7278A0"}}, fmt(rlvPu)+" per unit · GDV: "+fmt(rGdv))
+        ),
+        aiPanel("RLV Analysis", "Provide a RICS-style residual land valuation analysis. Validate the £/sqft assumption, negotiate strategy and key risks.", r)
+      ]);
+    }
+
+    if (stage === "sfh") {
+      var sh = data.sfh || {};
+      var sAcres = num(sh.acres); var sDph = num(sh.dph) || 30;
+      var sUnits = Math.floor(sAcres * 0.404686 * sDph);
+      var sBasePsf = num(sh.basePsf) || m.btr * 8.5;
+      var sBuild = num(sh.buildPsf) || 195;
+      var sTotalGdv = sUnits * 1020 * sBasePsf;
+      var sTotalBuild = sUnits * 1020 * sBuild;
+      var sRlv = sTotalGdv - sTotalBuild - sTotalBuild*0.10 - sTotalBuild*0.05 - (sTotalBuild+lc)*0.075 - sUnits*(num(sh.s106pu)||8000) - sUnits*(num(sh.roads)||12000) - sAcres*53000 - sTotalGdv*((num(sh.profitPct)||20)/100);
+      var sC = sRlv > 0 ? "#2D7A65" : "#B05A35";
+      return card("Single Family Housing", [
+        citySelect(sh.city, function(v){up("sfh","city",v);}),
+        field("Site Area (acres)", "number", sh.acres, function(v){up("sfh","acres",v);}, "e.g. 5.0"),
+        field("Density (dph)", "number", sh.dph, function(v){up("sfh","dph",v);}, "30"),
+        field("Base Sale Price psf (£)", "number", sh.basePsf, function(v){up("sfh","basePsf",v);}, Math.round(sBasePsf)+""),
+        field("Build Cost psf (£)", "number", sh.buildPsf, function(v){up("sfh","buildPsf",v);}, "195"),
+        field("Developer Profit %", "number", sh.profitPct, function(v){up("sfh","profitPct",v);}, "20"),
+        field("S106 per Plot (£)", "number", sh.s106pu, function(v){up("sfh","s106pu",v);}, "8000"),
+        field("Roads/Sewers per Plot (£)", "number", sh.roads, function(v){up("sfh","roads",v);}, "12000"),
+        sAcres > 0 && React.createElement("div", {style:{background:"#EEEEF8",borderRadius:8,padding:14,fontSize:12,color:"#3A3D6A"}},
+          "Site: "+sAcres+" acres / "+(sAcres*0.404686).toFixed(2)+" ha · ~"+sUnits+" units at "+sDph+" dph"
+        ),
+        sUnits > 0 && sTotalGdv > 0 && React.createElement("div", {style:{background:sC+"10",border:"2px solid "+sC,borderRadius:8,padding:16,textAlign:"center"}},
+          React.createElement("div", {style:{fontSize:11,color:sC,fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",marginBottom:6}}, "Residual Land Value"),
+          React.createElement("div", {style:{fontSize:32,fontWeight:800,color:sC,lineHeight:1,marginBottom:6}}, fmt(sRlv)),
+          React.createElement("div", {style:{fontSize:12,color:"#7278A0"}}, fmt(sRlv/Math.max(sUnits,1))+" per plot · GDV: "+fmt(sTotalGdv))
+        ),
+        aiPanel("SFH Analysis", "Analyse this SFH scheme. Provide: 1) Mix assessment for market, 2) Price sense check, 3) AH strategy, 4) Infrastructure adequacy, 5) Key risks.", Object.assign({},sh,{estimatedUnits:sUnits,totalGdv:sTotalGdv,rlv:sRlv,city:city}))
+      ]);
+    }
+
+    if (stage === "planning") {
+      return card("Planning & Viability", [
+        field("Local Planning Authority", "text", p.lpa, function(v){up("planning","lpa",v);}, "e.g. Manchester City Council"),
+        field("Planning Status", "select", p.status, function(v){up("planning","status",v);}, "", ["","Full consent","Outline consent","Allocated","Pre-application","None"]),
+        field("Units Proposed", "number", p.units, function(v){up("planning","units",v);}, "e.g. 180"),
+        field("Storeys", "number", p.storeys, function(v){up("planning","storeys",v);}, "e.g. 8"),
+        field("Affordable Housing %", "number", p.ahPct, function(v){up("planning","ahPct",v);}, "25"),
+        field("S106 / CIL Total (£)", "number", p.s106, function(v){up("planning","s106",v);}, "e.g. 850000"),
+        field("Biodiversity Net Gain", "select", p.bng, function(v){up("planning","bng",v);}, "", ["","On-site 10%","Off-site credits","Exempt — brownfield"]),
+        aiPanel("Planning Strategy", "Provide planning strategy. 1) Risk rating, 2) NPPF hooks, 3) S106 negotiation, 4) AH viability argument, 5) Timeline, 6) Top officer objections.", p)
+      ]);
+    }
+
+    if (stage === "fin") {
+      return card("Financial Modelling", [
+        field("Build Cost psf (£) — market: £"+m.build, "number", f.buildPsf, function(v){up("fin","buildPsf",v);}, m.build+""),
+        field("Monthly Rent per Unit (£) — market: £"+m.btr, "number", f.rent, function(v){up("fin","rent",v);}, m.btr+""),
+        field("Exit Yield (%) — market: "+(m.yield*100).toFixed(2)+"%", "number", f.exitYield, function(v){up("fin","exitYield",v);}, (m.yield*100).toFixed(2)),
+        field("Finance Rate (%)", "number", f.finRate, function(v){up("fin","finRate",v);}, "7.5"),
+        field("Contingency (%)", "number", f.contingency, function(v){up("fin","contingency",v);}, "5"),
+        units > 0 && gia > 0 && React.createElement("div", {style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
+          [
+            {l:"GDV",v:fmt(gdv)},
+            {l:"Total Dev Cost",v:fmt(tc)},
+            {l:"Profit",v:fmt(profit),c:margin>=15?"#2D7A65":"#B05A35"},
+            {l:"Margin on GDV",v:margin.toFixed(1)+"%",c:margin>=15?"#2D7A65":"#B05A35"},
+          ].map(function(card2) {
+            return React.createElement("div", {key:card2.l,style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,padding:14}},
+              React.createElement("div", {style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:5}},card2.l),
+              React.createElement("div", {style:{fontSize:20,fontWeight:700,color:card2.c||"#2E2F8A"}},card2.v)
+            );
+          })
+        ),
+        aiPanel("Financial Analysis", "Analyse this development appraisal. 1) Return benchmarking, 2) Key value drivers, 3) Deal structure, 4) Value engineering, 5) Critical assumption.", {gdv:gdv,tc:tc,profit:profit,margin:margin,units:units,city:city})
+      ]);
+    }
+
+    if (stage === "dd") {
+      var DD = ["Title register & plan","Searches pack","Planning history","Restrictive covenants","Phase 1 study","Phase 2 (if required)","Topographical survey","Structural report","Fire safety strategy","Flood risk assessment","Planning consent","S106 executed","CIL confirmed","AH tenure confirmed","QS cost plan","JCT contract","Senior debt term sheet","Insurance schedule"];
+      var checked = data.ddChecked || {};
+      var done = Object.keys(checked).filter(function(k){return checked[k];}).length;
+      return React.createElement("div", {style:{display:"flex",flexDirection:"column",gap:16}},
+        React.createElement("div", {style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:18}},
+          React.createElement("div", {style:{display:"flex",alignItems:"center",gap:16,marginBottom:12}},
+            React.createElement("div", {style:{fontSize:40,fontWeight:800,color:done/DD.length>=0.8?"#2D7A65":done/DD.length>=0.5?"#9A7B3E":"#B05A35"}},Math.round(done/DD.length*100)+"%"),
+            React.createElement("div", {style:{flex:1}},
+              React.createElement("div", {style:{height:6,background:"#DDE0ED",borderRadius:3,overflow:"hidden"}},
+                React.createElement("div", {style:{height:"100%",width:Math.round(done/DD.length*100)+"%",background:done/DD.length>=0.8?"#2D7A65":"#9A7B3E",borderRadius:3}})),
+              React.createElement("div", {style:{fontSize:12,color:"#7278A0",marginTop:6}},done+" of "+DD.length+" items confirmed")
+            )
+          ),
+          DD.map(function(item) {
+            var isChecked = checked[item] || false;
+            return React.createElement("div", {key:item,onClick:function(){
+              var next = Object.assign({},checked);
+              next[item] = !isChecked;
+              setData(function(d){var n=Object.assign({},d);n.ddChecked=next;return n;});
+            },style:{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:6,cursor:"pointer",background:isChecked?"#F0F7F4":"transparent",marginBottom:4}},
+              React.createElement("div", {style:{width:16,height:16,borderRadius:3,border:"1px solid "+(isChecked?"#2D7A65":"#C8CDE0"),background:isChecked?"#2D7A65":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:"#fff",fontSize:10}},isChecked?"✓":""),
+              React.createElement("span", {style:{fontSize:12,color:isChecked?"#2E2F8A":"#7278A0"}},item)
+            );
+          })
+        )
+      );
+    }
+
+    if (stage === "exit") {
+      var buyers = [
+        {name:"Greystar",type:"REIM",min:50,status:"Active"},
+        {name:"Legal & General",type:"Pension",min:100,status:"Active"},
+        {name:"Grainger plc",type:"REIT",min:30,status:"Active"},
+        {name:"M&G Real Estate",type:"Fund",min:75,status:"Active"},
+        {name:"Heimstaden",type:"Private",min:50,status:"Active"},
+        {name:"Apache Capital",type:"REIM",min:40,status:"Active"},
+      ];
+      var ex = data.exit || {};
+      return card("Investment Exit", [
+        field("Exit Strategy", "select", ex.strategy, function(v){up("exit","strategy",v);}, "", ["","Forward Fund","Forward Sale","Stabilised Sale","Retain & Refinance"]),
+        field("Target Exit Yield (%)", "number", ex.exitYield, function(v){up("exit","exitYield",v);}, (m.yield*100).toFixed(2)),
+        field("Target Investor Type", "select", ex.investorType, function(v){up("exit","investorType",v);}, "", ["","UK Pension Fund","Sovereign Wealth","Listed REIT","Private Equity","Family Office"]),
+        React.createElement("div", {style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,overflow:"hidden"}},
+          React.createElement("div", {style:{padding:"8px 14px",background:"#F7F8FC",fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:700,borderBottom:"1px solid #DDE0ED"}}, "Active Institutional Buyers — BTR"),
+          buyers.map(function(b) {
+            return React.createElement("div", {key:b.name,style:{display:"grid",gridTemplateColumns:"1.5fr 70px 60px 80px",padding:"8px 14px",borderBottom:"1px solid #DDE0ED",fontSize:11,color:"#7278A0",alignItems:"center"}},
+              React.createElement("span", {style:{fontWeight:600,color:"#2E2F8A"}},b.name),
+              React.createElement("span", {style:{color:"#4A4BAE",fontWeight:700}},b.type),
+              React.createElement("span",null,"£"+b.min+"m+"),
+              React.createElement("span", {style:{fontSize:10,fontWeight:700,padding:"2px 6px",borderRadius:3,background:"rgba(45,122,101,0.12)",color:"#2D7A65"}},b.status)
+            );
+          })
+        ),
+        aiPanel("Exit Strategy", "Analyse exit strategy. 1) Optimal route and timing, 2) Top buyers to approach, 3) Investor DD requirements, 4) Negotiation points, 5) Risk factors.", Object.assign({},ex,{gdv:gdv,noi:noi,units:units,city:city}))
+      ]);
+    }
+
+    return React.createElement("div", null, "Coming soon");
+  }
+
+  function field(label, type, val, onChange, placeholder, options) {
+    if (type === "select") {
+      return React.createElement("div", {key:label, style:{display:"flex",flexDirection:"column",gap:4}},
+        React.createElement("label", {style:{fontSize:10,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:600}}, label),
+        React.createElement("select", {value:val||"",onChange:function(e){onChange(e.target.value);},style:{padding:"8px 11px",border:"1px solid #C8CDE0",borderRadius:6,fontSize:13,fontFamily:"DM Sans,sans-serif",background:"#fff",color:"#1A1A3E",outline:"none"}},
+          (options || []).map(function(o) { return React.createElement("option", {key:o,value:o}, o || "Select..."); })
+        )
+      );
+    }
+    return React.createElement("div", {key:label, style:{display:"flex",flexDirection:"column",gap:4}},
+      React.createElement("label", {style:{fontSize:10,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:600}}, label),
+      React.createElement("input", {type:type,value:val||"",onChange:function(e){onChange(e.target.value);},placeholder:placeholder,style:{padding:"8px 11px",border:"1px solid #C8CDE0",borderRadius:6,fontSize:13,fontFamily:"DM Sans,sans-serif",outline:"none",background:"#fff",color:"#1A1A3E"}})
+    );
+  }
+
+  function field2(label, type, val, onChange, placeholder) {
+    return React.createElement("div", {key:label, style:{display:"flex",flexDirection:"column",gap:4,gridColumn:"span 2"}},
+      React.createElement("label", {style:{fontSize:10,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:600}}, label),
+      React.createElement("input", {type:type,value:val||"",onChange:function(e){onChange(e.target.value);},placeholder:placeholder,style:{padding:"8px 11px",border:"1px solid #C8CDE0",borderRadius:6,fontSize:13,fontFamily:"DM Sans,sans-serif",outline:"none",background:"#fff",color:"#1A1A3E"}})
+    );
+  }
+
+  function citySelect(val, onChange) {
+    return React.createElement("div", {key:"city",style:{display:"flex",flexDirection:"column",gap:4}},
+      React.createElement("label", {style:{fontSize:10,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:600}}, "City / Market"),
+      React.createElement("select", {value:val||"",onChange:function(e){onChange(e.target.value);},style:{padding:"8px 11px",border:"1px solid #C8CDE0",borderRadius:6,fontSize:13,fontFamily:"DM Sans,sans-serif",background:"#fff",color:"#1A1A3E",outline:"none"}},
+        React.createElement("option", {value:""}, "Select city..."),
+        CITIES.map(function(c) { return React.createElement("option", {key:c,value:c}, c.charAt(0).toUpperCase()+c.replace(/_/g," ").slice(1)); })
+      )
+    );
+  }
+
+  function card(title, children) {
+    return React.createElement("div", {style:{display:"flex",flexDirection:"column",gap:20}},
+      React.createElement("div", {style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:20}},
+        React.createElement("div", {style:{fontSize:10,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,paddingBottom:14,borderBottom:"1px solid #DDE0ED",marginBottom:14}}, title),
+        React.createElement("div", {style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}},
+          children.filter(Boolean).map(function(c, i) { return React.createElement(React.Fragment, {key:i}, c); })
+        )
+      )
+    );
+  }
+
+  function aiPanel(label, prompt, ctx) {
+    return React.createElement("div", {key:"ai",style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:10}},
+      React.createElement("button", {onClick:function(){runAI(prompt,ctx);},disabled:aiLoad,style:{alignSelf:"flex-start",display:"flex",alignItems:"center",gap:7,padding:"9px 18px",background:"rgba(74,75,174,0.08)",border:"1px solid #4A4BAE",color:"#4A4BAE",borderRadius:6,fontSize:12,fontWeight:700,cursor:aiLoad?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif"}},
+        aiLoad ? "⏳ Analysing..." : "⚡ "+label
+      ),
+      aiRes && React.createElement("div", {style:{background:"#F8F8FE",border:"1px solid #DDE0ED",borderLeft:"3px solid #4A4BAE",borderRadius:8,padding:"16px 20px"}},
+        React.createElement("pre", {style:{fontSize:12,lineHeight:1.8,color:"#3A3D6A",whiteSpace:"pre-wrap",fontFamily:"DM Sans,sans-serif"}}, aiRes)
+      )
+    );
+  }
+
+  var curStage = STAGES.find(function(s){return s.id===stage;}) || STAGES[0];
+  var idx = STAGES.findIndex(function(s){return s.id===stage;});
+
+  return React.createElement("div", {style:{display:"flex",minHeight:"100vh"}},
+    // Sidebar
+    React.createElement("aside", {style:{width:240,background:"#1E1F5C",display:"flex",flexDirection:"column",position:"fixed",left:0,top:0,bottom:0,overflowY:"auto"}},
+      React.createElement("div", {style:{padding:"16px 16px 12px",borderBottom:"1px solid rgba(255,255,255,0.1)",textAlign:"center"}},
+        React.createElement("img", {src:"data:image/webp;base64,"+LOGO,alt:"Cassidy Group",style:{width:120,height:"auto",filter:"drop-shadow(0 1px 4px rgba(0,0,0,0.25))"}})
+      ),
+      React.createElement("div", {style:{padding:"8px 0",flex:1}},
+        STAGES.map(function(s, i) {
+          var active = stage === s.id;
+          return React.createElement("div", {key:s.id,onClick:function(){setStage(s.id);setAiRes("");logEvent(user,"PAGE_VIEW",{stage:s.label});},style:{display:"flex",alignItems:"center",gap:9,padding:"9px 16px",cursor:"pointer",background:active?"rgba(237,232,74,0.12)":"transparent",borderLeft:"3px solid "+(active?"#EDE84A":"transparent"),transition:"all .12s"}},
+            React.createElement("span", {style:{fontSize:10,color:active?"#EDE84A":"rgba(255,255,255,0.3)",width:14}}, s.icon),
+            React.createElement("span", {style:{fontSize:12,color:active?"#fff":"rgba(255,255,255,0.5)"}}, s.label)
+          );
+        })
+      ),
+      React.createElement("div", {style:{padding:"12px 16px",borderTop:"1px solid rgba(255,255,255,0.08)",fontSize:11,color:"rgba(255,255,255,0.35)"}},
+        (user && user.name) || "User"," · ",(user && user.company) || ""
+      )
+    ),
+    // Main
+    React.createElement("main", {style:{marginLeft:240,flex:1,display:"flex",flexDirection:"column",minHeight:"100vh"}},
+      React.createElement("div", {style:{height:58,background:"#fff",borderBottom:"1px solid #DDE0ED",display:"flex",alignItems:"center",padding:"0 28px",gap:12,position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 3px rgba(46,47,138,0.08)"}},
+        React.createElement("div", {style:{fontSize:15,fontWeight:700,color:"#2E2F8A"}}, curStage.label),
+        React.createElement("div", {style:{marginLeft:"auto",fontSize:11,color:"#7278A0"}}, (data.assetType||"btr").toUpperCase()+" · "+(city.charAt(0).toUpperCase()+city.replace(/_/g," ").slice(1)))
+      ),
+      React.createElement("div", {style:{height:3,background:"#DDE0ED"}},
+        React.createElement("div", {style:{height:"100%",width:((idx+1)/STAGES.length*100)+"%",background:"linear-gradient(90deg,#4A4BAE,#EDE84A)",transition:"width .4s"}})),
+      React.createElement("div", {style:{flex:1,padding:"28px 32px",maxWidth:960,width:"100%"}},
+        renderStage()
+      ),
+      React.createElement("div", {style:{padding:"16px 32px",borderTop:"1px solid #DDE0ED",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff"}},
+        React.createElement("button", {disabled:idx===0,onClick:function(){setStage(STAGES[idx-1].id);setAiRes("");},style:{padding:"8px 18px",border:"1px solid #DDE0ED",background:"transparent",color:"#7278A0",borderRadius:6,fontSize:12,fontWeight:700,cursor:idx===0?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",opacity:idx===0?0.3:1}}, "← Previous"),
+        React.createElement("span", {style:{fontSize:11,color:"#7278A0"}}, (idx+1)+" of "+STAGES.length),
+        React.createElement("button", {disabled:idx===STAGES.length-1,onClick:function(){setStage(STAGES[idx+1].id);setAiRes("");},style:{padding:"8px 18px",background:"#4A4BAE",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:700,cursor:idx===STAGES.length-1?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",opacity:idx===STAGES.length-1?0.3:1}}, "Next →")
+      )
+    )
   );
 }
 
-// ─── LOGO (injected at build time) ───────────────────────────────────────────
+// ── ROOT ─────────────────────────────────────────────────────────────────────
+function Root() {
+  var s = useState(null); var user = s[0]; var setUser = s[1];
 
+  if (!user) {
+    return React.createElement(AccessGate, {onLogin:function(u){
+      logEvent(u,"LOGIN","Access granted");
+      setUser(u);
+    }});
+  }
 
+  return React.createElement(Tool, {user:user});
+}
 
-ReactDOM.render(React.createElement(AppWithAccess), document.getElementById('root'));
+ReactDOM.render(React.createElement(Root), document.getElementById("root"));
 </script>
 </body>
 </html>
