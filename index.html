@@ -42,9 +42,9 @@ const logEvent = async (user, eventType, details) => {
     const params = new URLSearchParams({
       action: "log",
       timestamp: new Date().toISOString(),
-      user: user?.name || "Unknown",
-      company: user?.company || "Unknown",
-      role: user?.role || "demo",
+      user: (user && user.name) || "Unknown",
+      company: (user && user.company) || "Unknown",
+      role: (user && user.role) || "demo",
       event: eventType,
       details: detailStr,
       userAgent: navigator.userAgent.substring(0, 80),
@@ -73,27 +73,16 @@ const logAIResult = (user, stage, prompt, result) => {
 
 // ─── DEAL STORAGE HELPERS ────────────────────────────────────────────────────
 // In-memory store (persists during session, resets on page reload)
-// sessionStorage removed — caused blank page crashes on GitHub Pages
+// storage removed — caused blank page crashes on GitHub Pages
 const DEALS_KEY = "cassidy_landform_deals_v1";
 let _dealsStore = [];
 
-const loadDeals = () => {
-  try {
-    const raw = window.sessionStorage ? sessionStorage.getItem(DEALS_KEY) : null;
-    return raw ? JSON.parse(raw) : _dealsStore;
-  } catch(e) { return _dealsStore; }
-};
-
-const saveDeals = (deals) => {
-  _dealsStore = deals;
-  try { 
-    if (window.sessionStorage) sessionStorage.setItem(DEALS_KEY, JSON.stringify(deals)); 
-  } catch(e) {}
-};
+const loadDeals = () => { return _dealsStore; };
+const saveDeals = (deals) => { _dealsStore = deals; };
 
 // ─── DEAL MANAGER COMPONENT ───────────────────────────────────────────────────
 const DealManager = ({ user, onOpen, onNew }) => {
-  const [deals, setDeals] = React.useState(loadDeals);
+  const [deals, setDeals] = React.useState(function() { return loadDeals(); });
   const [filter, setFilter] = React.useState("active");
   const [search, setSearch] = React.useState("");
 
@@ -124,7 +113,7 @@ const DealManager = ({ user, onOpen, onNew }) => {
           <div style={{color:"rgba(255,255,255,0.4)",fontSize:11,letterSpacing:".15em",textTransform:"uppercase"}}>Deal Management</div>
         </div>
         <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:12}}>
-          <div style={{color:"rgba(255,255,255,0.5)",fontSize:12}}>Welcome, {user?.name}</div>
+          <div style={{color:"rgba(255,255,255,0.5)",fontSize:12}}>Welcome, {(user && user.name)}</div>
           <button onClick={onNew} style={{padding:"9px 20px",background:"#EDE84A",border:"none",borderRadius:6,color:"#1E1F5C",fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}>
             + New Deal
           </button>
@@ -177,11 +166,11 @@ const DealManager = ({ user, onOpen, onNew }) => {
                     <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:3,background:`${statusColors[deal.status||"active"]}15`,color:statusColors[deal.status||"active"]}}>{(deal.status||"active").toUpperCase()}</span>
                     {deal.assetType&&<span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:3,background:"rgba(74,75,174,0.08)",color:"var(--cb)"}}>{deal.assetType.toUpperCase()}</span>}
                   </div>
-                  <div style={{fontSize:12,color:"#7278A0",marginBottom:4}}>{deal.address||deal.land?.address||"Address not set"}{deal.land?.city&&" · "+deal.land.city.replace(/_/g," ").replace(/\w/g,l=>l.toUpperCase())}</div>
+                  <div style={{fontSize:12,color:"#7278A0",marginBottom:4}}>{deal.address||(deal.land && deal.land.address)||"Address not set"}{(deal.land && deal.land.city)&&" · "+deal.land.city.replace(/_/g," ").replace(/\w/g,l=>l.toUpperCase())}</div>
                   <div style={{display:"flex",gap:16,fontSize:11,color:"#A0A4C0"}}>
-                    {deal.land?.acres&&<span>📐 {deal.land.acres} acres</span>}
-                    {deal.land?.price&&<span>💰 £{Number(deal.land.price).toLocaleString()}</span>}
-                    {deal.planning?.units&&<span>🏠 {deal.planning.units} units</span>}
+                    {(deal.land && deal.land.acres)&&<span>📐 {deal.land.acres} acres</span>}
+                    {(deal.land && deal.land.price)&&<span>💰 £{Number(deal.land.price).toLocaleString()}</span>}
+                    {(deal.planning && deal.planning.units)&&<span>🏠 {deal.planning.units} units</span>}
                     <span>🕐 {deal.updatedAt ? new Date(deal.updatedAt).toLocaleDateString("en-GB") : new Date(deal.createdAt||Date.now()).toLocaleDateString("en-GB")}</span>
                     {deal.notes&&<span>📝 Has notes</span>}
                   </div>
@@ -210,7 +199,7 @@ const AppWithAccess = () => {
   const [user, setUser] = React.useState(null);
   const [view, setView] = React.useState("manager"); // "manager" | "deal"
   const [currentDeal, setCurrentDeal] = React.useState(null);
-  const [deals, setDeals] = React.useState(loadDeals);
+  const [deals, setDeals] = React.useState(function() { return loadDeals(); });
 
   const handleLogin = (u) => { setUser(u); setView("manager"); };
 
@@ -236,7 +225,7 @@ const AppWithAccess = () => {
       ...d, ...data,
       id: currentDeal.id,
       name: data.dealName || d.name,
-      address: data.land?.address || d.address,
+      address: (data.land && data.land.address) || d.address,
       updatedAt: new Date().toISOString(),
     } : d);
     setDeals(updated);
@@ -258,7 +247,7 @@ const AppWithAccess = () => {
           ← All Deals
         </button>
         <input
-          value={currentDeal?.name||""}
+          value={(currentDeal && currentDeal.name)||""}
           onChange={e=>{
             const updated = deals.map(d=>d.id===currentDeal.id?{...d,name:e.target.value,updatedAt:new Date().toISOString()}:d);
             setDeals(updated); saveDeals(updated);
@@ -267,8 +256,8 @@ const AppWithAccess = () => {
           style={{background:"transparent",border:"none",color:"#fff",fontSize:14,fontWeight:700,fontFamily:"DM Sans,sans-serif",outline:"none",flex:1,minWidth:200}}
           placeholder="Deal name..."
         />
-        <span style={{fontSize:11,color:"rgba(255,255,255,0.35)"}}>Auto-saved · {currentDeal?.updatedAt?new Date(currentDeal.updatedAt).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}):"—"}</span>
-        <select value={currentDeal?.status||"active"} onChange={e=>{
+        <span style={{fontSize:11,color:"rgba(255,255,255,0.35)"}}>Auto-saved · {(currentDeal && currentDeal.updatedAt)?new Date(currentDeal.updatedAt).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}):"—"}</span>
+        <select value={(currentDeal && currentDeal.status)||"active"} onChange={e=>{
           const updated = deals.map(d=>d.id===currentDeal.id?{...d,status:e.target.value,updatedAt:new Date().toISOString()}:d);
           setDeals(updated); saveDeals(updated);
           setCurrentDeal(prev=>({...prev,status:e.target.value}));
@@ -516,7 +505,7 @@ const AIPanel = ({ prompt, ctx, label="⚡ Run AI Analysis" }) => {
           messages:[{role:"user",content:`${prompt}\n\nData: ${JSON.stringify(ctx)}`}]})
       });
       const d = await r.json();
-      setRes(d.content?.find(b=>b.type==="text")?.text || "No response.");
+      setRes(d.content && d.content.find(b=>b.type==="text") && b.text) || (b.type==="text") ? b.text : null || "No response.");
     } catch { setRes("Analysis failed — check connection."); }
     setLoad(false); setDone(true);
   };
@@ -617,15 +606,15 @@ IMPORTANT: Return ONLY a valid JSON object, no markdown, no explanation. Example
             max_tokens: 1000,
             system: "You are a UK land data extraction specialist. Return only valid JSON, no markdown.",
             messages: [{ role: "user", content: prompt }],
-            user: data.currentUser?.name || "User",
-            company: data.currentUser?.company || "",
+            user: (data.currentUser && data.currentUser.name) || "User",
+            company: data.(currentUser && currentUser.company) || "",
             stage: "Land Scraper",
             logDetails: "URL scraped: " + url,
           })
         });
         const aiResult = await aiPromptRes.json();
         if (aiResult.status === "ok" && aiResult.content) {
-          const text = aiResult.content.find(b => b.type === "text")?.text || "";
+          const text = aiResult.content.find(b => b.type === "text") ? .find(b => b.type === "text").text : null || "";
           const clean = text.replace(/```json|```/g, "").trim();
           try { extracted = JSON.parse(clean); } catch(e) {}
         }
@@ -661,17 +650,17 @@ IMPORTANT: Return ONLY a valid JSON object, no markdown, no explanation. Example
       planning: {
         ...d.planning,
         lpa: result.localAuthority || "",
-        status: result.planningStatus?.toLowerCase().includes("full") ? "full" :
-                result.planningStatus?.toLowerCase().includes("outline") ? "outline" :
-                result.planningStatus?.toLowerCase().includes("alloc") ? "allocated" : "none",
+        status: result.(planningStatus && planningStatus.toLowerCase)().includes("full") ? "full" :
+                result.(planningStatus && planningStatus.toLowerCase)().includes("outline") ? "outline" :
+                result.(planningStatus && planningStatus.toLowerCase)().includes("alloc") ? "allocated" : "none",
         units: result.estimatedUnits || "",
       },
       rlv: {
         ...d.rlv,
         postcode: result.postcode || "",
         acres: result.acreage || "",
-        schType: result.developmentPotential?.toLowerCase().includes("student") ? "PBSA (Student)" :
-                 result.developmentPotential?.toLowerCase().includes("apart") ? "Residential apartments" :
+        schType: result.(developmentPotential && developmentPotential.toLowerCase)().includes("student") ? "PBSA (Student)" :
+                 result.(developmentPotential && developmentPotential.toLowerCase)().includes("apart") ? "Residential apartments" :
                  "Residential houses",
       },
       sfh: {
@@ -1041,7 +1030,7 @@ const FinancialModelling = ({data,setData}) => {
   const tc=bc+lc+s106+cont+fees+fin+sdlt;
   const ru=at==="pbsa"?N(f.rent)||m.pbsa:N(f.rent)||m.btr;
   const gr=at==="pbsa"?units*ru*52:units*ru*12;
-  const voidAdj=at==="pbsa"?.97:.95;
+  const voidAdj=at==="pbsa" ? .97 : .95;
   const opex=units*(at==="pbsa"?600:1050)+gr*voidAdj*.12;
   const noi=gr*voidAdj-opex;
   const ey=N(f.exitYield)/100||m.yield;
@@ -1105,7 +1094,7 @@ const FinancialModelling = ({data,setData}) => {
 const SFH = ({data,setData}) => {
   const up=(k,v)=>setData(d=>({...d,sfh:{...d.sfh,[k]:v}}));
   const s=data.sfh||{};
-  const city=s.city||data.land?.city||"manchester"; const m=MKT[city]||MKT.manchester;
+  const city=s.city||data.(land && land.city)||"manchester"; const m=MKT[city]||MKT.manchester;
   const acres=N(s.acres); const dph=N(s.dph)||30;
   const ha=acres*.404686; const maxUnits=Math.floor(ha*dph);
   const mix=s.mix||[{type:"3-bed semi",count:"",psf:""},{type:"4-bed detached",count:"",psf:""},{type:"3-bed detached",count:"",psf:""}];
@@ -1200,7 +1189,7 @@ const SFH = ({data,setData}) => {
 const HighRise = ({data,setData}) => {
   const up=(k,v)=>setData(d=>({...d,hra:{...d.hra,[k]:v}}));
   const h=data.hra||{};
-  const city=h.city||data.land?.city||"manchester"; const m=MKT[city]||MKT.manchester;
+  const city=h.city||data.(land && land.city)||"manchester"; const m=MKT[city]||MKT.manchester;
   const storeys=N(h.storeys); const fp=N(h.fp); const eff=N(h.eff)||80;
   const gia=fp*storeys; const nia=gia*(eff/100);
   const ss=N(h.ss)||20; const os=N(h.os)||50; const ts=N(h.ts)||30;
@@ -1308,9 +1297,9 @@ const PropertyEval = ({data,setData}) => {
   const up=(k,v)=>setData(d=>({...d,epe:{...d.epe,[k]:v}}));
   const e=data.epe||{};
   const pcData = e.postcode ? lookupPostcode(e.postcode) : null;
-  const city = pcData?.city || e.city || "manchester";
+  const city = (pcData && pcData.city) || e.city || "manchester";
   const m=MKT[city]||MKT.manchester;
-  const salePsf=N(e.salePsf)||pcData?.salePsf||m.btr*8.5||280;
+  const salePsf=N(e.salePsf)||(pcData && pcData.salePsf)||m.btr*8.5||280;
   const propSqft=N(e.propSqft)||900;
   const condMod={excellent:1.15,good:1.05,average:1.0,poor:.88,derelict:.70}[e.condition]||1.0;
   const gLen=N(e.gLen); const gWid=N(e.gWid); const gardenSqft=gLen*gWid;
@@ -1350,7 +1339,7 @@ const PropertyEval = ({data,setData}) => {
               <option value="average">Average (0%)</option><option value="poor">Poor (-12%)</option><option value="derelict">Derelict (-30%)</option>
             </select>
           </div>
-          <div className="fg"><label>Sale Price psf (£) {pcData?.salePsf?`— postcode: £${pcData.salePsf}`:""}</label><input type="number" value={e.salePsf||""} onChange={ev=>up("salePsf",ev.target.value)} placeholder={`£${Math.round(salePsf)}`}/></div>
+          <div className="fg"><label>Sale Price psf (£) {(pcData && pcData.salePsf)?`— postcode: £${pcData.salePsf}`:""}</label><input type="number" value={e.salePsf||""} onChange={ev=>up("salePsf",ev.target.value)} placeholder={`£${Math.round(salePsf)}`}/></div>
           <div className="fg"><label>Parking</label>
             <select value={e.parking||""} onChange={ev=>up("parking",ev.target.value)}>
               <option value="">Select...</option><option value="garage_drive">Garage + drive (+8%)</option><option value="drive_2">Double drive (+6%)</option>
@@ -1429,9 +1418,9 @@ const LandValuation = ({data,setData}) => {
   const r=data.rlv||{};
   const [lrRes,setLrRes]=useState(null); const [lrLoad,setLrLoad]=useState(false); const [lrErr,setLrErr]=useState(null);
   const pcLookup = r.postcode ? lookupPostcode(r.postcode) : null;
-  const city = pcLookup?.city || r.city || "manchester";
+  const city = (pcLookup && pcLookup.city) || r.city || "manchester";
   const m=MKT[city]||MKT.manchester;
-  const salePsf=N(r.salePsf)||pcLookup?.salePsf||m.btr*8.5||280;
+  const salePsf=N(r.salePsf)||(pcLookup && pcLookup.salePsf)||m.btr*8.5||280;
   const schType=r.schType||"Residential houses";
   const bc=BUILD[schType]||BUILD["Residential houses"];
   const units=N(r.units); const avgSqft=N(r.avgSqft)||850;
@@ -1471,10 +1460,10 @@ SELECT ?paon ?street ?postcode ?amount ?date ?type WHERE {
     try {
       const res = await fetch(`https://landregistry.data.gov.uk/landregistry/query?query=${encodeURIComponent(sparql)}&output=json`,{headers:{"Accept":"application/json"}});
       const json = await res.json();
-      const rows = (json?.results?.bindings||[]).map(b=>({
-        addr:[b.paon?.value,b.street?.value].filter(Boolean).join(" "),
-        pc:b.postcode?.value||pc, amount:parseInt(b.amount?.value||0),
-        date:b.date?.value?.substring(0,10)||"", type:b.type?.value?.charAt(0)||"T"
+      const rows = (json && json.results && json.results.bindings || []).map(b=>({
+        addr:[b.(paon && paon.value),b.(street && street.value)].filter(Boolean).join(" "),
+        pc:b.(postcode && postcode.value)||pc, amount:parseInt(b.(amount && amount.value)||0),
+        date:(b.date && b.date.value ? b.date.value.substring(0,10) : ""), type:(b.type && b.type.value ? b.type.value.charAt(0) : "T")
       })).filter(r=>r.amount>10000);
       if(!rows.length){setLrErr(`No transactions found for ${sector}. Enter price manually.`);setLrLoad(false);return;}
       const TYPE_SQF={D:1350,S:980,T:820,F:620,O:900};
@@ -1544,7 +1533,7 @@ SELECT ?paon ?street ?postcode ?amount ?date ?type WHERE {
           </div>
           <div className="fg"><label>Number of Units / Beds</label><input type="number" value={r.units||""} onChange={e=>up("units",e.target.value)} placeholder="e.g. 45"/></div>
           <div className="fg"><label>Avg Unit Size (sqft)</label><input type="number" value={r.avgSqft||""} onChange={e=>up("avgSqft",e.target.value)} placeholder="850"/></div>
-          <div className="fg"><label>Sale Price psf (£) {pcLookup?.salePsf?`— benchmark: £${pcLookup.salePsf}`:""}</label><input type="number" value={r.salePsf||""} onChange={e=>up("salePsf",e.target.value)} placeholder={`£${Math.round(salePsf)}`}/></div>
+          <div className="fg"><label>Sale Price psf (£) {(pcLookup && pcLookup.salePsf)?`— benchmark: £${pcLookup.salePsf}`:""}</label><input type="number" value={r.salePsf||""} onChange={e=>up("salePsf",e.target.value)} placeholder={`£${Math.round(salePsf)}`}/></div>
           <div className="fg"><label>Build Cost psf — BCIS: £{bc.lo}–£{bc.hi}</label><input type="number" value={r.buildPsf||""} onChange={e=>up("buildPsf",e.target.value)} placeholder={`Mid: £${bc.mid}/sqft`}/></div>
           <div className="fg"><label>Dev Profit % GDV</label><input type="number" value={r.profitPct||""} onChange={e=>up("profitPct",e.target.value)} placeholder="20"/></div>
           <div className="fg"><label>Finance Rate %</label><input type="number" step="0.1" value={r.finRate||""} onChange={e=>up("finRate",e.target.value)} placeholder="7.5"/></div>
@@ -1574,7 +1563,7 @@ SELECT ?paon ?street ?postcode ?amount ?date ?type WHERE {
           </div>
         </>}
       </div>
-      <AIPanel label="⚡ RICS Land Valuation Report" prompt={`Professional residual land valuation. Postcode: ${r.postcode||"not given"}, scheme: ${r.schType||"residential"}, ${units} units. LR data: ${lrRes?`£${lrRes.wPsf}/sqft (${lrRes.totalTx} transactions)`:"not fetched"}. GDV: ${FMT(gdv)}, RLV: ${FMT(rlv)} (${PCT(rlvPctGdv)} of GDV). Provide: 1) RICS-style valuation summary, 2) Price per sqft validation for this postcode, 3) Negotiation strategy, 4) Key risks, 5) Planning uplift potential.`} ctx={{postcode:r.postcode,city,units,gdv,rlv,rlvPctGdv,salePsf,lrPsf:lrRes?.wPsf}}/>
+      <AIPanel label="⚡ RICS Land Valuation Report" prompt={`Professional residual land valuation. Postcode: ${r.postcode||"not given"}, scheme: ${r.schType||"residential"}, ${units} units. LR data: ${lrRes?`£${lrRes.wPsf}/sqft (${lrRes.totalTx} transactions)`:"not fetched"}. GDV: ${FMT(gdv)}, RLV: ${FMT(rlv)} (${PCT(rlvPctGdv)} of GDV). Provide: 1) RICS-style valuation summary, 2) Price per sqft validation for this postcode, 3) Negotiation strategy, 4) Key risks, 5) Planning uplift potential.`} ctx={{postcode:r.postcode,city,units,gdv,rlv,rlvPctGdv,salePsf,lrPsf:(lrRes && lrRes.wPsf)}}/>
     </div>
   );
 };
@@ -1618,7 +1607,7 @@ const DueDiligence = ({data,setData}) => {
 
 // ── Risk Register ──
 const RiskRegister = ({data,setData}) => {
-  const [risks,setRisks]=useState(data.risks?.items||RISK_DEFAULTS);
+  const [risks,setRisks]=useState(data.(risks && risks.items)||RISK_DEFAULTS);
   useEffect(()=>setData(d=>({...d,risks:{items:risks}})),[risks]);
   const RC={red:"#B05A35",amber:"#9A7B3E",green:"#2D7A65"};
   const counts={red:risks.filter(r=>r.rag==="red").length,amber:risks.filter(r=>r.rag==="amber").length,green:risks.filter(r=>r.rag==="green").length};
@@ -1659,7 +1648,7 @@ const RiskRegister = ({data,setData}) => {
 const Exit = ({data,setData}) => {
   const up=(k,v)=>setData(d=>({...d,exit:{...d.exit,[k]:v}}));
   const e=data.exit||{}; const at=data.assetType||"btr";
-  const city=data.land?.city||"manchester"; const m=MKT[city]||MKT.manchester;
+  const city=data.(land && land.city)||"manchester"; const m=MKT[city]||MKT.manchester;
   const p=data.planning||{}; const f=data.fin||{};
   const units=N(p.units);
   const ru=at==="pbsa"?N(f.rent)||m.pbsa:N(f.rent)||m.btr;
@@ -1671,8 +1660,8 @@ const Exit = ({data,setData}) => {
   const buyers=BUYERS[at].filter(b=>gdvM>=b.minM*.7);
   const [hot,setHot]=useState(""); const [hotL,setHotL]=useState(false);
   const [memo,setMemo]=useState(""); const [memoL,setMemoL]=useState(false);
-  const genHoT=async()=>{setHotL(true);try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","anthropic-dangerous-direct-browser-access":"true",},body:JSON.stringify({action:"ai",model:"claude-sonnet-4-20250514",max_tokens:900,system:SYSTEM_PROMPT,messages:[{role:"user",content:`Generate professional Heads of Terms for ${at.toUpperCase()} asset. ${units} units in ${city}, GDV ${FMT(gdv)}, NOI ${FMT(noi)} pa, yield ${(ey*100).toFixed(2)}%, investor: ${e.investorType||"institutional fund"}. Number each HoT clause: purchase price, yield, payment milestones, practical completion, management, conditions precedent, break clauses, long stop date, warranties.`}]})});const d=await r.json();setHot(d.content?.find(b=>b.type==="text")?.text||"");} catch{setHot("Failed.");} setHotL(false);};
-  const genMemo=async()=>{setMemoL(true);try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","anthropic-dangerous-direct-browser-access":"true",},body:JSON.stringify({action:"ai",model:"claude-sonnet-4-20250514",max_tokens:900,system:SYSTEM_PROMPT,messages:[{role:"user",content:`Write an investment memorandum executive summary for institutional investors. ${at.toUpperCase()} asset, ${units} units in ${city}. GDV ${FMT(gdv)}, NOI ${FMT(noi)} pa, yield ${(ey*100).toFixed(2)}%. Include: investment thesis, asset overview, market context, financial summary, risk factors, exit thesis. Professional tone, ~400 words.`}]})});const d=await r.json();setMemo(d.content?.find(b=>b.type==="text")?.text||"");} catch{setMemo("Failed.");} setMemoL(false);};
+  const genHoT=async()=>{setHotL(true);try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","anthropic-dangerous-direct-browser-access":"true",},body:JSON.stringify({action:"ai",model:"claude-sonnet-4-20250514",max_tokens:900,system:SYSTEM_PROMPT,messages:[{role:"user",content:`Generate professional Heads of Terms for ${at.toUpperCase()} asset. ${units} units in ${city}, GDV ${FMT(gdv)}, NOI ${FMT(noi)} pa, yield ${(ey*100).toFixed(2)}%, investor: ${e.investorType||"institutional fund"}. Number each HoT clause: purchase price, yield, payment milestones, practical completion, management, conditions precedent, break clauses, long stop date, warranties.`}]})});const d=await r.json();setHot(d.content && d.content.find(b=>b.type==="text") && b.text) || (b.type==="text") ? b.text : null||"");} catch{setHot("Failed.");} setHotL(false);};
+  const genMemo=async()=>{setMemoL(true);try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","anthropic-dangerous-direct-browser-access":"true",},body:JSON.stringify({action:"ai",model:"claude-sonnet-4-20250514",max_tokens:900,system:SYSTEM_PROMPT,messages:[{role:"user",content:`Write an investment memorandum executive summary for institutional investors. ${at.toUpperCase()} asset, ${units} units in ${city}. GDV ${FMT(gdv)}, NOI ${FMT(noi)} pa, yield ${(ey*100).toFixed(2)}%. Include: investment thesis, asset overview, market context, financial summary, risk factors, exit thesis. Professional tone, ~400 words.`}]})});const d=await r.json();setMemo(d.content && d.content.find(b=>b.type==="text") && b.text) || (b.type==="text") ? b.text : null||"");} catch{setMemo("Failed.");} setMemoL(false);};
   return (
     <div className="stage">
       <div className="sh"><h2>Investment Exit</h2><p>Exit strategy, investor targeting, Heads of Terms and Investment Memorandum</p></div>
@@ -1754,20 +1743,20 @@ function App({ currentUser, data: initialData, setData: saveDeal }) {
   const [active,setActive]=useState("dashboard");
   const [data,setDataLocal]=useState(initialData||{assetType:"btr"});
   
-  const setData = React.useCallback((updater) => {
+  const setData = (updater) => {
     setDataLocal(prev => {
       const next = typeof updater === "function" ? updater(prev) : updater;
       if (saveDeal) saveDeal(next);
       return next;
     });
-  }, [saveDeal]);
+  };
 
   React.useEffect(() => {
-    if (initialData?.id && initialData.id !== data.id) {
+    if (initialData && initialData.id && data && initialData.id !== data.id) {
       setDataLocal(initialData);
       setActive("dashboard");
     }
-  }, [initialData?.id]);
+  }, [initialData && initialData.id]);
   const idx=STAGES.findIndex(s=>s.id===active);
   const Comp=COMPS[active];
   const groups=[...new Set(STAGES.map(s=>s.group))];
@@ -1910,14 +1899,14 @@ function App({ currentUser, data: initialData, setData: saveDeal }) {
       </aside>
       <main className="main">
         <div className="topbar">
-          <div className="tb-title">{data.land?.address||"New Deal"}</div>
-          <div className="tb-right"><span>{data.assetType?.toUpperCase()}</span> · {STAGES[idx]?.label}</div>
+          <div className="tb-title">{(data.land && data.land.address)||"New Deal"}</div>
+          <div className="tb-right"><span>{data.(assetType && assetType.toUpperCase)()}</span> · {(STAGES[idx] && STAGES[idx].label)}</div>
         </div>
         <div className="prog-bar"><div className="prog-fill" style={{width:`${((idx+1)/STAGES.length)*100}%`}}/></div>
         <div className="content">{Comp&&<Comp data={data} setData={setData} setActive={setActive}/>}</div>
         <div className="footer">
           <button className="fn-btn prev" disabled={idx===0} onClick={()=>setActive(STAGES[idx-1].id)}>← Previous</button>
-          <div style={{fontSize:11,color:"var(--td)"}}><strong style={{color:"var(--cd)"}}>{STAGES[idx]?.label}</strong> · {idx+1} of {STAGES.length}</div>
+          <div style={{fontSize:11,color:"var(--td)"}}><strong style={{color:"var(--cd)"}}>{(STAGES[idx] && STAGES[idx].label)}</strong> · {idx+1} of {STAGES.length}</div>
           <button className="fn-btn next" disabled={idx===STAGES.length-1} onClick={()=>setActive(STAGES[idx+1].id)}>Next →</button>
         </div>
       </main>
