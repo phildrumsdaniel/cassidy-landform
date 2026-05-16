@@ -4300,8 +4300,8 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
         e("button",{onClick:function(){navTo("summary");},style:{padding:"6px 12px",background:stage==="summary"?"#2E2F8A":"#F7F8FC",border:"1px solid "+(stage==="summary"?"#2E2F8A":"#DDE0ED"),color:stage==="summary"?"#fff":"#3A3D6A",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},
           "📄 Summary"
         ),
-        e("button",{onClick:function(){navTo("flowcharts");},style:{padding:"6px 12px",background:stage==="flowcharts"?"#4A4BAE":"#F7F8FC",border:"1px solid "+(stage==="flowcharts"?"#4A4BAE":"#DDE0ED"),color:stage==="flowcharts"?"#fff":"#3A3D6A",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},
-          "🗺 Flowcharts"
+        e("button",{onClick:function(){window.open("https://phildrumsdaniel.github.io/cassidy-landform/flowcharts.html","cassidy-flowcharts");},style:{padding:"6px 12px",background:"#4A4BAE",border:"1px solid #4A4BAE",color:"#fff",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},
+          "🗺 Flowcharts ↗"
         ),
         e("button",{onClick:function(){setShowHist(function(s){return !s;});},style:{padding:"6px 12px",background:showHist?"#4A4BAE":"#F7F8FC",border:"1px solid "+(showHist?"#4A4BAE":"#DDE0ED"),color:showHist?"#fff":"#3A3D6A",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},
           "📋 History"+(history.length>0?" ("+history.length+")":"")
