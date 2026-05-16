@@ -370,6 +370,11 @@ function Tool(props){
   var user=props.user;
   var st=useState("dashboard"); var stage=st[0]; var setStage=st[1];
   var dt=useState({assetType:"btr",risks:RISK_DEFAULTS.map(function(r){return Object.assign({},r);})}); var data=dt[0]; var setData=dt[1];
+  // Exit stage states - must be at component level not inside render functions
+  var hotS=useState(""); var hot=hotS[0]; var setHot=hotS[1];
+  var hotLS=useState(false); var hotL=hotLS[0]; var setHotL=hotLS[1];
+  var memoS=useState(""); var memo=memoS[0]; var setMemo=memoS[1];
+  var memoLS=useState(false); var memoL=memoLS[0]; var setMemoL=memoLS[1];
 
   function up(section,key,val){
     setData(function(d){
@@ -1542,10 +1547,7 @@ function Tool(props){
     var ex=data.exit||{};
     var gdvM=gdv/1e6;
     var matchedBuyers=BUYERS.filter(function(b){return gdvM>=b.min*0.7;});
-    var hotState=useState(""); var hot=hotState[0]; var setHot=hotState[1];
-    var hotLoad=useState(false); var hotL=hotLoad[0]; var setHotL=hotLoad[1];
-    var memoState=useState(""); var memo=memoState[0]; var setMemo=memoState[1];
-    var memoLoad=useState(false); var memoL=memoLoad[0]; var setMemoL=memoLoad[1];
+    // hot, hotL, memo, memoL are declared at Tool component level
 
     async function genHoT(){
       setHotL(true); setHot("");
