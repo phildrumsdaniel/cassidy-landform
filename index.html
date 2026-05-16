@@ -21,7 +21,7 @@ const { useState, useEffect } = React;
 // Paste your Google Apps Script Web App URL below after deployment.
 const ACCESS_CONFIG = {
   expiryDate: "2027-12-31",
-  sheetWebhook: "https://script.google.com/macros/library/d/12IaVXaFLASkKp3HWmJzRieRRgg3DP7RWmI4ZD9fpymyYCeCIuK7FhHzO/1",
+  sheetWebhook: "https://script.google.com/macros/s/AKfycbz1_KT5gj1rsO5OuwAivh0U6TyXQ1zFSu58Sd5sRpCQ0cGWSzVl4u0wz0MLbQk2Xv6q/exec",
 };
 
 // ─── LOGGING ENGINE ───────────────────────────────────────────────────────────
@@ -69,122 +69,6 @@ const logAIResult = (user, stage, prompt, result) => {
     stage,
     result: (result||"").substring(0, 400)
   });
-};
-
-// ─── DUMMY (replaced above) ───────────────────────────────────────────────────
-const _legacyLog = async (user, eventType, details) => {
-  // Legacy — kept for reference only, not called
-  await fetch(ACCESS_CONFIG.sheetWebhook, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "log",
-        timestamp: new Date().toISOString(),
-        user: user?.name || "Unknown",
-        company: user?.company || "Unknown",
-        role: user?.role || "demo",
-        event: eventType,
-        details: typeof details === "object" ? JSON.stringify(details) : String(details),
-        userAgent: navigator.userAgent.substring(0, 80),
-      }),
-    });
-  } catch(e) { /* silent fail */ }
-};
-
-// ─── ACCESS GATE COMPONENT ────────────────────────────────────────────────────
-const AccessGate = ({ onLogin }) => {
-  const [pwd, setPwd] = React.useState("");
-  const [name, setName] = React.useState("");
-  const [company, setCompany] = React.useState("");
-  const [error, setError] = React.useState("");
-  const [expired, setExpired] = React.useState(false);
-
-  React.useEffect(() => {
-    const expiry = new Date(ACCESS_CONFIG.expiryDate);
-    expiry.setHours(23,59,59,999);
-    if (new Date() > expiry) setExpired(true);
-  }, []);
-
-  const [loading, setLoading] = React.useState(false);
-
-  const handleLogin = async () => {
-    if (!name.trim()) { setError("Please enter your name."); return; }
-    if (!company.trim()) { setError("Please enter your company."); return; }
-    if (!pwd.trim()) { setError("Please enter your access code."); return; }
-    setLoading(true); setError("");
-
-    // If no webhook set yet — offline fallback for testing only
-    if (!ACCESS_CONFIG.sheetWebhook || ACCESS_CONFIG.sheetWebhook.includes("YOUR_GOOGLE")) {
-      setLoading(false);
-      setError("Access system not connected yet. Add your Google Apps Script URL to the tool.");
-      return;
-    }
-
-    try {
-      // Use GET with query params — avoids CORS preflight issues
-      const params = new URLSearchParams({
-        action: "verify",
-        password: pwd.trim(),
-        name: name.trim(),
-        company: company.trim(),
-        userAgent: navigator.userAgent.substring(0, 80),
-      });
-      const res = await fetch(ACCESS_CONFIG.sheetWebhook + "?" + params.toString());
-      const data = await res.json();
-      if (data.status === "ok" && data.user) {
-        onLogin({ ...data.user, loginTime: new Date().toISOString() });
-      } else {
-        setError(data.message || "Incorrect access code. Please contact Cassidy Group.");
-      }
-    } catch(e) {
-      setError("Could not connect to access server. Please check your internet connection and try again.");
-    }
-    setLoading(false);
-  };
-
-  if (expired) return (
-    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#F4F5F9",fontFamily:"DM Sans,sans-serif"}}>
-      <div style={{background:"#fff",border:"1px solid #DDE0ED",borderRadius:16,padding:"48px 40px",maxWidth:420,width:"90%",textAlign:"center",boxShadow:"0 4px 24px rgba(46,47,138,0.08)"}}>
-        <img src={"data:image/webp;base64," + CASSIDY_LOGO} alt="Cassidy Group" style={{width:100,height:"auto",marginBottom:20}}/>
-        <h2 style={{color:"#2E2F8A",fontWeight:800,fontSize:22,marginBottom:12}}>Demo Expired</h2>
-        <p style={{color:"#7278A0",fontSize:14,lineHeight:1.7,marginBottom:24}}>This demonstration period has ended.<br/>Please contact Cassidy Group to arrange continued access.</p>
-        <a href="mailto:info@cassidygroup.co.uk" style={{display:"inline-block",padding:"10px 24px",background:"#4A4BAE",color:"#fff",borderRadius:6,fontSize:13,fontWeight:700,textDecoration:"none"}}>Contact Cassidy Group</a>
-      </div>
-    </div>
-  );
-
-  return (
-    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#1E1F5C 0%,#2E2F8A 50%,#1E1F5C 100%)",fontFamily:"DM Sans,sans-serif"}}>
-      <div style={{background:"#fff",border:"1px solid #DDE0ED",borderRadius:16,padding:"48px 40px",maxWidth:440,width:"90%",boxShadow:"0 8px 40px rgba(0,0,0,0.25)"}}>
-        <div style={{textAlign:"center",marginBottom:32}}>
-          <img src={"data:image/webp;base64," + CASSIDY_LOGO} alt="Cassidy Group" style={{width:120,height:"auto",marginBottom:16}}/>
-          <h1 style={{color:"#2E2F8A",fontWeight:800,fontSize:20,marginBottom:6}}>Land & Development Intelligence</h1>
-          <p style={{color:"#7278A0",fontSize:13}}>Enter your details and access code to continue</p>
-        </div>
-        <div style={{display:"flex",flexDirection:"column",gap:14}}>
-          <div style={{display:"flex",flexDirection:"column",gap:5}}>
-            <label style={{fontSize:10,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:700}}>Your Name</label>
-            <input value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="e.g. John Smith" style={{padding:"11px 14px",border:"1px solid #C8CDE0",borderRadius:7,fontSize:14,fontFamily:"DM Sans,sans-serif",outline:"none"}}/>
-          </div>
-          <div style={{display:"flex",flexDirection:"column",gap:5}}>
-            <label style={{fontSize:10,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:700}}>Company</label>
-            <input value={company} onChange={e=>setCompany(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="e.g. Smith Developments Ltd" style={{padding:"11px 14px",border:"1px solid #C8CDE0",borderRadius:7,fontSize:14,fontFamily:"DM Sans,sans-serif",outline:"none"}}/>
-          </div>
-          <div style={{display:"flex",flexDirection:"column",gap:5}}>
-            <label style={{fontSize:10,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:700}}>Access Code</label>
-            <input type="password" value={pwd} onChange={e=>setPwd(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="Enter access code" style={{padding:"11px 14px",border:`1px solid ${error?"#B05A35":"#C8CDE0"}`,borderRadius:7,fontSize:14,fontFamily:"DM Sans,sans-serif",outline:"none"}}/>
-          </div>
-          {error && <div style={{background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.3)",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#B05A35"}}>{error}</div>}
-          <button onClick={handleLogin} disabled={loading} style={{padding:"12px",background:loading?"#8889C8":"#4A4BAE",border:"none",borderRadius:7,color:"#fff",fontSize:14,fontWeight:700,cursor:loading?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",marginTop:4,transition:"background .15s"}}
-            onMouseOver={e=>{if(!loading)e.target.style.background="#2E2F8A"}} onMouseOut={e=>{if(!loading)e.target.style.background=loading?"#8889C8":"#4A4BAE"}}>
-            {loading ? "Verifying..." : "Access Tool →"}
-          </button>
-        </div>
-        <p style={{textAlign:"center",fontSize:11,color:"#A0A4C0",marginTop:20}}>Demo expires {new Date(ACCESS_CONFIG.expiryDate).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})} · Cassidy Group © 2025</p>
-      </div>
-    </div>
-  );
 };
 
 // ─── DEAL STORAGE HELPERS ────────────────────────────────────────────────────
