@@ -892,6 +892,216 @@ function Tool(props){
     );
   }
 
+  // ── EXECUTIVE SUMMARY ────────────────────────────────────────────────────────
+  function renderSummary(){
+    var l=data.land||{};
+    var r=data.rlv||{};
+    var p=data.planning||{};
+    var f=data.fin||{};
+    var ex=data.exit||{};
+    var ep=data.epe||{};
+    var sf=data.sfh||{};
+    var hr=data.hra||{};
+    var rc=data.recovery||{};
+
+    var addr=l.address||(data.scraper&&data.scraper.result&&data.scraper.result.address)||ep.streetAddress||"Not specified";
+    var pc=r.postcode||ep.postcode||"";
+    var lCity2=l.city||city||"";
+    var acres2=num(l.acres||sf.acres||0);
+    var askingPrice2=num(l.price||rc.knockdownPrice||0);
+    var lpa2=p.lpa||l.localAuthority||"Not specified";
+    var planStatus2=p.status||l.planStatus||"Not specified";
+    var totalUnits2=num(p.units||sf.units||hr.total||0);
+    var assetLabel={btr:"Build to Rent (BTR)",pbsa:"Purpose Built Student Accommodation (PBSA)",sfh:"Single Family Housing (SFH)"}[at]||at.toUpperCase();
+    var journeyLabel={land:"Land Acquisition",property:"Property Evaluation",sfh:"SFH Development",btr:"BTR Development",pbsa:"PBSA Development",recovery:"Planning Recovery"}[journey]||"Development";
+    var today=new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"});
+
+    // Calculate completion status of each section
+    var sections=[
+      {label:"Land / Site Details",done:!!(l.address&&l.acres&&l.price),key:"land"},
+      {label:"Land Valuation (RLV)",done:!!(r.units&&r.salePsf),key:"rlv"},
+      {label:"Land Appraisal (Scored)",done:!!(l.city&&l.proximity),key:"land_appraisal"},
+      {label:"Planning & Viability",done:!!(p.lpa&&p.units),key:"planning"},
+      {label:"Financial Modelling",done:!!(f.exitYield||f.buildPsf),key:"fin"},
+      {label:"Due Diligence",done:Object.keys(data.ddChecked||{}).filter(function(k){return data.ddChecked[k];}).length>5,key:"dd"},
+      {label:"Risk Register",done:!!(data.risks&&data.risks.length>0),key:"risks"},
+      {label:"Exit Strategy",done:!!(ex.strategy),key:"exit"},
+    ];
+    var completedSections=sections.filter(function(s){return s.done;}).length;
+    var completionPct=Math.round((completedSections/sections.length)*100);
+
+    // Summary AI state
+    var sumLoading=data.sumLoading||false;
+    var sumReport=data.sumReport||"";
+
+    function generateSummary(){
+      setData(function(d){return Object.assign({},d,{sumLoading:true,sumReport:""});});
+
+      var dealData={
+        address:addr,postcode:pc,city:cityName(lCity2),acres:acres2,
+        askingPrice:askingPrice2,assetType:assetLabel,journey:journeyLabel,
+        lpa:lpa2,planningStatus:planStatus2,units:totalUnits2,
+        gdv:gdv,totalDevCost:tc,profit:profit,margin:margin,
+        exitYield:ey*100,noi:noi,exitStrategy:ex.strategy||"Not set",
+        sfhMix:sf.mix?sf.mix.filter(function(m){return num(m.count)>0;}).map(function(m){return m.count+"x "+m.type;}).join(", "):"",
+        riskCount:(data.risks||[]).length,
+        redRisks:(data.risks||[]).filter(function(r2){return r2.rag==="red";}).length,
+        ddComplete:Object.keys(data.ddChecked||{}).filter(function(k){return data.ddChecked[k];}).length,
+        completionPct:completionPct,
+        agent:data.scraper&&data.scraper.result&&data.scraper.result.agent||"",
+        description:data.scraper&&data.scraper.result&&data.scraper.result.description||"",
+        planningStatus2:planStatus2,
+        recoveryRoute:rc.refusalType||"",
+      };
+
+      var prompt="Write a professional executive summary for this real estate development deal. Format as a structured deal brief that could be shared with investors or partners.
+
+DEAL DATA:
+"+JSON.stringify(dealData,null,2)+"
+
+Write the summary with these sections:
+1. DEAL OVERVIEW — one paragraph summary of the opportunity
+2. SITE & LOCATION — address, size, planning status, key characteristics
+3. DEVELOPMENT PROPOSAL — scheme type, units, GDV, key financials
+4. FINANCIAL SUMMARY — GDV, total cost, profit, margin, return metrics
+5. PLANNING POSITION — current status, strategy, risks
+6. EXIT STRATEGY — how the deal will be exited and to whom
+7. KEY RISKS — top 3 risks and mitigations
+8. NEXT STEPS — immediate actions required
+9. DEAL RATING — score this deal 1-10 with one sentence justification
+
+Tone: Professional, commercially sharp, suitable for institutional investors. Plain text. Be specific using the actual numbers provided.";
+
+      var params=new URLSearchParams({
+        action:"ai",stage:"Executive Summary",
+        user:(user&&user.name)||"",company:(user&&user.company)||"",
+        system:"You are a senior real estate investment analyst. Write clear, commercially sharp executive summaries for development deals. Plain text only. Use UK conventions and formatting.",
+        prompt:prompt.substring(0,3000)
+      });
+
+      fetch(WEBHOOK+"?"+params.toString())
+      .then(function(res){return res.json();})
+      .then(function(d2){
+        var text=d2.result||"Failed to generate summary";
+        setData(function(d){return Object.assign({},d,{sumLoading:false,sumReport:text});});
+        logEvent(user,"EXEC_SUMMARY",{address:addr,completion:completionPct+"%"});
+      })
+      .catch(function(){
+        setData(function(d){return Object.assign({},d,{sumLoading:false,sumReport:"Connection failed — please try again."});});
+      });
+    }
+
+    return e("div",null,
+      // Header
+      e("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:20}},
+        e("div",null,
+          e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Executive Summary"),
+          e("p",{style:{fontSize:12,color:"#7278A0"}},"Live deal brief — generates from your completed stages. Share with investors and partners.")
+        ),
+        e("div",{style:{textAlign:"right"}},
+          e("div",{style:{fontSize:11,color:"#7278A0"}},today),
+          e("div",{style:{fontSize:11,color:"#7278A0"}},(user&&user.company)||"Cassidy Group"),
+          e("div",{style:{fontSize:11,fontWeight:700,color:"#4A4BAE",marginTop:4}},journeyLabel+" Journey")
+        )
+      ),
+
+      // Completion tracker
+      e("div",{style:S.card},
+        e("div",{style:{display:"flex",alignItems:"center",gap:16,marginBottom:12}},
+          e("div",{style:{fontSize:48,fontWeight:800,color:completionPct>=75?"#2D7A65":completionPct>=50?"#9A7B3E":"#B05A35",lineHeight:1,minWidth:70}},completionPct+"%"),
+          e("div",{style:{flex:1}},
+            e("div",{style:{height:8,background:"#DDE0ED",borderRadius:4,overflow:"hidden",marginBottom:8}},
+              e("div",{style:{height:"100%",width:completionPct+"%",background:completionPct>=75?"#2D7A65":completionPct>=50?"#9A7B3E":"#B05A35",borderRadius:4,transition:"width .5s"}})
+            ),
+            e("div",{style:{fontSize:12,color:"#7278A0"}},completedSections+" of "+sections.length+" sections completed")
+          )
+        ),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}},
+          sections.map(function(s){
+            return e("div",{key:s.label,
+              onClick:function(){
+                var stageMap={land:"land",rlv:"rlv",land_appraisal:"land",planning:"planning",fin:"fin",dd:"dd",risks:"risks",exit:"exit"};
+                navTo(stageMap[s.key]||s.key);
+              },
+              style:{display:"flex",alignItems:"center",gap:6,padding:"8px 10px",borderRadius:6,background:s.done?"rgba(45,122,101,0.06)":"rgba(176,90,53,0.04)",border:"1px solid "+(s.done?"rgba(45,122,101,0.25)":"rgba(176,90,53,0.15)"),cursor:"pointer"}
+            },
+              e("div",{style:{width:14,height:14,borderRadius:"50%",background:s.done?"#2D7A65":"#DDE0ED",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:9}},s.done?"✓":""),
+              e("span",{style:{fontSize:10,color:s.done?"#2E2F8A":"#B05A35",fontWeight:s.done?600:400}},s.label)
+            );
+          })
+        )
+      ),
+
+      // Deal snapshot cards
+      e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}},
+        [
+          {l:"Site",v:acres2>0?acres2+" acres":"—",sub:cityName(lCity2)||"—",c:"#4A4BAE"},
+          {l:"Asking Price",v:askingPrice2>0?fmt(askingPrice2):"—",sub:"Acquisition",c:"#9A7B3E"},
+          {l:"GDV",v:gdv>0?fmt(gdv):"—",sub:"Gross Dev Value",c:"#2D7A65"},
+          {l:"Net Profit",v:profit>0?fmt(profit):"—",sub:margin>0?pct(margin)+" margin":"—",c:margin>=15?"#2D7A65":"#B05A35"},
+          {l:"Units / Beds",v:totalUnits2||"—",sub:assetLabel,c:"#4A4BAE"},
+          {l:"Exit Yield",v:ey>0?pct(ey*100):"—",sub:"Target",c:"#9A7B3E"},
+          {l:"Planning",v:planStatus2||"—",sub:lpa2,c:"#7B6CB0"},
+          {l:"Exit",v:ex.strategy?{plot_sales:"Plot Sales",forward_fund:"Fwd Fund",forward_sale:"Fwd Sale",stabilised:"Stabilised",retain:"Retain",phased:"Phased"}[ex.strategy]||ex.strategy:"—",sub:"Strategy",c:"#B05A35"},
+        ].map(function(item){
+          return e("div",{key:item.l,style:{background:"#fff",border:"1px solid #DDE0ED",borderTop:"3px solid "+item.c,borderRadius:8,padding:14}},
+            e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}},item.l),
+            e("div",{style:{fontSize:18,fontWeight:800,color:item.c,marginBottom:2}},item.v),
+            e("div",{style:{fontSize:10,color:"#7278A0"}},item.sub)
+          );
+        })
+      ),
+
+      // Generate button + report
+      e("div",{style:S.card},
+        e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}},
+          e("div",null,
+            e("div",{style:S.cardTitle},"AI Generated Executive Summary"),
+            e("div",{style:{fontSize:11,color:"#7278A0"}},"Generates from all completed stages. Re-run any time as you add more data.")
+          ),
+          e("div",{style:{display:"flex",gap:8}},
+            e("button",{onClick:generateSummary,disabled:sumLoading,
+              style:{padding:"10px 20px",background:sumLoading?"#8889C8":"#2E2F8A",border:"none",borderRadius:7,color:"#fff",fontSize:12,fontWeight:700,cursor:sumLoading?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif"}},
+              sumLoading?"⏳ Generating...":"📄 Generate Summary"),
+            sumReport&&e("button",{
+              onClick:function(){
+                var el=document.createElement("textarea");
+                el.value="EXECUTIVE SUMMARY\n"+today+"\n"+(user&&user.company||"Cassidy Group")+"\n\n"+sumReport;
+                document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);
+                alert("✓ Copied to clipboard — paste into Word or email");
+              },
+              style:{padding:"10px 16px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#3A3D6A",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+            },"📋 Copy")
+          )
+        ),
+        completionPct<30&&!sumReport&&e("div",{style:{background:"rgba(154,123,62,0.08)",border:"1px solid rgba(154,123,62,0.25)",borderRadius:8,padding:"14px 16px",fontSize:12,color:"#7A5A2E",marginBottom:14}},
+          "⚠ Only "+completionPct+"% complete. Fill in more stages for a richer summary. At minimum: Land details, Planning, and Financials should be completed."
+        ),
+        sumReport?e("div",{style:{background:"#FAFBFF",border:"1px solid #DDE0ED",borderRadius:8,padding:"24px 28px"}},
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,paddingBottom:16,borderBottom:"2px solid #DDE0ED"}},
+            e("div",null,
+              e("div",{style:{fontSize:18,fontWeight:800,color:"#2E2F8A",marginBottom:2}},addr||"Development Opportunity"),
+              e("div",{style:{fontSize:12,color:"#7278A0"}},assetLabel+(acres2?" · "+acres2+" acres":"")+(lCity2?" · "+cityName(lCity2):""))
+            ),
+            e("div",{style:{textAlign:"right",fontSize:11,color:"#7278A0"}},
+              e("div",{style:{fontWeight:700,color:"#4A4BAE"}},(user&&user.company)||"Cassidy Group"),
+              e("div",null,today),
+              e("div",{style:{marginTop:4,padding:"3px 10px",background:"rgba(45,122,101,0.1)",color:"#2D7A65",borderRadius:10,fontSize:10,fontWeight:700,display:"inline-block"}},completionPct+"% Complete")
+            )
+          ),
+          e("pre",{style:{fontSize:13,lineHeight:2.1,color:"#2E2F8A",whiteSpace:"pre-wrap",fontFamily:"Georgia, 'Times New Roman', serif"}},sumReport),
+          e("div",{style:{marginTop:20,paddingTop:16,borderTop:"1px solid #DDE0ED",fontSize:10,color:"#7278A0",fontStyle:"italic"}},
+            "Generated by Cassidy Group Land & Development Intelligence · "+today+" · For internal use only — not for distribution without authorisation."
+          )
+        ):e("div",{style:{textAlign:"center",padding:"40px 20px",color:"#7278A0"}},
+          e("div",{style:{fontSize:40,marginBottom:12}},"📄"),
+          e("div",{style:{fontSize:13,fontWeight:600,color:"#2E2F8A",marginBottom:6}},"No summary generated yet"),
+          e("div",{style:{fontSize:12}},"Click Generate Summary above to create your executive brief")
+        )
+      )
+    );
+  }
+
   // ── LAND DEVELOPMENT WORKFLOW ────────────────────────────────────────────────
   function renderLandWorkflow(){
     var l=data.land||{};
@@ -3719,6 +3929,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     if(stage==="epeworkflow")return renderEPEWorkflow();
     if(stage==="landworkflow")return renderLandWorkflow();
     if(stage==="recovery")return renderRecovery();
+    if(stage==="summary")return renderSummary();
     if(stage==="epe")return renderEPE();
     if(stage==="rlv")return renderRLV();
     if(stage==="sfh")return renderSFH();
@@ -3797,6 +4008,9 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
       e("div",{style:{height:58,background:"#fff",borderBottom:"1px solid #DDE0ED",display:"flex",alignItems:"center",padding:"0 20px",gap:10,position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 3px rgba(46,47,138,0.08)"}},
         e("div",{style:{fontSize:15,fontWeight:700,color:"#2E2F8A",flex:1}},curStage.label),
         e("div",{style:{fontSize:11,color:"#7278A0",marginRight:8}},at.toUpperCase()+" · "+cityName(city)),
+        e("button",{onClick:function(){navTo("summary");},style:{padding:"6px 12px",background:stage==="summary"?"#2E2F8A":"#F7F8FC",border:"1px solid "+(stage==="summary"?"#2E2F8A":"#DDE0ED"),color:stage==="summary"?"#fff":"#3A3D6A",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},
+          "📄 Summary"
+        ),
         e("button",{onClick:function(){setShowHist(function(s){return !s;});},style:{padding:"6px 12px",background:showHist?"#4A4BAE":"#F7F8FC",border:"1px solid "+(showHist?"#4A4BAE":"#DDE0ED"),color:showHist?"#fff":"#3A3D6A",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},
           "📋 History"+(history.length>0?" ("+history.length+")":"")
         ),
