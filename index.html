@@ -1120,8 +1120,8 @@ function Tool(props){
 
       var sysPrompt="You are a UK land data specialist. Return ONLY a JSON object starting with { and ending with }. No explanation, no markdown, no backticks.";
 
-      var userPrompt=sourceText+
-        " Return this JSON: {"address":"","postcode":"","city":"","acreage":null,"hectares":null,"askingPrice":null,"priceType":"","planningStatus":"","localAuthority":"","propertyType":"","description":"","agent":"","agentContact":"","dealType":"","developmentPotential":"","estimatedUnits":null,"constraints":""}";
+      var jsonTemplate='{"address":"","postcode":"","city":"","acreage":null,"hectares":null,"askingPrice":null,"priceType":"","planningStatus":"","localAuthority":"","propertyType":"","description":"","agent":"","agentContact":"","dealType":"","developmentPotential":"","estimatedUnits":null,"constraints":""}';
+      var userPrompt=sourceText+" Return this JSON structure with real values: "+jsonTemplate;
 
       // Use GET with encoded params - avoids CORS preflight
       var params=new URLSearchParams({
