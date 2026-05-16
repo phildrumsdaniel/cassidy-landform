@@ -2460,7 +2460,83 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
       });
     }
 
-        function doImport(){
+        function doAreaIntel(){
+      if(!scrResult)return;
+      var addr=scrResult.address||"";
+      var pc=scrResult.postcode||"";
+      var lCity=scrResult.city||"";
+      var acres=scrResult.acreage||"";
+      var assetHint=at||"residential";
+
+      up("scraper","areaLoading",true);up("scraper","areaReport","");
+
+      var prompt="You are a UK property development research analyst. Provide a comprehensive AREA INTELLIGENCE REPORT for a development site."+
+        "\n\nSite: "+(addr||"Unknown address")+", "+(pc||"unknown postcode")+", "+(lCity||"unknown city")+
+        "\nSite size: "+(acres||"unknown")+" acres"+
+        "\nAsset type being considered: "+assetHint.toUpperCase()+
+        "\n\nProvide the following research in plain text format with clear headers:"+
+        "\n\n1. LOCATION OVERVIEW"+
+        "\n   - What area/neighbourhood is this in?"+
+        "\n   - Character of the area (urban/suburban/rural/regeneration)"+
+        "\n   - Recent development activity nearby"+
+        "\n\n2. TRANSPORT & CONNECTIVITY"+
+        "\n   - Nearest train/tram stations and distance"+
+        "\n   - Bus routes serving the area"+
+        "\n   - Road connections (A roads, motorway junctions)"+
+        "\n   - Cycling infrastructure"+
+        "\n   - Walk score / transport score assessment"+
+        "\n\n3. UNIVERSITIES & EDUCATION (critical for PBSA)"+
+        "\n   - Nearest universities and distance in minutes walk/cycle"+
+        "\n   - Student population size"+
+        "\n   - PBSA suitability rating (1-10 with reason)"+
+        "\n\n4. DEMOGRAPHICS & DEMAND DRIVERS"+
+        "\n   - Area demographics (age, income, tenure mix)"+
+        "\n   - Employment centres within 30 min commute"+
+        "\n   - Major employers in the area"+
+        "\n   - Population growth trend"+
+        "\n\n5. AMENITIES & LIVEABILITY"+
+        "\n   - Retail — supermarkets, town centre, retail parks"+
+        "\n   - Healthcare — GP surgeries, hospitals"+
+        "\n   - Schools — primary and secondary (Ofsted ratings if known)"+
+        "\n   - Leisure — parks, gyms, restaurants"+
+        "\n\n6. PLANNING CONTEXT"+
+        "\n   - Local Planning Authority and recent housing delivery"+
+        "\n   - Is the area in a regeneration zone or enterprise zone?"+
+        "\n   - Any known infrastructure projects nearby (HS2, road schemes)?"+
+        "\n   - Flood risk assessment"+
+        "\n\n7. RENTAL & SALES MARKET"+
+        "\n   - Current average rents for 1-bed and 2-bed flats"+
+        "\n   - Average house prices in the area"+
+        "\n   - Rental yield estimates"+
+        "\n   - Vacancy rates and void periods"+
+        "\n\n8. SCHEME SUITABILITY SUMMARY"+
+        "\n   - BTR suitability: [score 1-10 with reason]"+
+        "\n   - PBSA suitability: [score 1-10 with reason]"+
+        "\n   - SFH suitability: [score 1-10 with reason]"+
+        "\n   - Overall recommendation for this site";
+
+      var params=new URLSearchParams({
+        action:"ai",stage:"Area Intel",
+        user:(user&&user.name)||"",company:(user&&user.company)||"",
+        system:"You are a UK property development research analyst with deep knowledge of UK towns, cities, transport networks, universities and planning policy. Provide detailed, accurate, commercially useful area intelligence. Be specific with distances and facts. Plain text only.",
+        prompt:prompt.substring(0,3000)
+      });
+
+      fetch(WEBHOOK+"?"+params.toString())
+      .then(function(res){return res.json();})
+      .then(function(data2){
+        var text=data2.result||"Research failed — please try again";
+        up("scraper","areaReport",text);
+        up("scraper","areaLoading",false);
+        logEvent(user,"AREA_INTEL",{address:addr,postcode:pc});
+      })
+      .catch(function(){
+        up("scraper","areaReport","Connection failed — please check your internet connection.");
+        up("scraper","areaLoading",false);
+      });
+    }
+
+    function doImport(){
       if(!scrResult)return;
       var c=(scrResult.city||"").toLowerCase().replace(/\s/g,"_").replace(/-/g,"_");
       var addr=scrResult.address||"";
@@ -2626,8 +2702,22 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           })
         ),
         scrResult.description&&e("div",{style:{background:"rgba(74,75,174,0.05)",border:"1px solid rgba(74,75,174,0.15)",borderRadius:8,padding:"12px 16px",fontSize:12,color:"#3A3D6A",lineHeight:1.7,marginBottom:12}},scrResult.description),
-        imported?e("div",{style:{background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.25)",borderRadius:8,padding:"14px 16px",fontSize:13,color:"#2D7A65",fontWeight:600,textAlign:"center"}},
-          "✓ Imported — fields pre-filled across all appraisal stages. Navigate to Land Appraisal, RLV or SFH to see the data."
+        imported?e("div",null,
+          e("div",{style:{background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.25)",borderRadius:8,padding:"14px 16px",fontSize:13,color:"#2D7A65",fontWeight:600,textAlign:"center"},marginBottom:10},
+            "✓ Imported — fields pre-filled across all appraisal stages."
+          ),
+          e("div",{style:{display:"flex",gap:10,marginTop:10}},
+            e("button",{onClick:function(){navTo("landworkflow");},style:{flex:1,padding:"11px",background:"#2D7A65",border:"none",borderRadius:7,color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
+              "→ Open Land Workflow"
+            ),
+            e("button",{onClick:doAreaIntel,disabled:sc2.areaLoading,style:{flex:1,padding:"11px",background:"#9A7B3E",border:"none",borderRadius:7,color:"#fff",fontSize:13,fontWeight:700,cursor:sc2.areaLoading?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",opacity:sc2.areaLoading?0.7:1}},
+              sc2.areaLoading?"🔍 Researching Area...":"🔍 Research This Area"
+            )
+          ),
+          sc2.areaReport&&e("div",{style:{marginTop:14,background:"#F8F8FE",border:"1px solid #DDE0ED",borderLeft:"3px solid #9A7B3E",borderRadius:8,padding:"16px 20px"}},
+            e("div",{style:{fontSize:11,fontWeight:700,color:"#9A7B3E",textTransform:"uppercase",letterSpacing:".1em",marginBottom:10}},"Area Intelligence Report — "+(scrResult&&scrResult.city||"Unknown Location")),
+            e("pre",{style:{fontSize:12,lineHeight:1.9,color:"#3A3D6A",whiteSpace:"pre-wrap",fontFamily:"DM Sans,sans-serif"}},sc2.areaReport)
+          )
         ):e("button",{onClick:doImport,style:{width:"100%",padding:"11px",background:"#4A4BAE",border:"none",borderRadius:7,color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
           "⚡ Import & Pre-fill All Landform Fields"
         )
