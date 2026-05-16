@@ -1275,7 +1275,7 @@ function Tool(props){
         )
       ),
       e(AIPanel,{user:user,stage:"land",label:"Analyse Site",
-        prompt:"Evaluate this "+at.toUpperCase()+" development site in "+cityName(city)+". Location score: "+score+"/100. Asking: "+fmt(askingPrice)+", market benchmark: "+fmt(benchmark)+". Site: "+((l.acres||"?")+) " acres, contamination: "+(l.contamination||"unknown")+", tenure: "+(l.tenure||"unknown")+". Provide: 1) Strengths and red flags, 2) Land value vs market assessment, 3) DD priorities in order, 4) Go/No-Go with conditions, 5) Negotiation strategy and opening bid recommendation."})
+        prompt:"Evaluate this "+at.toUpperCase()+" development site in "+cityName(city)+". Location score: "+score+"/100. Asking: "+fmt(askingPrice)+", market benchmark: "+fmt(benchmark)+". Site: "+(l.acres||"?")+" acres, contamination: "+(l.contamination||"unknown")+", tenure: "+(l.tenure||"unknown")+". Provide: 1) Strengths and red flags, 2) Land value vs market assessment, 3) DD priorities in order, 4) Go/No-Go with conditions, 5) Negotiation strategy and opening bid recommendation."})
     );
   }
 
