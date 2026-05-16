@@ -72,17 +72,23 @@ const logAIResult = (user, stage, prompt, result) => {
 };
 
 // ─── DEAL STORAGE HELPERS ────────────────────────────────────────────────────
+// In-memory store (persists during session, resets on page reload)
+// sessionStorage removed — caused blank page crashes on GitHub Pages
 const DEALS_KEY = "cassidy_landform_deals_v1";
+let _dealsStore = [];
 
 const loadDeals = () => {
   try {
-    const raw = localStorage.getItem(DEALS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch(e) { return []; }
+    const raw = window.sessionStorage ? sessionStorage.getItem(DEALS_KEY) : null;
+    return raw ? JSON.parse(raw) : _dealsStore;
+  } catch(e) { return _dealsStore; }
 };
 
 const saveDeals = (deals) => {
-  try { localStorage.setItem(DEALS_KEY, JSON.stringify(deals)); } catch(e) {}
+  _dealsStore = deals;
+  try { 
+    if (window.sessionStorage) sessionStorage.setItem(DEALS_KEY, JSON.stringify(deals)); 
+  } catch(e) {}
 };
 
 // ─── DEAL MANAGER COMPONENT ───────────────────────────────────────────────────
@@ -1744,9 +1750,24 @@ const STAGES = [
 ];
 const COMPS = {dashboard:Dashboard,scraper:LandScraper,sfh:SFH,hra:HighRise,epe:PropertyEval,rlv:LandValuation,land:LandAppraisal,planning:Planning,fin:FinancialModelling,dd:DueDiligence,risks:RiskRegister,exit:Exit};
 
-function App() {
+function App({ currentUser, data: initialData, setData: saveDeal }) {
   const [active,setActive]=useState("dashboard");
-  const [data,setData]=useState({assetType:"btr"});
+  const [data,setDataLocal]=useState(initialData||{assetType:"btr"});
+  
+  const setData = React.useCallback((updater) => {
+    setDataLocal(prev => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      if (saveDeal) saveDeal(next);
+      return next;
+    });
+  }, [saveDeal]);
+
+  React.useEffect(() => {
+    if (initialData?.id && initialData.id !== data.id) {
+      setDataLocal(initialData);
+      setActive("dashboard");
+    }
+  }, [initialData?.id]);
   const idx=STAGES.findIndex(s=>s.id===active);
   const Comp=COMPS[active];
   const groups=[...new Set(STAGES.map(s=>s.group))];
