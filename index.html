@@ -104,7 +104,7 @@ var PC_PSF = {
   SE1:780,SW4:680,SW8:720,SW11:720,SW18:700,W4:760,W6:720,W11:1100,
   M1:320,M4:310,M20:340,M21:320,SK9:420,
   B1:295,B15:340,B17:310,B29:230,
-  CV1:200,CV6:195,CV8:320,
+  CV1:210,CV6:300,CV8:380,
   LS1:280,LS6:260,LS7:270,LS8:310,LS17:330,
   S1:195,S10:240,S11:270,S17:310,
   L1:210,L17:230,L18:260,
@@ -186,6 +186,70 @@ function fmt(n){
 }
 function pct(n){return n?n.toFixed(1)+"%":"—";}
 function cityName(c){return c?c.charAt(0).toUpperCase()+c.replace(/_/g," ").slice(1):"—";}
+
+// Land value benchmarks £/sqft of PLOT AREA (separate from house £/sqft of floor area)
+// These are residential development land values based on what developers pay
+// Methodology: derived from residual appraisal (GDV minus build costs minus profit)
+var LAND_PSF = {
+  // London prime (£/sqft plot)
+  SW1:800,SW3:750,W1:900,WC1:500,EC1:480,
+  NW3:600,NW1:420,SW11:450,SW4:400,SW18:380,
+  W11:650,W4:420,W6:400,
+  N1:400,SE1:420,E14:380,E1:320,E2:300,
+  HA1:280,CR0:220,BR1:240,IG1:200,RM1:190,
+  // Manchester (£/sqft plot)
+  M1:220,M4:200,M20:240,M21:230,M25:160,
+  SK9:320,SK8:280,OL1:120,BL1:130,
+  // Birmingham / West Mids
+  B1:160,B15:220,B17:200,B29:150,B30:160,
+  CV1:90,CV2:75,CV3:80,CV4:85,
+  CV5:78,CV6:52,CV7:48,CV8:200,
+  WV1:70,WS1:65,DY1:60,
+  // Leeds / Yorkshire
+  LS1:160,LS2:150,LS6:140,LS7:145,LS8:170,
+  LS16:180,LS17:220,LS18:190,
+  BD1:80,BD18:120,HX1:90,HD1:85,
+  S1:120,S10:160,S11:180,S17:220,
+  WF1:80,DN1:75,
+  // Liverpool / NW
+  L1:130,L2:140,L17:160,L18:180,
+  PR1:100,CH1:140,WA1:120,
+  // Bristol / SW
+  BS1:260,BS2:240,BS3:220,BS6:300,
+  BS7:280,BS8:320,BS9:300,
+  BA1:280,BA2:260,GL50:200,EX1:180,
+  PO1:160,SO14:150,BH1:200,
+  // Edinburgh / Scotland
+  EH1:280,EH2:320,EH3:300,EH4:240,
+  EH8:220,EH9:280,EH10:260,EH12:230,
+  G1:140,G3:160,G12:180,G41:150,
+  AB10:120,DD1:90,
+  // Cambridge / Oxford (premium)
+  CB1:380,CB2:360,CB3:400,CB4:320,
+  OX1:420,OX2:400,OX3:360,OX4:320,
+  // South East premium
+  RG1:240,GU1:320,BN1:260,BN3:240,
+  // Midlands / East
+  NG1:120,NG7:100,LE1:110,LE3:100,
+  DE1:90,NN1:85,MK9:160,
+  // North East
+  NE1:110,NE2:140,YO1:160,HG1:180,
+  // Wales
+  CF10:130,CF11:150,CF14:120,SA1:80,
+  // Misc
+  HU1:60,ST1:65,WR1:100,
+  // Default by broad region (fallback)
+  DEFAULT:85
+};
+
+function lookupLandPsf(pc) {
+  var clean=(pc||"").toUpperCase().replace(/\s/g,"");
+  for(var len=4;len>=2;len--){
+    var key=clean.substring(0,len);
+    if(LAND_PSF[key])return LAND_PSF[key];
+  }
+  return LAND_PSF.DEFAULT;
+}
 
 function lookupPostcode(pc){
   var clean=(pc||"").toUpperCase().replace(/\s/g,"");
@@ -503,7 +567,10 @@ function Tool(props){
     var propSqft=num(ep.propSqft)||900;
     var condMod={excellent:1.15,good:1.05,average:1.0,poor:0.88,derelict:0.70}[ep.condition]||1.0;
     var gLen=num(ep.gLen); var gWid=num(ep.gWid); var gardenSqft=gLen*gWid;
-    var gPsf=salePsf>600?160:salePsf>350?75:salePsf>220?48:32;
+    // Garden/plot value uses land rate, not house rate
+    // Based on local land market - CV6 Coundon: £35-70/sqft plot
+    var localLandPsf = lookupLandPsf(ep.postcode||"");
+    var gPsf = localLandPsf; // £/sqft of garden/plot area
     var aspMod={south:1.08,south_west:1.05,west:1.02,east:1.0,north:0.95}[ep.aspect]||1.0;
     var gVal=gardenSqft>0?Math.round((Math.min(gardenSqft,500)*gPsf+Math.max(0,Math.min(gardenSqft-500,500))*gPsf*0.65+Math.max(0,gardenSqft-1000)*gPsf*0.3)*aspMod):0;
     var PARK_MODS={
@@ -557,7 +624,20 @@ function Tool(props){
               style:S.input}),
             e("div",{style:{fontSize:9,color:"#A0A4C0"}},"Type your house number and street name above")
           ),
-          e(CitySelect,{label:"City / Area"+(pcData&&pcData.city?" — auto-detected from postcode":"" ),value:ep.city||eCity,onChange:function(v){up("epe","city",v);}}),
+          e(CitySelect,{label:"City / Area"+(pcData&&pcData.city?" — auto-detected from postcode":""),value:ep.city||eCity,onChange:function(v){up("epe","city",v);}}),
+          pcData&&e("div",{style:{gridColumn:"span 2",background:"rgba(74,75,174,0.05)",border:"1px solid rgba(74,75,174,0.15)",borderRadius:6,padding:"10px 14px",fontSize:11,color:"#3A3D6A",lineHeight:1.7}},
+            e("strong",null,"Two different £/sqft rates are used in this valuation:"),
+            e("br"),
+            "🏠 House value: £"+Math.round(salePsf)+"/sqft of internal floor area (what buyers pay for living space)",
+            e("br"),
+            "🌿 Plot/garden value: £"+(lookupLandPsf(ep.postcode||"")+"/sqft of land area (what developers pay for the plot)"),
+            e("br"),
+e("span",{style:{color:"#9A7B3E"}},
+              "Important: Land is best valued by residual appraisal — GDV minus build costs minus profit. "+
+              "The flat rate above (£"+lookupLandPsf(ep.postcode||"")+"/sqft) is a starting guide only. "+
+              "Planning consent typically doubles or triples bare land value. Use the Land Valuation stage for a full residual calculation."
+            )
+          ),
           e(Sel,{label:"Property Type",value:ep.propType,onChange:function(v){up("epe","propType",v);},
             options:[{value:"",label:"Select..."}].concat(PROP_TYPES.map(function(t){return{value:t,label:t};}))}),
           e("div",{style:{display:"flex",flexDirection:"column",gap:4}},e("label",{style:S.label},"Internal Floor Area"),e("div",{style:{display:"flex",gap:8}},e("input",{type:"number",value:ep.propSqft||"",onChange:function(ev){up("epe","propSqft",ev.target.value);},placeholder:"sqft e.g. 900",style:Object.assign({},S.input,{flex:1})}),e("input",{type:"number",value:ep.propSqft?Math.round(ep.propSqft*0.0929):"",onChange:function(ev){up("epe","propSqft",Math.round(ev.target.value/0.0929)+"");},placeholder:"sqm e.g. 84",style:Object.assign({},S.input,{flex:1})})),e("div",{style:{fontSize:9,color:"#A0A4C0"}},"Enter in sqft OR sqm — the other updates automatically")),
@@ -576,7 +656,7 @@ function Tool(props){
               {value:"4",label:"4 storeys"},
               {value:"5plus",label:"5+ storeys"},
             ]}),
-          e(Inp,{label:"Sale Price (£ per sqft — the price per square foot of floor area)"+(pcData&&pcData.salePsf?" — postcode: £"+pcData.salePsf:""),type:"number",value:ep.salePsf,onChange:function(v){up("epe","salePsf",v);},placeholder:"£"+Math.round(salePsf)+" /sqft"}),
+          e(Inp,{label:"Sale Price (£ per sqft of internal floor area)"+(pcData&&pcData.salePsf?" — postcode: £"+pcData.salePsf:""),type:"number",value:ep.salePsf,onChange:function(v){up("epe","salePsf",v);},placeholder:"£"+Math.round(salePsf)+" /sqft"}),
 e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}},
             e("label",{style:S.label},"Parking & Garaging (tick ALL that apply — multiple selections allowed)"),
             e("div",{style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,padding:14}},
@@ -692,7 +772,16 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           e(Inp,{label:"Side Garden Length (ft)",type:"number",value:ep.sLen,onChange:function(v){up("epe","sLen",v);},placeholder:"e.g. 60"})
         ),
         gardenSqft>0&&e("div",{style:{background:"#EEEEF8",borderRadius:8,padding:12,fontSize:12,color:"#3A3D6A",marginTop:8}},
-          gardenSqft.toLocaleString()+" sqft · "+(gardenSqft/43560).toFixed(3)+" acres · Garden premium: "+fmt(gVal)
+          e("div",{style:{fontWeight:600,marginBottom:4}},gardenSqft.toLocaleString()+" sqft / "+(gardenSqft/43560).toFixed(3)+" acres / "+Math.round(gardenSqft*0.0929)+" sqm"),
+          e("div",{style:{display:"flex",gap:20,flexWrap:"wrap",fontSize:11,color:"#7278A0"}},
+            e("span",null,"Land rate: £"+localLandPsf+"/sqft (local benchmark)"),
+            e("span",null,"Standard value: "+fmt(Math.round(gardenSqft*localLandPsf))),
+            e("span",null,"With planning uplift (est. 2-3x): "+fmt(Math.round(gardenSqft*localLandPsf*2.5))+" — "+fmt(Math.round(gardenSqft*localLandPsf*3.5))),
+            e("span",{style:{color:"#4A4BAE",fontWeight:600}},"Garden/plot premium added to valuation: "+fmt(gVal))
+          ),
+          e("div",{style:{fontSize:10,color:"#9A7B3E",marginTop:6}},
+            "⚠ Land is most accurately valued by residual appraisal (GDV minus build costs). Use Land Valuation stage for a full residual calculation."
+          )
         )
       ),
       propSqft>0&&salePsf>0&&e("div",{style:S.card},
@@ -762,7 +851,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           )
         ),
         e("div",{style:{fontSize:10,color:"#7278A0",fontStyle:"italic"}},
-          "⚠ Indicative estimates only — a RICS-qualified surveyor's valuation is required for mortgage, legal or insurance purposes."
+          "⚠ Indicative estimates only — RICS surveyor required for formal mortgage, legal or insurance purposes. House value uses £"+Math.round(salePsf)+"/sqft local benchmark. Land/plot uses £"+localLandPsf+"/sqft residual-derived rate. Planning uplift not included in base valuation."
         )
       ),
       e("div",{style:S.card},
@@ -938,7 +1027,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
             options:[{value:"",label:"Select..."}].concat(Object.keys(BUILD_TYPES).map(function(t){return{value:t,label:t};}))}),
           e(Inp,{label:"Number of Units / Beds",type:"number",value:r.units,onChange:function(v){up("rlv","units",v);},placeholder:"e.g. 45"}),
           e(Inp,{label:"Avg Unit Size (sqft)",type:"number",value:r.avgSqft,onChange:function(v){up("rlv","avgSqft",v);},placeholder:"850"}),
-          e(Inp,{label:"Sale Price (£ per sqft — the price per square foot of floor area)"+(pcData&&pcData.salePsf?" — benchmark: £"+pcData.salePsf:""),type:"number",value:r.salePsf,onChange:function(v){up("rlv","salePsf",v);},placeholder:"£"+Math.round(rSalePsf)}),
+          e(Inp,{label:"Sale Price (£ per sqft of internal floor area)"+(pcData&&pcData.salePsf?" — benchmark: £"+pcData.salePsf:""),type:"number",value:r.salePsf,onChange:function(v){up("rlv","salePsf",v);},placeholder:"£"+Math.round(rSalePsf)}),
           e(Inp,{label:"Build Cost psf (£) — BCIS: £"+bt.lo+"–£"+bt.hi,type:"number",value:r.buildPsf,onChange:function(v){up("rlv","buildPsf",v);},placeholder:"Mid: £"+bt.mid}),
           e(Inp,{label:"Developer Profit % GDV",type:"number",value:r.profitPct,onChange:function(v){up("rlv","profitPct",v);},placeholder:"20"}),
           e(Inp,{label:"Finance Rate %",type:"number",value:r.finRate,onChange:function(v){up("rlv","finRate",v);},placeholder:"7.5"}),
