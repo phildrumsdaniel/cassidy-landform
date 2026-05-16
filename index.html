@@ -169,10 +169,12 @@ var BUYERS = [
 ];
 
 var CITIES = Object.keys(MKT);
-var PROP_TYPES = ["Bungalow (detached)","Bungalow (semi)","Detached house","Semi-detached house",
-  "Terraced house","Farmhouse / Rural","Flat / Apartment","Pub (traditional)","Pub (large)",
-  "Restaurant / Cafe","Office (small)","Office (large)","Shop / Retail","Warehouse / Industrial",
-  "Church / Chapel","School","Care home","Barn","Agricultural building","Vacant land"];
+var PROP_TYPES = ["Detached house","Semi-detached house","End of terrace house","Terraced house",
+  "Bungalow (detached)","Bungalow (semi)","Flat / Apartment","Farmhouse / Rural",
+  "Pub (traditional)","Pub (large / roadside)","Restaurant / Cafe","Hotel / Guest house",
+  "Office (small)","Office (large)","Shop / Retail","Warehouse / Industrial",
+  "Church / Chapel","Village hall","School / Former school","Care home","Barn",
+  "Agricultural building","Vacant land / Brownfield"];
 
 function num(v){return parseFloat(v)||0;}
 function fmt(n){
@@ -351,18 +353,18 @@ function AccessGate(props){
 
 // ── STAGES ───────────────────────────────────────────────────────────────────
 var STAGES = [
-  {id:"dashboard",label:"Deal Dashboard",icon:"◈"},
-  {id:"epe",label:"Property Evaluator",icon:"🏠"},
-  {id:"rlv",label:"Land Valuation",icon:"◆"},
-  {id:"sfh",label:"Single Family Housing",icon:"🏡"},
-  {id:"hra",label:"High-Rise Apartments",icon:"🏢"},
-  {id:"land",label:"Land Appraisal",icon:"⬟"},
-  {id:"planning",label:"Planning & Viability",icon:"▲"},
-  {id:"fin",label:"Financial Modelling",icon:"◉"},
-  {id:"scraper",label:"Land Finder",icon:"🔍"},
-  {id:"dd",label:"Due Diligence",icon:"◈"},
-  {id:"risks",label:"Risk Register",icon:"⬡"},
-  {id:"exit",label:"Investment Exit",icon:"◆"},
+  {id:"scraper",  label:"Land Finder",          icon:"🔍", group:"Source"},
+  {id:"rlv",      label:"Land Valuation",        icon:"◆",  group:"Source"},
+  {id:"land",     label:"Land Appraisal",        icon:"⬟",  group:"Source"},
+  {id:"epe",      label:"Property Evaluator",    icon:"🏠", group:"Appraise"},
+  {id:"sfh",      label:"Single Family Housing", icon:"🏡", group:"Appraise"},
+  {id:"hra",      label:"High-Rise / BTR Block", icon:"🏢", group:"Appraise"},
+  {id:"planning", label:"Planning & Viability",  icon:"▲",  group:"Develop"},
+  {id:"fin",      label:"Financial Modelling",   icon:"◉",  group:"Develop"},
+  {id:"dd",       label:"Due Diligence",         icon:"◈",  group:"Develop"},
+  {id:"risks",    label:"Risk Register",         icon:"⬡",  group:"Develop"},
+  {id:"exit",     label:"Investment Exit",       icon:"◆",  group:"Develop"},
+  {id:"dashboard",label:"Deal Dashboard",        icon:"◈",  group:"Summary"},
 ];
 
 // ── MAIN TOOL ─────────────────────────────────────────────────────────────────
@@ -461,18 +463,25 @@ function Tool(props){
       ),
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Asset Type"),
-        e("div",{style:{display:"flex",gap:10}},
-          ["btr","pbsa"].map(function(t){
-            return e("button",{key:t,onClick:function(){setData(function(d){return Object.assign({},d,{assetType:t});});},
-              style:{padding:"8px 20px",background:at===t?"#4A4BAE":"transparent",border:"1px solid #4A4BAE",color:at===t?"#fff":"#4A4BAE",borderRadius:5,fontFamily:"DM Sans,sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}},
-              t.toUpperCase())
+        e("div",{style:{display:"flex",gap:10,flexWrap:"wrap"}},
+          [
+            {id:"btr",  label:"BTR",  desc:"Build to Rent — apartment block"},
+            {id:"pbsa", label:"PBSA", desc:"Purpose Built Student Accommodation"},
+            {id:"sfh",  label:"SFH",  desc:"Single Family Housing — housing estate"},
+          ].map(function(t){
+            return e("div",{key:t.id,style:{display:"flex",flexDirection:"column",gap:4}},
+              e("button",{onClick:function(){setData(function(d){return Object.assign({},d,{assetType:t.id});});},
+                style:{padding:"8px 20px",background:at===t.id?"#4A4BAE":"transparent",border:"1px solid #4A4BAE",color:at===t.id?"#fff":"#4A4BAE",borderRadius:5,fontFamily:"DM Sans,sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}},
+                t.label),
+              e("div",{style:{fontSize:9,color:"#7278A0",textAlign:"center",maxWidth:120}},t.desc)
+            );
           })
         )
       ),
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Quick Navigation"),
         e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}},
-          STAGES.slice(1).map(function(s){
+          STAGES.filter(function(s){return s.id!=="dashboard";}).map(function(s){
             return e("button",{key:s.id,onClick:function(){navTo(s.id);},
               style:{padding:"10px 8px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:7,fontFamily:"DM Sans,sans-serif",fontSize:11,fontWeight:500,color:"#3A3D6A",cursor:"pointer",textAlign:"center"}},
               s.icon+" "+s.label);
@@ -490,14 +499,14 @@ function Tool(props){
     var pcData=ep.postcode?lookupPostcode(ep.postcode):null;
     var eCity=(pcData&&pcData.city)||ep.city||"manchester";
     var em=MKT[eCity]||MKT.manchester;
-    var salePsf=num(ep.salePsf)||(pcData&&pcData.salePsf)||(em.btr*8.5)||280;
+    var salePsf=num(ep.salePsf)||(pcData&&pcData.salePsf)||280; // £/sqft — typical UK house £200-600/sqft
     var propSqft=num(ep.propSqft)||900;
     var condMod={excellent:1.15,good:1.05,average:1.0,poor:0.88,derelict:0.70}[ep.condition]||1.0;
     var gLen=num(ep.gLen); var gWid=num(ep.gWid); var gardenSqft=gLen*gWid;
     var gPsf=salePsf>600?160:salePsf>350?75:salePsf>220?48:32;
     var aspMod={south:1.08,south_west:1.05,west:1.02,east:1.0,north:0.95}[ep.aspect]||1.0;
     var gVal=gardenSqft>0?Math.round((Math.min(gardenSqft,500)*gPsf+Math.max(0,Math.min(gardenSqft-500,500))*gPsf*0.65+Math.max(0,gardenSqft-1000)*gPsf*0.3)*aspMod):0;
-    var parkMod={garage_drive:1.08,drive_2:1.06,drive_1:1.04,on_street:1.0,cpz:0.97}[ep.parking]||1.0;
+    var parkMod={triple_garage:1.12,double_garage:1.10,garage_drive:1.08,double_carport:1.07,carport_drive:1.06,drive_2:1.05,single_carport:1.04,drive_1:1.03,on_street:1.0,cpz:0.97}[ep.parking]||1.0;
     var houseVal=Math.round(propSqft*salePsf*condMod);
     var currentVal=Math.round((houseVal+gVal)*parkMod);
     var newUnits=num(ep.newUnits); var newSqft=num(ep.newSqft)||900; var newPsf=num(ep.newPsf)||salePsf;
@@ -520,15 +529,27 @@ function Tool(props){
         e("div",{style:S.cardTitle},"Step 1 — Existing Property"),
         e("div",{style:S.grid2},
           e(Inp,{label:"Postcode (auto-lookup)",value:ep.postcode,onChange:function(v){up("epe","postcode",v.toUpperCase());},placeholder:"e.g. CV6 2DL"}),
-          e(CitySelect,{label:"City (override if needed)",value:ep.city||eCity,onChange:function(v){up("epe","city",v);}}),
+          e(CitySelect,{label:"City / Area"+(pcData&&pcData.city?" — auto-detected from postcode":"" ),value:ep.city||eCity,onChange:function(v){up("epe","city",v);}}),
           e(Sel,{label:"Property Type",value:ep.propType,onChange:function(v){up("epe","propType",v);},
             options:[{value:"",label:"Select..."}].concat(PROP_TYPES.map(function(t){return{value:t,label:t};}))}),
-          e(Inp,{label:"Internal Floor Area (sqft)",type:"number",value:ep.propSqft,onChange:function(v){up("epe","propSqft",v);},placeholder:"e.g. 900"}),
+          e("div",{style:{display:"flex",flexDirection:"column",gap:4}},e("label",{style:S.label},"Internal Floor Area"),e("div",{style:{display:"flex",gap:8}},e("input",{type:"number",value:ep.propSqft||"",onChange:function(ev){up("epe","propSqft",ev.target.value);},placeholder:"sqft e.g. 900",style:Object.assign({},S.input,{flex:1})}),e("input",{type:"number",value:ep.propSqft?Math.round(ep.propSqft*0.0929):"",onChange:function(ev){up("epe","propSqft",Math.round(ev.target.value/0.0929)+"");},placeholder:"sqm e.g. 84",style:Object.assign({},S.input,{flex:1})})),e("div",{style:{fontSize:9,color:"#A0A4C0"}},"Enter in sqft OR sqm — the other updates automatically")),
           e(Sel,{label:"Condition",value:ep.condition,onChange:function(v){up("epe","condition",v);},
             options:["","excellent — Excellent (+15%)","good — Good (+5%)","average — Average (0%)","poor — Poor (-12%)","derelict — Derelict (-30%)"].map(function(o){var p=o.split(" — ");return{value:p[0],label:p[1]||"Select..."}})}),
-          e(Inp,{label:"Sale Price psf (£)"+(pcData&&pcData.salePsf?" — postcode: £"+pcData.salePsf:""),type:"number",value:ep.salePsf,onChange:function(v){up("epe","salePsf",v);},placeholder:"£"+Math.round(salePsf)}),
+          e(Inp,{label:"Sale Price (£ per sqft — the price per square foot of floor area)"+(pcData&&pcData.salePsf?" — postcode: £"+pcData.salePsf:""),type:"number",value:ep.salePsf,onChange:function(v){up("epe","salePsf",v);},placeholder:"£"+Math.round(salePsf)+" /sqft"}),
           e(Sel,{label:"Parking",value:ep.parking,onChange:function(v){up("epe","parking",v);},
-            options:[{value:"",label:"Select..."},{value:"garage_drive",label:"Garage + drive (+8%)"},{value:"drive_2",label:"Double drive (+6%)"},{value:"drive_1",label:"Single drive (+4%)"},{value:"on_street",label:"On-street (0%)"},{value:"cpz",label:"CPZ (-3%)"}]})
+            options:[
+              {value:"",label:"Select..."},
+              {value:"triple_garage",label:"Triple garage (+12%)"},
+              {value:"double_garage",label:"Double garage (+10%)"},
+              {value:"garage_drive",label:"Garage + drive (+8%)"},
+              {value:"double_carport",label:"Double carport (+7%)"},
+              {value:"carport_drive",label:"Carport + drive (+6%)"},
+              {value:"drive_2",label:"Double drive (no garage) (+5%)"},
+              {value:"single_carport",label:"Single carport (+4%)"},
+              {value:"drive_1",label:"Single drive (+3%)"},
+              {value:"on_street",label:"On-street parking (0%)"},
+              {value:"cpz",label:"Controlled Parking Zone (CPZ) (-3%)"},
+            ]})
         )
       ),
       e("div",{style:S.card},
@@ -568,10 +589,10 @@ function Tool(props){
         e("div",{style:S.grid2},
           e(Inp,{label:"New Units to Build",type:"number",value:ep.newUnits,onChange:function(v){up("epe","newUnits",v);},placeholder:"e.g. 4"}),
           e(Inp,{label:"New Unit Size (sqft)",type:"number",value:ep.newSqft,onChange:function(v){up("epe","newSqft",v);},placeholder:"900"}),
-          e(Inp,{label:"New Sale Price psf (£)",type:"number",value:ep.newPsf,onChange:function(v){up("epe","newPsf",v);},placeholder:"£"+Math.round(salePsf)}),
-          e(Inp,{label:"Build Cost psf (£)",type:"number",value:ep.buildPsf,onChange:function(v){up("epe","buildPsf",v);},placeholder:"£195"}),
+          e(Inp,{label:"New Sale Price (£ per sqft)",type:"number",value:ep.newPsf,onChange:function(v){up("epe","newPsf",v);},placeholder:"£"+Math.round(salePsf)+" /sqft"}),
+          e(Inp,{label:"Build Cost (£ per sqft — typical £180-250 for houses)",type:"number",value:ep.buildPsf,onChange:function(v){up("epe","buildPsf",v);},placeholder:"£195"}),
           e(Inp,{label:"Developer Profit % GDV",type:"number",value:ep.profitPct,onChange:function(v){up("epe","profitPct",v);},placeholder:"20"}),
-          e(Inp,{label:"Finance Rate %",type:"number",value:ep.finRate,onChange:function(v){up("epe","finRate",v);},placeholder:"7.5"})
+          e(Inp,{label:"Finance Rate % (lender's interest rate — typically 6-9%)",type:"number",value:ep.finRate,onChange:function(v){up("epe","finRate",v);},placeholder:"7.5"})
         )
       ),
       newUnits>0&&newGdv>0&&currentVal>0&&e("div",{style:S.card},
@@ -724,7 +745,7 @@ function Tool(props){
             options:[{value:"",label:"Select..."}].concat(Object.keys(BUILD_TYPES).map(function(t){return{value:t,label:t};}))}),
           e(Inp,{label:"Number of Units / Beds",type:"number",value:r.units,onChange:function(v){up("rlv","units",v);},placeholder:"e.g. 45"}),
           e(Inp,{label:"Avg Unit Size (sqft)",type:"number",value:r.avgSqft,onChange:function(v){up("rlv","avgSqft",v);},placeholder:"850"}),
-          e(Inp,{label:"Sale Price psf (£)"+(pcData&&pcData.salePsf?" — benchmark: £"+pcData.salePsf:""),type:"number",value:r.salePsf,onChange:function(v){up("rlv","salePsf",v);},placeholder:"£"+Math.round(rSalePsf)}),
+          e(Inp,{label:"Sale Price (£ per sqft — the price per square foot of floor area)"+(pcData&&pcData.salePsf?" — benchmark: £"+pcData.salePsf:""),type:"number",value:r.salePsf,onChange:function(v){up("rlv","salePsf",v);},placeholder:"£"+Math.round(rSalePsf)}),
           e(Inp,{label:"Build Cost psf (£) — BCIS: £"+bt.lo+"–£"+bt.hi,type:"number",value:r.buildPsf,onChange:function(v){up("rlv","buildPsf",v);},placeholder:"Mid: £"+bt.mid}),
           e(Inp,{label:"Developer Profit % GDV",type:"number",value:r.profitPct,onChange:function(v){up("rlv","profitPct",v);},placeholder:"20"}),
           e(Inp,{label:"Finance Rate %",type:"number",value:r.finRate,onChange:function(v){up("rlv","finRate",v);},placeholder:"7.5"}),
@@ -847,7 +868,7 @@ function Tool(props){
           e(Inp,{label:"Density (dph)",type:"number",value:s.dph,onChange:function(v){up("sfh","dph",v);},placeholder:"30"}),
           e(Inp,{label:"Affordable Housing %",type:"number",value:s.ahPct,onChange:function(v){up("sfh","ahPct",v);},placeholder:"e.g. 25"}),
           e(Inp,{label:"Base Sale Price psf (£)",type:"number",value:s.basePsf,onChange:function(v){up("sfh","basePsf",v);},placeholder:"£"+Math.round(basePsf)}),
-          e(Inp,{label:"Build Cost psf (£)",type:"number",value:s.buildPsf,onChange:function(v){up("sfh","buildPsf",v);},placeholder:"£195"}),
+          e(Inp,{label:"Build Cost (£ per sqft — typical £180-250 for houses)",type:"number",value:s.buildPsf,onChange:function(v){up("sfh","buildPsf",v);},placeholder:"£195"}),
           e(Inp,{label:"Developer Profit %",type:"number",value:s.profitPct,onChange:function(v){up("sfh","profitPct",v);},placeholder:"20"}),
           e(Inp,{label:"S106 per Plot (£)",type:"number",value:s.s106pu,onChange:function(v){up("sfh","s106pu",v);},placeholder:"8000"}),
           e(Inp,{label:"Roads/Sewers per Plot (£)",type:"number",value:s.roads,onChange:function(v){up("sfh","roads",v);},placeholder:"12000 (S38/S104)"}),
@@ -1689,13 +1710,23 @@ function Tool(props){
         e("img",{src:"data:image/webp;base64,"+LOGO,alt:"Cassidy Group",style:{width:120,height:"auto",filter:"drop-shadow(0 1px 4px rgba(0,0,0,0.25))"}})
       ),
       e("div",{style:{padding:"8px 0",flex:1}},
-        STAGES.map(function(s){
-          var active=stage===s.id;
-          return e("div",{key:s.id,onClick:function(){navTo(s.id);},style:{display:"flex",alignItems:"center",gap:9,padding:"9px 16px",cursor:"pointer",background:active?"rgba(237,232,74,0.12)":"transparent",borderLeft:"3px solid "+(active?"#EDE84A":"transparent"),transition:"all .12s"}},
-            e("span",{style:{fontSize:10,color:active?"#EDE84A":"rgba(255,255,255,0.3)",width:14}},s.icon),
-            e("span",{style:{fontSize:12,color:active?"#fff":"rgba(255,255,255,0.5)"}},s.label)
-          );
-        })
+        (function(){
+          var groups=[];
+          var seen={};
+          STAGES.forEach(function(s){if(!seen[s.group]){groups.push(s.group);seen[s.group]=true;}});
+          return groups.map(function(g){
+            return e("div",{key:g},
+              e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.3)",letterSpacing:".15em",textTransform:"uppercase",padding:"10px 16px 3px",fontWeight:700}},g),
+              STAGES.filter(function(s){return s.group===g;}).map(function(s){
+                var active=stage===s.id;
+                return e("div",{key:s.id,onClick:function(){navTo(s.id);},style:{display:"flex",alignItems:"center",gap:9,padding:"8px 16px",cursor:"pointer",background:active?"rgba(237,232,74,0.12)":"transparent",borderLeft:"3px solid "+(active?"#EDE84A":"transparent"),transition:"all .12s"}},
+                  e("span",{style:{fontSize:10,color:active?"#EDE84A":"rgba(255,255,255,0.3)",width:14}},s.icon),
+                  e("span",{style:{fontSize:12,color:active?"#fff":"rgba(255,255,255,0.5)"}},s.label)
+                );
+              })
+            );
+          });
+        })()
       ),
       e("div",{style:{padding:"12px 16px",borderTop:"1px solid rgba(255,255,255,0.08)",fontSize:11,color:"rgba(255,255,255,0.35)"}},
         (user&&user.name)||"User"," · ",(user&&user.company)||""
