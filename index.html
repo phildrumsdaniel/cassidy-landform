@@ -693,7 +693,7 @@ function Tool(props){
       // ── SCHEME SCENARIOS ─────────────────────────────────────────────────
       acres>0&&e("div",{style:Object.assign({},S.card,{borderLeft:"4px solid #2D7A65"})},
         e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}},
-          e("div",{style:S.cardTitle},"Development Scheme Options — "+acres+" acres in "+cityName(lCity)},
+          e("div",{style:S.cardTitle},"Development Scheme Options — "+acres+" acres / "+ha.toFixed(2)+"ha in "+cityName(lCity)),
           bestScheme&&e("div",{style:{fontSize:11,color:"#2D7A65",fontWeight:700}},"Best: "+bestScheme.label+" · "+fmt(bestScheme.rlv))
         ),
         e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:16}},"All scenarios calculated on "+acres+" acres / "+ha.toFixed(2)+" ha. Click a scheme to open the full appraisal and auto-fill all stages."),
