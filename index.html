@@ -353,18 +353,18 @@ function AccessGate(props){
 
 // ── STAGES ───────────────────────────────────────────────────────────────────
 var STAGES = [
-  {id:"scraper",  label:"Land Finder",          icon:"🔍", group:"Source"},
-  {id:"rlv",      label:"Land Valuation",        icon:"◆",  group:"Source"},
-  {id:"land",     label:"Land Appraisal",        icon:"⬟",  group:"Source"},
-  {id:"epe",      label:"Property Evaluator",    icon:"🏠", group:"Appraise"},
-  {id:"sfh",      label:"Single Family Housing", icon:"🏡", group:"Appraise"},
-  {id:"hra",      label:"High-Rise / BTR Block", icon:"🏢", group:"Appraise"},
-  {id:"planning", label:"Planning & Viability",  icon:"▲",  group:"Develop"},
-  {id:"fin",      label:"Financial Modelling",   icon:"◉",  group:"Develop"},
-  {id:"dd",       label:"Due Diligence",         icon:"◈",  group:"Develop"},
-  {id:"risks",    label:"Risk Register",         icon:"⬡",  group:"Develop"},
-  {id:"exit",     label:"Investment Exit",       icon:"◆",  group:"Develop"},
-  {id:"dashboard",label:"Deal Dashboard",        icon:"◈",  group:"Summary"},
+  {id:"scraper",  label:"Land Finder",          icon:"🔍", group:"1. Find Land"},
+  {id:"rlv",      label:"Land Valuation",        icon:"◆",  group:"1. Find Land"},
+  {id:"land",     label:"Land Appraisal",        icon:"⬟",  group:"1. Find Land"},
+  {id:"epe",      label:"Property Evaluator",    icon:"🏠", group:"2. Evaluate"},
+  {id:"sfh",      label:"SFH Appraisal",         icon:"🏡", group:"3. Scheme Design"},
+  {id:"hra",      label:"BTR / PBSA Block",      icon:"🏢", group:"3. Scheme Design"},
+  {id:"planning", label:"Planning & Viability",  icon:"▲",  group:"4. Develop"},
+  {id:"fin",      label:"Financial Modelling",   icon:"◉",  group:"4. Develop"},
+  {id:"dd",       label:"Due Diligence",         icon:"◈",  group:"4. Develop"},
+  {id:"risks",    label:"Risk Register",         icon:"⬡",  group:"4. Develop"},
+  {id:"exit",     label:"Investment Exit",       icon:"◆",  group:"5. Exit"},
+  {id:"dashboard",label:"Deal Dashboard",        icon:"◈",  group:"6. Overview"},
 ];
 
 // ── MAIN TOOL ─────────────────────────────────────────────────────────────────
@@ -506,7 +506,9 @@ function Tool(props){
     var gPsf=salePsf>600?160:salePsf>350?75:salePsf>220?48:32;
     var aspMod={south:1.08,south_west:1.05,west:1.02,east:1.0,north:0.95}[ep.aspect]||1.0;
     var gVal=gardenSqft>0?Math.round((Math.min(gardenSqft,500)*gPsf+Math.max(0,Math.min(gardenSqft-500,500))*gPsf*0.65+Math.max(0,gardenSqft-1000)*gPsf*0.3)*aspMod):0;
-    var parkMod={triple_garage:1.12,double_garage:1.10,garage_drive:1.08,double_carport:1.07,carport_drive:1.06,drive_2:1.05,single_carport:1.04,drive_1:1.03,on_street:1.0,cpz:0.97}[ep.parking]||1.0;
+    var PARK_MODS={triple_garage:0.15,double_garage:0.10,single_garage:0.06,double_carport:0.07,single_carport:0.04,drive_5plus:0.08,drive_4:0.07,drive_3:0.06,drive_2:0.05,drive_1:0.03,on_street:0.00,cpz:-0.03};
+    var parkBonus=(ep.parkingFeatures||[]).reduce(function(a,f){return a+(PARK_MODS[f]||0);},0);
+    var parkMod=1+parkBonus;
     var houseVal=Math.round(propSqft*salePsf*condMod);
     var currentVal=Math.round((houseVal+gVal)*parkMod);
     var newUnits=num(ep.newUnits); var newSqft=num(ep.newSqft)||900; var newPsf=num(ep.newPsf)||salePsf;
@@ -528,7 +530,19 @@ function Tool(props){
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Step 1 — Existing Property"),
         e("div",{style:S.grid2},
-          e(Inp,{label:"Postcode (auto-lookup)",value:ep.postcode,onChange:function(v){up("epe","postcode",v.toUpperCase());},placeholder:"e.g. CV6 2DL"}),
+          e("div",{style:{display:"flex",flexDirection:"column",gap:4}},
+            e("label",{style:S.label},"Postcode"),
+            e("input",{value:ep.postcode||"",onChange:function(ev){up("epe","postcode",ev.target.value.toUpperCase());},
+              placeholder:"e.g. CV6 2DL",style:Object.assign({},S.input,{textTransform:"uppercase"})}),
+            pcData&&e("div",{style:{fontSize:10,color:"#2D7A65",marginTop:2}},"✓ Area identified: "+cityName(pcData.city)+(pcData.salePsf?" · Benchmark: £"+pcData.salePsf+"/sqft":""))
+          ),
+          e("div",{style:{display:"flex",flexDirection:"column",gap:4}},
+            e("label",{style:S.label},"Street Address (type manually)"),
+            e("input",{value:ep.streetAddress||"",onChange:function(ev){up("epe","streetAddress",ev.target.value);},
+              placeholder:pcData?"e.g. 120 Scotts Lane, Coventry":"Enter postcode first, then type address",
+              style:S.input}),
+            e("div",{style:{fontSize:9,color:"#A0A4C0"}},"Type your house number and street name above")
+          ),
           e(CitySelect,{label:"City / Area"+(pcData&&pcData.city?" — auto-detected from postcode":"" ),value:ep.city||eCity,onChange:function(v){up("epe","city",v);}}),
           e(Sel,{label:"Property Type",value:ep.propType,onChange:function(v){up("epe","propType",v);},
             options:[{value:"",label:"Select..."}].concat(PROP_TYPES.map(function(t){return{value:t,label:t};}))}),
@@ -536,20 +550,37 @@ function Tool(props){
           e(Sel,{label:"Condition",value:ep.condition,onChange:function(v){up("epe","condition",v);},
             options:["","excellent — Excellent (+15%)","good — Good (+5%)","average — Average (0%)","poor — Poor (-12%)","derelict — Derelict (-30%)"].map(function(o){var p=o.split(" — ");return{value:p[0],label:p[1]||"Select..."}})}),
           e(Inp,{label:"Sale Price (£ per sqft — the price per square foot of floor area)"+(pcData&&pcData.salePsf?" — postcode: £"+pcData.salePsf:""),type:"number",value:ep.salePsf,onChange:function(v){up("epe","salePsf",v);},placeholder:"£"+Math.round(salePsf)+" /sqft"}),
-          e(Sel,{label:"Parking",value:ep.parking,onChange:function(v){up("epe","parking",v);},
-            options:[
-              {value:"",label:"Select..."},
-              {value:"triple_garage",label:"Triple garage (+12%)"},
-              {value:"double_garage",label:"Double garage (+10%)"},
-              {value:"garage_drive",label:"Garage + drive (+8%)"},
-              {value:"double_carport",label:"Double carport (+7%)"},
-              {value:"carport_drive",label:"Carport + drive (+6%)"},
-              {value:"drive_2",label:"Double drive (no garage) (+5%)"},
-              {value:"single_carport",label:"Single carport (+4%)"},
-              {value:"drive_1",label:"Single drive (+3%)"},
-              {value:"on_street",label:"On-street parking (0%)"},
-              {value:"cpz",label:"Controlled Parking Zone (CPZ) (-3%)"},
-            ]})
+e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:6}},
+            e("label",{style:S.label},"Parking & Garaging (tick all that apply)"),
+            e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}},
+              [
+                {id:"triple_garage",label:"Triple garage",mod:0.15},
+                {id:"double_garage",label:"Double garage",mod:0.10},
+                {id:"single_garage",label:"Single garage",mod:0.06},
+                {id:"double_carport",label:"Double carport",mod:0.07},
+                {id:"single_carport",label:"Single carport",mod:0.04},
+                {id:"drive_5plus",label:"Driveway 5+ cars",mod:0.08},
+                {id:"drive_4",label:"Driveway 4 cars",mod:0.07},
+                {id:"drive_3",label:"Driveway 3 cars",mod:0.06},
+                {id:"drive_2",label:"Driveway 2 cars",mod:0.05},
+                {id:"drive_1",label:"Driveway 1 car",mod:0.03},
+                {id:"on_street",label:"On-street parking",mod:0.00},
+                {id:"cpz",label:"Controlled Parking Zone",mod:-0.03},
+              ].map(function(opt){
+                var parkingArr=ep.parkingFeatures||[];
+                var checked=parkingArr.indexOf(opt.id)>=0;
+                return e("label",{key:opt.id,onClick:function(){
+                  var arr=ep.parkingFeatures?ep.parkingFeatures.slice():[];
+                  var idx=arr.indexOf(opt.id);
+                  if(idx>=0){arr.splice(idx,1);}else{arr.push(opt.id);}
+                  up("epe","parkingFeatures",arr);
+                },style:{display:"flex",alignItems:"center",gap:6,fontSize:11,color:checked?"#2E2F8A":"#7278A0",cursor:"pointer",padding:"5px 8px",borderRadius:5,background:checked?"rgba(74,75,174,0.08)":"transparent",border:"1px solid "+(checked?"#4A4BAE":"transparent")}},
+                  e("div",{style:{width:14,height:14,borderRadius:3,border:"1px solid "+(checked?"#4A4BAE":"#C8CDE0"),background:checked?"#4A4BAE":"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:9}},checked?"✓":""),
+                  e("span",null,opt.label)
+                );
+              })
+            )
+          )
         )
       ),
       e("div",{style:S.card},
@@ -587,15 +618,27 @@ function Tool(props){
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Step 3 — Development Scenario"),
         e("div",{style:S.grid2},
-          e(Inp,{label:"New Units to Build",type:"number",value:ep.newUnits,onChange:function(v){up("epe","newUnits",v);},placeholder:"e.g. 4"}),
-          e(Inp,{label:"New Unit Size (sqft)",type:"number",value:ep.newSqft,onChange:function(v){up("epe","newSqft",v);},placeholder:"900"}),
-          e(Inp,{label:"New Sale Price (£ per sqft)",type:"number",value:ep.newPsf,onChange:function(v){up("epe","newPsf",v);},placeholder:"£"+Math.round(salePsf)+" /sqft"}),
+          e(Inp,{label:"How many new units to build?",type:"number",value:ep.newUnits,onChange:function(v){up("epe","newUnits",v);},placeholder:"e.g. 4"}),
+          e(Inp,{label:"Average new unit size (sqft)",type:"number",value:ep.newSqft,onChange:function(v){up("epe","newSqft",v);},placeholder:"900"}),
+          e(Inp,{label:"New Sale Price (£ per sqft of floor area)",type:"number",value:ep.newPsf,onChange:function(v){up("epe","newPsf",v);},placeholder:"£"+Math.round(salePsf)+" /sqft"}),
           e(Inp,{label:"Build Cost (£ per sqft — typical £180-250 for houses)",type:"number",value:ep.buildPsf,onChange:function(v){up("epe","buildPsf",v);},placeholder:"£195"}),
-          e(Inp,{label:"Developer Profit % GDV",type:"number",value:ep.profitPct,onChange:function(v){up("epe","profitPct",v);},placeholder:"20"}),
-          e(Inp,{label:"Finance Rate % (lender's interest rate — typically 6-9%)",type:"number",value:ep.finRate,onChange:function(v){up("epe","finRate",v);},placeholder:"7.5"})
+          e(Inp,{label:"Developer Profit % of GDV",type:"number",value:ep.profitPct,onChange:function(v){up("epe","profitPct",v);},placeholder:"20"}),
+          e(Inp,{label:"Finance Rate % — lender's interest rate (typically 6-9%)",type:"number",value:ep.finRate,onChange:function(v){up("epe","finRate",v);},placeholder:"7.5"})
+        ),
+        e("div",{style:{gridColumn:"span 2",paddingTop:4}},
+          e("button",{
+            onClick:function(){
+              if(!ep.newUnits){alert("Please enter the number of new units to build first.");return;}
+              // Scroll down to results
+              var el=document.getElementById("epe-results");
+              if(el)el.scrollIntoView({behavior:"smooth"});
+              logEvent(user,"CALCULATE",{stage:"Property Evaluator",units:ep.newUnits,currentVal:currentVal,devRlv:devRlv});
+            },
+            style:{width:"100%",padding:"13px",background:"#2D7A65",border:"none",borderRadius:7,color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+          },"⚡ Calculate Development Value & Compare Options")
         )
       ),
-      newUnits>0&&newGdv>0&&currentVal>0&&e("div",{style:S.card},
+      newUnits>0&&newGdv>0&&currentVal>0&&e("div",{id:"epe-results",style:S.card},
         e("div",{style:S.cardTitle},"The Decision"),
         e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:14}},
           [{l:"Sell As Standing",v:currentVal,desc:"Current market value. Clean exit — no planning or build risk.",tag:"Low risk · Immediate",c:"#4A4BAE"},
