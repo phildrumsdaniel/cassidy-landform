@@ -437,14 +437,29 @@ var STAGES = [
 function Tool(props){
   var user=props.user;
   var st=useState("dashboard"); var stage=st[0]; var setStage=st[1];
-  var dt=useState({assetType:"btr",risks:RISK_DEFAULTS.map(function(r){return Object.assign({},r);})}); var data=dt[0]; var setData=dt[1];
+  // Load from localStorage on startup
+  var savedData=(function(){
+    try{
+      var s=localStorage.getItem("cassidy_deal");
+      return s?JSON.parse(s):{};
+    }catch(e){return {};}
+  })();
+
+  var dt=useState(Object.keys(savedData).length>0?savedData:{assetType:"btr",risks:RISK_DEFAULTS.map(function(r){return Object.assign({},r);})}); var data=dt[0]; var setData=dt[1];
+
+  // Auto-save to localStorage whenever data changes
+  React.useEffect(function(){
+    try{localStorage.setItem("cassidy_deal",JSON.stringify(data));}catch(e){}
+  },[data]);
   // Exit stage states - must be at component level not inside render functions
   var hotS=useState(""); var hot=hotS[0]; var setHot=hotS[1];
   var hotLS=useState(false); var hotL=hotLS[0]; var setHotL=hotLS[1];
   var memoS=useState(""); var memo=memoS[0]; var setMemo=memoS[1];
   var memoLS=useState(false); var memoL=memoLS[0]; var setMemoL=memoLS[1];
   // Deal history
-  var histS=useState([]); var history=histS[0]; var setHistory=histS[1];
+  var histS=useState((function(){
+    try{var s=localStorage.getItem("cassidy_history");return s?JSON.parse(s):[];}catch(e){return [];}
+  })()); var history=histS[0]; var setHistory=histS[1];
   var showHistS=useState(false); var showHist=showHistS[0]; var setShowHist=showHistS[1];
 
   function up(section,key,val){
@@ -482,9 +497,10 @@ function Tool(props){
   function navTo(id){setStage(id);logEvent(user,"PAGE_VIEW",{stage:id});}
 
   function saveDeal(){
-    var name=(data.land&&data.land.address)||
+    var autoName=(data.land&&data.land.address)||
       (data.scraper&&data.scraper.result&&data.scraper.result.address)||
       "Deal "+new Date().toLocaleDateString("en-GB");
+    var name=window.prompt("Name this deal:",autoName)||autoName;
     var snapshot={
       id:Date.now(),name:name,
       savedAt:new Date().toLocaleString("en-GB"),
@@ -494,8 +510,12 @@ function Tool(props){
       price:(data.land&&data.land.price)||"",
       data:JSON.parse(JSON.stringify(data))
     };
-    setHistory(function(h){return [snapshot].concat(h.slice(0,19));});
-    alert("Deal saved: "+name);
+    setHistory(function(h){
+      var next=[snapshot].concat(h.slice(0,19));
+      try{localStorage.setItem("cassidy_history",JSON.stringify(next));}catch(e){}
+      return next;
+    });
+    alert("✓ Deal saved: "+name+"\n\nYour data also auto-saves continuously — it will be here when you return.");
   }
 
   function clearDeal(){
@@ -2536,6 +2556,85 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
       });
     }
 
+    function doAIAutoFill(importedData){
+      // Use AI to fill in missing fields based on address/postcode/property type
+      var addr=importedData.address||"";
+      var pc=importedData.postcode||"";
+      var lCity=importedData.city||"";
+      var acres=importedData.acreage||"";
+      var lpa=importedData.localAuthority||"";
+      var planStatus=importedData.planningStatus||"";
+
+      var prompt="You are a UK property development expert. Based on this land listing, estimate the missing values and return ONLY a JSON object."+
+        "\n\nListing: "+addr+", "+pc+", "+lCity+". Size: "+acres+" acres. LPA: "+lpa+". Planning: "+planStatus+
+        "\n\nReturn JSON with these fields (use null if genuinely unknown):"+
+        "{"+
+        '"estimatedUnits":number,'+
+        '"recommendedDph":number,'+
+        '"estimatedBuildPsf":number,'+
+        '"estimatedSalePsf":number,'+
+        '"exitYieldPct":number,'+
+        '"s106PerUnit":number,'+
+        '"planningRisk":"low/medium/high",'+
+        '"recommendedScheme":"sfh/btr/pbsa",'+
+        '"ahPct":number,'+
+        '"contamination":"clean/minor/unknown",'+
+        '"proximityScore":"excellent/good/fair/poor",'+
+        '"transportScore":"excellent/good/fair/poor",'+
+        '"ahpct":number'+
+        "}";
+
+      var params=new URLSearchParams({
+        action:"ai",stage:"AutoFill",
+        user:(user&&user.name)||"",company:(user&&user.company)||"",
+        system:"You are a UK property development expert. Return ONLY valid JSON. No explanation.",
+        prompt:prompt.substring(0,2000)
+      });
+
+      fetch(WEBHOOK+"?"+params.toString())
+      .then(function(res){return res.json();})
+      .then(function(d2){
+        var text=d2.result||"";
+        var clean=text.replace(/```json/g,"").replace(/```/g,"").trim();
+        var js=clean.indexOf("{"); var je=clean.lastIndexOf("}");
+        if(js>=0&&je>js)clean=clean.substring(js,je+1);
+        try{
+          var ai=JSON.parse(clean);
+          setData(function(d){
+            return Object.assign({},d,{
+              rlv:Object.assign({},d.rlv||{},{
+                units:ai.estimatedUnits?ai.estimatedUnits+"":d.rlv&&d.rlv.units||"",
+                buildPsf:ai.estimatedBuildPsf?ai.estimatedBuildPsf+"":d.rlv&&d.rlv.buildPsf||"",
+                salePsf:ai.estimatedSalePsf?ai.estimatedSalePsf+"":d.rlv&&d.rlv.salePsf||"",
+              }),
+              sfh:Object.assign({},d.sfh||{},{
+                dph:ai.recommendedDph?ai.recommendedDph+"":d.sfh&&d.sfh.dph||"30",
+                buildPsf:ai.estimatedBuildPsf?ai.estimatedBuildPsf+"":d.sfh&&d.sfh.buildPsf||"",
+                basePsf:ai.estimatedSalePsf?ai.estimatedSalePsf+"":d.sfh&&d.sfh.basePsf||"",
+                s106pu:ai.s106PerUnit?ai.s106PerUnit+"":d.sfh&&d.sfh.s106pu||"8000",
+                ahPct:ai.ahPct?ai.ahPct+"":d.sfh&&d.sfh.ahPct||"",
+              }),
+              planning:Object.assign({},d.planning||{},{
+                units:ai.estimatedUnits?ai.estimatedUnits+"":d.planning&&d.planning.units||"",
+                ahPct:ai.ahPct?ai.ahPct+"":d.planning&&d.planning.ahPct||"",
+              }),
+              fin:Object.assign({},d.fin||{},{
+                exitYield:ai.exitYieldPct?ai.exitYieldPct+"":d.fin&&d.fin.exitYield||"",
+              }),
+              land:Object.assign({},d.land||{},{
+                contamination:ai.contamination||d.land&&d.land.contamination||"",
+                proximity:ai.proximityScore||d.land&&d.land.proximity||"",
+                transport:ai.transportScore||d.land&&d.land.transport||"",
+              }),
+              assetType:ai.recommendedScheme||d.assetType||"sfh",
+            });
+          });
+          logEvent(user,"AI_AUTOFILL",{address:addr,units:ai.estimatedUnits,scheme:ai.recommendedScheme});
+        }catch(e){}
+      })
+      .catch(function(){});
+    }
+
     function doImport(){
       if(!scrResult)return;
       var c=(scrResult.city||"").toLowerCase().replace(/\s/g,"_").replace(/-/g,"_");
@@ -2627,6 +2726,8 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
       });
       up("scraper","imported",true);
       logEvent(user,"IMPORT",{address:addr,postcode:pc,city:c,acres:acres,price:price,agent:agent});
+      // Run AI auto-fill in background
+      doAIAutoFill({address:addr,postcode:pc,city:c,acreage:acres,localAuthority:lpa,planningStatus:planStatus});
       // Navigate to dashboard to show the workflow
       setTimeout(function(){navTo("dashboard");},500);
     }
@@ -3111,7 +3212,16 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
         e("div",{style:S.cardTitle},"Exit Parameters"),
         e("div",{style:S.grid2},
           e(Sel,{label:"Exit Strategy",value:ex.strategy,onChange:function(v){up("exit","strategy",v);},
-            options:[{value:"",label:"Select..."},{value:"forward_fund",label:"Forward Fund — pre-construction"},{value:"forward_sale",label:"Forward Sale — post-consent"},{value:"stabilised",label:"Stabilised Sale — post-occupancy"},{value:"retain",label:"Retain & Refinance"}]}),
+            options:[
+              {value:"",label:"Select..."},
+              {value:"plot_sales",label:"Plot Sales (SFH) — sell each house individually on open market"},
+              {value:"bulk_sale_ha",label:"Bulk Sale to Housing Association — affordable element"},
+              {value:"forward_fund",label:"Forward Fund (BTR/PBSA) — pre-construction to institution"},
+              {value:"forward_sale",label:"Forward Sale — sell post-consent, before build"},
+              {value:"stabilised",label:"Stabilised Sale — sell post-occupancy at full yield"},
+              {value:"retain",label:"Retain & Refinance — hold as long term income"},
+              {value:"phased",label:"Phased Exit — sell plots in phases over 2-4 years"},
+            ]}),
           e(Inp,{label:"Target Exit Yield (%) — market: "+pct(m.yield*100),type:"number",value:ex.exitYield,onChange:function(v){up("exit","exitYield",v);},placeholder:(m.yield*100).toFixed(2)}),
           e(Sel,{label:"Target Investor Type",value:ex.investorType,onChange:function(v){up("exit","investorType",v);},
             options:[{value:"",label:"Select..."},{value:"pension_fund",label:"UK Pension Fund"},{value:"sovereign_wealth",label:"Sovereign Wealth"},{value:"reit",label:"Listed REIT"},{value:"private_equity",label:"Private Equity"},{value:"asset_manager",label:"Specialist Asset Manager"},{value:"family_office",label:"Family Office"}]}),
@@ -3126,6 +3236,35 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           })
         )
       ),
+      at==="sfh"&&ex.strategy==="plot_sales"&&(function(){
+        var sfh2=data.sfh||{};
+        var sfhUnits=num(sfh2.dph&&sfh2.acres?Math.floor(num(sfh2.acres)*0.404686*num(sfh2.dph)):0);
+        var sfhGdv=num(sfh2.totalGdv||0);
+        var absorptionYrs=sfhUnits>0?Math.ceil(sfhUnits/40):1;
+        return sfhUnits>0?e("div",{style:Object.assign({},S.card,{borderLeft:"4px solid #2D7A65"})},
+          e("div",{style:S.cardTitle},"SFH Plot Sales — Clean Exit"),
+          e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}},
+            [{l:"Total Plots",v:sfhUnits+" houses"},{l:"Absorption Rate",v:"~40 plots/yr"},{l:"Build & Sell Period",v:absorptionYrs+" year(s)"},{l:"Target Completion",v:new Date(Date.now()+(absorptionYrs*365*24*60*60*1000)).getFullYear()+""}].map(function(item){
+              return e("div",{key:item.l,style:{background:"rgba(45,122,101,0.06)",border:"1px solid rgba(45,122,101,0.2)",borderRadius:6,padding:12}},
+                e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:3}},item.l),
+                e("div",{style:{fontSize:15,fontWeight:700,color:"#2D7A65"}},item.v)
+              );
+            })
+          ),
+          e("div",{style:{fontSize:12,color:"#3A3D6A",lineHeight:1.8,background:"#F7F8FC",borderRadius:8,padding:14}},
+            e("div",{style:{fontWeight:700,marginBottom:8}},"SFH Clean Exit — How It Works:"),
+            e("div",null,"Phase 1 — Planning: Obtain detailed planning consent. Discharge pre-commencement conditions. Agree S106 and CIL."),
+            e("br"),
+            e("div",null,"Phase 2 — Infrastructure: Build roads, sewers and site infrastructure. Get S38/S104 agreements signed. Adopt roads."),
+            e("br"),
+            e("div",null,"Phase 3 — Build & Release: Build in phases of 10-20 plots. Release to market in tranches. Appoint sales agent."),
+            e("br"),
+            e("div",null,"Phase 4 — Sales: Open show home. Sell "+Math.min(40,sfhUnits)+" plots in year 1. Target price: as per your SFH appraisal."),
+            e("br"),
+            e("div",null,"Phase 5 — Clean Exit: Final plots sold. S106 obligations discharged. Site roads adopted. Company wound up or recycled into next deal.")
+          )
+        ):null;
+      })(),
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Active Institutional Buyers — "+at.toUpperCase()),
         e("div",{style:{border:"1px solid #DDE0ED",borderRadius:8,overflow:"hidden"}},
