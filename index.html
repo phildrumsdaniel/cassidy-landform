@@ -375,6 +375,9 @@ function Tool(props){
   var hotLS=useState(false); var hotL=hotLS[0]; var setHotL=hotLS[1];
   var memoS=useState(""); var memo=memoS[0]; var setMemo=memoS[1];
   var memoLS=useState(false); var memoL=memoLS[0]; var setMemoL=memoLS[1];
+  // Deal history
+  var histS=useState([]); var history=histS[0]; var setHistory=histS[1];
+  var showHistS=useState(false); var showHist=showHistS[0]; var setShowHist=showHistS[1];
 
   function up(section,key,val){
     setData(function(d){
@@ -409,6 +412,33 @@ function Tool(props){
   var curStage=STAGES[idx]||STAGES[0];
 
   function navTo(id){setStage(id);logEvent(user,"PAGE_VIEW",{stage:id});}
+
+  function saveDeal(){
+    var name=(data.land&&data.land.address)||
+      (data.scraper&&data.scraper.result&&data.scraper.result.address)||
+      "Deal "+new Date().toLocaleDateString("en-GB");
+    var snapshot={
+      id:Date.now(),name:name,
+      savedAt:new Date().toLocaleString("en-GB"),
+      assetType:data.assetType||"btr",
+      city:(data.land&&data.land.city)||"—",
+      acres:(data.land&&data.land.acres)||"",
+      price:(data.land&&data.land.price)||"",
+      data:JSON.parse(JSON.stringify(data))
+    };
+    setHistory(function(h){return [snapshot].concat(h.slice(0,19));});
+    alert("Deal saved: "+name);
+  }
+
+  function clearDeal(){
+    if(!window.confirm("Clear all fields and start a new deal?"))return;
+    setData({assetType:"btr",risks:RISK_DEFAULTS.map(function(r){return Object.assign({},r);})});
+    setHot("");setMemo("");setStage("dashboard");
+  }
+
+  function loadDeal(snap){
+    setData(snap.data);setStage("dashboard");setShowHist(false);
+  }
 
   // ── DASHBOARD ──────────────────────────────────────────────────────────────
   function renderDashboard(){
@@ -1664,12 +1694,54 @@ function Tool(props){
       )
     ),
     e("main",{style:{marginLeft:240,flex:1,display:"flex",flexDirection:"column",minHeight:"100vh"}},
-      e("div",{style:{height:58,background:"#fff",borderBottom:"1px solid #DDE0ED",display:"flex",alignItems:"center",padding:"0 28px",gap:12,position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 3px rgba(46,47,138,0.08)"}},
-        e("div",{style:{fontSize:15,fontWeight:700,color:"#2E2F8A"}},curStage.label),
-        e("div",{style:{marginLeft:"auto",fontSize:11,color:"#7278A0"}},at.toUpperCase()+" · "+cityName(city))
+      e("div",{style:{height:58,background:"#fff",borderBottom:"1px solid #DDE0ED",display:"flex",alignItems:"center",padding:"0 20px",gap:10,position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 3px rgba(46,47,138,0.08)"}},
+        e("div",{style:{fontSize:15,fontWeight:700,color:"#2E2F8A",flex:1}},curStage.label),
+        e("div",{style:{fontSize:11,color:"#7278A0",marginRight:8}},at.toUpperCase()+" · "+cityName(city)),
+        e("button",{onClick:function(){setShowHist(function(s){return !s;});},style:{padding:"6px 12px",background:showHist?"#4A4BAE":"#F7F8FC",border:"1px solid "+(showHist?"#4A4BAE":"#DDE0ED"),color:showHist?"#fff":"#3A3D6A",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},
+          "📋 History"+(history.length>0?" ("+history.length+")":"")
+        ),
+        e("button",{onClick:saveDeal,style:{padding:"6px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#3A3D6A",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},
+          "💾 Save Deal"
+        ),
+        e("button",{onClick:clearDeal,style:{padding:"6px 12px",background:"#FFF5F0",border:"1px solid #E8C4B0",color:"#B05A35",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},
+          "✕ New Deal"
+        )
       ),
       e("div",{style:{height:3,background:"#DDE0ED"}},
         e("div",{style:{height:"100%",width:((idx+1)/STAGES.length*100)+"%",background:"linear-gradient(90deg,#4A4BAE,#EDE84A)",transition:"width .4s"}})
+      ),
+      showHist&&e("div",{style:{position:"fixed",top:58,right:0,width:380,bottom:0,background:"#fff",borderLeft:"1px solid #DDE0ED",boxShadow:"-4px 0 16px rgba(0,0,0,0.08)",zIndex:200,display:"flex",flexDirection:"column",overflowY:"auto"}},
+        e("div",{style:{padding:"16px 20px",borderBottom:"1px solid #DDE0ED",display:"flex",justifyContent:"space-between",alignItems:"center"}},
+          e("div",{style:{fontSize:13,fontWeight:700,color:"#2E2F8A"}},"Deal History"),
+          e("button",{onClick:function(){setShowHist(false);},style:{background:"none",border:"none",fontSize:18,cursor:"pointer",color:"#7278A0"}}, "×")
+        ),
+        history.length===0?e("div",{style:{padding:"32px 20px",textAlign:"center",color:"#7278A0",fontSize:13}},
+          e("div",{style:{fontSize:24,marginBottom:8}},"📋"),
+          "No saved deals yet.",
+          e("br"),
+          "Click 💾 Save Deal to save your current work."
+        ):e("div",{style:{padding:"12px"}},
+          history.map(function(snap){
+            return e("div",{key:snap.id,style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,padding:"14px 16px",marginBottom:8}},
+              e("div",{style:{fontSize:13,fontWeight:700,color:"#2E2F8A",marginBottom:4}},snap.name),
+              e("div",{style:{display:"flex",gap:10,fontSize:10,color:"#7278A0",marginBottom:10,flexWrap:"wrap"}},
+                e("span",null,snap.assetType.toUpperCase()),
+                snap.city&&snap.city!=="—"&&e("span",null,"· "+cityName(snap.city)),
+                snap.acres&&e("span",null,"· "+snap.acres+" acres"),
+                snap.price&&e("span",null,"· £"+Number(snap.price).toLocaleString()),
+                e("span",null,"· "+snap.savedAt)
+              ),
+              e("div",{style:{display:"flex",gap:8}},
+                e("button",{onClick:function(){loadDeal(snap);},style:{flex:1,padding:"7px",background:"#4A4BAE",border:"none",color:"#fff",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
+                  "Load →"
+                ),
+                e("button",{onClick:function(){setHistory(function(h){return h.filter(function(d){return d.id!==snap.id;});});},style:{padding:"7px 10px",background:"transparent",border:"1px solid #DDE0ED",color:"#B05A35",borderRadius:5,fontSize:11,cursor:"pointer"}},
+                  "✕"
+                )
+              )
+            );
+          })
+        )
       ),
       e("div",{style:{flex:1,padding:"28px 32px",maxWidth:1000,width:"100%"}},renderStage()),
       e("div",{style:{padding:"16px 32px",borderTop:"1px solid #DDE0ED",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff"}},
