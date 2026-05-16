@@ -4021,8 +4021,12 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
                 e("input",{type:"number",value:f[item.k]||"",onChange:function(ev){
                   var newVal=ev.target.value;
                   up("fin",item.k,newVal);
-                  var newTot=items.reduce(function(s,it2){return s+(it2.k===item.k?num(newVal):num(f[it2.k]||0));},0);
-                  if(newTot>0&&totalU>0)up("fin","s106pu",Math.round(newTot/totalU)+"");
+                  var newTot=0;
+                  for(var jj=0;jj<items.length;jj++){
+                    var addVal=(items[jj].k===item.k)?num(newVal):num(f[items[jj].k]||0);
+                    newTot=newTot+addVal;
+                  }
+                  if(newTot>0&&totalU>0){up("fin","s106pu",String(Math.round(newTot/totalU)));}
                 },placeholder:"0",style:Object.assign({},S.input,{margin:0,padding:"5px 8px",fontSize:11})}),
                 e("span",{style:{fontSize:10,color:"#7278A0"}},val>0?"£"+Math.round(val/totalU).toLocaleString():"—"),
                 e("select",{value:f[item.k+"s"]||"tbc",onChange:function(ev){up("fin",item.k+"s",ev.target.value);},style:Object.assign({},S.select,{margin:0,padding:"3px 5px",fontSize:10})},
