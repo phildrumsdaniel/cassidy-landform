@@ -210,18 +210,13 @@ function logEvent(user,event,details){
 async function callAI(user,stage,systemPrompt,userPrompt){
   logEvent(user,"AI_ANALYSIS",{stage:stage});
   // Use GET to avoid CORS preflight blocks from GitHub Pages
-  var res=await fetch(WEBHOOK,{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      action:"ai",
-      stage:stage,
-      user:(user&&user.name)||"",
-      company:(user&&user.company)||"",
-      system:systemPrompt||"You are a senior UK real estate development advisor. Be specific, commercially sharp, use UK conventions. Plain text only.",
-      prompt:userPrompt.substring(0,3000)
-    })
+  var aiParams=new URLSearchParams({
+    action:"ai",stage:stage,
+    user:(user&&user.name)||"",company:(user&&user.company)||"",
+    system:(systemPrompt||"You are a senior UK real estate development advisor. Be specific, commercially sharp, use UK conventions. Plain text only.").substring(0,500),
+    prompt:userPrompt.substring(0,2000)
   });
+  var res=await fetch(WEBHOOK+"?"+aiParams.toString());
   var data=await res.json();
   if(data.status==="ok"&&data.result){
     return data.result;
@@ -1117,78 +1112,52 @@ function Tool(props){
       var agentGuess=url.toLowerCase().includes("brutonknowles")?"Bruton Knowles":
         url.toLowerCase().includes("savills")?"Savills":
         url.toLowerCase().includes("knightfrank")?"Knight Frank":
-        url.toLowerCase().includes("rightmove")?"Rightmove":
-        url.toLowerCase().includes("zoopla")?"Zoopla":"UK land agent";
+        url.toLowerCase().includes("rightmove")?"Rightmove":"UK land agent";
 
       var sourceText=pasted?
-        "LISTING TEXT:\n"+pasted.substring(0,3000):
-        "URL: "+url+"\n\nAgent: "+agentGuess+". Extract data from the URL structure and your knowledge of this agent's listings.";
+        "Extract the land listing data from this text: "+pasted.substring(0,2000):
+        "Extract land listing data for this "+agentGuess+" listing URL: "+url;
 
-      var sysPrompt="You are a UK land data extraction specialist. You must return ONLY a raw JSON object. Do not include any explanation, markdown formatting, backticks, or text before or after the JSON. Start your response with { and end with }.";
+      var sysPrompt="You are a UK land data specialist. Return ONLY a JSON object starting with { and ending with }. No explanation, no markdown, no backticks.";
 
-      var userPrompt="Extract UK land listing data from the following source and return it as a single JSON object.\n\n"+
-        sourceText+"\n\n"+
-        "Return this exact JSON structure (replace values, use null for unknown numbers):\n"+
-        "{"+
-        "\"address\": \"full street address here\","+
-        "\"postcode\": \"UK postcode e.g. GL20 8NJ\","+
-        "\"city\": \"nearest town\","+
-        "\"acreage\": 3.9,"+
-        "\"hectares\": 1.58,"+
-        "\"askingPrice\": 100000,"+
-        "\"priceType\": \"tender\","+
-        "\"planningStatus\": \"description of planning position\","+
-        "\"localAuthority\": \"council name\","+
-        "\"propertyType\": \"Strategic Land\","+
-        "\"description\": \"2 sentence summary\","+
-        "\"agent\": \""+agentGuess+"\","+
-        "\"agentContact\": \"email if known\","+
-        "\"dealType\": \"sale\","+
-        "\"developmentPotential\": \"residential\","+
-        "\"estimatedUnits\": null,"+
-        "\"constraints\": \"any constraints mentioned\""+
-        "}";
+      var userPrompt=sourceText+
+        " Return this JSON: {"address":"","postcode":"","city":"","acreage":null,"hectares":null,"askingPrice":null,"priceType":"","planningStatus":"","localAuthority":"","propertyType":"","description":"","agent":"","agentContact":"","dealType":"","developmentPotential":"","estimatedUnits":null,"constraints":""}";
 
-      fetch(WEBHOOK,{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          action:"ai",
-          stage:"Land Finder",
-          user:(user&&user.name)||"",
-          company:(user&&user.company)||"",
-          system:sysPrompt,
-          prompt:userPrompt.substring(0,3500)
-        })
-      })
+      // Use GET with encoded params - avoids CORS preflight
+      var params=new URLSearchParams({
+        action:"ai",
+        stage:"Land Finder",
+        user:(user&&user.name)||"",
+        company:(user&&user.company)||"",
+        system:sysPrompt,
+        prompt:userPrompt.substring(0,2500)
+      });
+
+      fetch(WEBHOOK+"?"+params.toString())
       .then(function(res){return res.json();})
       .then(function(data2){
         var text=data2.result||"";
-        if(!text&&data2.content){
-          for(var i=0;i<data2.content.length;i++){
-            if(data2.content[i].type==="text"){text=data2.content[i].text;break;}
-          }
+        if(!text){
+          up("scraper","error","No response from AI. Check Apps Script is deployed and API key has credits.");
+          up("scraper","loading",false);
+          return;
         }
-        // Strip any markdown or extra text - find the JSON object
+        // Extract JSON from response
         var clean=text.replace(/```json/g,"").replace(/```/g,"").trim();
         var jsonStart=clean.indexOf("{");
         var jsonEnd=clean.lastIndexOf("}");
-        if(jsonStart>=0&&jsonEnd>jsonStart){
-          clean=clean.substring(jsonStart,jsonEnd+1);
-        }
+        if(jsonStart>=0&&jsonEnd>jsonStart){clean=clean.substring(jsonStart,jsonEnd+1);}
         try{
           var extracted=JSON.parse(clean);
           up("scraper","result",extracted);
-          up("scraper","loading",false);
           logEvent(user,"SCRAPE",{url:url,address:extracted.address||"unknown"});
         }catch(err){
-          // Show raw response so user can see what came back
-          up("scraper","error","AI response could not be parsed as JSON. Response was: "+text.substring(0,200));
-          up("scraper","loading",false);
+          up("scraper","error","Could not parse response. AI returned: "+text.substring(0,150));
         }
+        up("scraper","loading",false);
       })
       .catch(function(err){
-        up("scraper","error","Connection failed: "+err.message);
+        up("scraper","error","Connection failed: "+err.message+". Try redeploying Apps Script.");
         up("scraper","loading",false);
       });
     }
