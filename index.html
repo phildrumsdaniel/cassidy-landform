@@ -987,7 +987,135 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
         )
       ),
       e("div",{style:S.card},
-        e("div",{style:S.cardTitle},"Step 3 — Development Scenario"),
+        e("div",{style:S.cardTitle},"Step 3a — What Could Be Built? (Auto-Calculator)"),
+        e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:14}},"Based on your plot size, we estimate the development potential for different scheme types. These are indicative — actual unit numbers depend on planning, design and site constraints."),
+        (function(){
+          var plotSqft=gardenSqft+(propSqft||0)*0.3; // land = garden + footprint estimate
+          var plotAcres=plotSqft/43560;
+          var plotHa=plotAcres*0.404686;
+          if(plotSqft<500)return e("div",{style:{fontSize:12,color:"#7278A0",padding:"12px 0"}},"Enter garden dimensions in Step 2 to see development potential.");
+
+          var scenarios=[
+            {
+              type:"Terraced Houses",icon:"🏘",
+              dph:40,unitSqft:900,bedrooms:"2-3 bed",
+              units:Math.max(1,Math.floor(plotHa*40)),
+              landEff:0.60, // 60% of land used for houses
+              note:"Standard suburban density. Includes roads, gardens and public open space.",
+              scheme:"sfh",assetType:"sfh"
+            },
+            {
+              type:"Semi-Detached Houses",icon:"🏠",
+              dph:28,unitSqft:1020,bedrooms:"3 bed",
+              units:Math.max(1,Math.floor(plotHa*28)),
+              landEff:0.55,
+              note:"Lower density. More parking, larger gardens. Popular family housing.",
+              scheme:"sfh",assetType:"sfh"
+            },
+            {
+              type:"Detached Houses",icon:"🏡",
+              dph:18,unitSqft:1400,bedrooms:"4 bed",
+              units:Math.max(1,Math.floor(plotHa*18)),
+              landEff:0.50,
+              note:"Executive detached. Requires larger site. Premium pricing.",
+              scheme:"sfh",assetType:"sfh"
+            },
+            {
+              type:"Apartments (4-6 storey)",icon:"🏢",
+              dph:120,unitSqft:550,bedrooms:"1-2 bed",
+              units:Math.max(1,Math.floor(plotHa*120)),
+              landEff:0.80,
+              note:"Mid-rise flats. BTR or private sale. Requires more car parking.",
+              scheme:"hra",assetType:"btr"
+            },
+            {
+              type:"PBSA (Student)",icon:"🎓",
+              dph:200,unitSqft:280,bedrooms:"Studios & clusters",
+              units:Math.max(1,Math.floor(plotHa*200)),
+              landEff:0.85,
+              note:"High density student beds. Must be near university. No car parking required.",
+              scheme:"hra",assetType:"pbsa"
+            },
+            {
+              type:"Bungalows",icon:"🏚",
+              dph:16,unitSqft:850,bedrooms:"2-3 bed",
+              units:Math.max(1,Math.floor(plotHa*16)),
+              landEff:0.50,
+              note:"Single storey. Popular with elderly market. Lower density.",
+              scheme:"sfh",assetType:"sfh"
+            },
+          ];
+
+          return e("div",null,
+            e("div",{style:{background:"rgba(74,75,174,0.06)",border:"1px solid rgba(74,75,174,0.2)",borderRadius:8,padding:"10px 14px",fontSize:11,color:"#3A3D6A",marginBottom:14}},
+              "Plot size: "+Math.round(plotSqft).toLocaleString()+" sqft / "+plotAcres.toFixed(3)+" acres / "+plotHa.toFixed(3)+" ha",
+              e("span",{style:{color:"#7278A0",marginLeft:12}},"(garden + estimated footprint)")
+            ),
+            e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}},
+              scenarios.map(function(sc){
+                var gdvEst=sc.units*sc.unitSqft*(salePsf||280);
+                var buildEst=sc.units*sc.unitSqft*200;
+                var profitEst=gdvEst*0.20;
+                var rlvEst=gdvEst-buildEst-buildEst*0.12-buildEst*0.05-(buildEst+0)*0.075-profitEst;
+                return e("div",{key:sc.type,
+                  style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,padding:14,cursor:"pointer",transition:"all .15s"},
+                  onMouseOver:function(ev){ev.currentTarget.style.borderColor="#4A4BAE";ev.currentTarget.style.boxShadow="0 2px 8px rgba(74,75,174,0.1)";},
+                  onMouseOut:function(ev){ev.currentTarget.style.borderColor="#DDE0ED";ev.currentTarget.style.boxShadow="none";}
+                },
+                  e("div",{style:{fontSize:20,marginBottom:6}},sc.icon),
+                  e("div",{style:{fontSize:12,fontWeight:700,color:"#2E2F8A",marginBottom:2}},sc.type),
+                  e("div",{style:{fontSize:10,color:"#7278A0",marginBottom:10}},sc.bedrooms),
+                  e("div",{style:{fontSize:28,fontWeight:800,color:"#4A4BAE",lineHeight:1,marginBottom:4}},sc.units),
+                  e("div",{style:{fontSize:10,color:"#7278A0",marginBottom:8}},"estimated units / beds"),
+                  e("div",{style:{fontSize:11,color:"#7278A0",lineHeight:1.5,marginBottom:10}},sc.note),
+                  e("div",{style:{borderTop:"1px solid #DDE0ED",paddingTop:8,fontSize:10}},
+                    e("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:2}},
+                      e("span",{style:{color:"#7278A0"}},"Est. GDV"),
+                      e("span",{style:{fontWeight:600,color:"#2E2F8A"}},fmt(gdvEst))
+                    ),
+                    e("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:8}},
+                      e("span",{style:{color:"#7278A0"}},"Est. land value"),
+                      e("span",{style:{fontWeight:600,color:rlvEst>0?"#2D7A65":"#B05A35"}},fmt(Math.max(0,rlvEst)))
+                    ),
+                    e("button",{
+                      onClick:function(){
+                        // Pre-fill the chosen scheme
+                        setData(function(d){
+                          var updates={assetType:sc.assetType};
+                          if(sc.scheme==="sfh"){
+                            updates.sfh=Object.assign({},d.sfh||{},{
+                              acres:(plotAcres).toFixed(3),
+                              city:d.epe&&d.epe.city||city,
+                              dph:sc.dph+"",
+                            });
+                          } else {
+                            updates.hra=Object.assign({},d.hra||{},{
+                              city:d.epe&&d.epe.city||city,
+                            });
+                          }
+                          updates.planning=Object.assign({},d.planning||{},{
+                            units:sc.units+"",
+                            lpa:d.planning&&d.planning.lpa||"",
+                          });
+                          updates.fin=Object.assign({},d.fin||{});
+                          return Object.assign({},d,updates);
+                        });
+                        navTo(sc.scheme==="sfh"?"sfh":"hra");
+                      },
+                      style:{width:"100%",padding:"7px",background:"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+                    },"Use this scheme →")
+                  )
+                );
+              })
+            ),
+            e("div",{style:{marginTop:12,padding:"10px 14px",background:"rgba(154,123,62,0.08)",border:"1px solid rgba(154,123,62,0.25)",borderRadius:6,fontSize:11,color:"#7A5A2E",lineHeight:1.7}},
+              "⚠ These are maximum theoretical yields — actual consented numbers will be lower due to planning constraints, design requirements, parking, amenity space and highways. Always verify with a planning consultant before making offers."
+            )
+          );
+        })()
+      ),
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Step 3b — Development Scenario (Manual Inputs)"),
         e("div",{style:S.grid2},
           e(Inp,{label:"How many new units to build?",type:"number",value:ep.newUnits,onChange:function(v){up("epe","newUnits",v);},placeholder:"e.g. 4"}),
           e(Inp,{label:"Average new unit size (sqft)",type:"number",value:ep.newSqft,onChange:function(v){up("epe","newSqft",v);},placeholder:"900"}),
@@ -1845,7 +1973,48 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
         )
       ),
       e(AIPanel,{user:user,stage:"land",label:"Analyse Site",
-        prompt:"Evaluate this "+at.toUpperCase()+" development site in "+cityName(city)+". Location score: "+score+"/100. Asking: "+fmt(askingPrice)+", market benchmark: "+fmt(benchmark)+". Site: "+(l.acres||"?")+" acres, contamination: "+(l.contamination||"unknown")+", tenure: "+(l.tenure||"unknown")+". Provide: 1) Strengths and red flags, 2) Land value vs market assessment, 3) DD priorities in order, 4) Go/No-Go with conditions, 5) Negotiation strategy and opening bid recommendation."})
+        prompt:"Evaluate this "+at.toUpperCase()+" development site in "+cityName(city)+". Location score: "+score+"/100. Asking: "+fmt(askingPrice)+", market benchmark: "+fmt(benchmark)+". Site: "+(l.acres||"?")+" acres, contamination: "+(l.contamination||"unknown")+", tenure: "+(l.tenure||"unknown")+". Provide: 1) Strengths and red flags, 2) Land value vs market assessment, 3) DD priorities in order, 4) Go/No-Go with conditions, 5) Negotiation strategy and opening bid recommendation."}),
+
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Local Plan Explorer"),
+        e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:14}},"Check your local council's housing allocations, brownfield register and strategic land availability. These show where the council is planning for new homes."),
+        e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}},
+          [
+            {label:"Planning Portal — Search Applications",url:"https://www.planningportal.co.uk/",desc:"Search live planning applications by postcode"},
+            {label:"Planning Policy — National Framework",url:"https://www.gov.uk/guidance/national-planning-policy-framework",desc:"NPPF 2024 — the national rules all councils must follow"},
+            {label:"Brownfield Land Register",url:"https://www.gov.uk/guidance/brownfield-land-registers",desc:"Every council must publish their brownfield register — sites available for housing"},
+            {label:"Housing Delivery Test",url:"https://www.gov.uk/guidance/housing-delivery-test",desc:"See if your council is under-delivering on housing — creates planning pressure"},
+            {label:"SHLAA / HELAA Guidance",url:"https://www.gov.uk/guidance/strategic-housing-land-availability-assessments",desc:"Strategic Housing Land Availability — how councils identify potential housing sites"},
+            {label:"Local Plan Status (all councils)",url:"https://www.gov.uk/guidance/local-plans",desc:"Check if your council has an up-to-date Local Plan — affects planning outcomes"},
+          ].map(function(link){
+            return e("a",{key:link.label,href:link.url,target:"_blank",rel:"noopener noreferrer",
+              style:{display:"block",background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,padding:"12px 14px",textDecoration:"none",transition:"all .15s"},
+              onMouseOver:function(ev){ev.currentTarget.style.borderColor="#4A4BAE";},
+              onMouseOut:function(ev){ev.currentTarget.style.borderColor="#DDE0ED";}
+            },
+              e("div",{style:{fontSize:12,fontWeight:700,color:"#4A4BAE",marginBottom:4}},link.label+" ↗"),
+              e("div",{style:{fontSize:10,color:"#7278A0",lineHeight:1.5}},link.desc)
+            );
+          })
+        ),
+        city&&e("div",{style:{background:"rgba(74,75,174,0.05)",border:"1px solid rgba(74,75,174,0.15)",borderRadius:8,padding:"12px 14px"}},
+          e("div",{style:{fontSize:11,fontWeight:700,color:"#2E2F8A",marginBottom:8}},"Search for "+cityName(city)+" Local Plan:"),
+          e("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+            [
+              {label:"Google: "+cityName(city)+" Local Plan",url:"https://www.google.com/search?q="+encodeURIComponent(cityName(city)+" council local plan housing allocations 2024")},
+              {label:"Google: "+cityName(city)+" Brownfield Register",url:"https://www.google.com/search?q="+encodeURIComponent(cityName(city)+" brownfield land register")},
+              {label:"Google: "+cityName(city)+" SHLAA",url:"https://www.google.com/search?q="+encodeURIComponent(cityName(city)+" SHLAA HELAA housing land availability")},
+            ].map(function(link){
+              return e("a",{key:link.label,href:link.url,target:"_blank",rel:"noopener noreferrer",
+                style:{padding:"6px 12px",background:"#4A4BAE",color:"#fff",borderRadius:5,fontSize:11,fontWeight:600,textDecoration:"none",display:"inline-block"}
+              },link.label+" ↗");
+            })
+          ),
+          e("div",{style:{fontSize:10,color:"#7278A0",marginTop:8}},"These open Google searches for "+cityName(city)+"'s specific planning documents. Look for the council's planning pages for official documents.")
+        ),
+        e(AIPanel,{user:user,stage:"land",label:"Local Plan Analysis for "+cityName(city),
+          prompt:"Provide a local planning analysis for "+cityName(city)+". Include: 1) Is there an up-to-date Local Plan and when was it adopted? 2) What are the main housing allocation areas? 3) Is the council meeting its housing delivery targets? 4) What is the brownfield/greenfield split in recent permissions? 5) Key planning policies that affect "+at.toUpperCase()+" development in this area. 6) Any Article 4 directions or HMO restrictions relevant to "+at.toUpperCase()+"? 7) Typical S106 contributions and CIL rates if known."})
+      )
     );
   }
 
