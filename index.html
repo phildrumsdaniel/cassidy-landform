@@ -20,7 +20,7 @@ var useState = React.useState;
 var useEffect = React.useEffect;
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
-var WEBHOOK = "https://script.google.com/macros/s/AKfycbwAH3OOE4kDy1sRi713MLWXlUtgdo5hBELUC1mdAXhUJ7acoQAP_qaTEST4gISlddJb/exec";
+var WEBHOOK = "https://script.google.com/macros/s/AKfycbyjHZBRaG1yJV5_vUWTpudbAaDWY5_K9ypc7zNcuBL8q4_eDOffbey-bL8tvnsP8I0O/exec";
 var EXPIRY  = new Date("2027-12-31");
 var LOGO    = "UklGRuYKAABXRUJQVlA4WAoAAAAQAAAASQAATwAAQUxQSDMGAAABoLZt2xlJntL1vO9bY7OxtnfYM2vbtm2j17Zt27Zte2bWdhtJ3vtDNVLpiYgJIGfnYdNXm7O/Ht4QnKPvmofpj6rrZ1YF7/qIBVj4FilmUsyi9PA08K4veKg5v0UxVddpVLx1cQhWOM/wY/6UUvU0ldovnweCFSuw3ndSEtXLVPr/zPEU27O1lET1PibS70ePMiuOp64zS5VvTKS7fX9vBTE34Eulyr0zfQzAWyEChylR/pleXX3jlcZBsMqZDf45ZhWQOiX9c96cEKxSgc2UqqLtaZpJ/55eBcEq47ktJhWKUkykP44bCb4SRmmmsspJMZF+OHAg+Pwc83YqFkGKifTFjh6fm2dFZSqGFFPpvXXx+W2mtDBSlkpH4XMK7KikQFKaakV8X8nUyyS+gstrC6UV6n3MlsDl4llNWcESHUnIxbFYVMFTPYLPxRj6p2KxMn3jydfxitJiRTWMxXIJnK6kaOkCuFw8yysrWlwkJ7PSDGUFyxbMicDxSgrWNmdejurGLBbr7+FYPnjOUVKkTF868jY3+s8sK1CqJ/F54dleSYESnUPIDc+9SoqTavNKmBsxQ2lRotrmwOWHY/H/lRUkja/iqKRnpTalxUh0MKEiBFZrUlKEGFtqcZUhUPeTkli5RLfiqXRgzhcVY8WybIJVDo8/JVGsUKLb8BTQGVO/i1lFYtY0p7kiQIlnlFakU/viKaZzL1Um0aN4isKLFUk1Y6Rzs4VUfy+KY3aQ6P86PLODRL9OITAbyDK9My+Bvpel0qUD8PS5mEjvrwWOgr2U9iom0qw9At4o2vNK056l0t/HDANP0c3mv0lKs+7SqLaL5wBP31zhJSmJZWkm3b4EBKNPmocdZkhJlmbSE8uCN/qsN4ad2CBJr6wD3tGnPcx36Wv3bgzO0dfNU26e2aEL5j1F9SGE4K0LCyH4rlwIITgACyEED7gQHFjo0htYCMEAF4LHGb23Mkf3Ru6ebg3AwQr1V15Rv84YM4whR9UfsyYOjNpDrrj0oAlmxoi9L7v88OnescYxx6wK8x1TX3/kYbuu0B9XfWL9ocE8E46pP5QFXlSXM0dggb0l/TbQzNnkP1S+NW7eGSo/xLhOuhTWU9dfb8GAp6VzKI38UTqo9ntl+uGlt1s1Bmfhs0Sd2o7geVId9x53U8cxcLU6nj7uqoYr4MIkORPWSDp+Pv/i5yVtx5CvU63Dg9Kl3KiOjv2HwEKnjyWwrvTsz/Ftc/Blqikwoc54PtGmsODyjouls2FN6Q1g3zT+O4bls2zmKdIXA/0/mU4EZwCOZ6IWul5akX7cofY/TxgHgTPU3nD+vFDqybuh5HlP2sY4RlLaORGvqCWCBxfwNiHVe6wp3U+wOT+V9MseeDfiZUn/Hu169A4W3M2Kp9Cfp2JbPJhAZ9Ry9Hc+gOcGxZ3wH8WOBfGMPOlHSXsRGHDI15JOpUfm+nNn2QCmST85Z3ySxccpHzGE2uao7775ujnVhZRKMOjCNPsU6wfuqDT9cxiXdPc24L+L2p5+TJW+7Yexozr1whZ1a53xzUKcpOTf3/7446c0/j3K3XH0IsP3yNLPjIvOWnLkeln653AuibEsxg/Gzbny45n+GGWBqTF+W8LgYnVbM+APqc6XSuF+6Qi+VvK/pGPgUcX/JV0Fl0rnwlqSWjokJWvjPXXSj2WOHd9uklo+O7u0XWvz04Bj1aamj/vv+XaL9Nup3tumL/8v/X35wMC5zc2nwmrNDS1trQ0/P7E8Ds/k5ubPyzCYa9LEeTyMrqoaZOVUVdcGqJ241HC6HL/0hNFgDKuuGgr9q6qqxo+vGgYOoFRVNZYuPV0GemiA85SXwPUzgODo0szo2jl675xzBmZmXeTqjS6NcmfldGtm3fXWrHTKpx/eMpA1X3vhiaVhvvtnvLgcXHIx415fmR1fe+Heec1RzMCx2mmB1Yawm+b65k1KX87Y+dnmKt58zc2jLTmrY662WwkF8bz7DEedP4ztOu76e1fm0qqM0rq8+iQjki04tuXO37bEFyRwXvu0IzUHu2Rr/FPPwF+fnnpJOh9XtU05SNM5qWlaDYU1G/5Y2/dvjGL7Fo5sHMpKP2UNu+BqXsnaT3cc8yP4nAAAVlA4IIwEAADwFgCdASpKAFAAPrVMnUmnJKKhLNM/cOAWiWwNv2VZ2V6ZfgOWQAE+oG825HmN/Yj1ZfRH55nUPegB5af7YfBn+7PpTZqr1EpGZuLjQVTXbRqAdKr0Hv2IUex6EJO0+0FrjMaawguLAZjCCWUcgy+G8qp/8Cr0DelGgTzDF9M08X3MQhEq7bMEMQHDDF/QTkol0BrNOd5moX1qeToOUPkDNJVB+8AFRaLG5+E1b6WZYiQ26CunI4Je+oH9q3X61AAA/vkpowRD0GlaMY0jJO8N06+OVdkRIoWugG/tii8eeQJYOkXekI6hly0ydEvy8bt+4U0VLQptndcgXZm06dCst9jagoQt6K/pNkgztzTPa8ntwdXxpmR7IiP/xH38ktz6wZR+HAUdW4qxh0hg6f8nDx2XEdbbpfxJoJ1/Gd+6Bv9/522az+QcWlvqA/BTqwlG42b5Cw8W2KLV9zJnaf7OolTU/0BSzoxWTtCaIYayaQTjdLahJgaA9dVcefN6I4iz/mBn5RsstfSZPBO5BIBDzkwPWq3CJ5u35cD//0v1Yyu+h/4rbcz4LPd5q+QqX+ouGv8DQnnkpdoubAnq5UXSsCrchfK9X5IhtU1jh25Jo2cZ8mUyxu2zdEp4LY59JlfGlWlVwNl89ppJ//0SLBIZUNtVZCChVLq9HScHR5VzUJoK2hfKSpxWPkr6i0rOjGitKK0+IZkPX/xNvGjJYZgudLrCt3FjeDaF3nC8No0XR5zMmk5QwkhoP0IrlgKQ1UVY0doSJ7+lmED9axyMV0VApao5PZQIlDfLBBqnWBUUiV5DxD6Hs/yyJaW2Yfy16kOr/jO7J5rm1exzwY8VceWvySDqjJx5CUKr3r6TOH+yovBdiFslD5H80bO6F4CxK5LvFf6eHAxbcd+eQ6fLu/Z/IT/5CW1pUKfsgz+kd83KqhdB+OFh7z6lWd0wOrevIPRpbOToKUxJhfjkXNkJLt4Vl63UhoZbsJ2wsNO97FtgCLDAiAbb7sMBYgs7++TYXWPTIa5hcpg9Sai1p+82EqQX03p7veR3AzzsDmTfnTd4hGsNMarweMUiZyszppYqbZFYgEvsx0GH9c///5zH747//MeFQFBBA8jhUAxZMUiGgM36zsdD3pZrSMTZCQLa2Oau/k3xFHNLDc/5pR+JneLmSQUp3URZNUr/viXvefcab+IkSGPYfYlzd9l6FFEUO6Xco5RHZFEdGS7gIbzEb8NxlYsMEXYvqHfwxL/QYIj1+KsbIXVAs7yy4iIsWmY8ASaC4lKzCU0h5eZEg8dfHoUn7iqTPVgVqAEa3xxhdAzVj+f2UWl4lF4cpPWx/HfSuFDBqjBN/pSJQaglTyVqK47JZAQA5Hx/Ootfzr2ZUx4TiJgqV1OZUmDAXGuVPs3V9xzADeG7gn5NU634ieVM6rJirVyiKMQhA/M41is72lvLmPzjuQEbdkOo1ua4vkiUpe04byXb5V2eWnndlx4iezpQMM70AdRcrQj+Kyj3plld+06L4u5PoURBhzZFQK9I79v2n4512fBNs+gAAAA=";
 
@@ -1105,59 +1105,32 @@ function Tool(props){
 
     function doScrape(){
       var url=sc2.url||"";
-      var pasted=sc2.pastedText||"";
+      var pasted=(sc2.pastedText||"").trim();
       if(!url&&!pasted){up("scraper","error","Please enter a URL or paste listing text");return;}
       up("scraper","loading",true);up("scraper","error","");up("scraper","result",null);up("scraper","imported",false);
 
-      var agentGuess=url.toLowerCase().includes("brutonknowles")?"Bruton Knowles":
-        url.toLowerCase().includes("savills")?"Savills":
-        url.toLowerCase().includes("knightfrank")?"Knight Frank":
-        url.toLowerCase().includes("rightmove")?"Rightmove":"UK land agent";
-
-      var sourceText=pasted?
-        "Extract the land listing data from this text: "+pasted.substring(0,2000):
-        "Extract land listing data for this "+agentGuess+" listing URL: "+url;
-
-      var sysPrompt="You are a UK land data specialist. Return ONLY a JSON object starting with { and ending with }. No explanation, no markdown, no backticks.";
-
-      var jsonTemplate='{"address":"","postcode":"","city":"","acreage":null,"hectares":null,"askingPrice":null,"priceType":"","planningStatus":"","localAuthority":"","propertyType":"","description":"","agent":"","agentContact":"","dealType":"","developmentPotential":"","estimatedUnits":null,"constraints":""}';
-      var userPrompt=sourceText+" Return this JSON structure with real values: "+jsonTemplate;
-
-      // Use GET with encoded params - avoids CORS preflight
+      // Send to Apps Script scrape action - it builds the prompt server-side
       var params=new URLSearchParams({
-        action:"ai",
-        stage:"Land Finder",
+        action:"scrape",
+        url:url||"unknown",
+        text:pasted.substring(0,2000),
         user:(user&&user.name)||"",
-        company:(user&&user.company)||"",
-        system:sysPrompt,
-        prompt:userPrompt.substring(0,2500)
+        company:(user&&user.company)||""
       });
 
       fetch(WEBHOOK+"?"+params.toString())
       .then(function(res){return res.json();})
       .then(function(data2){
-        var text=data2.result||"";
-        if(!text){
-          up("scraper","error","No response from AI. Check Apps Script is deployed and API key has credits.");
-          up("scraper","loading",false);
-          return;
-        }
-        // Extract JSON from response
-        var clean=text.replace(/```json/g,"").replace(/```/g,"").trim();
-        var jsonStart=clean.indexOf("{");
-        var jsonEnd=clean.lastIndexOf("}");
-        if(jsonStart>=0&&jsonEnd>jsonStart){clean=clean.substring(jsonStart,jsonEnd+1);}
-        try{
-          var extracted=JSON.parse(clean);
-          up("scraper","result",extracted);
-          logEvent(user,"SCRAPE",{url:url,address:extracted.address||"unknown"});
-        }catch(err){
-          up("scraper","error","Could not parse response. AI returned: "+text.substring(0,150));
+        if(data2.status==="ok"&&data2.data){
+          up("scraper","result",data2.data);
+          logEvent(user,"SCRAPE",{url:url,address:(data2.data&&data2.data.address)||"unknown"});
+        } else {
+          up("scraper","error",data2.message||"Could not extract data. Try pasting more of the listing text.");
         }
         up("scraper","loading",false);
       })
       .catch(function(err){
-        up("scraper","error","Connection failed: "+err.message+". Try redeploying Apps Script.");
+        up("scraper","error","Connection failed: "+err.message);
         up("scraper","loading",false);
       });
     }
