@@ -20,7 +20,7 @@ var useState = React.useState;
 var useEffect = React.useEffect;
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
-var WEBHOOK = "https://script.google.com/macros/s/AKfycbz1_KT5gj1rsO5OuwAivh0U6TyXQ1zFSu58Sd5sRpCQ0cGWSzVl4u0wz0MLbQk2Xv6q/exec";
+var WEBHOOK = "https://script.google.com/macros/s/AKfycbzWnN8sBkIzhmiD4aajC0B4KlRNGILpY369njYnMRKs5zxEWeYF6rfnSZAsQTqcFY1C/exec";
 var EXPIRY  = new Date("2027-12-31");
 var LOGO    = "UklGRuYKAABXRUJQVlA4WAoAAAAQAAAASQAATwAAQUxQSDMGAAABoLZt2xlJntL1vO9bY7OxtnfYM2vbtm2j17Zt27Zte2bWdhtJ3vtDNVLpiYgJIGfnYdNXm7O/Ht4QnKPvmofpj6rrZ1YF7/qIBVj4FilmUsyi9PA08K4veKg5v0UxVddpVLx1cQhWOM/wY/6UUvU0ldovnweCFSuw3ndSEtXLVPr/zPEU27O1lET1PibS70ePMiuOp64zS5VvTKS7fX9vBTE34Eulyr0zfQzAWyEChylR/pleXX3jlcZBsMqZDf45ZhWQOiX9c96cEKxSgc2UqqLtaZpJ/55eBcEq47ktJhWKUkykP44bCb4SRmmmsspJMZF+OHAg+Pwc83YqFkGKifTFjh6fm2dFZSqGFFPpvXXx+W2mtDBSlkpH4XMK7KikQFKaakV8X8nUyyS+gstrC6UV6n3MlsDl4llNWcESHUnIxbFYVMFTPYLPxRj6p2KxMn3jydfxitJiRTWMxXIJnK6kaOkCuFw8yysrWlwkJ7PSDGUFyxbMicDxSgrWNmdejurGLBbr7+FYPnjOUVKkTF868jY3+s8sK1CqJ/F54dleSYESnUPIDc+9SoqTavNKmBsxQ2lRotrmwOWHY/H/lRUkja/iqKRnpTalxUh0MKEiBFZrUlKEGFtqcZUhUPeTkli5RLfiqXRgzhcVY8WybIJVDo8/JVGsUKLb8BTQGVO/i1lFYtY0p7kiQIlnlFakU/viKaZzL1Um0aN4isKLFUk1Y6Rzs4VUfy+KY3aQ6P86PLODRL9OITAbyDK9My+Bvpel0qUD8PS5mEjvrwWOgr2U9iom0qw9At4o2vNK056l0t/HDANP0c3mv0lKs+7SqLaL5wBP31zhJSmJZWkm3b4EBKNPmocdZkhJlmbSE8uCN/qsN4ad2CBJr6wD3tGnPcx36Wv3bgzO0dfNU26e2aEL5j1F9SGE4K0LCyH4rlwIITgACyEED7gQHFjo0htYCMEAF4LHGb23Mkf3Ru6ebg3AwQr1V15Rv84YM4whR9UfsyYOjNpDrrj0oAlmxoi9L7v88OnescYxx6wK8x1TX3/kYbuu0B9XfWL9ocE8E46pP5QFXlSXM0dggb0l/TbQzNnkP1S+NW7eGSo/xLhOuhTWU9dfb8GAp6VzKI38UTqo9ntl+uGlt1s1Bmfhs0Sd2o7geVId9x53U8cxcLU6nj7uqoYr4MIkORPWSDp+Pv/i5yVtx5CvU63Dg9Kl3KiOjv2HwEKnjyWwrvTsz/Ftc/Blqikwoc54PtGmsODyjouls2FN6Q1g3zT+O4bls2zmKdIXA/0/mU4EZwCOZ6IWul5akX7cofY/TxgHgTPU3nD+vFDqybuh5HlP2sY4RlLaORGvqCWCBxfwNiHVe6wp3U+wOT+V9MseeDfiZUn/Hu169A4W3M2Kp9Cfp2JbPJhAZ9Ry9Hc+gOcGxZ3wH8WOBfGMPOlHSXsRGHDI15JOpUfm+nNn2QCmST85Z3ySxccpHzGE2uao7775ujnVhZRKMOjCNPsU6wfuqDT9cxiXdPc24L+L2p5+TJW+7Yexozr1whZ1a53xzUKcpOTf3/7446c0/j3K3XH0IsP3yNLPjIvOWnLkeln653AuibEsxg/Gzbny45n+GGWBqTF+W8LgYnVbM+APqc6XSuF+6Qi+VvK/pGPgUcX/JV0Fl0rnwlqSWjokJWvjPXXSj2WOHd9uklo+O7u0XWvz04Bj1aamj/vv+XaL9Nup3tumL/8v/X35wMC5zc2nwmrNDS1trQ0/P7E8Ds/k5ubPyzCYa9LEeTyMrqoaZOVUVdcGqJ241HC6HL/0hNFgDKuuGgr9q6qqxo+vGgYOoFRVNZYuPV0GemiA85SXwPUzgODo0szo2jl675xzBmZmXeTqjS6NcmfldGtm3fXWrHTKpx/eMpA1X3vhiaVhvvtnvLgcXHIx415fmR1fe+Heec1RzMCx2mmB1Yawm+b65k1KX87Y+dnmKt58zc2jLTmrY662WwkF8bz7DEedP4ztOu76e1fm0qqM0rq8+iQjki04tuXO37bEFyRwXvu0IzUHu2Rr/FPPwF+fnnpJOh9XtU05SNM5qWlaDYU1G/5Y2/dvjGL7Fo5sHMpKP2UNu+BqXsnaT3cc8yP4nAAAVlA4IIwEAADwFgCdASpKAFAAPrVMnUmnJKKhLNM/cOAWiWwNv2VZ2V6ZfgOWQAE+oG825HmN/Yj1ZfRH55nUPegB5af7YfBn+7PpTZqr1EpGZuLjQVTXbRqAdKr0Hv2IUex6EJO0+0FrjMaawguLAZjCCWUcgy+G8qp/8Cr0DelGgTzDF9M08X3MQhEq7bMEMQHDDF/QTkol0BrNOd5moX1qeToOUPkDNJVB+8AFRaLG5+E1b6WZYiQ26CunI4Je+oH9q3X61AAA/vkpowRD0GlaMY0jJO8N06+OVdkRIoWugG/tii8eeQJYOkXekI6hly0ydEvy8bt+4U0VLQptndcgXZm06dCst9jagoQt6K/pNkgztzTPa8ntwdXxpmR7IiP/xH38ktz6wZR+HAUdW4qxh0hg6f8nDx2XEdbbpfxJoJ1/Gd+6Bv9/522az+QcWlvqA/BTqwlG42b5Cw8W2KLV9zJnaf7OolTU/0BSzoxWTtCaIYayaQTjdLahJgaA9dVcefN6I4iz/mBn5RsstfSZPBO5BIBDzkwPWq3CJ5u35cD//0v1Yyu+h/4rbcz4LPd5q+QqX+ouGv8DQnnkpdoubAnq5UXSsCrchfK9X5IhtU1jh25Jo2cZ8mUyxu2zdEp4LY59JlfGlWlVwNl89ppJ//0SLBIZUNtVZCChVLq9HScHR5VzUJoK2hfKSpxWPkr6i0rOjGitKK0+IZkPX/xNvGjJYZgudLrCt3FjeDaF3nC8No0XR5zMmk5QwkhoP0IrlgKQ1UVY0doSJ7+lmED9axyMV0VApao5PZQIlDfLBBqnWBUUiV5DxD6Hs/yyJaW2Yfy16kOr/jO7J5rm1exzwY8VceWvySDqjJx5CUKr3r6TOH+yovBdiFslD5H80bO6F4CxK5LvFf6eHAxbcd+eQ6fLu/Z/IT/5CW1pUKfsgz+kd83KqhdB+OFh7z6lWd0wOrevIPRpbOToKUxJhfjkXNkJLt4Vl63UhoZbsJ2wsNO97FtgCLDAiAbb7sMBYgs7++TYXWPTIa5hcpg9Sai1p+82EqQX03p7veR3AzzsDmTfnTd4hGsNMarweMUiZyszppYqbZFYgEvsx0GH9c///5zH747//MeFQFBBA8jhUAxZMUiGgM36zsdD3pZrSMTZCQLa2Oau/k3xFHNLDc/5pR+JneLmSQUp3URZNUr/viXvefcab+IkSGPYfYlzd9l6FFEUO6Xco5RHZFEdGS7gIbzEb8NxlYsMEXYvqHfwxL/QYIj1+KsbIXVAs7yy4iIsWmY8ASaC4lKzCU0h5eZEg8dfHoUn7iqTPVgVqAEa3xxhdAzVj+f2UWl4lF4cpPWx/HfSuFDBqjBN/pSJQaglTyVqK47JZAQA5Hx/Ootfzr2ZUx4TiJgqV1OZUmDAXGuVPs3V9xzADeG7gn5NU634ieVM6rJirVyiKMQhA/M41is72lvLmPzjuQEbdkOo1ua4vkiUpe04byXb5V2eWnndlx4iezpQMM70AdRcrQj+Kyj3plld+06L4u5PoURBhzZFQK9I79v2n4512fBNs+gAAAA=";
 
@@ -209,20 +209,19 @@ function logEvent(user,event,details){
 
 async function callAI(user,stage,systemPrompt,userPrompt){
   logEvent(user,"AI_ANALYSIS",{stage:stage});
-  var res=await fetch(WEBHOOK,{
-    method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      action:"ai",model:"claude-sonnet-4-20250514",max_tokens:900,
-      system:systemPrompt||"You are a senior UK real estate development advisor. Be specific, commercially sharp, use UK conventions. Plain text only.",
-      messages:[{role:"user",content:userPrompt}],
-      user:(user&&user.name)||"",stage:stage
-    })
+  // Use GET to avoid CORS preflight blocks from GitHub Pages
+  var params=new URLSearchParams({
+    action:"ai",
+    stage:stage,
+    user:(user&&user.name)||"",
+    company:(user&&user.company)||"",
+    system:systemPrompt||"You are a senior UK real estate development advisor. Be specific, commercially sharp, use UK conventions. Plain text only.",
+    prompt:userPrompt.substring(0,3000)
   });
+  var res=await fetch(WEBHOOK+"?"+params.toString());
   var data=await res.json();
-  if(data.status==="ok"&&data.content){
-    for(var i=0;i<data.content.length;i++){
-      if(data.content[i].type==="text")return data.content[i].text;
-    }
+  if(data.status==="ok"&&data.result){
+    return data.result;
   }
   return"Analysis failed — please try again";
 }
@@ -1110,15 +1109,12 @@ function Tool(props){
       var url=sc2.url||"";
       if(!url)return;
       up("scraper","loading",true);up("scraper","error","");up("scraper","result",null);up("scraper","imported",false);
-      fetch(WEBHOOK,{
-        method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          action:"ai",model:"claude-sonnet-4-20250514",max_tokens:800,
-          system:"You are a UK land data extraction specialist. Return ONLY valid JSON, no markdown, no explanation.",
-          messages:[{role:"user",content:"Extract UK land/property listing data from this URL and return a JSON object with these fields: address, postcode, city, acreage (number or null), hectares (number or null), askingPrice (number or null), priceType (sale/option/promotion/tender), planningStatus, localAuthority, propertyType, description (2-3 sentences), agent, agentContact, dealType (sale/option/promotion/hybrid), developmentPotential, estimatedUnits (number or null), constraints. URL: "+url+" If you cannot access the URL, extract what you can from the URL structure itself. Return only JSON."}],
-          user:(user&&user.name)||"",stage:"Land Finder"
-        })
-      })
+      (function(){
+        var agentGuess=url.toLowerCase().includes("brutonknowles")?"Bruton Knowles":url.toLowerCase().includes("savills")?"Savills":url.toLowerCase().includes("knightfrank")?"Knight Frank":url.toLowerCase().includes("rightmove")?"Rightmove":"UK land agent";
+        var scrapePrompt="Extract UK land listing data from this URL and return ONLY a JSON object with: address, postcode, city, acreage (number or null), hectares (number or null), askingPrice (number or null), priceType, planningStatus, localAuthority, propertyType, description (2 sentences), agent, dealType, developmentPotential, estimatedUnits (number or null), constraints. Agent: "+agentGuess+". URL: "+url+" Return only valid JSON.";
+        var p=new URLSearchParams({action:"ai",stage:"Land Finder",user:(user&&user.name)||"",company:(user&&user.company)||"",system:"You are a UK land data extraction specialist with knowledge of UK land agents and planning. Return ONLY valid JSON.",prompt:scrapePrompt.substring(0,2000)});
+        return fetch(WEBHOOK+"?"+p.toString());
+      })()
       .then(function(res){return res.json();})
       .then(function(data2){
         var text=""; var content=data2.content||[];
