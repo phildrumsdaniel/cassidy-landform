@@ -2877,9 +2877,12 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
 
     var houseCalcs=mix.map(function(row){
       var cnt=num(row.count); if(!cnt||!row.type)return null;
-      var info=HOUSE_TYPES[row.type]||HOUSE_TYPES["3-bed semi"];
-      var sp=num(row.psf)||(basePsf*info.adj);
-      return{type:row.type,count:cnt,sqft:info.sqft,sp:sp,totalGdv:info.sqft*sp*cnt,build:info.sqft*sBuild*cnt};
+      var info=HOUSE_TYPES[row.type]||HOUSE_TYPES["3-bed semi"]||{sqft:900,adj:1.0};
+      var rowSqft=num(row.sqft)||info.sqft;
+      var unitPrice=num(row.unitPrice||0);
+      var sp=unitPrice&&rowSqft?unitPrice/rowSqft:(num(row.psf)||(basePsf*(info.adj||1)));
+      var beds=num(row.beds)||(info.beds||3);
+      return{type:row.type,beds:beds,count:cnt,sqft:rowSqft,sp:sp,unitPrice:unitPrice||rowSqft*sp,totalGdv:rowSqft*sp*cnt,build:rowSqft*sBuild*cnt};
     }).filter(Boolean);
 
     var totalUnits=houseCalcs.reduce(function(a,h){return a+h.count;},0);
@@ -2946,12 +2949,15 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"House Type Mix"),
         e("div",{style:{overflowX:"auto"}},
-          e("div",{style:{display:"grid",gridTemplateColumns:"1.8fr 80px 80px 90px 100px 110px",padding:"8px 12px",background:"#F7F8FC",fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:700,borderBottom:"1px solid #DDE0ED",minWidth:600}},
-            e("span",null,"House Type"),e("span",null,"Plots"),e("span",null,"sqft"),e("span",null,"£/sqft"),e("span",null,"Unit GDV"),e("span",null,"Total")
+          e("div",{style:{fontSize:10,color:"#7278A0",marginBottom:6,fontStyle:"italic"}},"Name each type (e.g. Ashdown 3B), enter actual sqft and Savills price per unit — matches professional appraisal methodology"),
+          e("div",{style:{display:"grid",gridTemplateColumns:"1.8fr 55px 70px 75px 100px 100px 110px 28px",padding:"8px 12px",background:"#2E2F8A",fontSize:9,color:"#fff",textTransform:"uppercase",letterSpacing:".08em",fontWeight:700,borderBottom:"1px solid #DDE0ED",minWidth:640}},
+            e("span",null,"House Type Name"),e("span",null,"Beds"),e("span",null,"Plots"),e("span",null,"Sqft"),e("span",null,"£/sqft"),e("span",null,"Unit Price"),e("span",null,"Revenue"),e("span",null,"")
           ),
           mix.map(function(row,i){
             var info=HOUSE_TYPES[row.type]||HOUSE_TYPES["3-bed semi"];
-            var sp=num(row.psf)||(basePsf*info.adj);
+            var sp=num(row.psf)||(basePsf*(info&&info.adj||1));
+            var unitPrice=num(row.unitPrice||0);
+            var effSp=unitPrice&&num(row.sqft||info&&info.sqft||850)?unitPrice/num(row.sqft||info&&info.sqft||850):sp;
             var cnt=num(row.count);
             return e("div",{key:i,style:{display:"grid",gridTemplateColumns:"1.8fr 80px 80px 90px 100px 110px",padding:"8px 12px",borderBottom:"1px solid #DDE0ED",gap:8,alignItems:"center",background:cnt>0?"#FAFDF9":"#fff",minWidth:600}},
               e("select",{value:row.type,onChange:function(ev){updMix(i,"type",ev.target.value);},style:Object.assign({},S.select,{fontSize:11,padding:"5px 6px"})},
@@ -3978,7 +3984,196 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           ),
           e("div",{style:{fontSize:10,color:"#7278A0",padding:"6px 4px"}},"Bear: -10% rents, +15% costs | Bull: +8% rents, -5% costs")
         ),
-        e(AIPanel,{user:user,stage:"fin",label:"Deep Financial Analysis",
+        // S106 LINE-ITEM CALCULATOR
+      e("div",{style:S.card},
+        e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}},
+          e("div",{style:S.cardTitle},"S106 Line-Item Calculator"),
+          e("div",{style:{fontSize:10,color:"#7278A0"}},"Matches John Baker appraisal — 12 standard categories")
+        ),
+        e("div",{style:{border:"1px solid #DDE0ED",borderRadius:8,overflow:"hidden",marginBottom:10}},
+          e("div",{style:{display:"grid",gridTemplateColumns:"2fr 130px 90px 100px",padding:"7px 12px",background:"#2E2F8A",fontSize:9,color:"#fff",textTransform:"uppercase",letterSpacing:".08em",fontWeight:700}},
+            e("span",null,"S106 Obligation"),e("span",null,"Total £"),e("span",null,"Per Unit"),e("span",null,"Status")
+          ),
+          (function(){
+            var totalU=num(f.units||0)||1;
+            var items=[
+              {k:"s106edu",lbl:"Education",note:"Typically £5k-8k/unit"},
+              {k:"s106nhsgp",lbl:"NHS — GP Surgery",note:"£500-1,200/unit"},
+              {k:"s106nhshosp",lbl:"NHS — Hospital",note:"£800-2,000/unit"},
+              {k:"s106bus",lbl:"Bus Service Improvements",note:"Lump sum or per unit"},
+              {k:"s106busstop",lbl:"Bus Stop Upgrades",note:"£50-200/unit"},
+              {k:"s106transport",lbl:"Transport / Travel Plan",note:"Monitoring + vouchers"},
+              {k:"s106highways",lbl:"Highways / S278",note:"Off-site works"},
+              {k:"s106bng",lbl:"Biodiversity Net Gain (BNG)",note:"10% mandatory — can be challenged"},
+              {k:"s106open",lbl:"Open Space / Play",note:"Commuted sum if management co"},
+              {k:"s106sports",lbl:"Sports Facilities",note:"3G pitch, grass pitches"},
+              {k:"s106disposal",lbl:"AH Disposal Costs",note:"Legal/admin per AH unit"},
+              {k:"s106other",lbl:"Other / Miscellaneous",note:"Footpaths, wayfinding etc"},
+            ];
+            var s106Total3=items.reduce(function(s,it){return s+num(f[it.k]||0);},0);
+            return [].concat(items.map(function(item,i){
+              var val=num(f[item.k]||0);
+              return e("div",{key:item.k,style:{display:"grid",gridTemplateColumns:"2fr 130px 90px 100px",padding:"6px 12px",background:i%2===0?"#fff":"#FAFAFA",borderBottom:"1px solid #DDE0ED",alignItems:"center",fontSize:11}},
+                e("div",null,
+                  e("div",{style:{fontWeight:600,color:"#2E2F8A"}},item.lbl),
+                  e("div",{style:{fontSize:9,color:"#7278A0"}},item.note)
+                ),
+                e("input",{type:"number",value:f[item.k]||"",onChange:function(ev){
+                  var newVal=ev.target.value;
+                  up("fin",item.k,newVal);
+                  var newTot=items.reduce(function(s,it2){return s+(it2.k===item.k?num(newVal):num(f[it2.k]||0));},0);
+                  if(newTot>0&&totalU>0)up("fin","s106pu",Math.round(newTot/totalU)+"");
+                },placeholder:"0",style:Object.assign({},S.input,{margin:0,padding:"5px 8px",fontSize:11})}),
+                e("span",{style:{fontSize:10,color:"#7278A0"}},val>0?"£"+Math.round(val/totalU).toLocaleString():"—"),
+                e("select",{value:f[item.k+"s"]||"tbc",onChange:function(ev){up("fin",item.k+"s",ev.target.value);},style:Object.assign({},S.select,{margin:0,padding:"3px 5px",fontSize:10})},
+                  e("option",{value:"tbc"},"TBC"),
+                  e("option",{value:"agreed"},"Agreed"),
+                  e("option",{value:"challenged"},"Challenged"),
+                  e("option",{value:"excluded"},"Excluded")
+                )
+              );
+            }),
+            [e("div",{key:"s106tot",style:{display:"grid",gridTemplateColumns:"2fr 130px 90px 100px",padding:"9px 12px",background:"#F0F0F8",borderTop:"2px solid #DDE0ED",fontWeight:700,fontSize:12}},
+              e("span",{style:{color:"#2E2F8A"}},"TOTAL S106"),
+              e("span",{style:{color:"#4A4BAE"}},fmt(s106Total3)),
+              e("span",{style:{color:"#7278A0"}},totalU>0?"£"+Math.round(s106Total3/totalU).toLocaleString()+"/unit":"—"),
+              e("span",{style:{color:"#2D7A65",fontSize:10}},"✓ Auto-fills S106/unit")
+            )]]);
+          })()
+        ),
+        e("div",{style:{fontSize:10,color:"#7278A0",fontStyle:"italic"}},"Reference: John Baker model uses Education £2.36m, NHS £909k, Bus £398k, Sports £799k, BNG (challenged at 50%). S106 is negotiable — mark challenged items accordingly.")
+      ),
+
+      // IRR & PHASED CASHFLOW SUMMARY
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"IRR & Phased Cashflow — Initial Screening"),
+        e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:12}},"Simplified IRR for go/no-go screening. Once the deal passes, export key figures to the John Baker Excel model for full month-by-month Normal Distribution cashflow."),
+        e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:14}},
+          e("div",{style:{display:"flex",flexDirection:"column",gap:4}},
+            e("label",{style:S.label},"Private Sales Rate (units/week)"),
+            e("input",{type:"number",value:f.salesRateWeek||"",onChange:function(ev){up("fin","salesRateWeek",ev.target.value);},placeholder:"0.75",style:S.input})
+          ),
+          e("div",{style:{display:"flex",flexDirection:"column",gap:4}},
+            e("label",{style:S.label},"Finance Rate (% per annum)"),
+            e("input",{type:"number",value:f.finRatePa||"",onChange:function(ev){up("fin","finRatePa",ev.target.value);},placeholder:"8",style:S.input})
+          ),
+          e("div",{style:{display:"flex",flexDirection:"column",gap:4}},
+            e("label",{style:S.label},"Programme Length (months)"),
+            e("input",{type:"number",value:f.programmeMths||"",onChange:function(ev){up("fin","programmeMths",ev.target.value);},placeholder:"36",style:S.input})
+          )
+        ),
+        (function(){
+          var salesRate=num(f.salesRateWeek||0.75);
+          var finRatePa=num(f.finRatePa||8)/100;
+          var progMths=num(f.programmeMths||36);
+          var u=num(f.units||totalUnits||0);
+          if(u<1||gdv<1)return e("div",{style:{fontSize:12,color:"#7278A0",padding:"10px 0"}},"Enter units and GDV in the appraisal above to calculate IRR.");
+          var salesMths=salesRate>0?Math.ceil(u/(salesRate*52/12)):progMths;
+          var peakDebt=tc*0.65;
+          var finCost=peakDebt*finRatePa*(progMths/12);
+          // Newton-Raphson IRR approximation
+          var irrVal=(function(){
+            if(gdv<=0||tc<=0)return null;
+            var r=0.15;
+            var n=progMths/12;
+            for(var i=0;i<60;i++){
+              var pv=gdv/Math.pow(1+r,n);
+              var npv=pv-tc*(1+finRatePa*n/2);
+              var dpv=-n*gdv/Math.pow(1+r,n+1);
+              var nr=r-npv/dpv;
+              if(Math.abs(nr-r)<0.00001)break;
+              r=nr;
+            }
+            return r>-1&&r<5?Math.round(r*1000)/10:null;
+          })();
+          var irrColor=irrVal&&irrVal>=15?"#2D7A65":irrVal&&irrVal>=10?"#9A7B3E":"#B05A35";
+
+          return e("div",null,
+            e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:12}},
+              [
+                {l:"Private Units",v:u},
+                {l:"Sales Period",v:salesMths+" mths"},
+                {l:"Programme",v:progMths+" mths"},
+                {l:"Peak Debt (est)",v:fmt(peakDebt)},
+                {l:"Finance Cost (est)",v:fmt(finCost),s:true},
+                {l:"Profit on Cost",v:tc>0?pct((gdv-tc)/tc*100):"—",c:gdv>tc?"#2D7A65":"#B05A35",big:true},
+                {l:"Margin on GDV",v:gdv>0?pct(margin):"—",c:margin>=15?"#2D7A65":"#B05A35",big:true},
+                {l:"Approx IRR",v:irrVal?irrVal+"%":"—",c:irrColor,big:true},
+              ].map(function(item){
+                return e("div",{key:item.l,style:{background:"#fff",border:"1px solid #DDE0ED",borderTop:"3px solid "+(item.c||"#4A4BAE"),borderRadius:8,padding:12,textAlign:"center"}},
+                  e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:4}},item.l),
+                  e("div",{style:{fontSize:item.big?22:14,fontWeight:800,color:item.c||"#2E2F8A"}},item.v)
+                );
+              })
+            ),
+            e("div",{style:{background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",borderRadius:9,padding:"16px 20px"}},
+              e("div",{style:{fontSize:13,fontWeight:800,color:"#EDE84A",marginBottom:6}},"📊 Export to John Baker Excel Model"),
+              e("div",{style:{fontSize:11,color:"rgba(255,255,255,0.7)",lineHeight:1.8,marginBottom:12}},
+                "Landform is designed for fast initial screening — Go/No-Go in minutes. Once a deal passes, copy these figures into the full Excel model for: ",
+                e("br"),
+                "✓ Month-by-month cashflow with Normal Distribution sales phasing",e("br"),
+                "✓ BCIS build costs rebased to local index by house type",e("br"),
+                "✓ Arcadis line-item infrastructure cost breakdown",e("br"),
+                "✓ RP offer tracking (golden brick vs turnkey per housing association)"
+              ),
+              e("div",{style:{background:"rgba(255,255,255,0.08)",borderRadius:6,padding:"12px 14px",fontFamily:"monospace",fontSize:10,color:"rgba(255,255,255,0.9)",lineHeight:2.0,marginBottom:12}},
+                "Site: "+(l.address||"—"),e("br"),
+                "Gross Site: "+num(l.acres||0)+" acres / "+(num(l.acres||0)*0.404686).toFixed(2)+" ha",e("br"),
+                "Units: "+u+" | GDV: "+fmt(gdv)+" | Land (RLV): "+fmt(Math.max(0,rlv)),e("br"),
+                "Build Cost: "+fmt(totalBuild)+" | S106 Total: "+fmt(num(f.s106pu||0)*u),e("br"),
+                "Finance: "+(f.finRatePa||8)+"% pa | Sales: "+(f.salesRateWeek||0.75)+"/wk | IRR: "+(irrVal?irrVal+"%":"—"),e("br"),
+                "Margin: "+pct(margin)+" | Profit on Cost: "+pct(tc>0?(gdv-tc)/tc*100:0)
+              ),
+              e("button",{onClick:function(){
+                var t="LANDFORM EXPORT — "+new Date().toLocaleDateString("en-GB")+"
+
+"+
+                  "SITE: "+(l.address||"Unknown")+"
+"+
+                  "LPA: "+(data.planning&&data.planning.lpa||"—")+"
+"+
+                  "Gross Site: "+num(l.acres||0)+" acres / "+(num(l.acres||0)*0.404686).toFixed(2)+" ha
+"+
+                  "Units: "+u+"
+"+
+                  "GDV: "+fmt(gdv)+"
+"+
+                  "Land Residual Value (max bid): "+fmt(Math.max(0,rlv))+"
+"+
+                  "Build Cost Total: "+fmt(totalBuild)+"
+"+
+                  "S106 Per Unit: £"+(f.s106pu||0)+"
+"+
+                  "S106 Total: "+fmt(num(f.s106pu||0)*u)+"
+"+
+                  "Finance Rate: "+(f.finRatePa||8)+"% pa
+"+
+                  "Sales Rate: "+(f.salesRateWeek||0.75)+" units/week
+"+
+                  "Programme: "+(f.programmeMths||36)+" months
+"+
+                  "Approx Margin on GDV: "+pct(margin)+"
+"+
+                  "Approx IRR: "+(irrVal?irrVal+"%":"not calculated")+"
+
+"+
+                  "NEXT STEP: Enter these figures into the John Baker Excel model.
+"+
+                  "Set land price to RLV above. Run Normal Distribution cashflow.
+"+
+                  "Rebase BCIS build costs to local area. Track RP offers.
+";
+                var el=document.createElement("textarea");
+                el.value=t;document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);
+                alert("Copied to clipboard — paste into Excel model or email to John Baker");
+              },style:{padding:"9px 22px",background:"#EDE84A",border:"none",borderRadius:7,color:"#1E1F5C",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
+              "📋 Copy Key Figures for Excel Model")
+            )
+          );
+        })()
+      ),
+
+      e(AIPanel,{user:user,stage:"fin",label:"Deep Financial Analysis",
           prompt:"Analyse this "+at.toUpperCase()+" development appraisal. GDV: "+fmt(gdv2)+", TDC: "+fmt(tc4)+", Profit: "+fmt(profit2)+", Margin: "+pct(margin2)+", ROC: "+pct(roc)+". City: "+cityName(city)+", "+units+" units. Provide: 1) Return benchmarking vs institutional requirements, 2) Key value drivers and sensitivities, 3) Recommended deal structure (debt/equity split), 4) Value engineering options to improve margin by 3-5%, 5) Most critical assumption that if wrong would kill the deal."})
       )
     );
@@ -4206,6 +4401,66 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           e("pre",{style:{fontSize:12,lineHeight:1.8,color:"#3A3D6A",whiteSpace:"pre-wrap",fontFamily:"DM Sans,sans-serif"}},memo)
         )
       ),
+      e("div",{style:S.card},
+        e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}},
+          e("div",{style:S.cardTitle},"Housing Association / RP Offer Tracker"),
+          e("div",{style:{fontSize:10,color:"#7278A0"}},"Record actual RP offers — matches John Baker appraisal methodology")
+        ),
+        e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:12}},"Track offers from Registered Providers. Golden Brick = land and infrastructure ready for RP to build. Turnkey = completed units handed over. Enter actual £ offers."),
+        e("div",{style:{border:"1px solid #DDE0ED",borderRadius:8,overflow:"hidden",marginBottom:10}},
+          e("div",{style:{display:"grid",gridTemplateColumns:"1.5fr 70px 110px 110px 70px 110px",padding:"7px 12px",background:"#2E2F8A",fontSize:9,color:"#fff",textTransform:"uppercase",letterSpacing:".08em",fontWeight:700}},
+            e("span",null,"RP / Housing Association"),
+            e("span",null,"Units"),
+            e("span",null,"Golden Brick (£)"),
+            e("span",null,"Turnkey (£)"),
+            e("span",null,"£/sqft"),
+            e("span",null,"Status")
+          ),
+          (function(){
+            var rpOffers=data.rpOffers||[
+              {rp:"Paradigm",units:"",gb:"",tk:"",status:"tbc"},
+              {rp:"Fairhive",units:"",gb:"",tk:"",status:"tbc"},
+              {rp:"Hightown",units:"",gb:"",tk:"",status:"tbc"},
+              {rp:"Vivid",units:"",gb:"",tk:"",status:"tbc"},
+              {rp:"Home Group",units:"",gb:"",tk:"",status:"tbc"},
+              {rp:"Peabody",units:"",gb:"",tk:"",status:"tbc"},
+              {rp:"MTVHA",units:"",gb:"",tk:"",status:"tbc"},
+              {rp:"Other RP",units:"",gb:"",tk:"",status:"tbc"},
+            ];
+            function updRP(i,k,v){
+              var arr=rpOffers.slice();
+              arr[i]=Object.assign({},arr[i]);
+              arr[i][k]=v;
+              setData(function(d){return Object.assign({},d,{rpOffers:arr});});
+            }
+            var sColors={"offered":"#2D7A65","declined":"#B05A35","approached":"#9A7B3E","tbc":"#7278A0","negotiating":"#4A4BAE","preferred":"#2D7A65"};
+            return rpOffers.map(function(rp,i){
+              var gbVal=num(rp.gb||0);
+              var tkVal=num(rp.tk||0);
+              var bestOffer=Math.max(gbVal,tkVal);
+              var ahSqft=10000; // estimate
+              var psfVal=bestOffer>0&&ahSqft>0?Math.round(bestOffer/ahSqft):0;
+              return e("div",{key:i,style:{display:"grid",gridTemplateColumns:"1.5fr 70px 110px 110px 70px 110px",padding:"6px 12px",background:i%2===0?"#fff":"#FAFAFA",borderBottom:"1px solid #DDE0ED",alignItems:"center",fontSize:11}},
+                e("input",{type:"text",value:rp.rp||"",onChange:function(ev){updRP(i,"rp",ev.target.value);},style:Object.assign({},S.input,{margin:0,padding:"4px 6px",fontSize:11})}),
+                e("input",{type:"number",value:rp.units||"",onChange:function(ev){updRP(i,"units",ev.target.value);},placeholder:"0",style:Object.assign({},S.input,{margin:0,padding:"4px 5px",fontSize:11})}),
+                e("input",{type:"number",value:rp.gb||"",onChange:function(ev){updRP(i,"gb",ev.target.value);},placeholder:"e.g. 10300000",style:Object.assign({},S.input,{margin:0,padding:"4px 5px",fontSize:11})}),
+                e("input",{type:"number",value:rp.tk||"",onChange:function(ev){updRP(i,"tk",ev.target.value);},placeholder:"e.g. 10800000",style:Object.assign({},S.input,{margin:0,padding:"4px 5px",fontSize:11})}),
+                e("span",{style:{fontSize:10,color:"#7278A0"}},psfVal>0?"£"+psfVal:"-"),
+                e("select",{value:rp.status||"tbc",onChange:function(ev){updRP(i,"status",ev.target.value);},style:Object.assign({},S.select,{margin:0,padding:"3px 5px",fontSize:10,color:sColors[rp.status||"tbc"]})},
+                  e("option",{value:"tbc"},"TBC"),
+                  e("option",{value:"approached"},"Approached"),
+                  e("option",{value:"offered"},"Offered"),
+                  e("option",{value:"declined"},"Declined"),
+                  e("option",{value:"negotiating"},"Negotiating"),
+                  e("option",{value:"preferred"},"Preferred Bidder")
+                )
+              );
+            });
+          })()
+        ),
+        e("div",{style:{fontSize:10,color:"#7278A0",fontStyle:"italic"}},"John Baker reference: Paradigm, Fairhive, Hightown offered. Clarion, Stonewater, SNG, Home Group, Vivid, Abri declined. Best GB: £24.8m / Turnkey: £24.8m for 94-unit parcel (Paradigm).")
+      ),
+
       e(AIPanel,{user:user,stage:"exit",label:"Exit Strategy Analysis",
         prompt:"Exit strategy for "+at.toUpperCase()+" in "+cityName(city)+". Strategy: "+(ex.strategy||"not set")+", GDV: "+fmt(gdv)+", NOI: "+fmt(noi)+" pa, yield: "+pct(ey*100)+", investor type: "+(ex.investorType||"not set")+". Provide: 1) Optimal exit route and timing recommendation, 2) Top 5 specific buyers to approach with rationale, 3) Key investor DD requirements and how to prepare, 4) Critical negotiation points and red lines, 5) Risk factors that could compress exit pricing by >10 bps."})
     );
