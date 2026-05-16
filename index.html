@@ -461,6 +461,7 @@ function Tool(props){
     try{var s=localStorage.getItem("cassidy_history");return s?JSON.parse(s):[];}catch(e){return [];}
   })()); var history=histS[0]; var setHistory=histS[1];
   var showHistS=useState(false); var showHist=showHistS[0]; var setShowHist=showHistS[1];
+  var journeyS=useState("all"); var journey=journeyS[0]; var setJourney=journeyS[1];
 
   function up(section,key,val){
     setData(function(d){
@@ -494,7 +495,16 @@ function Tool(props){
   var idx=STAGES.findIndex(function(s){return s.id===stage;});
   var curStage=STAGES[idx]||STAGES[0];
 
-  function navTo(id){setStage(id);logEvent(user,"PAGE_VIEW",{stage:id});}
+  function navTo(id){
+    setStage(id);
+    logEvent(user,"PAGE_VIEW",{stage:id});
+    // Auto-switch journey based on stage navigated to
+    var stageInfo=ALL_STAGES.find(function(s){return s.id===id;});
+    if(stageInfo&&journey==="all"){
+      if(id==="scraper"||id==="rlv"||id==="land"||id==="landworkflow"){setJourney("land");}
+      else if(id==="epe"||id==="epeworkflow"){setJourney("property");}
+    }
+  }
 
   function saveDeal(){
     var autoName=(data.land&&data.land.address)||
@@ -1146,7 +1156,20 @@ function Tool(props){
         })
       ),
       e("div",{style:S.card},
-        e("div",{style:S.cardTitle},"Asset Type"),
+        e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:10,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,paddingBottom:12,borderBottom:"1px solid #DDE0ED",marginBottom:14}},
+          e("span",null,"Journey & Asset Type"),
+          e("div",{style:{display:"flex",gap:6}},
+            e("button",{onClick:function(){setJourney("land");navTo("scraper");},
+              style:{padding:"4px 10px",background:"#4A4BAE",border:"none",color:"#fff",borderRadius:4,fontSize:9,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
+              "🔍 Start Land Journey"),
+            e("button",{onClick:function(){setJourney("property");navTo("epe");},
+              style:{padding:"4px 10px",background:"#2D7A65",border:"none",color:"#fff",borderRadius:4,fontSize:9,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
+              "🏠 Start Property Journey"),
+            journey!=="all"&&e("button",{onClick:function(){setJourney("all");},
+              style:{padding:"4px 10px",background:"transparent",border:"1px solid #DDE0ED",color:"#7278A0",borderRadius:4,fontSize:9,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
+              "Show All Stages")
+          )
+        ),
         e("div",{style:{display:"flex",gap:10,flexWrap:"wrap"}},
           [
             {id:"btr",  label:"BTR",  desc:"Build to Rent — apartment block"},
@@ -1154,7 +1177,10 @@ function Tool(props){
             {id:"sfh",  label:"SFH",  desc:"Single Family Housing — housing estate"},
           ].map(function(t){
             return e("div",{key:t.id,style:{display:"flex",flexDirection:"column",gap:4}},
-              e("button",{onClick:function(){setData(function(d){return Object.assign({},d,{assetType:t.id});});},
+              e("button",{onClick:function(){
+                setData(function(d){return Object.assign({},d,{assetType:t.id});});
+                setJourney(t.id); // auto-switch journey when asset type selected
+              },
                 style:{padding:"8px 20px",background:at===t.id?"#4A4BAE":"transparent",border:"1px solid #4A4BAE",color:at===t.id?"#fff":"#4A4BAE",borderRadius:5,fontFamily:"DM Sans,sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}},
                 t.label),
               e("div",{style:{fontSize:9,color:"#7278A0",textAlign:"center",maxWidth:120}},t.desc)
@@ -1163,13 +1189,28 @@ function Tool(props){
         )
       ),
       e("div",{style:S.card},
-        e("div",{style:S.cardTitle},"Quick Navigation"),
+        e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:10,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,paddingBottom:12,borderBottom:"1px solid #DDE0ED",marginBottom:14}},
+          e("span",null,"Quick Navigation"),
+          e("div",{style:{display:"flex",gap:8}},
+            e("button",{onClick:function(){setJourney("land");navTo("scraper");},
+              style:{padding:"5px 12px",background:"#4A4BAE",border:"none",color:"#fff",borderRadius:4,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
+              "🔍 Start Land Journey"),
+            e("button",{onClick:function(){setJourney("property");navTo("epe");},
+              style:{padding:"5px 12px",background:"#2D7A65",border:"none",color:"#fff",borderRadius:4,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
+              "🏠 Start Property Journey")
+          )
+        ),
         e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}},
-          STAGES.filter(function(s){return s.id!=="dashboard";}).map(function(s){
-            return e("button",{key:s.id,onClick:function(){navTo(s.id);},
-              style:{padding:"10px 8px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:7,fontFamily:"DM Sans,sans-serif",fontSize:11,fontWeight:500,color:"#3A3D6A",cursor:"pointer",textAlign:"center"}},
-              s.icon+" "+s.label);
-          })
+          (function(){
+            var filtered=journey==="all"?
+              ALL_STAGES.filter(function(s){return s.id!=="dashboard";}):
+              ALL_STAGES.filter(function(s){return s.id!=="dashboard"&&(s.journeys.indexOf(journey)>=0||s.journeys.indexOf("all")>=0);});
+            return filtered.map(function(s){
+              return e("button",{key:s.id,onClick:function(){navTo(s.id);},
+                style:{padding:"10px 8px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:7,fontFamily:"DM Sans,sans-serif",fontSize:11,fontWeight:500,color:"#3A3D6A",cursor:"pointer",textAlign:"center"}},
+                s.icon+" "+s.label);
+            });
+          })()
         )
       ),
       e(AIPanel,{user:user,stage:"dashboard",label:"Generate Deal Summary",
@@ -1179,6 +1220,12 @@ function Tool(props){
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Deal Workflow — Your Journey"),
         e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:16}},"Follow this workflow for your selected asset type. Click any stage to navigate there. Completed stages show green."),
+        journey!=="all"&&e("div",{style:{background:"rgba(74,75,174,0.06)",border:"1px solid rgba(74,75,174,0.2)",borderRadius:6,padding:"8px 14px",fontSize:11,color:"#4A4BAE",marginBottom:12,display:"flex",alignItems:"center",gap:8}},
+          e("span",{style:{fontWeight:700}},"Active Journey:"),
+          e("span",null,(JOURNEYS[journey]&&JOURNEYS[journey].label)||journey),
+          e("span",{style:{color:"#7278A0"}}," — irrelevant stages hidden in sidebar"),
+          e("span",{onClick:function(){setJourney("all");},style:{marginLeft:"auto",cursor:"pointer",color:"#4A4BAE",fontWeight:700,fontSize:10}},"Show All →")
+        ),
 
         // Asset type selector at top
         e("div",{style:{display:"flex",gap:8,marginBottom:20,padding:"12px 14px",background:"#F7F8FC",borderRadius:8}},
@@ -1268,13 +1315,22 @@ function Tool(props){
 
           return e("div",null,
             workflow.map(function(phase,pi){
+              // Filter steps based on active journey
+              var filteredSteps=phase.steps.filter(function(step){
+                if(journey==="all")return true;
+                var stageInfo=ALL_STAGES.find(function(s){return s.id===step.id;});
+                if(!stageInfo)return true;
+                return stageInfo.journeys.indexOf(journey)>=0||stageInfo.journeys.indexOf("all")>=0;
+              });
+              if(filteredSteps.length===0)return null;
+              var phaseSteps=Object.assign({},phase,{steps:filteredSteps});
               return e("div",{key:phase.phase,style:{marginBottom:20}},
                 e("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:12}},
                   e("div",{style:{background:phase.color,color:"#fff",padding:"4px 14px",borderRadius:20,fontSize:10,fontWeight:700,letterSpacing:".1em"}},phase.phase),
                   e("div",{style:{flex:1,height:1,background:phase.color+"40"}})
                 ),
                 e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:10,paddingLeft:8}},
-                  phase.steps.map(function(step,si){
+                  filteredSteps.map(function(step,si){
                     var complete=isComplete(step);
                     var active=stage===step.id;
                     return e("div",{key:step.id,
@@ -3330,21 +3386,46 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
       ),
       e("div",{style:{padding:"8px 0",flex:1}},
         (function(){
-          var groups=[];
-          var seen={};
-          STAGES.forEach(function(s){if(!seen[s.group]){groups.push(s.group);seen[s.group]=true;}});
-          return groups.map(function(g){
-            return e("div",{key:g},
-              e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.3)",letterSpacing:".15em",textTransform:"uppercase",padding:"10px 16px 3px",fontWeight:700}},g),
-              STAGES.filter(function(s){return s.group===g;}).map(function(s){
-                var active=stage===s.id;
-                return e("div",{key:s.id,onClick:function(){navTo(s.id);},style:{display:"flex",alignItems:"center",gap:9,padding:"8px 16px",cursor:"pointer",background:active?"rgba(237,232,74,0.12)":"transparent",borderLeft:"3px solid "+(active?"#EDE84A":"transparent"),transition:"all .12s"}},
-                  e("span",{style:{fontSize:10,color:active?"#EDE84A":"rgba(255,255,255,0.3)",width:14}},s.icon),
-                  e("span",{style:{fontSize:12,color:active?"#fff":"rgba(255,255,255,0.5)"}},s.label)
-                );
-              })
-            );
+          // Filter stages by selected journey
+          var activeStages=journey==="all"?ALL_STAGES:ALL_STAGES.filter(function(s){
+            return s.journeys.indexOf(journey)>=0||s.journeys.indexOf("all")>=0;
           });
+
+          var groups=[]; var seen={};
+          activeStages.forEach(function(s){if(!seen[s.group]){groups.push(s.group);seen[s.group]=true;}});
+
+          return [
+            // Journey selector at top of sidebar
+            e("div",{key:"journey-selector",style:{padding:"10px 12px",borderBottom:"1px solid rgba(255,255,255,0.1)"}},
+              e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:".12em",fontWeight:700,marginBottom:8}},"Workflow Type"),
+              e("div",{style:{display:"flex",flexWrap:"wrap",gap:5}},
+                Object.keys(JOURNEYS).map(function(j){
+                  var jd=JOURNEYS[j];
+                  var active=journey===j;
+                  return e("div",{key:j,onClick:function(){setJourney(j);},
+                    style:{padding:"4px 8px",background:active?"rgba(237,232,74,0.2)":"rgba(255,255,255,0.06)",border:"1px solid "+(active?"#EDE84A":"rgba(255,255,255,0.1)"),borderRadius:4,fontSize:9,fontWeight:active?700:400,color:active?"#EDE84A":"rgba(255,255,255,0.4)",cursor:"pointer",whiteSpace:"nowrap"}
+                  },jd.label);
+                }).concat(
+                  e("div",{key:"all",onClick:function(){setJourney("all");},
+                    style:{padding:"4px 8px",background:journey==="all"?"rgba(237,232,74,0.2)":"rgba(255,255,255,0.06)",border:"1px solid "+(journey==="all"?"#EDE84A":"rgba(255,255,255,0.1)"),borderRadius:4,fontSize:9,fontWeight:journey==="all"?700:400,color:journey==="all"?"#EDE84A":"rgba(255,255,255,0.4)",cursor:"pointer"}
+                  },"All Stages")
+                )
+              )
+            )
+          ].concat(
+            groups.map(function(g){
+              return e("div",{key:g},
+                e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.3)",letterSpacing:".15em",textTransform:"uppercase",padding:"10px 16px 3px",fontWeight:700}},g),
+                activeStages.filter(function(s){return s.group===g;}).map(function(s){
+                  var active=stage===s.id;
+                  return e("div",{key:s.id,onClick:function(){navTo(s.id);},style:{display:"flex",alignItems:"center",gap:9,padding:"8px 16px",cursor:"pointer",background:active?"rgba(237,232,74,0.12)":"transparent",borderLeft:"3px solid "+(active?"#EDE84A":"transparent"),transition:"all .12s"}},
+                    e("span",{style:{fontSize:10,color:active?"#EDE84A":"rgba(255,255,255,0.3)",width:14}},s.icon),
+                    e("span",{style:{fontSize:12,color:active?"#fff":"rgba(255,255,255,0.5)"}},s.label)
+                  );
+                })
+              );
+            })
+          );
         })()
       ),
       e("div",{style:{padding:"12px 16px",borderTop:"1px solid rgba(255,255,255,0.08)",fontSize:11,color:"rgba(255,255,255,0.35)"}},
