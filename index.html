@@ -4131,45 +4131,7 @@ e("div",{style:{fontStyle:"italic",fontSize:10,color:"#7278A0",padding:"6px 0"}}
                 "Margin: "+pct(margin)+" | Profit on Cost: "+pct(tc>0?(gdv-tc)/tc*100:0)
               ),
               e("button",{onClick:function(){
-                var t="LANDFORM EXPORT — "+new Date().toLocaleDateString("en-GB")+"
-
-"+
-                  "SITE: "+(l.address||"Unknown")+"
-"+
-                  "LPA: "+(data.planning&&data.planning.lpa||"—")+"
-"+
-                  "Gross Site: "+num(l.acres||0)+" acres / "+(num(l.acres||0)*0.404686).toFixed(2)+" ha
-"+
-                  "Units: "+u+"
-"+
-                  "GDV: "+fmt(gdv)+"
-"+
-                  "Land Residual Value (max bid): "+fmt(Math.max(0,rlv))+"
-"+
-                  "Build Cost Total: "+fmt(totalBuild)+"
-"+
-                  "S106 Per Unit: £"+(f.s106pu||0)+"
-"+
-                  "S106 Total: "+fmt(num(f.s106pu||0)*u)+"
-"+
-                  "Finance Rate: "+(f.finRatePa||8)+"% pa
-"+
-                  "Sales Rate: "+(f.salesRateWeek||0.75)+" units/week
-"+
-                  "Programme: "+(f.programmeMths||36)+" months
-"+
-                  "Approx Margin on GDV: "+pct(margin)+"
-"+
-                  "Approx IRR: "+(irrVal?irrVal+"%":"not calculated")+"
-
-"+
-                  "NEXT STEP: Enter these figures into the John Baker Excel model.
-"+
-                  "Set land price to RLV above. Run Normal Distribution cashflow.
-"+
-                  "Rebase BCIS build costs to local area. Track RP offers.
-";
-                var el=document.createElement("textarea");
+                var nl="\n";var t=["LANDFORM EXPORT",new Date().toLocaleDateString("en-GB"),"","SITE: "+(l.address||"Unknown"),"LPA: "+(data.planning&&data.planning.lpa||"n/a"),"Gross Site: "+num(l.acres||0)+" acres","Units: "+u,"GDV: "+fmt(gdv),"Land Residual Value: "+fmt(Math.max(0,rlv)),"Build Cost: "+fmt(totalBuild),"S106/unit: "+(f.s106pu||0),"S106 Total: "+fmt(num(f.s106pu||0)*u),"Finance: "+(f.finRatePa||8)+"% pa","Sales Rate: "+(f.salesRateWeek||0.75)+"/wk","Programme: "+(f.programmeMths||36)+" months","Margin on GDV: "+pct(margin),"IRR: "+(irrVal?irrVal+"%":"n/a"),"","NEXT STEP: Enter into John Baker Excel model.","Set land price to RLV. Run Normal Distribution cashflow.","Rebase BCIS build costs. Track RP offers."].join(nl);                var el=document.createElement("textarea");
                 el.value=t;document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);
                 alert("Copied to clipboard — paste into Excel model or email to John Baker");
               },style:{padding:"9px 22px",background:"#EDE84A",border:"none",borderRadius:7,color:"#1E1F5C",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
