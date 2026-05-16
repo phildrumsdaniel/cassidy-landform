@@ -954,23 +954,7 @@ function Tool(props){
         recoveryRoute:rc.refusalType||"",
       };
 
-      var prompt="Write a professional executive summary for this real estate development deal. Format as a structured deal brief that could be shared with investors or partners.
-
-DEAL DATA:
-"+JSON.stringify(dealData,null,2)+"
-
-Write the summary with these sections:
-1. DEAL OVERVIEW — one paragraph summary of the opportunity
-2. SITE & LOCATION — address, size, planning status, key characteristics
-3. DEVELOPMENT PROPOSAL — scheme type, units, GDV, key financials
-4. FINANCIAL SUMMARY — GDV, total cost, profit, margin, return metrics
-5. PLANNING POSITION — current status, strategy, risks
-6. EXIT STRATEGY — how the deal will be exited and to whom
-7. KEY RISKS — top 3 risks and mitigations
-8. NEXT STEPS — immediate actions required
-9. DEAL RATING — score this deal 1-10 with one sentence justification
-
-Tone: Professional, commercially sharp, suitable for institutional investors. Plain text. Be specific using the actual numbers provided.";
+      var prompt="Write a professional executive summary for this real estate development deal. Format as a structured deal brief that could be shared with investors or partners.\n\nDEAL DATA:\n"+JSON.stringify(dealData)+"\n\nWrite the summary with these 9 sections:\n1. DEAL OVERVIEW\n2. SITE & LOCATION\n3. DEVELOPMENT PROPOSAL\n4. FINANCIAL SUMMARY\n5. PLANNING POSITION\n6. EXIT STRATEGY\n7. KEY RISKS\n8. NEXT STEPS\n9. DEAL RATING (score 1-10 with justification)\n\nTone: Professional, commercially sharp, suitable for institutional investors. Plain text. Be specific with the actual numbers provided.";
 
       var params=new URLSearchParams({
         action:"ai",stage:"Executive Summary",
