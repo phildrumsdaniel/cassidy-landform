@@ -1130,12 +1130,16 @@ function Tool(props){
     var imported=sc2.imported||false;
 
     var SOURCES=[
-      {name:"Bruton Knowles",url:"https://www.brutonknowles.co.uk/search/",hint:"Strategic land listings"},
-      {name:"Savills Land",url:"https://www.savills.co.uk/search/#?Type=SL",hint:"UK land for sale"},
-      {name:"Knight Frank",url:"https://www.knightfrank.co.uk/land-for-sale",hint:"Development land"},
-      {name:"Rightmove Land",url:"https://www.rightmove.co.uk/commercial-property-for-sale/land.html",hint:"All UK listings"},
-      {name:"Acuitus",url:"https://www.acuitus.co.uk/property-search/",hint:"Commercial & mixed use"},
-      {name:"Planning Portal",url:"https://www.planningportal.co.uk/",hint:"Planning applications"},
+      {name:"Bruton Knowles",url:"https://www.brutonknowles.co.uk/property-search/strategic-land/",hint:"Strategic land listings — open a property, copy text, paste below"},
+      {name:"Savills Land",url:"https://www.savills.co.uk/find-a-property/land-and-new-homes/index.html",hint:"UK land for sale — find a listing, copy text, paste below"},
+      {name:"Knight Frank",url:"https://www.knightfrank.co.uk/commercial/land-development-for-sale",hint:"Development land — find a listing, copy text, paste below"},
+      {name:"Aston Rose",url:"https://www.astonrose.co.uk/properties/land-development/",hint:"London & SE land"},
+      {name:"Rightmove Land",url:"https://www.rightmove.co.uk/commercial-property-for-sale/land.html",hint:"All UK land listings"},
+      {name:"Zoopla Land",url:"https://www.zoopla.co.uk/commercial/for-sale/?q=land&category=land",hint:"UK land for sale"},
+      {name:"Acuitus",url:"https://www.acuitus.co.uk/property-search/?category=land",hint:"Commercial & mixed use land"},
+      {name:"Planning Portal",url:"https://www.planningportal.co.uk/",hint:"Search planning applications"},
+      {name:"Land Registry",url:"https://www.gov.uk/search-property-information-land-registry",hint:"Check ownership & title"},
+      {name:"Flood Map",url:"https://check-long-term-flood-risk.service.gov.uk/postcode",hint:"Check flood risk by postcode"},
     ];
 
     function doScrape(){
@@ -1191,13 +1195,17 @@ function Tool(props){
       e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Paste any land agent URL — AI extracts key data and pre-fills your appraisal fields"),
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Quick Links — Major Land Agents"),
-        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}},
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10}},
           SOURCES.map(function(src){
-            return e("div",{key:src.name,onClick:function(){up("scraper","url",src.url);},style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,padding:"12px 14px",cursor:"pointer"},
+            return e("div",{key:src.name,onClick:function(){up("scraper","url",src.url);window.open(src.url,"_blank");},style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,padding:"12px 14px",cursor:"pointer"},
               onMouseOver:function(ev){ev.currentTarget.style.borderColor="#4A4BAE";},
               onMouseOut:function(ev){ev.currentTarget.style.borderColor="#DDE0ED";}},
-              e("div",{style:{fontSize:12,fontWeight:700,color:"#2E2F8A",marginBottom:3}},src.name),
-              e("div",{style:{fontSize:10,color:"#7278A0"}},src.hint)
+              e("a",{href:src.url,target:"_blank",rel:"noopener noreferrer",
+                onClick:function(){up("scraper","url",src.url);window.open(src.url,"_blank");},
+                style:{fontSize:12,fontWeight:700,color:"#4A4BAE",textDecoration:"none",display:"block",marginBottom:3}},
+                src.name+" ↗"
+              ),
+              e("div",{style:{fontSize:10,color:"#7278A0",lineHeight:1.4}},src.hint)
             );
           })
         )
