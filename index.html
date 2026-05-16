@@ -416,22 +416,34 @@ function AccessGate(props){
 
 
 // ── STAGES ───────────────────────────────────────────────────────────────────
-var STAGES = [
-  {id:"scraper",  label:"Land Finder",          icon:"🔍", group:"1. Find"},
-  {id:"rlv",      label:"Land Valuation",        icon:"◆",  group:"1. Find"},
-  {id:"land",     label:"Land Appraisal",        icon:"⬟",  group:"1. Find"},
-  {id:"epe",      label:"Property Evaluator",    icon:"🏠", group:"2. Evaluate"},
-  {id:"epeworkflow",label:"EPE Workflow",        icon:"→",  group:"2. Evaluate"},
-  {id:"landworkflow",label:"Land Dev Workflow",     icon:"→",  group:"1. Find"},
-  {id:"sfh",      label:"SFH Appraisal",         icon:"🏡", group:"3. Scheme"},
-  {id:"hra",      label:"BTR / PBSA Block",      icon:"🏢", group:"3. Scheme"},
-  {id:"planning", label:"Planning & Viability",  icon:"▲",  group:"4. Develop"},
-  {id:"fin",      label:"Financial Modelling",   icon:"◉",  group:"4. Develop"},
-  {id:"dd",       label:"Due Diligence",         icon:"◈",  group:"4. Develop"},
-  {id:"risks",    label:"Risk Register",         icon:"⬡",  group:"4. Develop"},
-  {id:"exit",     label:"Investment Exit",       icon:"◆",  group:"5. Exit"},
-  {id:"dashboard",label:"Deal Dashboard",        icon:"◈",  group:"6. Overview"},
+var ALL_STAGES = [
+  {id:"scraper",     label:"Land Finder",          icon:"🔍", group:"1. Find",    journeys:["land","all"]},
+  {id:"rlv",         label:"Land Valuation",        icon:"◆",  group:"1. Find",    journeys:["land","all"]},
+  {id:"land",        label:"Land Appraisal",        icon:"⬟",  group:"1. Find",    journeys:["land","all"]},
+  {id:"landworkflow",label:"Land Dev Workflow",     icon:"→",  group:"1. Find",    journeys:["land","all"]},
+  {id:"epe",         label:"Property Evaluator",    icon:"🏠", group:"2. Evaluate",journeys:["property","all"]},
+  {id:"epeworkflow", label:"EPE Workflow",           icon:"→",  group:"2. Evaluate",journeys:["property","all"]},
+  {id:"sfh",         label:"SFH Appraisal",         icon:"🏡", group:"3. Scheme",  journeys:["land","property","sfh","all"]},
+  {id:"hra",         label:"BTR / PBSA Block",      icon:"🏢", group:"3. Scheme",  journeys:["land","btr","pbsa","all"]},
+  {id:"planning",    label:"Planning & Viability",  icon:"▲",  group:"4. Develop", journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
+  {id:"fin",         label:"Financial Modelling",   icon:"◉",  group:"4. Develop", journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
+  {id:"dd",          label:"Due Diligence",         icon:"◈",  group:"4. Develop", journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
+  {id:"risks",       label:"Risk Register",         icon:"⬡",  group:"4. Develop", journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
+  {id:"exit",        label:"Investment Exit",       icon:"◆",  group:"5. Exit",    journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
+  {id:"recovery",    label:"Planning Recovery",     icon:"⚖",  group:"5. Exit",    journeys:["recovery","all"]},
+  {id:"summary",     label:"Executive Summary",     icon:"📄", group:"6. Overview",journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
+  {id:"dashboard",   label:"Deal Dashboard",        icon:"◈",  group:"6. Overview",journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
 ];
+var STAGES = ALL_STAGES;
+
+var JOURNEYS = {
+  land:     {label:"Land Journey",      desc:"Find land and build new scheme",      color:"#4A4BAE"},
+  property: {label:"Property Journey",  desc:"Evaluate existing property",           color:"#2D7A65"},
+  sfh:      {label:"SFH",              desc:"Single Family Housing estate",          color:"#7B6CB0"},
+  btr:      {label:"BTR",              desc:"Build to Rent apartments",              color:"#9A7B3E"},
+  pbsa:     {label:"PBSA",             desc:"Student Accommodation",                 color:"#B05A35"},
+  recovery: {label:"Planning Recovery",desc:"Refused PIP — strategy to get consent",color:"#B05A35"},
+};
 
 // ── MAIN TOOL ─────────────────────────────────────────────────────────────────
 function Tool(props){
