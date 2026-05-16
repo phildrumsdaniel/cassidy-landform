@@ -506,9 +506,23 @@ function Tool(props){
     var gPsf=salePsf>600?160:salePsf>350?75:salePsf>220?48:32;
     var aspMod={south:1.08,south_west:1.05,west:1.02,east:1.0,north:0.95}[ep.aspect]||1.0;
     var gVal=gardenSqft>0?Math.round((Math.min(gardenSqft,500)*gPsf+Math.max(0,Math.min(gardenSqft-500,500))*gPsf*0.65+Math.max(0,gardenSqft-1000)*gPsf*0.3)*aspMod):0;
-    var PARK_MODS={triple_garage:0.15,double_garage:0.10,single_garage:0.06,double_carport:0.07,single_carport:0.04,drive_5plus:0.08,drive_4:0.07,drive_3:0.06,drive_2:0.05,drive_1:0.03,on_street:0.00,cpz:-0.03};
+    var PARK_MODS={
+      triple_garage:0.15,double_garage:0.10,single_garage:0.06,
+      triple_carport:0.10,double_carport:0.07,single_carport:0.04,
+      balcony:0.04,garage_conversion:0.03,annex:0.06,
+      drive_1:0.02,drive_2:0.04,drive_3:0.05,drive_4:0.06,drive_5:0.07,drive_6plus:0.08,
+      on_street_2plus:0.01,on_street_1:0.00,cpz:-0.03,permit_only:-0.02,no_parking:-0.05
+    };
     var parkBonus=(ep.parkingFeatures||[]).reduce(function(a,f){return a+(PARK_MODS[f]||0);},0);
-    var parkMod=1+parkBonus;
+    var outbuildingMod={small_shed:0.01,large_outbuilding:0.03,log_cabin:0.05,annex_detached:0.08,barn:0.06}[ep.outbuildings]||0;
+    var balconyMod={juliet:0.01,small:0.02,large:0.04,roof_terrace:0.06,inset:0.03}[ep.balconyType]||0;
+    var poolMod={outdoor:0.04,indoor:0.08,hot_tub:0.02}[ep.pool]||0;
+    var storeysMod={
+      "1":-0.05,"1.5":0.00,"2":0.00,"2.5":0.03,"3":0.04,"4":0.03,"5plus":0.02
+    }[ep.storeys]||0;
+    // Note: bungalows (1 storey) sell at premium per sqft but often have less floor area
+    // Room in roof / dormer adds usable space premium
+    var parkMod=1+parkBonus+outbuildingMod+balconyMod+poolMod+storeysMod;
     var houseVal=Math.round(propSqft*salePsf*condMod);
     var currentVal=Math.round((houseVal+gVal)*parkMod);
     var newUnits=num(ep.newUnits); var newSqft=num(ep.newSqft)||900; var newPsf=num(ep.newPsf)||salePsf;
@@ -549,38 +563,123 @@ function Tool(props){
           e("div",{style:{display:"flex",flexDirection:"column",gap:4}},e("label",{style:S.label},"Internal Floor Area"),e("div",{style:{display:"flex",gap:8}},e("input",{type:"number",value:ep.propSqft||"",onChange:function(ev){up("epe","propSqft",ev.target.value);},placeholder:"sqft e.g. 900",style:Object.assign({},S.input,{flex:1})}),e("input",{type:"number",value:ep.propSqft?Math.round(ep.propSqft*0.0929):"",onChange:function(ev){up("epe","propSqft",Math.round(ev.target.value/0.0929)+"");},placeholder:"sqm e.g. 84",style:Object.assign({},S.input,{flex:1})})),e("div",{style:{fontSize:9,color:"#A0A4C0"}},"Enter in sqft OR sqm — the other updates automatically")),
           e(Sel,{label:"Condition",value:ep.condition,onChange:function(v){up("epe","condition",v);},
             options:["","excellent — Excellent (+15%)","good — Good (+5%)","average — Average (0%)","poor — Poor (-12%)","derelict — Derelict (-30%)"].map(function(o){var p=o.split(" — ");return{value:p[0],label:p[1]||"Select..."}})}),
+          e(Sel,{label:"Bedrooms",value:ep.bedrooms,onChange:function(v){up("epe","bedrooms",v);},
+            options:[{value:"",label:"Select..."},{value:"1",label:"1 bedroom"},{value:"2",label:"2 bedrooms"},{value:"3",label:"3 bedrooms"},{value:"4",label:"4 bedrooms"},{value:"5",label:"5 bedrooms"},{value:"6plus",label:"6+ bedrooms"}]}),
+          e(Sel,{label:"Number of Storeys",value:ep.storeys,onChange:function(v){up("epe","storeys",v);},
+            options:[
+              {value:"",label:"Select..."},
+              {value:"1",label:"Single storey (bungalow)"},
+              {value:"1.5",label:"1.5 storeys (dormer / chalet bungalow)"},
+              {value:"2",label:"2 storeys (standard house)"},
+              {value:"2.5",label:"2.5 storeys (room in roof)"},
+              {value:"3",label:"3 storeys"},
+              {value:"4",label:"4 storeys"},
+              {value:"5plus",label:"5+ storeys"},
+            ]}),
           e(Inp,{label:"Sale Price (£ per sqft — the price per square foot of floor area)"+(pcData&&pcData.salePsf?" — postcode: £"+pcData.salePsf:""),type:"number",value:ep.salePsf,onChange:function(v){up("epe","salePsf",v);},placeholder:"£"+Math.round(salePsf)+" /sqft"}),
-e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:6}},
-            e("label",{style:S.label},"Parking & Garaging (tick all that apply)"),
-            e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}},
-              [
-                {id:"triple_garage",label:"Triple garage",mod:0.15},
-                {id:"double_garage",label:"Double garage",mod:0.10},
-                {id:"single_garage",label:"Single garage",mod:0.06},
-                {id:"double_carport",label:"Double carport",mod:0.07},
-                {id:"single_carport",label:"Single carport",mod:0.04},
-                {id:"drive_5plus",label:"Driveway 5+ cars",mod:0.08},
-                {id:"drive_4",label:"Driveway 4 cars",mod:0.07},
-                {id:"drive_3",label:"Driveway 3 cars",mod:0.06},
-                {id:"drive_2",label:"Driveway 2 cars",mod:0.05},
-                {id:"drive_1",label:"Driveway 1 car",mod:0.03},
-                {id:"on_street",label:"On-street parking",mod:0.00},
-                {id:"cpz",label:"Controlled Parking Zone",mod:-0.03},
-              ].map(function(opt){
-                var parkingArr=ep.parkingFeatures||[];
-                var checked=parkingArr.indexOf(opt.id)>=0;
-                return e("label",{key:opt.id,onClick:function(){
-                  var arr=ep.parkingFeatures?ep.parkingFeatures.slice():[];
-                  var idx=arr.indexOf(opt.id);
-                  if(idx>=0){arr.splice(idx,1);}else{arr.push(opt.id);}
-                  up("epe","parkingFeatures",arr);
-                },style:{display:"flex",alignItems:"center",gap:6,fontSize:11,color:checked?"#2E2F8A":"#7278A0",cursor:"pointer",padding:"5px 8px",borderRadius:5,background:checked?"rgba(74,75,174,0.08)":"transparent",border:"1px solid "+(checked?"#4A4BAE":"transparent")}},
-                  e("div",{style:{width:14,height:14,borderRadius:3,border:"1px solid "+(checked?"#4A4BAE":"#C8CDE0"),background:checked?"#4A4BAE":"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:9}},checked?"✓":""),
-                  e("span",null,opt.label)
-                );
-              })
+e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}},
+            e("label",{style:S.label},"Parking & Garaging (tick ALL that apply — multiple selections allowed)"),
+            e("div",{style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,padding:14}},
+              e("div",{style:{fontSize:10,color:"#7278A0",marginBottom:10,fontWeight:600}},"GARAGING"),
+              e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginBottom:14}},
+                [
+                  {id:"triple_garage",label:"Triple garage",mod:0.15},
+                  {id:"double_garage",label:"Double garage",mod:0.10},
+                  {id:"single_garage",label:"Single garage",mod:0.06},
+                  {id:"triple_carport",label:"Triple carport",mod:0.10},
+                  {id:"double_carport",label:"Double carport",mod:0.07},
+                  {id:"single_carport",label:"Single carport",mod:0.04},
+                  {id:"balcony",label:"Balcony / terrace",mod:0.04},
+                  {id:"garage_conversion",label:"Garage conversion",mod:0.03},
+                  {id:"annex",label:"Annexe / studio",mod:0.06},
+                ].map(function(opt){
+                  var parkingArr=ep.parkingFeatures||[];
+                  var checked=parkingArr.indexOf(opt.id)>=0;
+                  return e("div",{key:opt.id,
+                    onClick:function(ev){
+                      ev.preventDefault();ev.stopPropagation();
+                      var arr=(ep.parkingFeatures||[]).slice();
+                      var i=arr.indexOf(opt.id);
+                      if(i>=0){arr.splice(i,1);}else{arr.push(opt.id);}
+                      up("epe","parkingFeatures",arr);
+                    },
+                    style:{display:"flex",alignItems:"center",gap:6,fontSize:11,color:checked?"#2E2F8A":"#7278A0",cursor:"pointer",padding:"6px 8px",borderRadius:5,background:checked?"rgba(74,75,174,0.1)":"#fff",border:"1px solid "+(checked?"#4A4BAE":"#DDE0ED"),userSelect:"none"}},
+                    e("div",{style:{width:16,height:16,borderRadius:3,border:"2px solid "+(checked?"#4A4BAE":"#C8CDE0"),background:checked?"#4A4BAE":"#fff",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:10,fontWeight:700}},checked?"✓":""),
+                    e("span",null,opt.label)
+                  );
+                })
+              ),
+              e("div",{style:{fontSize:10,color:"#7278A0",marginBottom:10,fontWeight:600}},"DRIVEWAY — how many cars does it hold?"),
+              e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:14}},
+                [
+                  {id:"drive_1",label:"1 car",mod:0.02},
+                  {id:"drive_2",label:"2 cars",mod:0.04},
+                  {id:"drive_3",label:"3 cars",mod:0.05},
+                  {id:"drive_4",label:"4 cars",mod:0.06},
+                  {id:"drive_5",label:"5 cars",mod:0.07},
+                  {id:"drive_6plus",label:"6+ cars",mod:0.08},
+                ].map(function(opt){
+                  var parkingArr=ep.parkingFeatures||[];
+                  var checked=parkingArr.indexOf(opt.id)>=0;
+                  return e("div",{key:opt.id,
+                    onClick:function(ev){
+                      ev.preventDefault();ev.stopPropagation();
+                      // Driveway — only one size can be selected
+                      var arr=(ep.parkingFeatures||[]).slice();
+                      ["drive_1","drive_2","drive_3","drive_4","drive_5","drive_6plus"].forEach(function(d){
+                        var i=arr.indexOf(d);if(i>=0)arr.splice(i,1);
+                      });
+                      if(!checked)arr.push(opt.id);
+                      up("epe","parkingFeatures",arr);
+                    },
+                    style:{display:"flex",alignItems:"center",gap:6,fontSize:11,color:checked?"#2E2F8A":"#7278A0",cursor:"pointer",padding:"6px 8px",borderRadius:5,background:checked?"rgba(74,75,174,0.1)":"#fff",border:"1px solid "+(checked?"#4A4BAE":"#DDE0ED"),userSelect:"none"}},
+                    e("div",{style:{width:16,height:16,borderRadius:"50%",border:"2px solid "+(checked?"#4A4BAE":"#C8CDE0"),background:checked?"#4A4BAE":"#fff",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:8,fontWeight:700}},checked?"●":""),
+                    e("span",null,opt.label)
+                  );
+                })
+              ),
+              e("div",{style:{fontSize:10,color:"#7278A0",marginBottom:10,fontWeight:600}},"OTHER PARKING"),
+              e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}},
+                [
+                  {id:"on_street_2plus",label:"On-street 2+ spaces",mod:0.01},
+                  {id:"on_street_1",label:"On-street 1 space",mod:0.00},
+                  {id:"cpz",label:"Controlled Parking Zone",mod:-0.03},
+                  {id:"permit_only",label:"Permit parking only",mod:-0.02},
+                  {id:"no_parking",label:"No parking available",mod:-0.05},
+                ].map(function(opt){
+                  var parkingArr=ep.parkingFeatures||[];
+                  var checked=parkingArr.indexOf(opt.id)>=0;
+                  return e("div",{key:opt.id,
+                    onClick:function(ev){
+                      ev.preventDefault();ev.stopPropagation();
+                      var arr=(ep.parkingFeatures||[]).slice();
+                      var i=arr.indexOf(opt.id);
+                      if(i>=0){arr.splice(i,1);}else{arr.push(opt.id);}
+                      up("epe","parkingFeatures",arr);
+                    },
+                    style:{display:"flex",alignItems:"center",gap:6,fontSize:11,color:checked?"#2E2F8A":"#7278A0",cursor:"pointer",padding:"6px 8px",borderRadius:5,background:checked?"rgba(74,75,174,0.1)":"#fff",border:"1px solid "+(checked?"#4A4BAE":"#DDE0ED"),userSelect:"none"}},
+                    e("div",{style:{width:16,height:16,borderRadius:3,border:"2px solid "+(checked?"#4A4BAE":"#C8CDE0"),background:checked?"#4A4BAE":"#fff",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:10,fontWeight:700}},checked?"✓":""),
+                    e("span",null,opt.label)
+                  );
+                })
+              ),
+              (ep.parkingFeatures&&ep.parkingFeatures.length>0)&&e("div",{style:{marginTop:10,padding:"8px 10px",background:"rgba(74,75,174,0.06)",borderRadius:6,fontSize:11,color:"#4A4BAE",fontWeight:600}},
+                "Selected: "+ep.parkingFeatures.join(", ").replace(/_/g," ")+" · Premium: +"+(parkBonus*100).toFixed(0)+"%"
+              )
             )
           )
+        )
+      ),
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Step 1b — Additional Features"),
+        e("div",{style:S.grid2},
+          e(Sel,{label:"Outbuildings",value:ep.outbuildings,onChange:function(v){up("epe","outbuildings",v);},
+            options:[{value:"",label:"None"},{value:"small_shed",label:"Shed / small outbuilding (+1%)"},{value:"large_outbuilding",label:"Large outbuilding / workshop (+3%)"},{value:"log_cabin",label:"Log cabin / garden room (+5%)"},{value:"annex_detached",label:"Detached annexe (+8%)"},{value:"barn",label:"Barn / agricultural building (+6%)"}]}),
+          e(Sel,{label:"Balcony / Terrace",value:ep.balconyType,onChange:function(v){up("epe","balconyType",v);},
+            options:[{value:"",label:"None"},{value:"juliet",label:"Juliet balcony (+1%)"},{value:"small",label:"Small balcony (+2%)"},{value:"large",label:"Large balcony / terrace (+4%)"},{value:"roof_terrace",label:"Roof terrace (+6%)"},{value:"inset",label:"Inset balcony (part of structure) (+3%)"}]}),
+          e(Sel,{label:"Swimming Pool",value:ep.pool,onChange:function(v){up("epe","pool",v);},
+            options:[{value:"",label:"None"},{value:"outdoor",label:"Outdoor pool (+4%)"},{value:"indoor",label:"Indoor pool (+8%)"},{value:"hot_tub",label:"Hot tub only (+2%)"}]}),
+          e(Inp,{label:"Any other features (e.g. tennis court, stables, lake)",value:ep.otherFeatures,onChange:function(v){up("epe","otherFeatures",v);},placeholder:"Describe any other notable features"})
         )
       ),
       e("div",{style:S.card},
@@ -597,22 +696,73 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:6}
         )
       ),
       propSqft>0&&salePsf>0&&e("div",{style:S.card},
-        e("div",{style:S.cardTitle},"Current Value — As Standing"),
-        e("div",{style:{display:"flex",flexDirection:"column"}},
+        e("div",{style:S.cardTitle},"Property Valuation"),
+        e("div",{style:{display:"flex",flexDirection:"column",gap:8,marginBottom:16}},
           [{l:"House value",v:houseVal,note:propSqft.toLocaleString()+" sqft × £"+Math.round(salePsf)+"/sqft × condition"},
            {l:"Garden premium",v:gVal,note:gardenSqft.toLocaleString()+" sqft"},
+           {l:"Parking, extras & features",v:Math.round((parkMod-1)*(houseVal+gVal)),note:"+"+(((parkMod-1)*100).toFixed(0))+"%"},
           ].filter(function(r){return r.v>0;}).map(function(row){
-            return e("div",{key:row.l,style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:"1px solid #DDE0ED",fontSize:12}},
+            return e("div",{key:row.l,style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid #DDE0ED",fontSize:12}},
               e("span",{style:{fontWeight:500}},row.l),
               e("span",{style:{fontSize:10,color:"#7278A0"}},row.note),
               e("span",{style:{fontWeight:600}},fmt(row.v))
             );
-          }),
-          e("div",{style:{display:"flex",justifyContent:"space-between",padding:"12px 0 4px",fontWeight:700,fontSize:14,borderTop:"2px solid #DDE0ED",marginTop:4}},
-            e("span",null,"Estimated Current Market Value"),
-            e("span",{style:{color:"#4A4BAE",fontSize:18}},fmt(currentVal))
+          })
+        ),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:16}},
+          [
+            {label:"Optimistic",sublabel:"Seller's target — top of market",value:Math.round(currentVal*1.08),
+             desc:"Best case in a competitive market with motivated buyers. Achievable if presentation is excellent and timing is right.",color:"#2D7A65",tag:"Best case"},
+            {label:"Realistic",sublabel:"Likely sale price",value:currentVal,
+             desc:"Most probable sale price based on local comparables, condition and current market. What we would realistically expect to achieve.",color:"#4A4BAE",tag:"Market value"},
+            {label:"Lender's Valuation",sublabel:"Cautious mortgage survey figure",value:Math.round(currentVal*0.92),
+             desc:"What a RICS surveyor would put on the property for mortgage purposes. Lenders are cautious — they need to recover funds quickly if repossessed.",color:"#9A7B3E",tag:"Mortgage security"},
+          ].map(function(v){
+            return e("div",{key:v.label,style:{background:"#fff",border:"1px solid #DDE0ED",borderTop:"3px solid "+v.color,borderRadius:8,padding:16}},
+              e("div",{style:{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",color:v.color,marginBottom:4}},v.label),
+              e("div",{style:{fontSize:10,color:"#7278A0",marginBottom:8}},v.sublabel),
+              e("div",{style:{fontSize:26,fontWeight:800,color:"#2E2F8A",marginBottom:8}},fmt(v.value)),
+              e("div",{style:{fontSize:10,color:"#7278A0",lineHeight:1.6,marginBottom:8}},v.desc),
+              e("div",{style:{fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:4,background:v.color+"15",color:v.color,display:"inline-block"}},v.tag)
+            );
+          })
+        ),
+        e("div",{style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,overflow:"hidden",marginBottom:12}},
+          e("div",{style:{padding:"12px 16px",background:"#2E2F8A",color:"#fff",fontSize:12,fontWeight:700}},
+            "Mortgage Lending Table — based on realistic value of "+fmt(currentVal)
           ),
-          e("div",{style:{fontSize:10,color:"#7278A0",fontStyle:"italic",marginTop:6}},"⚠ Indicative estimate only — RICS valuation required for formal purposes")
+          e("div",{style:{display:"grid",gridTemplateColumns:"1.2fr 0.8fr 1fr 1.5fr 1fr",padding:"8px 14px",background:"#F0F0F8",fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:700,borderBottom:"1px solid #DDE0ED"}},
+            e("span",null,"Deposit Required"),e("span",null,"LTV"),e("span",null,"Loan Amount"),e("span",null,"Lender Appetite"),e("span",null,"Est. Monthly*")
+          ),
+          [
+            {dep:0.05,ltv:95,risk:"Very few lenders — high risk",rc:"#B05A35"},
+            {dep:0.10,ltv:90,risk:"Limited lenders — higher rates",rc:"#B05A35"},
+            {dep:0.15,ltv:85,risk:"Most high street lenders",rc:"#9A7B3E"},
+            {dep:0.20,ltv:80,risk:"All lenders — standard rates",rc:"#9A7B3E"},
+            {dep:0.25,ltv:75,risk:"Good choice — better rates",rc:"#2D7A65"},
+            {dep:0.30,ltv:70,risk:"Strong — best rate deals",rc:"#2D7A65"},
+            {dep:0.40,ltv:60,risk:"Excellent — premium rates",rc:"#2D7A65"},
+            {dep:0.50,ltv:50,risk:"Premium borrower status",rc:"#2D7A65"},
+          ].map(function(row){
+            var lenderVal=Math.round(currentVal*0.92);
+            var loan=Math.round(lenderVal*(row.ltv/100));
+            var depositAmt=lenderVal-loan;
+            var rate=row.ltv>=95?0.060:row.ltv>=90?0.055:row.ltv>=85?0.048:row.ltv>=80?0.043:row.ltv>=75?0.040:row.ltv>=70?0.038:0.035;
+            var monthly=Math.round(loan*(rate/12)*Math.pow(1+rate/12,300)/(Math.pow(1+rate/12,300)-1));
+            return e("div",{key:row.ltv,style:{display:"grid",gridTemplateColumns:"1.2fr 0.8fr 1fr 1.5fr 1fr",padding:"8px 14px",borderBottom:"1px solid #DDE0ED",fontSize:11,color:"#3A3D6A",alignItems:"center",background:row.ltv<=80?"#fff":"rgba(176,90,53,0.02)"}},
+              e("span",{style:{fontWeight:600}},fmt(depositAmt)+" ("+(row.dep*100).toFixed(0)+"%)"),
+              e("span",{style:{fontWeight:700,color:"#2E2F8A"}},row.ltv+"%"),
+              e("span",null,fmt(loan)),
+              e("span",{style:{fontSize:10,color:row.rc,fontWeight:600}},row.risk),
+              e("span",{style:{fontWeight:700,color:"#2E2F8A"}},fmt(monthly)+"/mo")
+            );
+          }),
+          e("div",{style:{padding:"8px 14px",fontSize:9,color:"#7278A0",fontStyle:"italic"}},
+            "* Estimated monthly repayments on 25-year capital repayment mortgage at indicative rates. Lender uses cautious valuation of "+fmt(Math.round(currentVal*0.92))+". Actual rates vary — consult a mortgage broker for accurate figures."
+          )
+        ),
+        e("div",{style:{fontSize:10,color:"#7278A0",fontStyle:"italic"}},
+          "⚠ Indicative estimates only — a RICS-qualified surveyor's valuation is required for mortgage, legal or insurance purposes."
         )
       ),
       e("div",{style:S.card},
@@ -659,7 +809,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:6}
           e("div",{style:{fontSize:12,color:"#3A3D6A"}},viable?"Development adds "+fmt(uplift)+" over current value — justifies planning and build risk.":"Limited uplift — consider selling as-is or with planning permission only.")
         ),
         e(AIPanel,{user:user,stage:"epe",label:"Property & Development Analysis",
-          prompt:"Analyse this property opportunity. Type: "+(ep.propType||"unknown")+" at "+(ep.postcode||"postcode not given")+", "+propSqft+"sqft, condition: "+(ep.condition||"average")+". Current value: £"+currentVal.toLocaleString()+". Garden: "+gardenSqft+"sqft ("+((ep.aspect||"aspect unknown"))+"), premium: "+fmt(gVal)+". Proposed: "+newUnits+" new units, GDV: "+fmt(newGdv)+", dev RLV: "+fmt(devRlv)+", uplift: "+(currentVal>0?pct((uplift/currentVal)*100):"n/a")+". Provide: 1) Current value sense check, 2) Development feasibility, 3) Planning risk, 4) Best option recommendation, 5) What would change the recommendation."})
+          prompt:"Analyse this property opportunity. Type: "+(ep.propType||"unknown")+" at "+(ep.postcode||"postcode not given")+", "+propSqft+"sqft, "+(ep.bedrooms||"?")+" bed, "+(ep.storeys||"?")+" storeys, condition: "+(ep.condition||"average")+". Current value: £"+currentVal.toLocaleString()+". Garden: "+gardenSqft+"sqft ("+((ep.aspect||"aspect unknown"))+"), premium: "+fmt(gVal)+". Proposed: "+newUnits+" new units, GDV: "+fmt(newGdv)+", dev RLV: "+fmt(devRlv)+", uplift: "+(currentVal>0?pct((uplift/currentVal)*100):"n/a")+". Provide: 1) Current value sense check, 2) Development feasibility, 3) Planning risk, 4) Best option recommendation, 5) What would change the recommendation."})
       )
     );
   }
