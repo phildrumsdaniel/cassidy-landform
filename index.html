@@ -637,7 +637,7 @@ function Tool(props){
 
       // ── KNOCKDOWN PRICE CALCULATOR ───────────────────────────────────────
       e("div",{style:Object.assign({},S.card,{borderLeft:"4px solid #9A7B3E"})},
-        e("div",{style:S.cardTitle},"Step 2 — Acquisition at Knockdown Price"},
+        e("div",{style:S.cardTitle},"Step 2 — Acquisition at Knockdown Price"),
         e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:14}},"Land with refused planning sells at a discount to consented land. This is where the opportunity lies — buy at below market, secure planning, sell at uplift."),
         e("div",{style:S.grid2},
           e("div",{style:{display:"flex",flexDirection:"column",gap:4}},
@@ -645,15 +645,15 @@ function Tool(props){
             e("input",{type:"number",value:r.knockdownPrice||l.price||"",onChange:function(ev){up("recovery","knockdownPrice",ev.target.value);},placeholder:"e.g. 250000",style:S.input})
           ),
           e("div",{style:{display:"flex",flexDirection:"column",gap:4}},
-            e("label",{style:S.label},"Estimated Consented Value (£)"},
+            e("label",{style:S.label},"Estimated Consented Value (£)"),
             e("input",{type:"number",value:r.marketValue||"",onChange:function(ev){up("recovery","marketValue",ev.target.value);},placeholder:"Value once planning granted",style:S.input})
           ),
           e("div",{style:{display:"flex",flexDirection:"column",gap:4}},
-            e("label",{style:S.label},"Planning Recovery Budget (£)"},
+            e("label",{style:S.label},"Planning Recovery Budget (£)"),
             e("input",{type:"number",value:r.recoveryBudget||"",onChange:function(ev){up("recovery","recoveryBudget",ev.target.value);},placeholder:"e.g. 50000 (consultants, appeal)",style:S.input})
           ),
           e("div",{style:{display:"flex",flexDirection:"column",gap:4}},
-            e("label",{style:S.label},"Acquisition Strategy"},
+            e("label",{style:S.label},"Acquisition Strategy"),
             e("select",{value:r.acquisitionType||"",onChange:function(ev){up("recovery","acquisitionType",ev.target.value);},style:S.select},
               e("option",{value:""},"Select..."),
               e("option",{value:"conditional",label:"Conditional — subject to planning"},"Conditional — subject to planning"),
@@ -701,7 +701,7 @@ function Tool(props){
 
       // ── ACTION PLAN ──────────────────────────────────────────────────────
       e("div",{style:Object.assign({},S.card,{borderLeft:"4px solid #2D7A65"})},
-        e("div",{style:S.cardTitle},"Step 4 — Key Contacts & Actions"},
+        e("div",{style:S.cardTitle},"Step 4 — Key Contacts & Actions"),
         e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}},
           [
             {title:"Planning Consultant",desc:"Appoint specialist planning consultant to advise on appeal prospects and resubmission strategy. Get two opinions.",icon:"⬟"},
@@ -728,7 +728,7 @@ function Tool(props){
 
       // ── JOURNEY FORWARD ──────────────────────────────────────────────────
       e("div",{style:Object.assign({},S.card,{borderLeft:"4px solid #9A7B3E"})},
-        e("div",{style:S.cardTitle},"Step 5 — Once Planning Secured, Continue to Exit"},
+        e("div",{style:S.cardTitle},"Step 5 — Once Planning Secured, Continue to Exit"),
         e("div",{style:{display:"flex",flexDirection:"column",gap:8}},
           [
             {icon:"▲",label:"Planning & Viability",desc:"Once recovery route identified — model the full planning strategy",id:"planning",c:"#4A4BAE"},
