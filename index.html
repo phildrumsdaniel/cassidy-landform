@@ -1107,36 +1107,88 @@ function Tool(props){
 
     function doScrape(){
       var url=sc2.url||"";
-      if(!url)return;
+      var pasted=sc2.pastedText||"";
+      if(!url&&!pasted){up("scraper","error","Please enter a URL or paste listing text");return;}
       up("scraper","loading",true);up("scraper","error","");up("scraper","result",null);up("scraper","imported",false);
-      (function(){
-        var agentGuess=url.toLowerCase().includes("brutonknowles")?"Bruton Knowles":url.toLowerCase().includes("savills")?"Savills":url.toLowerCase().includes("knightfrank")?"Knight Frank":url.toLowerCase().includes("rightmove")?"Rightmove":"UK land agent";
-        var scrapePrompt="Extract UK land listing data from this URL and return ONLY a JSON object with: address, postcode, city, acreage (number or null), hectares (number or null), askingPrice (number or null), priceType, planningStatus, localAuthority, propertyType, description (2 sentences), agent, dealType, developmentPotential, estimatedUnits (number or null), constraints. Agent: "+agentGuess+". URL: "+url+" Return only valid JSON.";
-        var p=new URLSearchParams({action:"ai",stage:"Land Finder",user:(user&&user.name)||"",company:(user&&user.company)||"",system:"You are a UK land data extraction specialist with knowledge of UK land agents and planning. Return ONLY valid JSON.",prompt:scrapePrompt.substring(0,2000)});
-        return fetch(WEBHOOK+"?"+p.toString());
-      })()
+
+      var agentGuess=url.toLowerCase().includes("brutonknowles")?"Bruton Knowles":
+        url.toLowerCase().includes("savills")?"Savills":
+        url.toLowerCase().includes("knightfrank")?"Knight Frank":
+        url.toLowerCase().includes("rightmove")?"Rightmove":
+        url.toLowerCase().includes("zoopla")?"Zoopla":"UK land agent";
+
+      var sourceText=pasted?
+        "LISTING TEXT:\n"+pasted.substring(0,3000):
+        "URL: "+url+"\n\nAgent: "+agentGuess+". Extract data from the URL structure and your knowledge of this agent's listings.";
+
+      var sysPrompt="You are a UK land data extraction specialist. You must return ONLY a raw JSON object. Do not include any explanation, markdown formatting, backticks, or text before or after the JSON. Start your response with { and end with }.";
+
+      var userPrompt="Extract UK land listing data from the following source and return it as a single JSON object.\n\n"+
+        sourceText+"\n\n"+
+        "Return this exact JSON structure (replace values, use null for unknown numbers):\n"+
+        "{"+
+        "\"address\": \"full street address here\","+
+        "\"postcode\": \"UK postcode e.g. GL20 8NJ\","+
+        "\"city\": \"nearest town\","+
+        "\"acreage\": 3.9,"+
+        "\"hectares\": 1.58,"+
+        "\"askingPrice\": 100000,"+
+        "\"priceType\": \"tender\","+
+        "\"planningStatus\": \"description of planning position\","+
+        "\"localAuthority\": \"council name\","+
+        "\"propertyType\": \"Strategic Land\","+
+        "\"description\": \"2 sentence summary\","+
+        "\"agent\": \""+agentGuess+"\","+
+        "\"agentContact\": \"email if known\","+
+        "\"dealType\": \"sale\","+
+        "\"developmentPotential\": \"residential\","+
+        "\"estimatedUnits\": null,"+
+        "\"constraints\": \"any constraints mentioned\""+
+        "}";
+
+      var p=new URLSearchParams({
+        action:"ai",
+        stage:"Land Finder",
+        user:(user&&user.name)||"",
+        company:(user&&user.company)||"",
+        system:sysPrompt,
+        prompt:userPrompt.substring(0,3500)
+      });
+
+      fetch(WEBHOOK+"?"+p.toString())
       .then(function(res){return res.json();})
       .then(function(data2){
-        var text=""; var content=data2.content||[];
-        for(var i=0;i<content.length;i++){if(content[i].type==="text"){text=content[i].text;break;}}
-        var clean=text.replace(/```json|```/g,"").trim();
+        var text=data2.result||"";
+        if(!text&&data2.content){
+          for(var i=0;i<data2.content.length;i++){
+            if(data2.content[i].type==="text"){text=data2.content[i].text;break;}
+          }
+        }
+        // Strip any markdown or extra text - find the JSON object
+        var clean=text.replace(/```json/g,"").replace(/```/g,"").trim();
+        var jsonStart=clean.indexOf("{");
+        var jsonEnd=clean.lastIndexOf("}");
+        if(jsonStart>=0&&jsonEnd>jsonStart){
+          clean=clean.substring(jsonStart,jsonEnd+1);
+        }
         try{
           var extracted=JSON.parse(clean);
           up("scraper","result",extracted);
           up("scraper","loading",false);
           logEvent(user,"SCRAPE",{url:url,address:extracted.address||"unknown"});
         }catch(err){
-          up("scraper","error","Could not extract structured data from this URL. Try a direct property listing page.");
+          // Show raw response so user can see what came back
+          up("scraper","error","AI response could not be parsed as JSON. Response was: "+text.substring(0,200));
           up("scraper","loading",false);
         }
       })
-      .catch(function(){
-        up("scraper","error","Failed to fetch. Check connection.");
+      .catch(function(err){
+        up("scraper","error","Connection failed: "+err.message);
         up("scraper","loading",false);
       });
     }
 
-    function doImport(){
+        function doImport(){
       if(!scrResult)return;
       var c=(scrResult.city||"").toLowerCase().replace(/\s/g,"_");
       setData(function(d){
@@ -1177,7 +1229,14 @@ function Tool(props){
           ),
           e("button",{onClick:doScrape,disabled:scrLoading||!sc2.url,style:Object.assign({},S.btn,{flexShrink:0,padding:"9px 20px"})},scrLoading?"⏳ Extracting...":"🔍 Extract Data")
         ),
-        scrError&&e("div",{style:{background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.25)",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#B05A35",marginTop:8}},scrError)
+        scrError&&e("div",{style:{background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.25)",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#B05A35",marginTop:8}},scrError),
+        e("div",{style:{marginTop:14,paddingTop:14,borderTop:"1px solid #DDE0ED"}},
+          e("label",{style:Object.assign({},S.label,{marginBottom:8,display:"block"})},"OR — Paste listing text here (from email, website or brochure):"),
+          e("textarea",{value:sc2.pastedText||"",onChange:function(ev){up("scraper","pastedText",ev.target.value);},
+            placeholder:"Copy and paste the full property description from any land agent website, email circular or PDF brochure. Then click Extract Data above. This works even when the URL cannot be fetched directly.",
+            style:{width:"100%",height:130,padding:"10px 12px",border:"1px solid #C8CDE0",borderRadius:6,fontSize:12,fontFamily:"DM Sans,sans-serif",resize:"vertical",outline:"none",color:"#1A1A3E",background:"#fff"}}),
+          e("div",{style:{fontSize:10,color:"#A0A4C0",marginTop:4}},"Tip: Works with Bruton Knowles circulars, Savills emails, Rightmove listings or any text source.")
+        )
       ),
       scrResult&&e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Extracted Data"),
