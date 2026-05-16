@@ -11,10 +11,7 @@
 <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone@7.23.2/babel.min.js"></script>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'DM Sans',sans-serif;background:#F4F5F9;color:#1A1A3E}
-</style>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'DM Sans',sans-serif;background:#F4F5F9;color:#1A1A3E}#root{min-height:100vh}</style>
 </head>
 <body>
 <div id="root"></div>
@@ -22,11 +19,11 @@ body{font-family:'DM Sans',sans-serif;background:#F4F5F9;color:#1A1A3E}
 var useState = React.useState;
 var useEffect = React.useEffect;
 
-var LOGO = "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";
+// ── CONSTANTS ─────────────────────────────────────────────────────────────────
 var WEBHOOK = "https://script.google.com/macros/s/AKfycbz1_KT5gj1rsO5OuwAivh0U6TyXQ1zFSu58Sd5sRpCQ0cGWSzVl4u0wz0MLbQk2Xv6q/exec";
-var EXPIRY = new Date("2027-12-31");
+var EXPIRY  = new Date("2027-12-31");
+var LOGO    = "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";
 
-// ── MARKET DATA ──────────────────────────────────────────────────────────────
 var MKT = {
   london:{btr:2450,pbsa:380,yield:0.042,land:18000000,build:290},
   manchester:{btr:1380,pbsa:195,yield:0.052,land:4200000,build:215},
@@ -53,502 +50,1631 @@ var MKT = {
   derby:{btr:800,pbsa:138,yield:0.063,land:1500000,build:188},
   hull:{btr:650,pbsa:125,yield:0.068,land:800000,build:178},
   harrogate:{btr:1150,pbsa:165,yield:0.054,land:3500000,build:212},
+  guildford:{btr:1650,pbsa:220,yield:0.046,land:7500000,build:248},
+  bournemouth:{btr:1100,pbsa:165,yield:0.055,land:3200000,build:210},
+  southampton:{btr:980,pbsa:150,yield:0.058,land:2300000,build:200},
+  portsmouth:{btr:950,pbsa:148,yield:0.058,land:2200000,build:198},
+  worcester:{btr:850,pbsa:138,yield:0.062,land:1700000,build:190},
+  wakefield:{btr:750,pbsa:130,yield:0.065,land:1100000,build:182},
+  doncaster:{btr:700,pbsa:125,yield:0.067,land:950000,build:180},
+  swansea:{btr:720,pbsa:135,yield:0.066,land:1000000,build:182},
+  aberdeen:{btr:750,pbsa:145,yield:0.065,land:1100000,build:185},
+  dundee:{btr:720,pbsa:140,yield:0.066,land:1000000,build:182},
+  inverness:{btr:750,pbsa:145,yield:0.065,land:1100000,build:185},
 };
 
+var PC_CITY = {
+  SW1:"london",SW3:"london",SW7:"london",W1:"london",WC1:"london",EC1:"london",
+  EC2:"london",N1:"london",NW1:"london",NW3:"london",E1:"london",E2:"london",
+  E14:"london",SE1:"london",SW4:"london",SW8:"london",SW11:"london",SW18:"london",
+  W4:"london",W6:"london",W11:"london",TW9:"london",KT1:"london",HA1:"london",
+  CR0:"london",BR1:"london",IG1:"london",RM1:"london",
+  M1:"manchester",M2:"manchester",M3:"manchester",M4:"manchester",M5:"manchester",
+  M14:"manchester",M15:"manchester",M16:"manchester",M20:"manchester",M21:"manchester",
+  M25:"manchester",M33:"manchester",SK8:"manchester",SK9:"manchester",
+  B1:"birmingham",B2:"birmingham",B3:"birmingham",B5:"birmingham",B13:"birmingham",
+  B15:"birmingham",B17:"birmingham",B29:"birmingham",B30:"birmingham",
+  CV1:"coventry",CV2:"coventry",CV3:"coventry",CV4:"coventry",CV5:"coventry",
+  CV6:"coventry",CV7:"coventry",CV8:"coventry",
+  LS1:"leeds",LS2:"leeds",LS6:"leeds",LS7:"leeds",LS8:"leeds",LS16:"leeds",LS17:"leeds",
+  S1:"sheffield",S7:"sheffield",S10:"sheffield",S11:"sheffield",S17:"sheffield",
+  L1:"liverpool",L2:"liverpool",L3:"liverpool",L8:"liverpool",L17:"liverpool",L18:"liverpool",
+  BS1:"bristol",BS2:"bristol",BS3:"bristol",BS6:"bristol",BS7:"bristol",BS8:"bristol",BS9:"bristol",
+  BA1:"bath",BA2:"bath",
+  EH1:"edinburgh",EH2:"edinburgh",EH3:"edinburgh",EH4:"edinburgh",EH6:"edinburgh",
+  EH8:"edinburgh",EH9:"edinburgh",EH10:"edinburgh",EH12:"edinburgh",
+  G1:"glasgow",G2:"glasgow",G3:"glasgow",G11:"glasgow",G12:"glasgow",G41:"glasgow",
+  CB1:"cambridge",CB2:"cambridge",CB3:"cambridge",CB4:"cambridge",
+  OX1:"oxford",OX2:"oxford",OX3:"oxford",OX4:"oxford",
+  RG1:"reading",RG2:"reading",GU1:"guildford",
+  BN1:"brighton",BN2:"brighton",BN3:"brighton",
+  NG1:"nottingham",NG7:"nottingham",NG9:"nottingham",
+  DE1:"derby",DE22:"derby",LE1:"leicester",LE2:"leicester",LE3:"leicester",
+  NE1:"newcastle",NE2:"newcastle",NE3:"newcastle",
+  CF10:"cardiff",CF11:"cardiff",CF14:"cardiff",CF24:"cardiff",
+  SA1:"swansea",SA2:"swansea",
+  YO1:"york",HG1:"harrogate",
+  AB10:"aberdeen",AB15:"aberdeen",DD1:"dundee",
+  HU1:"hull",ST1:"stoke",WR1:"worcester",
+  SO14:"southampton",PO1:"portsmouth",BH1:"bournemouth",
+};
+
+var PC_PSF = {
+  SW1:1650,SW3:1450,W1:1800,EC1:920,N1:820,NW3:1050,NW1:850,E1:750,E14:680,
+  SE1:780,SW4:680,SW8:720,SW11:720,SW18:700,W4:760,W6:720,W11:1100,
+  M1:320,M4:310,M20:340,M21:320,SK9:420,
+  B1:295,B15:340,B17:310,B29:230,
+  CV1:200,CV6:195,CV8:320,
+  LS1:280,LS6:260,LS7:270,LS8:310,LS17:330,
+  S1:195,S10:240,S11:270,S17:310,
+  L1:210,L17:230,L18:260,
+  BS1:380,BS6:450,BS8:430,BS9:420,BA1:520,BA2:490,
+  EH1:400,EH2:490,EH3:480,EH4:380,EH8:360,EH9:430,
+  G1:200,G3:220,G12:250,
+  CB1:610,CB2:590,OX1:580,OX4:480,
+  RG1:380,GU1:480,BN1:420,BN3:400,
+  NG1:220,NG7:195,LE1:195,DE1:195,
+  NE1:190,NE2:240,YO1:310,HG1:310,
+  CF10:215,CF11:250,SA1:155,HU1:110,
+  AB10:185,DD1:150,
+};
+
+var BUILD_TYPES = {
+  "Residential apartments":{lo:185,mid:220,hi:280,fees:0.12,plan:8000},
+  "Residential houses":{lo:160,mid:195,hi:240,fees:0.10,plan:5000},
+  "BTR (Build to Rent)":{lo:200,mid:235,hi:300,fees:0.13,plan:10000},
+  "PBSA (Student)":{lo:175,mid:210,hi:265,fees:0.12,plan:8500},
+  "Later Living":{lo:195,mid:230,hi:290,fees:0.13,plan:9000},
+  "Pub conversion":{lo:180,mid:230,hi:300,fees:0.14,plan:12000},
+  "Office conversion":{lo:160,mid:200,hi:260,fees:0.13,plan:10000},
+  "Church conversion":{lo:220,mid:280,hi:380,fees:0.15,plan:15000},
+  "Barn conversion":{lo:200,mid:260,hi:360,fees:0.14,plan:12000},
+  "Industrial/Warehouse":{lo:80,mid:110,hi:150,fees:0.08,plan:5000},
+  "Hotel (3-4 star)":{lo:220,mid:285,hi:380,fees:0.14,plan:18000},
+  "Care home":{lo:210,mid:260,hi:330,fees:0.13,plan:12000},
+  "Mixed use":{lo:200,mid:240,hi:300,fees:0.13,plan:12000},
+};
+
+var HOUSE_TYPES = {
+  "2-bed terrace":{sqft:720,adj:0.88},
+  "2-bed semi":{sqft:820,adj:0.90},
+  "3-bed terrace":{sqft:920,adj:0.95},
+  "3-bed semi":{sqft:1020,adj:1.00},
+  "3-bed detached":{sqft:1150,adj:1.08},
+  "4-bed detached":{sqft:1500,adj:1.18},
+  "4-bed executive":{sqft:1900,adj:1.28},
+  "5-bed detached":{sqft:2400,adj:1.40},
+  "Bungalow 2-bed":{sqft:800,adj:1.05},
+  "Bungalow 3-bed":{sqft:1050,adj:1.12},
+};
+
+var RISK_DEFAULTS = [
+  {id:1,cat:"Planning",desc:"Consent delayed or refused",rag:"amber",mit:"Pre-app engaged, LPA meeting scheduled"},
+  {id:2,cat:"Ground",desc:"Unknown ground contamination",rag:"amber",mit:"Phase 1 instructed, contingency in appraisal"},
+  {id:3,cat:"Construction",desc:"Build cost inflation",rag:"red",mit:"Fixed price D&B tender, QS monthly review"},
+  {id:4,cat:"Market",desc:"Rental void exceeds 8% year 1",rag:"green",mit:"Pre-marketing 9 months pre-completion"},
+  {id:5,cat:"Finance",desc:"Senior debt facility pulled",rag:"amber",mit:"Two lenders in parallel conversations"},
+  {id:6,cat:"Exit",desc:"Yield compression at exit",rag:"amber",mit:"Forward fund terms being negotiated"},
+];
+
+var BUYERS = [
+  {name:"Greystar",type:"REIM",min:50,status:"Active"},
+  {name:"Legal & General",type:"Pension",min:100,status:"Active"},
+  {name:"Grainger plc",type:"REIT",min:30,status:"Active"},
+  {name:"M&G Real Estate",type:"Fund",min:75,status:"Active"},
+  {name:"Heimstaden",type:"Private",min:50,status:"Active"},
+  {name:"Apache Capital",type:"REIM",min:40,status:"Active"},
+  {name:"Aware Super",type:"Sovereign",min:150,status:"Active"},
+  {name:"Invesco RE",type:"Fund",min:100,status:"Selective"},
+];
+
 var CITIES = Object.keys(MKT);
+var PROP_TYPES = ["Bungalow (detached)","Bungalow (semi)","Detached house","Semi-detached house",
+  "Terraced house","Farmhouse / Rural","Flat / Apartment","Pub (traditional)","Pub (large)",
+  "Restaurant / Cafe","Office (small)","Office (large)","Shop / Retail","Warehouse / Industrial",
+  "Church / Chapel","School","Care home","Barn","Agricultural building","Vacant land"];
 
-function fmt(n) {
-  if (!n || isNaN(n)) return "—";
-  var abs = Math.abs(n);
-  if (abs >= 1000000) return "£" + (n/1000000).toFixed(2) + "m";
-  if (abs >= 1000) return "£" + Math.round(n/1000) + "k";
-  return "£" + Math.round(n).toLocaleString();
+function num(v){return parseFloat(v)||0;}
+function fmt(n){
+  if(!n||isNaN(n))return"—";
+  var a=Math.abs(n);
+  if(a>=1000000)return"£"+(n/1000000).toFixed(2)+"m";
+  if(a>=1000)return"£"+Math.round(n/1000)+"k";
+  return"£"+Math.round(n).toLocaleString();
 }
-function num(v) { return parseFloat(v) || 0; }
+function pct(n){return n?n.toFixed(1)+"%":"—";}
+function cityName(c){return c?c.charAt(0).toUpperCase()+c.replace(/_/g," ").slice(1):"—";}
 
-// ── LOG EVENT ─────────────────────────────────────────────────────────────────
-function logEvent(user, event, details) {
-  try {
-    var params = new URLSearchParams({
-      action: "log",
-      timestamp: new Date().toISOString(),
-      user: (user && user.name) || "Unknown",
-      company: (user && user.company) || "Unknown",
-      role: (user && user.role) || "demo",
-      event: event,
-      details: typeof details === "object" ? JSON.stringify(details).substring(0,300) : String(details).substring(0,300),
-      userAgent: navigator.userAgent.substring(0,80)
+function lookupPostcode(pc){
+  var clean=(pc||"").toUpperCase().replace(/\s/g,"");
+  for(var len=4;len>=2;len--){
+    var key=clean.substring(0,len);
+    if(PC_CITY[key])return{city:PC_CITY[key],salePsf:PC_PSF[key]||null};
+  }
+  return null;
+}
+
+function logEvent(user,event,details){
+  try{
+    var params=new URLSearchParams({
+      action:"log",timestamp:new Date().toISOString(),
+      user:(user&&user.name)||"Unknown",company:(user&&user.company)||"Unknown",
+      role:(user&&user.role)||"demo",event:event,
+      details:typeof details==="object"?JSON.stringify(details).substring(0,300):String(details).substring(0,300),
+      userAgent:navigator.userAgent.substring(0,80)
     });
-    fetch(WEBHOOK + "?" + params.toString()).catch(function(){});
-  } catch(e) {}
+    fetch(WEBHOOK+"?"+params.toString()).catch(function(){});
+  }catch(e){}
 }
 
-// ── AI CALL ───────────────────────────────────────────────────────────────────
-async function callAI(user, stage, prompt, ctx) {
-  logEvent(user, "AI_ANALYSIS", {stage: stage});
-  var res = await fetch(WEBHOOK, {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({
-      action: "ai",
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 900,
-      system: "You are a senior UK real estate development advisor. Be specific, commercially sharp, use UK conventions. Plain text only.",
-      messages: [{role: "user", content: prompt + "\n\nData: " + JSON.stringify(ctx)}],
-      user: (user && user.name) || "",
-      stage: stage
+async function callAI(user,stage,systemPrompt,userPrompt){
+  logEvent(user,"AI_ANALYSIS",{stage:stage});
+  var res=await fetch(WEBHOOK,{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      action:"ai",model:"claude-sonnet-4-20250514",max_tokens:900,
+      system:systemPrompt||"You are a senior UK real estate development advisor. Be specific, commercially sharp, use UK conventions. Plain text only.",
+      messages:[{role:"user",content:userPrompt}],
+      user:(user&&user.name)||"",stage:stage
     })
   });
-  var data = await res.json();
-  if (data.status === "ok" && data.content) {
-    var block = null;
-    for (var i = 0; i < data.content.length; i++) {
-      if (data.content[i].type === "text") { block = data.content[i]; break; }
+  var data=await res.json();
+  if(data.status==="ok"&&data.content){
+    for(var i=0;i<data.content.length;i++){
+      if(data.content[i].type==="text")return data.content[i].text;
     }
-    return block ? block.text : "No response";
   }
-  return "Analysis failed";
+  return"Analysis failed — please try again";
 }
 
-// ── ACCESS GATE ──────────────────────────────────────────────────────────────
-function AccessGate(props) {
-  var s = useState(""); var name = s[0]; var setName = s[1];
-  var c = useState(""); var company = c[0]; var setCompany = c[1];
-  var p = useState(""); var pwd = p[0]; var setPwd = p[1];
-  var er = useState(""); var error = er[0]; var setError = er[1];
-  var ld = useState(false); var loading = ld[0]; var setLoading = ld[1];
+// ── UI HELPERS ────────────────────────────────────────────────────────────────
+var e=React.createElement;
+var S={
+  card:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:20,marginBottom:16},
+  cardTitle:{fontSize:10,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,paddingBottom:12,borderBottom:"1px solid #DDE0ED",marginBottom:14},
+  grid2:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14},
+  label:{fontSize:10,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:600,display:"block",marginBottom:4},
+  input:{padding:"8px 11px",border:"1px solid #C8CDE0",borderRadius:6,fontSize:13,fontFamily:"DM Sans,sans-serif",outline:"none",background:"#fff",color:"#1A1A3E",width:"100%",boxSizing:"border-box"},
+  select:{padding:"8px 11px",border:"1px solid #C8CDE0",borderRadius:6,fontSize:13,fontFamily:"DM Sans,sans-serif",background:"#fff",color:"#1A1A3E",outline:"none",width:"100%"},
+  btn:{padding:"9px 18px",background:"rgba(74,75,174,0.08)",border:"1px solid #4A4BAE",color:"#4A4BAE",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",display:"flex",alignItems:"center",gap:7},
+  resultGreen:{background:"rgba(45,122,101,0.08)",border:"2px solid #2D7A65",borderRadius:8,padding:16,textAlign:"center"},
+  resultRed:{background:"rgba(176,90,53,0.08)",border:"2px solid #B05A35",borderRadius:8,padding:16,textAlign:"center"},
+  tag:{fontSize:9,textTransform:"uppercase",letterSpacing:".1em",fontWeight:700},
+  bigNum:{fontSize:32,fontWeight:800,lineHeight:1,marginBottom:6},
+};
 
-  if (new Date() > EXPIRY) {
-    return React.createElement("div", {style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#F4F5F9",fontFamily:"DM Sans,sans-serif"}},
-      React.createElement("div", {style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:16,padding:"48px 40px",maxWidth:400,textAlign:"center"}},
-        React.createElement("img", {src:"data:image/webp;base64,"+LOGO,style:{width:100,marginBottom:20}}),
-        React.createElement("h2", {style:{color:"#2E2F8A",marginBottom:12}}, "Demo Expired"),
-        React.createElement("p", {style:{color:"#7278A0",fontSize:14}}, "Please contact Cassidy Group to arrange continued access.")
+function Inp(props){
+  return e("div",{style:{display:"flex",flexDirection:"column",gap:4,gridColumn:props.full?"span 2":""}},
+    e("label",{style:S.label},props.label),
+    e("input",{type:props.type||"text",value:props.value||"",onChange:function(ev){props.onChange(ev.target.value);},placeholder:props.placeholder||"",style:S.input})
+  );
+}
+
+function Sel(props){
+  return e("div",{style:{display:"flex",flexDirection:"column",gap:4,gridColumn:props.full?"span 2":""}},
+    e("label",{style:S.label},props.label),
+    e("select",{value:props.value||"",onChange:function(ev){props.onChange(ev.target.value);},style:S.select},
+      (props.options||[]).map(function(o){
+        var val=typeof o==="object"?o.value:o;
+        var lbl=typeof o==="object"?o.label:o;
+        return e("option",{key:val,value:val},lbl||"Select...");
+      })
+    )
+  );
+}
+
+function CitySelect(props){
+  return e(Sel,{label:props.label||"City / Market",value:props.value,onChange:props.onChange,
+    options:[{value:"",label:"Select city..."}].concat(CITIES.map(function(c){return{value:c,label:cityName(c)};}))});
+}
+
+function AIPanel(props){
+  var rs=useState(""); var aiRes=rs[0]; var setAiRes=rs[1];
+  var rl=useState(false); var aiLoad=rl[0]; var setAiLoad=rl[1];
+  async function run(){
+    setAiLoad(true); setAiRes("");
+    try{
+      var result=await callAI(props.user,props.stage,props.system,props.prompt);
+      setAiRes(result);
+      logEvent(props.user,"AI_RESULT",{stage:props.stage,result:result.substring(0,200)});
+    }catch(err){setAiRes("Analysis failed — check connection");}
+    setAiLoad(false);
+  }
+  return e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:10,marginTop:4}},
+    e("button",{onClick:run,disabled:aiLoad,style:Object.assign({},S.btn,{opacity:aiLoad?0.6:1,cursor:aiLoad?"not-allowed":"pointer"})},
+      aiLoad?"⏳ Analysing...":"⚡ "+props.label
+    ),
+    aiRes&&e("div",{style:{background:"#F8F8FE",border:"1px solid #DDE0ED",borderLeft:"3px solid #4A4BAE",borderRadius:8,padding:"16px 20px"}},
+      e("pre",{style:{fontSize:12,lineHeight:1.8,color:"#3A3D6A",whiteSpace:"pre-wrap",fontFamily:"DM Sans,sans-serif"}},aiRes)
+    )
+  );
+}
+
+// ── ACCESS GATE ───────────────────────────────────────────────────────────────
+function AccessGate(props){
+  var ns=useState(""); var name=ns[0]; var setName=ns[1];
+  var cs=useState(""); var company=cs[0]; var setCompany=cs[1];
+  var ps=useState(""); var pwd=ps[0]; var setPwd=ps[1];
+  var es=useState(""); var error=es[0]; var setError=es[1];
+  var ls=useState(false); var loading=ls[0]; var setLoading=ls[1];
+
+  if(new Date()>EXPIRY){
+    return e("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#F4F5F9",fontFamily:"DM Sans,sans-serif"}},
+      e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:16,padding:"48px 40px",maxWidth:400,textAlign:"center"}},
+        e("img",{src:"data:image/webp;base64,"+LOGO,style:{width:100,marginBottom:20}}),
+        e("h2",{style:{color:"#2E2F8A",marginBottom:12}},"Demo Expired"),
+        e("p",{style:{color:"#7278A0",fontSize:14}},"Please contact Cassidy Group to arrange continued access.")
       )
     );
   }
 
-  async function login() {
-    if (!name.trim()) { setError("Please enter your name"); return; }
-    if (!company.trim()) { setError("Please enter your company"); return; }
-    if (!pwd.trim()) { setError("Please enter your access code"); return; }
-    setLoading(true); setError("");
-    try {
-      var params = new URLSearchParams({action:"verify",password:pwd.trim(),name:name.trim(),company:company.trim(),userAgent:navigator.userAgent.substring(0,80)});
-      var res = await fetch(WEBHOOK + "?" + params.toString());
-      var data = await res.json();
-      if (data.status === "ok") {
-        props.onLogin(data.user);
-      } else {
-        setError(data.message || "Incorrect access code");
-      }
-    } catch(e) {
-      setError("Connection error — check internet connection");
-    }
+  async function login(){
+    if(!name.trim()){setError("Please enter your name");return;}
+    if(!company.trim()){setError("Please enter your company");return;}
+    if(!pwd.trim()){setError("Please enter your access code");return;}
+    setLoading(true);setError("");
+    try{
+      var params=new URLSearchParams({action:"verify",password:pwd.trim(),name:name.trim(),company:company.trim(),userAgent:navigator.userAgent.substring(0,80)});
+      var res=await fetch(WEBHOOK+"?"+params.toString());
+      var data=await res.json();
+      if(data.status==="ok"){props.onLogin(data.user);}
+      else{setError(data.message||"Incorrect access code");}
+    }catch(err){setError("Connection error — check internet connection");}
     setLoading(false);
   }
 
-  return React.createElement("div", {style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",fontFamily:"DM Sans,sans-serif"}},
-    React.createElement("div", {style:{background:"#fff",borderRadius:16,padding:"48px 40px",maxWidth:440,width:"90%",boxShadow:"0 8px 40px rgba(0,0,0,0.25)"}},
-      React.createElement("div", {style:{textAlign:"center",marginBottom:28}},
-        React.createElement("img", {src:"data:image/webp;base64,"+LOGO,alt:"Cassidy Group",style:{width:130,height:"auto",marginBottom:16}}),
-        React.createElement("h1", {style:{color:"#2E2F8A",fontWeight:800,fontSize:20,marginBottom:6}}, "Land & Development Intelligence"),
-        React.createElement("p", {style:{color:"#7278A0",fontSize:13}}, "Enter your details and access code to continue")
+  return e("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",fontFamily:"DM Sans,sans-serif"}},
+    e("div",{style:{background:"#fff",borderRadius:16,padding:"48px 40px",maxWidth:440,width:"90%",boxShadow:"0 8px 40px rgba(0,0,0,0.25)"}},
+      e("div",{style:{textAlign:"center",marginBottom:28}},
+        e("img",{src:"data:image/webp;base64,"+LOGO,alt:"Cassidy Group",style:{width:130,height:"auto",marginBottom:16}}),
+        e("h1",{style:{color:"#2E2F8A",fontWeight:800,fontSize:20,marginBottom:6}},"Land & Development Intelligence"),
+        e("p",{style:{color:"#7278A0",fontSize:13}},"Enter your details and access code to continue")
       ),
-      React.createElement("div", {style:{display:"flex",flexDirection:"column",gap:14}},
-        ["Name", "Company"].map(function(label, i) {
-          var val = i === 0 ? name : company;
-          var setter = i === 0 ? setName : setCompany;
-          return React.createElement("div", {key:label, style:{display:"flex",flexDirection:"column",gap:4}},
-            React.createElement("label", {style:{fontSize:10,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:700}}, label),
-            React.createElement("input", {value:val, onChange:function(e){setter(e.target.value);}, placeholder:"e.g. "+(i===0?"Phil Daniel":"Cassidy Group"), style:{padding:"11px 14px",border:"1px solid #C8CDE0",borderRadius:7,fontSize:14,fontFamily:"DM Sans,sans-serif",outline:"none"}}));
-        }),
-        React.createElement("div", {style:{display:"flex",flexDirection:"column",gap:4}},
-          React.createElement("label", {style:{fontSize:10,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:700}}, "Access Code"),
-          React.createElement("input", {type:"password",value:pwd,onChange:function(e){setPwd(e.target.value);},onKeyDown:function(e){if(e.key==="Enter")login();},placeholder:"Enter access code",style:{padding:"11px 14px",border:"1px solid "+(error?"#B05A35":"#C8CDE0"),borderRadius:7,fontSize:14,fontFamily:"DM Sans,sans-serif",outline:"none"}})),
-        error && React.createElement("div", {style:{background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.3)",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#B05A35"}}, error),
-        React.createElement("button", {onClick:login,disabled:loading,style:{padding:12,background:loading?"#8889C8":"#4A4BAE",border:"none",borderRadius:7,color:"#fff",fontSize:14,fontWeight:700,cursor:loading?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif"}}, loading ? "Verifying..." : "Access Tool →")
+      e("div",{style:{display:"flex",flexDirection:"column",gap:14}},
+        e("div",{style:{display:"flex",flexDirection:"column",gap:4}},
+          e("label",{style:S.label},"Your Name"),
+          e("input",{value:name,onChange:function(ev){setName(ev.target.value);},placeholder:"e.g. Phil Daniel",style:S.input})
+        ),
+        e("div",{style:{display:"flex",flexDirection:"column",gap:4}},
+          e("label",{style:S.label},"Company"),
+          e("input",{value:company,onChange:function(ev){setCompany(ev.target.value);},placeholder:"e.g. Cassidy Group",style:S.input})
+        ),
+        e("div",{style:{display:"flex",flexDirection:"column",gap:4}},
+          e("label",{style:S.label},"Access Code"),
+          e("input",{type:"password",value:pwd,onChange:function(ev){setPwd(ev.target.value);},onKeyDown:function(ev){if(ev.key==="Enter")login();},placeholder:"Enter access code",style:Object.assign({},S.input,{borderColor:error?"#B05A35":"#C8CDE0"})})
+        ),
+        error&&e("div",{style:{background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.3)",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#B05A35"}},error),
+        e("button",{onClick:login,disabled:loading,style:{padding:12,background:loading?"#8889C8":"#4A4BAE",border:"none",borderRadius:7,color:"#fff",fontSize:14,fontWeight:700,cursor:loading?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif"}},loading?"Verifying...":"Access Tool →")
       ),
-      React.createElement("p", {style:{textAlign:"center",fontSize:11,color:"#A0A4C0",marginTop:20}}, "Demo expires 31 Dec 2027 · Cassidy Group © 2026")
+      e("p",{style:{textAlign:"center",fontSize:11,color:"#A0A4C0",marginTop:20}},"Demo expires 31 Dec 2027 · Cassidy Group © 2026")
     )
   );
 }
 
-// ── MAIN TOOL ─────────────────────────────────────────────────────────────────
-function Tool(props) {
-  var user = props.user;
-  var st = useState("dashboard"); var stage = st[0]; var setStage = st[1];
-  var dt = useState({assetType:"btr"}); var data = dt[0]; var setData = dt[1];
-  var ai = useState(""); var aiRes = ai[0]; var setAiRes = ai[1];
-  var al = useState(false); var aiLoad = al[0]; var setAiLoad = al[1];
 
-  var city = (data.land && data.land.city) || "manchester";
-  var m = MKT[city] || MKT.manchester;
-  var up = function(section, key, val) {
-    setData(function(d) {
-      var sec = Object.assign({}, d[section] || {});
-      sec[key] = val;
-      var next = Object.assign({}, d);
-      next[section] = sec;
+// ── STAGES ───────────────────────────────────────────────────────────────────
+var STAGES = [
+  {id:"dashboard",label:"Deal Dashboard",icon:"◈"},
+  {id:"epe",label:"Property Evaluator",icon:"🏠"},
+  {id:"rlv",label:"Land Valuation",icon:"◆"},
+  {id:"sfh",label:"Single Family Housing",icon:"🏡"},
+  {id:"hra",label:"High-Rise Apartments",icon:"🏢"},
+  {id:"land",label:"Land Appraisal",icon:"⬟"},
+  {id:"planning",label:"Planning & Viability",icon:"▲"},
+  {id:"fin",label:"Financial Modelling",icon:"◉"},
+  {id:"scraper",label:"Land Finder",icon:"🔍"},
+  {id:"dd",label:"Due Diligence",icon:"◈"},
+  {id:"risks",label:"Risk Register",icon:"⬡"},
+  {id:"exit",label:"Investment Exit",icon:"◆"},
+];
+
+// ── MAIN TOOL ─────────────────────────────────────────────────────────────────
+function Tool(props){
+  var user=props.user;
+  var st=useState("dashboard"); var stage=st[0]; var setStage=st[1];
+  var dt=useState({assetType:"btr",risks:RISK_DEFAULTS.map(function(r){return Object.assign({},r);})}); var data=dt[0]; var setData=dt[1];
+
+  function up(section,key,val){
+    setData(function(d){
+      var sec=Object.assign({},d[section]||{});
+      sec[key]=val;
+      var next=Object.assign({},d);
+      next[section]=sec;
       return next;
     });
-  };
-
-  async function runAI(prompt, ctx) {
-    setAiLoad(true); setAiRes("");
-    try {
-      var result = await callAI(user, stage, prompt, ctx);
-      setAiRes(result);
-      logEvent(user, "AI_RESULT", {stage:stage, result:result.substring(0,200)});
-    } catch(e) {
-      setAiRes("Analysis failed — please try again");
-    }
-    setAiLoad(false);
   }
 
-  var STAGES = [
-    {id:"dashboard", label:"Deal Dashboard", icon:"◈"},
-    {id:"land", label:"Land Appraisal", icon:"⬟"},
-    {id:"rlv", label:"Land Valuation", icon:"◆"},
-    {id:"sfh", label:"Single Family Housing", icon:"🏡"},
-    {id:"planning", label:"Planning & Viability", icon:"▲"},
-    {id:"fin", label:"Financial Modelling", icon:"◉"},
-    {id:"dd", label:"Due Diligence", icon:"◈"},
-    {id:"exit", label:"Investment Exit", icon:"◆"},
-  ];
+  var city=(data.land&&data.land.city)||"manchester";
+  var m=MKT[city]||MKT.manchester;
+  var at=data.assetType||"btr";
+  var units=num((data.planning&&data.planning.units)||0);
+  var acres=num((data.land&&data.land.acres)||0);
+  var gia=acres*43560*0.65;
+  var buildPsf=num((data.fin&&data.fin.buildPsf)||m.build);
+  var bc=gia*buildPsf;
+  var lc=num((data.land&&data.land.price)||0);
+  var rent=num((data.fin&&data.fin.rent)||m[at==="pbsa"?"pbsa":"btr"]);
+  var gr=at==="pbsa"?units*rent*52:units*rent*12;
+  var noi=gr*0.95-gr*0.95*0.12;
+  var ey=num((data.fin&&data.fin.exitYield)||m.yield*100)/100||m.yield;
+  var gdv=ey>0?noi/ey:0;
+  var tc=bc+lc+(data.planning&&data.planning.s106?num(data.planning.s106):0)+bc*0.12+bc*0.05+(bc+lc)*0.075;
+  var profit=gdv-tc;
+  var margin=gdv>0?(profit/gdv)*100:0;
+  var scM=margin>=15?"#2D7A65":"#B05A35";
 
-  // Computed financials
-  var units = num((data.planning && data.planning.units) || 0);
-  var acres = num((data.land && data.land.acres) || 0);
-  var gia = acres * 43560 * 0.65;
-  var buildPsf = num((data.fin && data.fin.buildPsf) || m.build);
-  var bc = gia * buildPsf;
-  var lc = num((data.land && data.land.price) || 0);
-  var rent = num((data.fin && data.fin.rent) || m.btr);
-  var at = data.assetType || "btr";
-  var gr = at === "pbsa" ? units * rent * 52 : units * rent * 12;
-  var noi = gr * 0.95 - gr * 0.95 * 0.12;
-  var ey = num((data.fin && data.fin.exitYield) || m.yield * 100) / 100 || m.yield;
-  var gdv = ey > 0 ? noi / ey : 0;
-  var tc = bc + lc + (data.planning && data.planning.s106 ? num(data.planning.s106) : 0) + bc * 0.12 + bc * 0.05 + (bc + lc) * 0.075;
-  var profit = gdv - tc;
-  var margin = gdv > 0 ? (profit / gdv) * 100 : 0;
+  var idx=STAGES.findIndex(function(s){return s.id===stage;});
+  var curStage=STAGES[idx]||STAGES[0];
 
-  function renderStage() {
-    var l = data.land || {};
-    var p = data.planning || {};
-    var f = data.fin || {};
-    var r = data.rlv || {};
+  function navTo(id){setStage(id);logEvent(user,"PAGE_VIEW",{stage:id});}
 
-    if (stage === "dashboard") {
-      var cards = [
-        {l:"GDV", v:fmt(gdv)},
-        {l:"Total Dev Cost", v:fmt(tc)},
-        {l:"Profit", v:fmt(profit), c:margin >= 15 ? "#2D7A65" : "#B05A35"},
-        {l:"Margin", v:margin ? margin.toFixed(1)+"%" : "—", c:margin >= 15 ? "#2D7A65" : "#B05A35"},
-        {l:"NOI (pa)", v:fmt(noi)},
-        {l:"Exit Yield", v:ey ? (ey*100).toFixed(2)+"%" : "—"},
-        {l:"Units / Beds", v:units || "—"},
-        {l:"City", v:city.replace(/_/g," ").charAt(0).toUpperCase()+city.replace(/_/g," ").slice(1)},
-      ];
-      return React.createElement("div", {style:{display:"flex",flexDirection:"column",gap:20}},
-        React.createElement("div", {style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}},
-          cards.map(function(card) {
-            return React.createElement("div", {key:card.l,style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:16}},
-              React.createElement("div", {style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",marginBottom:6}}, card.l),
-              React.createElement("div", {style:{fontSize:22,fontWeight:700,color:card.c||"#2E2F8A"}}, card.v)
-            );
-          })
-        ),
-        React.createElement("div", {style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:18}},
-          React.createElement("div", {style:{fontSize:10,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,marginBottom:14,paddingBottom:12,borderBottom:"1px solid #DDE0ED"}}, "Quick Navigation"),
-          React.createElement("div", {style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}},
-            STAGES.slice(1).map(function(s) {
-              return React.createElement("button", {key:s.id,onClick:function(){setStage(s.id);},style:{padding:"10px 8px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:7,fontFamily:"DM Sans,sans-serif",fontSize:12,fontWeight:500,color:"#3A3D6A",cursor:"pointer",textAlign:"center"}}, s.icon+" "+s.label);
-            })
-          )
-        ),
-        aiPanel("Deal Summary", "Provide a deal summary with investment thesis, key strengths, risks and next steps. Rate 1-10.", {gdv:gdv,tc:tc,profit:profit,margin:margin,city:city,units:units})
-      );
-    }
-
-    if (stage === "land") {
-      return card("Land Appraisal", [
-        field2("Site Address", "text", l.address, function(v){up("land","address",v);}, "e.g. Former Factory, Birmingham B1"),
-        citySelect(l.city, function(v){up("land","city",v);}),
-        field("Site Area (acres)", "number", l.acres, function(v){up("land","acres",v);}, "e.g. 2.5"),
-        field("Asking Price (£)", "number", l.price, function(v){up("land","price",v);}, "e.g. 4500000"),
-        field("Planning Status", "select", l.planStatus, function(v){up("land","planStatus",v);}, "", ["","Full consent","Outline consent","Allocated","Pre-application","None"]),
-        field("Contamination", "select", l.contam, function(v){up("land","contam",v);}, "", ["","Clean — Phase 1 clear","Minor remediation","Major remediation","Unknown"]),
-        aiPanel("Site Analysis", "Analyse this development site. Provide: 1) Strengths & red flags, 2) Land value vs market, 3) DD priorities, 4) Go/No-Go recommendation.", l)
-      ]);
-    }
-
-    if (stage === "rlv") {
-      var rUnits = num(r.units); var rSqft = num(r.avgSqft) || 850; var rSalePsf = num(r.salePsf) || 280;
-      var rBuild = num(r.buildPsf) || m.build; var rProfit = num(r.profitPct) || 20;
-      var rGdv = rUnits * rSqft * rSalePsf;
-      var rBc = rUnits * rSqft * rBuild;
-      var rRlv = rGdv - rBc - rBc*0.12 - rBc*0.05 - (rBc+lc)*0.075 - rUnits*num(r.s106pu||8000) - rGdv*(rProfit/100);
-      var rlvPu = rUnits > 0 ? rRlv / rUnits : 0;
-      var sc = rRlv > 0 ? "#2D7A65" : "#B05A35";
-      return card("Land Valuation Engine", [
-        field("Postcode", "text", r.postcode, function(v){up("rlv","postcode",v);}, "e.g. CV6 2DL"),
-        field("Number of Units", "number", r.units, function(v){up("rlv","units",v);}, "e.g. 45"),
-        field("Avg Unit Size (sqft)", "number", r.avgSqft, function(v){up("rlv","avgSqft",v);}, "850"),
-        field("Sale Price psf (£)", "number", r.salePsf, function(v){up("rlv","salePsf",v);}, "e.g. 280"),
-        field("Build Cost psf (£)", "number", r.buildPsf, function(v){up("rlv","buildPsf",v);}, "e.g. "+m.build),
-        field("Developer Profit %", "number", r.profitPct, function(v){up("rlv","profitPct",v);}, "20"),
-        field("S106/CIL per Unit (£)", "number", r.s106pu, function(v){up("rlv","s106pu",v);}, "8000"),
-        rUnits > 0 && rGdv > 0 && React.createElement("div", {style:{background:sc+"10",border:"2px solid "+sc,borderRadius:8,padding:16,textAlign:"center"}},
-          React.createElement("div", {style:{fontSize:11,color:sc,fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",marginBottom:6}}, "Residual Land Value"),
-          React.createElement("div", {style:{fontSize:32,fontWeight:800,color:sc,lineHeight:1,marginBottom:6}}, fmt(rRlv)),
-          React.createElement("div", {style:{fontSize:12,color:"#7278A0"}}, fmt(rlvPu)+" per unit · GDV: "+fmt(rGdv))
-        ),
-        aiPanel("RLV Analysis", "Provide a RICS-style residual land valuation analysis. Validate the £/sqft assumption, negotiate strategy and key risks.", r)
-      ]);
-    }
-
-    if (stage === "sfh") {
-      var sh = data.sfh || {};
-      var sAcres = num(sh.acres); var sDph = num(sh.dph) || 30;
-      var sUnits = Math.floor(sAcres * 0.404686 * sDph);
-      var sBasePsf = num(sh.basePsf) || m.btr * 8.5;
-      var sBuild = num(sh.buildPsf) || 195;
-      var sTotalGdv = sUnits * 1020 * sBasePsf;
-      var sTotalBuild = sUnits * 1020 * sBuild;
-      var sRlv = sTotalGdv - sTotalBuild - sTotalBuild*0.10 - sTotalBuild*0.05 - (sTotalBuild+lc)*0.075 - sUnits*(num(sh.s106pu)||8000) - sUnits*(num(sh.roads)||12000) - sAcres*53000 - sTotalGdv*((num(sh.profitPct)||20)/100);
-      var sC = sRlv > 0 ? "#2D7A65" : "#B05A35";
-      return card("Single Family Housing", [
-        citySelect(sh.city, function(v){up("sfh","city",v);}),
-        field("Site Area (acres)", "number", sh.acres, function(v){up("sfh","acres",v);}, "e.g. 5.0"),
-        field("Density (dph)", "number", sh.dph, function(v){up("sfh","dph",v);}, "30"),
-        field("Base Sale Price psf (£)", "number", sh.basePsf, function(v){up("sfh","basePsf",v);}, Math.round(sBasePsf)+""),
-        field("Build Cost psf (£)", "number", sh.buildPsf, function(v){up("sfh","buildPsf",v);}, "195"),
-        field("Developer Profit %", "number", sh.profitPct, function(v){up("sfh","profitPct",v);}, "20"),
-        field("S106 per Plot (£)", "number", sh.s106pu, function(v){up("sfh","s106pu",v);}, "8000"),
-        field("Roads/Sewers per Plot (£)", "number", sh.roads, function(v){up("sfh","roads",v);}, "12000"),
-        sAcres > 0 && React.createElement("div", {style:{background:"#EEEEF8",borderRadius:8,padding:14,fontSize:12,color:"#3A3D6A"}},
-          "Site: "+sAcres+" acres / "+(sAcres*0.404686).toFixed(2)+" ha · ~"+sUnits+" units at "+sDph+" dph"
-        ),
-        sUnits > 0 && sTotalGdv > 0 && React.createElement("div", {style:{background:sC+"10",border:"2px solid "+sC,borderRadius:8,padding:16,textAlign:"center"}},
-          React.createElement("div", {style:{fontSize:11,color:sC,fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",marginBottom:6}}, "Residual Land Value"),
-          React.createElement("div", {style:{fontSize:32,fontWeight:800,color:sC,lineHeight:1,marginBottom:6}}, fmt(sRlv)),
-          React.createElement("div", {style:{fontSize:12,color:"#7278A0"}}, fmt(sRlv/Math.max(sUnits,1))+" per plot · GDV: "+fmt(sTotalGdv))
-        ),
-        aiPanel("SFH Analysis", "Analyse this SFH scheme. Provide: 1) Mix assessment for market, 2) Price sense check, 3) AH strategy, 4) Infrastructure adequacy, 5) Key risks.", Object.assign({},sh,{estimatedUnits:sUnits,totalGdv:sTotalGdv,rlv:sRlv,city:city}))
-      ]);
-    }
-
-    if (stage === "planning") {
-      return card("Planning & Viability", [
-        field("Local Planning Authority", "text", p.lpa, function(v){up("planning","lpa",v);}, "e.g. Manchester City Council"),
-        field("Planning Status", "select", p.status, function(v){up("planning","status",v);}, "", ["","Full consent","Outline consent","Allocated","Pre-application","None"]),
-        field("Units Proposed", "number", p.units, function(v){up("planning","units",v);}, "e.g. 180"),
-        field("Storeys", "number", p.storeys, function(v){up("planning","storeys",v);}, "e.g. 8"),
-        field("Affordable Housing %", "number", p.ahPct, function(v){up("planning","ahPct",v);}, "25"),
-        field("S106 / CIL Total (£)", "number", p.s106, function(v){up("planning","s106",v);}, "e.g. 850000"),
-        field("Biodiversity Net Gain", "select", p.bng, function(v){up("planning","bng",v);}, "", ["","On-site 10%","Off-site credits","Exempt — brownfield"]),
-        aiPanel("Planning Strategy", "Provide planning strategy. 1) Risk rating, 2) NPPF hooks, 3) S106 negotiation, 4) AH viability argument, 5) Timeline, 6) Top officer objections.", p)
-      ]);
-    }
-
-    if (stage === "fin") {
-      return card("Financial Modelling", [
-        field("Build Cost psf (£) — market: £"+m.build, "number", f.buildPsf, function(v){up("fin","buildPsf",v);}, m.build+""),
-        field("Monthly Rent per Unit (£) — market: £"+m.btr, "number", f.rent, function(v){up("fin","rent",v);}, m.btr+""),
-        field("Exit Yield (%) — market: "+(m.yield*100).toFixed(2)+"%", "number", f.exitYield, function(v){up("fin","exitYield",v);}, (m.yield*100).toFixed(2)),
-        field("Finance Rate (%)", "number", f.finRate, function(v){up("fin","finRate",v);}, "7.5"),
-        field("Contingency (%)", "number", f.contingency, function(v){up("fin","contingency",v);}, "5"),
-        units > 0 && gia > 0 && React.createElement("div", {style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
-          [
-            {l:"GDV",v:fmt(gdv)},
-            {l:"Total Dev Cost",v:fmt(tc)},
-            {l:"Profit",v:fmt(profit),c:margin>=15?"#2D7A65":"#B05A35"},
-            {l:"Margin on GDV",v:margin.toFixed(1)+"%",c:margin>=15?"#2D7A65":"#B05A35"},
-          ].map(function(card2) {
-            return React.createElement("div", {key:card2.l,style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,padding:14}},
-              React.createElement("div", {style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:5}},card2.l),
-              React.createElement("div", {style:{fontSize:20,fontWeight:700,color:card2.c||"#2E2F8A"}},card2.v)
-            );
-          })
-        ),
-        aiPanel("Financial Analysis", "Analyse this development appraisal. 1) Return benchmarking, 2) Key value drivers, 3) Deal structure, 4) Value engineering, 5) Critical assumption.", {gdv:gdv,tc:tc,profit:profit,margin:margin,units:units,city:city})
-      ]);
-    }
-
-    if (stage === "dd") {
-      var DD = ["Title register & plan","Searches pack","Planning history","Restrictive covenants","Phase 1 study","Phase 2 (if required)","Topographical survey","Structural report","Fire safety strategy","Flood risk assessment","Planning consent","S106 executed","CIL confirmed","AH tenure confirmed","QS cost plan","JCT contract","Senior debt term sheet","Insurance schedule"];
-      var checked = data.ddChecked || {};
-      var done = Object.keys(checked).filter(function(k){return checked[k];}).length;
-      return React.createElement("div", {style:{display:"flex",flexDirection:"column",gap:16}},
-        React.createElement("div", {style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:18}},
-          React.createElement("div", {style:{display:"flex",alignItems:"center",gap:16,marginBottom:12}},
-            React.createElement("div", {style:{fontSize:40,fontWeight:800,color:done/DD.length>=0.8?"#2D7A65":done/DD.length>=0.5?"#9A7B3E":"#B05A35"}},Math.round(done/DD.length*100)+"%"),
-            React.createElement("div", {style:{flex:1}},
-              React.createElement("div", {style:{height:6,background:"#DDE0ED",borderRadius:3,overflow:"hidden"}},
-                React.createElement("div", {style:{height:"100%",width:Math.round(done/DD.length*100)+"%",background:done/DD.length>=0.8?"#2D7A65":"#9A7B3E",borderRadius:3}})),
-              React.createElement("div", {style:{fontSize:12,color:"#7278A0",marginTop:6}},done+" of "+DD.length+" items confirmed")
-            )
-          ),
-          DD.map(function(item) {
-            var isChecked = checked[item] || false;
-            return React.createElement("div", {key:item,onClick:function(){
-              var next = Object.assign({},checked);
-              next[item] = !isChecked;
-              setData(function(d){var n=Object.assign({},d);n.ddChecked=next;return n;});
-            },style:{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:6,cursor:"pointer",background:isChecked?"#F0F7F4":"transparent",marginBottom:4}},
-              React.createElement("div", {style:{width:16,height:16,borderRadius:3,border:"1px solid "+(isChecked?"#2D7A65":"#C8CDE0"),background:isChecked?"#2D7A65":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:"#fff",fontSize:10}},isChecked?"✓":""),
-              React.createElement("span", {style:{fontSize:12,color:isChecked?"#2E2F8A":"#7278A0"}},item)
-            );
-          })
-        )
-      );
-    }
-
-    if (stage === "exit") {
-      var buyers = [
-        {name:"Greystar",type:"REIM",min:50,status:"Active"},
-        {name:"Legal & General",type:"Pension",min:100,status:"Active"},
-        {name:"Grainger plc",type:"REIT",min:30,status:"Active"},
-        {name:"M&G Real Estate",type:"Fund",min:75,status:"Active"},
-        {name:"Heimstaden",type:"Private",min:50,status:"Active"},
-        {name:"Apache Capital",type:"REIM",min:40,status:"Active"},
-      ];
-      var ex = data.exit || {};
-      return card("Investment Exit", [
-        field("Exit Strategy", "select", ex.strategy, function(v){up("exit","strategy",v);}, "", ["","Forward Fund","Forward Sale","Stabilised Sale","Retain & Refinance"]),
-        field("Target Exit Yield (%)", "number", ex.exitYield, function(v){up("exit","exitYield",v);}, (m.yield*100).toFixed(2)),
-        field("Target Investor Type", "select", ex.investorType, function(v){up("exit","investorType",v);}, "", ["","UK Pension Fund","Sovereign Wealth","Listed REIT","Private Equity","Family Office"]),
-        React.createElement("div", {style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,overflow:"hidden"}},
-          React.createElement("div", {style:{padding:"8px 14px",background:"#F7F8FC",fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:700,borderBottom:"1px solid #DDE0ED"}}, "Active Institutional Buyers — BTR"),
-          buyers.map(function(b) {
-            return React.createElement("div", {key:b.name,style:{display:"grid",gridTemplateColumns:"1.5fr 70px 60px 80px",padding:"8px 14px",borderBottom:"1px solid #DDE0ED",fontSize:11,color:"#7278A0",alignItems:"center"}},
-              React.createElement("span", {style:{fontWeight:600,color:"#2E2F8A"}},b.name),
-              React.createElement("span", {style:{color:"#4A4BAE",fontWeight:700}},b.type),
-              React.createElement("span",null,"£"+b.min+"m+"),
-              React.createElement("span", {style:{fontSize:10,fontWeight:700,padding:"2px 6px",borderRadius:3,background:"rgba(45,122,101,0.12)",color:"#2D7A65"}},b.status)
-            );
-          })
-        ),
-        aiPanel("Exit Strategy", "Analyse exit strategy. 1) Optimal route and timing, 2) Top buyers to approach, 3) Investor DD requirements, 4) Negotiation points, 5) Risk factors.", Object.assign({},ex,{gdv:gdv,noi:noi,units:units,city:city}))
-      ]);
-    }
-
-    return React.createElement("div", null, "Coming soon");
-  }
-
-  function field(label, type, val, onChange, placeholder, options) {
-    if (type === "select") {
-      return React.createElement("div", {key:label, style:{display:"flex",flexDirection:"column",gap:4}},
-        React.createElement("label", {style:{fontSize:10,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:600}}, label),
-        React.createElement("select", {value:val||"",onChange:function(e){onChange(e.target.value);},style:{padding:"8px 11px",border:"1px solid #C8CDE0",borderRadius:6,fontSize:13,fontFamily:"DM Sans,sans-serif",background:"#fff",color:"#1A1A3E",outline:"none"}},
-          (options || []).map(function(o) { return React.createElement("option", {key:o,value:o}, o || "Select..."); })
-        )
-      );
-    }
-    return React.createElement("div", {key:label, style:{display:"flex",flexDirection:"column",gap:4}},
-      React.createElement("label", {style:{fontSize:10,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:600}}, label),
-      React.createElement("input", {type:type,value:val||"",onChange:function(e){onChange(e.target.value);},placeholder:placeholder,style:{padding:"8px 11px",border:"1px solid #C8CDE0",borderRadius:6,fontSize:13,fontFamily:"DM Sans,sans-serif",outline:"none",background:"#fff",color:"#1A1A3E"}})
-    );
-  }
-
-  function field2(label, type, val, onChange, placeholder) {
-    return React.createElement("div", {key:label, style:{display:"flex",flexDirection:"column",gap:4,gridColumn:"span 2"}},
-      React.createElement("label", {style:{fontSize:10,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:600}}, label),
-      React.createElement("input", {type:type,value:val||"",onChange:function(e){onChange(e.target.value);},placeholder:placeholder,style:{padding:"8px 11px",border:"1px solid #C8CDE0",borderRadius:6,fontSize:13,fontFamily:"DM Sans,sans-serif",outline:"none",background:"#fff",color:"#1A1A3E"}})
-    );
-  }
-
-  function citySelect(val, onChange) {
-    return React.createElement("div", {key:"city",style:{display:"flex",flexDirection:"column",gap:4}},
-      React.createElement("label", {style:{fontSize:10,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:600}}, "City / Market"),
-      React.createElement("select", {value:val||"",onChange:function(e){onChange(e.target.value);},style:{padding:"8px 11px",border:"1px solid #C8CDE0",borderRadius:6,fontSize:13,fontFamily:"DM Sans,sans-serif",background:"#fff",color:"#1A1A3E",outline:"none"}},
-        React.createElement("option", {value:""}, "Select city..."),
-        CITIES.map(function(c) { return React.createElement("option", {key:c,value:c}, c.charAt(0).toUpperCase()+c.replace(/_/g," ").slice(1)); })
-      )
-    );
-  }
-
-  function card(title, children) {
-    return React.createElement("div", {style:{display:"flex",flexDirection:"column",gap:20}},
-      React.createElement("div", {style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:20}},
-        React.createElement("div", {style:{fontSize:10,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,paddingBottom:14,borderBottom:"1px solid #DDE0ED",marginBottom:14}}, title),
-        React.createElement("div", {style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}},
-          children.filter(Boolean).map(function(c, i) { return React.createElement(React.Fragment, {key:i}, c); })
-        )
-      )
-    );
-  }
-
-  function aiPanel(label, prompt, ctx) {
-    return React.createElement("div", {key:"ai",style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:10}},
-      React.createElement("button", {onClick:function(){runAI(prompt,ctx);},disabled:aiLoad,style:{alignSelf:"flex-start",display:"flex",alignItems:"center",gap:7,padding:"9px 18px",background:"rgba(74,75,174,0.08)",border:"1px solid #4A4BAE",color:"#4A4BAE",borderRadius:6,fontSize:12,fontWeight:700,cursor:aiLoad?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif"}},
-        aiLoad ? "⏳ Analysing..." : "⚡ "+label
-      ),
-      aiRes && React.createElement("div", {style:{background:"#F8F8FE",border:"1px solid #DDE0ED",borderLeft:"3px solid #4A4BAE",borderRadius:8,padding:"16px 20px"}},
-        React.createElement("pre", {style:{fontSize:12,lineHeight:1.8,color:"#3A3D6A",whiteSpace:"pre-wrap",fontFamily:"DM Sans,sans-serif"}}, aiRes)
-      )
-    );
-  }
-
-  var curStage = STAGES.find(function(s){return s.id===stage;}) || STAGES[0];
-  var idx = STAGES.findIndex(function(s){return s.id===stage;});
-
-  return React.createElement("div", {style:{display:"flex",minHeight:"100vh"}},
-    // Sidebar
-    React.createElement("aside", {style:{width:240,background:"#1E1F5C",display:"flex",flexDirection:"column",position:"fixed",left:0,top:0,bottom:0,overflowY:"auto"}},
-      React.createElement("div", {style:{padding:"16px 16px 12px",borderBottom:"1px solid rgba(255,255,255,0.1)",textAlign:"center"}},
-        React.createElement("img", {src:"data:image/webp;base64,"+LOGO,alt:"Cassidy Group",style:{width:120,height:"auto",filter:"drop-shadow(0 1px 4px rgba(0,0,0,0.25))"}})
-      ),
-      React.createElement("div", {style:{padding:"8px 0",flex:1}},
-        STAGES.map(function(s, i) {
-          var active = stage === s.id;
-          return React.createElement("div", {key:s.id,onClick:function(){setStage(s.id);setAiRes("");logEvent(user,"PAGE_VIEW",{stage:s.label});},style:{display:"flex",alignItems:"center",gap:9,padding:"9px 16px",cursor:"pointer",background:active?"rgba(237,232,74,0.12)":"transparent",borderLeft:"3px solid "+(active?"#EDE84A":"transparent"),transition:"all .12s"}},
-            React.createElement("span", {style:{fontSize:10,color:active?"#EDE84A":"rgba(255,255,255,0.3)",width:14}}, s.icon),
-            React.createElement("span", {style:{fontSize:12,color:active?"#fff":"rgba(255,255,255,0.5)"}}, s.label)
+  // ── DASHBOARD ──────────────────────────────────────────────────────────────
+  function renderDashboard(){
+    var cards=[
+      {l:"GDV",v:fmt(gdv)},{l:"Total Dev Cost",v:fmt(tc)},
+      {l:"Profit",v:fmt(profit),c:scM},{l:"Margin",v:pct(margin),c:scM},
+      {l:"NOI (pa)",v:fmt(noi)},{l:"Exit Yield",v:ey?(ey*100).toFixed(2)+"%":"—"},
+      {l:"Units / Beds",v:units||"—"},{l:"City",v:cityName(city)},
+    ];
+    return e("div",null,
+      e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Deal Dashboard"),
+      e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Live overview — fill in the stages to see metrics update"),
+      e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}},
+        cards.map(function(card){
+          return e("div",{key:card.l,style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:16}},
+            e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",marginBottom:6}},card.l),
+            e("div",{style:{fontSize:22,fontWeight:700,color:card.c||"#2E2F8A"}},card.v)
           );
         })
       ),
-      React.createElement("div", {style:{padding:"12px 16px",borderTop:"1px solid rgba(255,255,255,0.08)",fontSize:11,color:"rgba(255,255,255,0.35)"}},
-        (user && user.name) || "User"," · ",(user && user.company) || ""
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Asset Type"),
+        e("div",{style:{display:"flex",gap:10}},
+          ["btr","pbsa"].map(function(t){
+            return e("button",{key:t,onClick:function(){setData(function(d){return Object.assign({},d,{assetType:t});});},
+              style:{padding:"8px 20px",background:at===t?"#4A4BAE":"transparent",border:"1px solid #4A4BAE",color:at===t?"#fff":"#4A4BAE",borderRadius:5,fontFamily:"DM Sans,sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}},
+              t.toUpperCase())
+          })
+        )
+      ),
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Quick Navigation"),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}},
+          STAGES.slice(1).map(function(s){
+            return e("button",{key:s.id,onClick:function(){navTo(s.id);},
+              style:{padding:"10px 8px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:7,fontFamily:"DM Sans,sans-serif",fontSize:11,fontWeight:500,color:"#3A3D6A",cursor:"pointer",textAlign:"center"}},
+              s.icon+" "+s.label);
+          })
+        )
+      ),
+      e(AIPanel,{user:user,stage:"dashboard",label:"Generate Deal Summary",
+        prompt:"Provide a comprehensive deal summary with investment thesis, key strengths, risks and next steps for a "+at.toUpperCase()+" development in "+cityName(city)+". GDV: "+fmt(gdv)+", Total cost: "+fmt(tc)+", Profit: "+fmt(profit)+", Margin: "+pct(margin)+". Rate the deal 1-10 with justification."})
+    );
+  }
+
+  // ── PROPERTY EVALUATOR ─────────────────────────────────────────────────────
+  function renderEPE(){
+    var ep=data.epe||{};
+    var pcData=ep.postcode?lookupPostcode(ep.postcode):null;
+    var eCity=(pcData&&pcData.city)||ep.city||"manchester";
+    var em=MKT[eCity]||MKT.manchester;
+    var salePsf=num(ep.salePsf)||(pcData&&pcData.salePsf)||(em.btr*8.5)||280;
+    var propSqft=num(ep.propSqft)||900;
+    var condMod={excellent:1.15,good:1.05,average:1.0,poor:0.88,derelict:0.70}[ep.condition]||1.0;
+    var gLen=num(ep.gLen); var gWid=num(ep.gWid); var gardenSqft=gLen*gWid;
+    var gPsf=salePsf>600?160:salePsf>350?75:salePsf>220?48:32;
+    var aspMod={south:1.08,south_west:1.05,west:1.02,east:1.0,north:0.95}[ep.aspect]||1.0;
+    var gVal=gardenSqft>0?Math.round((Math.min(gardenSqft,500)*gPsf+Math.max(0,Math.min(gardenSqft-500,500))*gPsf*0.65+Math.max(0,gardenSqft-1000)*gPsf*0.3)*aspMod):0;
+    var parkMod={garage_drive:1.08,drive_2:1.06,drive_1:1.04,on_street:1.0,cpz:0.97}[ep.parking]||1.0;
+    var houseVal=Math.round(propSqft*salePsf*condMod);
+    var currentVal=Math.round((houseVal+gVal)*parkMod);
+    var newUnits=num(ep.newUnits); var newSqft=num(ep.newSqft)||900; var newPsf=num(ep.newPsf)||salePsf;
+    var newBuildPsf=num(ep.buildPsf)||195; var profitPct=num(ep.profitPct)||20;
+    var newGdv=newUnits*newSqft*newPsf;
+    var newBuild=newUnits*newSqft*newBuildPsf;
+    var demolish=15000+(gardenSqft>5000?8000:0);
+    var fees=newBuild*0.10; var fin=(newBuild+fees)*(num(ep.finRate)||7.5)/100;
+    var devProfit=newGdv*(profitPct/100);
+    var tc2=newBuild+fees+fin+newUnits*(num(ep.s106pu)||8000)+demolish;
+    var devRlv=newGdv-tc2-devProfit;
+    var uplift=devRlv-currentVal;
+    var viable=devRlv>currentVal*1.1;
+    var sc=uplift>0?"#2D7A65":"#B05A35";
+
+    return e("div",null,
+      e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Property Evaluator"),
+      e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Current value as standing vs development potential — bungalows, pubs, offices, large plots"),
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Step 1 — Existing Property"),
+        e("div",{style:S.grid2},
+          e(Inp,{label:"Postcode (auto-lookup)",value:ep.postcode,onChange:function(v){up("epe","postcode",v.toUpperCase());},placeholder:"e.g. CV6 2DL"}),
+          e(CitySelect,{label:"City (override if needed)",value:ep.city||eCity,onChange:function(v){up("epe","city",v);}}),
+          e(Sel,{label:"Property Type",value:ep.propType,onChange:function(v){up("epe","propType",v);},
+            options:[{value:"",label:"Select..."}].concat(PROP_TYPES.map(function(t){return{value:t,label:t};}))}),
+          e(Inp,{label:"Internal Floor Area (sqft)",type:"number",value:ep.propSqft,onChange:function(v){up("epe","propSqft",v);},placeholder:"e.g. 900"}),
+          e(Sel,{label:"Condition",value:ep.condition,onChange:function(v){up("epe","condition",v);},
+            options:["","excellent — Excellent (+15%)","good — Good (+5%)","average — Average (0%)","poor — Poor (-12%)","derelict — Derelict (-30%)"].map(function(o){var p=o.split(" — ");return{value:p[0],label:p[1]||"Select..."}})}),
+          e(Inp,{label:"Sale Price psf (£)"+(pcData&&pcData.salePsf?" — postcode: £"+pcData.salePsf:""),type:"number",value:ep.salePsf,onChange:function(v){up("epe","salePsf",v);},placeholder:"£"+Math.round(salePsf)}),
+          e(Sel,{label:"Parking",value:ep.parking,onChange:function(v){up("epe","parking",v);},
+            options:[{value:"",label:"Select..."},{value:"garage_drive",label:"Garage + drive (+8%)"},{value:"drive_2",label:"Double drive (+6%)"},{value:"drive_1",label:"Single drive (+4%)"},{value:"on_street",label:"On-street (0%)"},{value:"cpz",label:"CPZ (-3%)"}]})
+        )
+      ),
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Step 2 — Garden / Plot"),
+        e("div",{style:S.grid2},
+          e(Inp,{label:"Rear Garden Length (ft)",type:"number",value:ep.gLen,onChange:function(v){up("epe","gLen",v);},placeholder:"e.g. 120"}),
+          e(Inp,{label:"Rear Garden Width (ft)",type:"number",value:ep.gWid,onChange:function(v){up("epe","gWid",v);},placeholder:"e.g. 40"}),
+          e(Sel,{label:"Aspect",value:ep.aspect,onChange:function(v){up("epe","aspect",v);},
+            options:[{value:"",label:"Select..."},{value:"south",label:"South-facing (+8%)"},{value:"south_west",label:"SW (+5%)"},{value:"west",label:"West (+2%)"},{value:"east",label:"East (0%)"},{value:"north",label:"North (-5%)"}]}),
+          e(Inp,{label:"Side Garden Length (ft)",type:"number",value:ep.sLen,onChange:function(v){up("epe","sLen",v);},placeholder:"e.g. 60"})
+        ),
+        gardenSqft>0&&e("div",{style:{background:"#EEEEF8",borderRadius:8,padding:12,fontSize:12,color:"#3A3D6A",marginTop:8}},
+          gardenSqft.toLocaleString()+" sqft · "+(gardenSqft/43560).toFixed(3)+" acres · Garden premium: "+fmt(gVal)
+        )
+      ),
+      propSqft>0&&salePsf>0&&e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Current Value — As Standing"),
+        e("div",{style:{display:"flex",flexDirection:"column"}},
+          [{l:"House value",v:houseVal,note:propSqft.toLocaleString()+" sqft × £"+Math.round(salePsf)+"/sqft × condition"},
+           {l:"Garden premium",v:gVal,note:gardenSqft.toLocaleString()+" sqft"},
+          ].filter(function(r){return r.v>0;}).map(function(row){
+            return e("div",{key:row.l,style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:"1px solid #DDE0ED",fontSize:12}},
+              e("span",{style:{fontWeight:500}},row.l),
+              e("span",{style:{fontSize:10,color:"#7278A0"}},row.note),
+              e("span",{style:{fontWeight:600}},fmt(row.v))
+            );
+          }),
+          e("div",{style:{display:"flex",justifyContent:"space-between",padding:"12px 0 4px",fontWeight:700,fontSize:14,borderTop:"2px solid #DDE0ED",marginTop:4}},
+            e("span",null,"Estimated Current Market Value"),
+            e("span",{style:{color:"#4A4BAE",fontSize:18}},fmt(currentVal))
+          ),
+          e("div",{style:{fontSize:10,color:"#7278A0",fontStyle:"italic",marginTop:6}},"⚠ Indicative estimate only — RICS valuation required for formal purposes")
+        )
+      ),
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Step 3 — Development Scenario"),
+        e("div",{style:S.grid2},
+          e(Inp,{label:"New Units to Build",type:"number",value:ep.newUnits,onChange:function(v){up("epe","newUnits",v);},placeholder:"e.g. 4"}),
+          e(Inp,{label:"New Unit Size (sqft)",type:"number",value:ep.newSqft,onChange:function(v){up("epe","newSqft",v);},placeholder:"900"}),
+          e(Inp,{label:"New Sale Price psf (£)",type:"number",value:ep.newPsf,onChange:function(v){up("epe","newPsf",v);},placeholder:"£"+Math.round(salePsf)}),
+          e(Inp,{label:"Build Cost psf (£)",type:"number",value:ep.buildPsf,onChange:function(v){up("epe","buildPsf",v);},placeholder:"£195"}),
+          e(Inp,{label:"Developer Profit % GDV",type:"number",value:ep.profitPct,onChange:function(v){up("epe","profitPct",v);},placeholder:"20"}),
+          e(Inp,{label:"Finance Rate %",type:"number",value:ep.finRate,onChange:function(v){up("epe","finRate",v);},placeholder:"7.5"})
+        )
+      ),
+      newUnits>0&&newGdv>0&&currentVal>0&&e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"The Decision"),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:14}},
+          [{l:"Sell As Standing",v:currentVal,desc:"Current market value. Clean exit — no planning or build risk.",tag:"Low risk · Immediate",c:"#4A4BAE"},
+           {l:"Sell With Planning",v:Math.round(devRlv*0.75),desc:"Get consent then sell. You take planning risk only. ~75% of dev value.",tag:"Medium risk · 12-24 months",c:"#7B6CB0"},
+           {l:"Demolish & Develop",v:devRlv,desc:"Build "+newUnits+" new units. Highest return but carries full risk.",tag:viable?"Viable — significant uplift":"Check viability",c:sc},
+          ].map(function(opt){
+            return e("div",{key:opt.l,style:{background:"#fff",border:"1px solid #DDE0ED",borderTop:"3px solid "+opt.c,borderRadius:8,padding:16}},
+              e("div",{style:{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",color:"#7278A0",marginBottom:6}},opt.l),
+              e("div",{style:{fontSize:22,fontWeight:800,color:"#2E2F8A",marginBottom:8}},fmt(opt.v)),
+              e("div",{style:{fontSize:11,color:"#7278A0",lineHeight:1.6,marginBottom:8}},opt.desc),
+              e("div",{style:{fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:4,background:opt.c+"15",color:opt.c,display:"inline-block"}},opt.tag)
+            );
+          })
+        ),
+        e("div",{style:{border:"1px solid "+sc,borderRadius:8,padding:"14px 16px",background:sc+"08"}},
+          e("div",{style:{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",color:sc,marginBottom:4}},"Development Uplift vs Selling As Standing"),
+          e("div",{style:{fontSize:24,fontWeight:800,color:sc,marginBottom:4}},(uplift>=0?"+":"")+fmt(uplift)+" ("+(uplift>=0?"+":"")+pct(currentVal>0?(uplift/currentVal)*100:0)+")"),
+          e("div",{style:{fontSize:12,color:"#3A3D6A"}},viable?"Development adds "+fmt(uplift)+" over current value — justifies planning and build risk.":"Limited uplift — consider selling as-is or with planning permission only.")
+        ),
+        e(AIPanel,{user:user,stage:"epe",label:"Property & Development Analysis",
+          prompt:"Analyse this property opportunity. Type: "+(ep.propType||"unknown")+" at "+(ep.postcode||"postcode not given")+", "+propSqft+"sqft, condition: "+(ep.condition||"average")+". Current value: £"+currentVal.toLocaleString()+". Garden: "+gardenSqft+"sqft ("+((ep.aspect||"aspect unknown"))+"), premium: "+fmt(gVal)+". Proposed: "+newUnits+" new units, GDV: "+fmt(newGdv)+", dev RLV: "+fmt(devRlv)+", uplift: "+(currentVal>0?pct((uplift/currentVal)*100):"n/a")+". Provide: 1) Current value sense check, 2) Development feasibility, 3) Planning risk, 4) Best option recommendation, 5) What would change the recommendation."})
+      )
+    );
+  }
+
+  // ── LAND VALUATION ─────────────────────────────────────────────────────────
+  function renderRLV(){
+    var r=data.rlv||{};
+    var pcData=r.postcode?lookupPostcode(r.postcode):null;
+    var rCity=(pcData&&pcData.city)||"manchester";
+    var rm=MKT[rCity]||MKT.manchester;
+    var bt=BUILD_TYPES[r.schType]||BUILD_TYPES["Residential houses"];
+    var rUnits=num(r.units); var rSqft=num(r.avgSqft)||850;
+    var rSalePsf=num(r.salePsf)||(pcData&&pcData.salePsf)||(rm.btr*8.5)||280;
+    var rBuild=num(r.buildPsf)||bt.mid;
+    var rProfit=num(r.profitPct)||20; var rFin=num(r.finRate)||7.5;
+    var rCont=num(r.contingency)||5;
+    var rGdv=rUnits*rSqft*rSalePsf;
+    var rBc=rUnits*rSqft*rBuild;
+    var rFees=rBc*bt.fees; var rContCost=rBc*(rCont/100);
+    var rFinCost=(rBc+rFees)*(rFin/100);
+    var rS106=rUnits*(num(r.s106pu)||8000);
+    var rPlan=rUnits*bt.plan;
+    var rDevProfit=rGdv*(rProfit/100);
+    var rRlv=rGdv-rBc-rFees-rContCost-rFinCost-rS106-rPlan-rDevProfit;
+    var rlvPu=rUnits>0?rRlv/rUnits:0;
+    var rlvPctGdv=rGdv>0?(rRlv/rGdv)*100:0;
+    var sc=rRlv>0?"#2D7A65":"#B05A35";
+
+    var lrData=r.lrData||null;
+    var lrLoading=r.lrLoading||false;
+    var lrError=r.lrError||"";
+
+    function fetchLR(){
+      var pc=(r.postcode||"").toUpperCase().replace(/\s/g,"");
+      if(!pc)return;
+      var match=pc.match(/^([A-Z]{1,2}\d{1,2}[A-Z]?)\s*(\d)/);
+      if(!match){up("rlv","lrError","Invalid postcode format");return;}
+      var sector=match[1]+" "+match[2];
+      up("rlv","lrLoading",true);up("rlv","lrError","");up("rlv","lrData",null);
+      var sparql="PREFIX lrppi: <http://landregistry.data.gov.uk/def/ppi/> PREFIX lrcommon: <http://landregistry.data.gov.uk/def/common/> PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> SELECT ?paon ?street ?postcode ?amount ?date ?type WHERE { ?addr lrcommon:postcode \""+sector+"\"^^xsd:string . ?t lrppi:propertyAddress ?addr ; lrppi:pricePaid ?amount ; lrppi:transactionDate ?date ; lrppi:propertyType ?typeUri . OPTIONAL { ?addr lrcommon:paon ?paon } OPTIONAL { ?addr lrcommon:street ?street } OPTIONAL { ?addr lrcommon:postcode ?postcode } BIND(STRAFTER(STR(?typeUri),\"type/\") AS ?type) } ORDER BY DESC(?date) LIMIT 30";
+      fetch("https://landregistry.data.gov.uk/landregistry/query?query="+encodeURIComponent(sparql)+"&output=json",{headers:{"Accept":"application/json"}})
+        .then(function(res){return res.json();})
+        .then(function(json){
+          var rows=(json&&json.results&&json.results.bindings)||[];
+          var TYPE_SQF={D:1350,S:980,T:820,F:620,O:900};
+          var byType={};
+          rows.forEach(function(b){
+            var tc2=(b.type&&b.type.value||"O").charAt(0).toUpperCase();
+            var amt=parseInt((b.amount&&b.amount.value)||0);
+            if(amt>10000){if(!byType[tc2])byType[tc2]=[];byType[tc2].push(amt);}
+          });
+          var typeStats=Object.keys(byType).map(function(code){
+            var prices=byType[code];
+            var avg=prices.reduce(function(a,b){return a+b;},0)/prices.length;
+            var sqf=TYPE_SQF[code]||900;
+            var labels={D:"Detached",S:"Semi",T:"Terraced",F:"Flat",O:"Other"};
+            return{code:code,label:labels[code]||"Other",avg:Math.round(avg),psf:Math.round(avg/sqf),count:prices.length};
+          });
+          var totalTx=rows.filter(function(b){return parseInt((b.amount&&b.amount.value)||0)>10000;}).length;
+          var wPsf=totalTx>0?Math.round(typeStats.reduce(function(a,t){return a+t.psf*t.count;},0)/totalTx):0;
+          var recentRows=rows.slice(0,8).map(function(b){
+            return{addr:(b.paon&&b.paon.value||"")+" "+(b.street&&b.street.value||""),pc:(b.postcode&&b.postcode.value||sector),amount:parseInt((b.amount&&b.amount.value)||0),date:(b.date&&b.date.value||"").substring(0,10),type:(b.type&&b.type.value||"O").charAt(0)};
+          });
+          if(wPsf>0&&!r.salePsf)up("rlv","salePsf",wPsf);
+          up("rlv","lrData",{sector:sector,typeStats:typeStats,wPsf:wPsf,totalTx:totalTx,rows:recentRows});
+          up("rlv","lrLoading",false);
+        })
+        .catch(function(){
+          up("rlv","lrError","Could not reach Land Registry. Enter sale price manually below.");
+          up("rlv","lrLoading",false);
+        });
+    }
+
+    return e("div",null,
+      e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Land Valuation Engine"),
+      e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Live Land Registry data + residual land value calculation"),
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Land Registry Price Search"),
+        e("div",{style:{display:"flex",gap:12,alignItems:"flex-end",marginBottom:12}},
+          e("div",{style:{flex:1,display:"flex",flexDirection:"column",gap:4}},
+            e("label",{style:S.label},"Full Postcode"),
+            e("input",{value:r.postcode||"",onChange:function(ev){up("rlv","postcode",ev.target.value.toUpperCase());},onKeyDown:function(ev){if(ev.key==="Enter")fetchLR();},placeholder:"e.g. CV6 2DL",style:Object.assign({},S.input,{textTransform:"uppercase"})})
+          ),
+          e("button",{onClick:fetchLR,disabled:lrLoading||!r.postcode,style:Object.assign({},S.btn,{flexShrink:0,padding:"9px 18px"})},lrLoading?"Searching...":"🔍 Search LR")
+        ),
+        pcData&&e("div",{style:{background:"#EEEEF8",borderRadius:6,padding:"8px 12px",fontSize:12,color:"#3A3D6A",marginBottom:8}},
+          "City identified: "+cityName(pcData.city)+(pcData.salePsf?" · Local benchmark: £"+pcData.salePsf+"/sqft":"")
+        ),
+        lrError&&e("div",{style:{background:"#FFF0EC",border:"1px solid #E8C4B0",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#8A3A1A"}},lrError),
+        lrData&&e("div",null,
+          e("div",{style:{textAlign:"center",padding:18,background:"linear-gradient(135deg,#EEEEF8,#E4E4F4)",borderRadius:10,marginBottom:12}},
+            e("div",{style:{fontSize:48,fontWeight:800,color:"#4A4BAE",lineHeight:1}},"£"+lrData.wPsf.toLocaleString(),e("span",{style:{fontSize:18,color:"#7278A0"}},"/sqft")),
+            e("div",{style:{fontSize:13,fontWeight:600,color:"#2E2F8A",marginTop:6}},"Weighted average — "+lrData.totalTx+" Land Registry transactions"),
+            e("div",{style:{fontSize:11,color:"#7278A0",marginTop:4}},"Sector: "+lrData.sector)
+          ),
+          e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:10,marginBottom:12}},
+            lrData.typeStats.map(function(t){
+              return e("div",{key:t.code,style:{background:"#fff",border:"1px solid #DDE0ED",borderTop:"3px solid #4A4BAE",borderRadius:8,padding:12}},
+                e("div",{style:{fontSize:10,fontWeight:700,color:"#7278A0",textTransform:"uppercase",marginBottom:6}},t.label),
+                e("div",{style:{fontSize:18,fontWeight:700,color:"#2E2F8A"}},fmt(t.avg)),
+                e("div",{style:{fontSize:11,fontWeight:600,color:"#4A4BAE"}},"£"+t.psf+"/sqft"),
+                e("div",{style:{fontSize:10,color:"#7278A0"}},t.count+" sales")
+              );
+            })
+          ),
+          e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,overflow:"hidden"}},
+            e("div",{style:{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",padding:"8px 12px",background:"#F7F8FC",fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:700,borderBottom:"1px solid #DDE0ED"}},
+              e("span",null,"Address"),e("span",null,"Postcode"),e("span",null,"Date"),e("span",null,"Price")
+            ),
+            lrData.rows.map(function(t,i){
+              return e("div",{key:i,style:{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",padding:"7px 12px",borderBottom:"1px solid #DDE0ED",fontSize:11,color:"#7278A0",alignItems:"center"}},
+                e("span",{style:{color:"#2E2F8A",fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},t.addr||"—"),
+                e("span",{style:{color:"#4A4BAE",fontWeight:700}},t.pc),
+                e("span",null,t.date),
+                e("span",{style:{fontWeight:600,color:"#2E2F8A"}},fmt(t.amount))
+              );
+            })
+          ),
+          e("div",{style:{fontSize:10,color:"#7278A0",fontStyle:"italic",padding:"6px 4px"}},"Source: HM Land Registry Price Paid Data (Open Government Licence)")
+        )
+      ),
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Residual Land Valuation"),
+        e("div",{style:S.grid2},
+          e(Sel,{label:"Scheme Type",value:r.schType,onChange:function(v){up("rlv","schType",v);},
+            options:[{value:"",label:"Select..."}].concat(Object.keys(BUILD_TYPES).map(function(t){return{value:t,label:t};}))}),
+          e(Inp,{label:"Number of Units / Beds",type:"number",value:r.units,onChange:function(v){up("rlv","units",v);},placeholder:"e.g. 45"}),
+          e(Inp,{label:"Avg Unit Size (sqft)",type:"number",value:r.avgSqft,onChange:function(v){up("rlv","avgSqft",v);},placeholder:"850"}),
+          e(Inp,{label:"Sale Price psf (£)"+(pcData&&pcData.salePsf?" — benchmark: £"+pcData.salePsf:""),type:"number",value:r.salePsf,onChange:function(v){up("rlv","salePsf",v);},placeholder:"£"+Math.round(rSalePsf)}),
+          e(Inp,{label:"Build Cost psf (£) — BCIS: £"+bt.lo+"–£"+bt.hi,type:"number",value:r.buildPsf,onChange:function(v){up("rlv","buildPsf",v);},placeholder:"Mid: £"+bt.mid}),
+          e(Inp,{label:"Developer Profit % GDV",type:"number",value:r.profitPct,onChange:function(v){up("rlv","profitPct",v);},placeholder:"20"}),
+          e(Inp,{label:"Finance Rate %",type:"number",value:r.finRate,onChange:function(v){up("rlv","finRate",v);},placeholder:"7.5"}),
+          e(Inp,{label:"S106/CIL per Unit (£)",type:"number",value:r.s106pu,onChange:function(v){up("rlv","s106pu",v);},placeholder:"8000"})
+        ),
+        rUnits>0&&rGdv>0&&e("div",null,
+          e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginTop:12,marginBottom:12}},
+            e("div",{style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,padding:14}},
+              e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:4}},"GDV Breakdown"),
+              [{l:"Build cost",v:rBc},{l:"Prof fees ("+Math.round(bt.fees*100)+"%)",v:rFees},{l:"Contingency ("+rCont+"%)",v:rContCost},{l:"Finance ("+rFin+"%)",v:rFinCost},{l:"S106/CIL",v:rS106},{l:"Planning fees",v:rPlan},{l:"Dev profit ("+rProfit+"%)",v:rDevProfit}].map(function(row){
+                return e("div",{key:row.l,style:{display:"flex",justifyContent:"space-between",fontSize:11,color:"#7278A0",padding:"3px 0",borderBottom:"1px solid #DDE0ED"}},
+                  e("span",null,row.l),e("span",null,"("+fmt(row.v)+")")
+                );
+              })
+            ),
+            e("div",{style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,padding:14}},
+              e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:4}},"Summary"),
+              [{l:"GDV",v:rGdv},{l:"Total Costs + Profit",v:rGdv-rRlv}].map(function(row){
+                return e("div",{key:row.l,style:{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:600,color:"#2E2F8A",padding:"4px 0",borderBottom:"1px solid #DDE0ED"}},
+                  e("span",null,row.l),e("span",null,fmt(row.v))
+                );
+              }),
+              e("div",{style:{display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:700,color:sc,padding:"8px 0",borderTop:"2px solid #DDE0ED",marginTop:4}},
+                e("span",null,"Max Land Bid"),e("span",null,fmt(rRlv))
+              )
+            )
+          ),
+          e("div",{style:Object.assign({},rRlv>0?S.resultGreen:S.resultRed)},
+            e("div",{style:Object.assign({},S.tag,{color:sc,marginBottom:6})},"Maximum Residual Land Value"),
+            e("div",{style:Object.assign({},S.bigNum,{color:sc})},fmt(rRlv)),
+            e("div",{style:{fontSize:12,color:"#7278A0",display:"flex",gap:16,justifyContent:"center",flexWrap:"wrap"}},
+              e("span",null,fmt(rlvPu)+" per unit"),
+              e("span",null,"Land: "+pct(rlvPctGdv)+" of GDV"),
+              e("span",{style:{color:sc,fontWeight:700}},rRlv>0&&rlvPctGdv>=15?"✓ Viable":"✗ Below threshold")
+            )
+          ),
+          e(AIPanel,{user:user,stage:"rlv",label:"RICS Land Valuation Report",
+            prompt:"Provide a professional RICS-style residual land valuation report. Postcode: "+(r.postcode||"not given")+", scheme: "+(r.schType||"residential")+", "+rUnits+" units. LR data: "+(lrData?"£"+lrData.wPsf+"/sqft ("+lrData.totalTx+" transactions)":"not fetched")+". GDV: "+fmt(rGdv)+", RLV: "+fmt(rRlv)+" ("+pct(rlvPctGdv)+" of GDV). Provide: 1) RICS valuation summary, 2) Price per sqft validation, 3) Negotiation strategy (opening bid vs max), 4) Key risks, 5) What would change the valuation."})
+        )
+      )
+    );
+  }
+
+  // ── SFH ────────────────────────────────────────────────────────────────────
+  function renderSFH(){
+    var s=data.sfh||{};
+    var sfhCity=s.city||city;
+    var sm=MKT[sfhCity]||MKT.manchester;
+    var sAcres=num(s.acres); var sDph=num(s.dph)||30;
+    var sHa=sAcres*0.404686; var sMaxUnits=Math.floor(sHa*sDph);
+    var basePsf=num(s.basePsf)||(sm.btr*8.5)||280;
+    var sBuild=num(s.buildPsf)||195;
+    var sProfit=num(s.profitPct)||20;
+    var sFin=num(s.finRate)||7.5;
+    var sCont=num(s.contingency)||5;
+    var s106Pu=num(s.s106pu)||8000;
+    var roads=num(s.roads)||12000;
+    var mix=s.mix||[
+      {type:"3-bed semi",count:"",psf:""},
+      {type:"4-bed detached",count:"",psf:""},
+      {type:"3-bed detached",count:"",psf:""},
+      {type:"2-bed semi",count:"",psf:""},
+    ];
+    function updMix(i,k,v){var m=mix.slice();m[i]=Object.assign({},m[i]);m[i][k]=v;up("sfh","mix",m);}
+
+    var houseCalcs=mix.map(function(row){
+      var cnt=num(row.count); if(!cnt||!row.type)return null;
+      var info=HOUSE_TYPES[row.type]||HOUSE_TYPES["3-bed semi"];
+      var sp=num(row.psf)||(basePsf*info.adj);
+      return{type:row.type,count:cnt,sqft:info.sqft,sp:sp,totalGdv:info.sqft*sp*cnt,build:info.sqft*sBuild*cnt};
+    }).filter(Boolean);
+
+    var totalUnits=houseCalcs.reduce(function(a,h){return a+h.count;},0);
+    var totalGdv=houseCalcs.reduce(function(a,h){return a+h.totalGdv;},0);
+    var totalBuild=houseCalcs.reduce(function(a,h){return a+h.build;},0);
+    var fees=totalBuild*0.10; var contCost=totalBuild*(sCont/100);
+    var finCost=(totalBuild+fees)*(sFin/100);
+    var s106Total=totalUnits*s106Pu; var roadsTotal=totalUnits*roads;
+    var infra=sAcres*53000;
+    var devProfit=totalGdv*(sProfit/100);
+    var tc3=totalBuild+fees+contCost+finCost+s106Total+roadsTotal+infra;
+    var rlv=totalGdv-tc3-devProfit;
+    var rlvPu=totalUnits>0?rlv/totalUnits:0;
+    var rlvAcre=sAcres>0?rlv/sAcres:0;
+    var sMargin=totalGdv>0?(devProfit/totalGdv)*100:0;
+    var sc=rlv>0?"#2D7A65":"#B05A35";
+    var viable=rlv>0&&sMargin>=15;
+
+    // AH scenarios
+    var ahPct=num(s.ahPct)||0;
+    var ahScenarios=ahPct>0?[
+      {label:"First Homes (30% disc)",disc:0.70},
+      {label:"Shared Ownership (40%)",disc:0.60},
+      {label:"Affordable Rent (65%)",disc:0.65},
+      {label:"Social Rent (55%)",disc:0.55},
+    ].map(function(sc2){
+      var ahU=Math.round(totalUnits*ahPct/100);
+      var mktU=totalUnits-ahU;
+      var blGdv=(ahU/Math.max(totalUnits,1))*totalGdv*sc2.disc+(mktU/Math.max(totalUnits,1))*totalGdv;
+      var blRlv=blGdv-tc3-blGdv*(sProfit/100);
+      return Object.assign({},sc2,{ahUnits:ahU,blGdv:blGdv,blRlv:blRlv});
+    }):[];
+
+    var sensitScens=[{l:"Pessimistic",sm:-0.10,bm:+0.12},{l:"Base",sm:0,bm:0},{l:"Optimistic",sm:+0.08,bm:-0.05}].map(function(sc3){
+      var sG=totalGdv*(1+sc3.sm);
+      var sB=totalBuild*(1+sc3.bm);
+      var sP=sG*(sProfit/100);
+      var sR=sG-sB-sB*0.10-sB*(sCont/100)-(sB+sB*0.10)*(sFin/100)-s106Total-roadsTotal-infra-sP;
+      return{l:sc3.l,gdv:sG,rlv:sR,rlvPu:totalUnits>0?sR/totalUnits:0,rlvAcre:sAcres>0?sR/sAcres:0};
+    });
+
+    return e("div",null,
+      e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Single Family Housing"),
+      e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Plot-by-plot residential appraisal with house type mix, roads adoption and SuDS"),
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Site Details"),
+        e("div",{style:S.grid2},
+          e(CitySelect,{value:s.city,onChange:function(v){up("sfh","city",v);}}),
+          e(Inp,{label:"Site Area (acres)",type:"number",value:s.acres,onChange:function(v){up("sfh","acres",v);},placeholder:"e.g. 5.0"}),
+          e(Inp,{label:"Density (dph)",type:"number",value:s.dph,onChange:function(v){up("sfh","dph",v);},placeholder:"30"}),
+          e(Inp,{label:"Affordable Housing %",type:"number",value:s.ahPct,onChange:function(v){up("sfh","ahPct",v);},placeholder:"e.g. 25"}),
+          e(Inp,{label:"Base Sale Price psf (£)",type:"number",value:s.basePsf,onChange:function(v){up("sfh","basePsf",v);},placeholder:"£"+Math.round(basePsf)}),
+          e(Inp,{label:"Build Cost psf (£)",type:"number",value:s.buildPsf,onChange:function(v){up("sfh","buildPsf",v);},placeholder:"£195"}),
+          e(Inp,{label:"Developer Profit %",type:"number",value:s.profitPct,onChange:function(v){up("sfh","profitPct",v);},placeholder:"20"}),
+          e(Inp,{label:"S106 per Plot (£)",type:"number",value:s.s106pu,onChange:function(v){up("sfh","s106pu",v);},placeholder:"8000"}),
+          e(Inp,{label:"Roads/Sewers per Plot (£)",type:"number",value:s.roads,onChange:function(v){up("sfh","roads",v);},placeholder:"12000 (S38/S104)"}),
+          e(Inp,{label:"Finance Rate %",type:"number",value:s.finRate,onChange:function(v){up("sfh","finRate",v);},placeholder:"7.5"}),
+          e(Inp,{label:"Contingency %",type:"number",value:s.contingency,onChange:function(v){up("sfh","contingency",v);},placeholder:"5"}),
+          sAcres>0?e("div",{style:{background:"#EEEEF8",borderRadius:8,padding:12,fontSize:12,color:"#3A3D6A",gridColumn:"span 1"}},
+            sAcres+" acres / "+sHa.toFixed(2)+" ha · ~"+sMaxUnits+" units at "+sDph+" dph"
+          ):e("div",null)
+        )
+      ),
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"House Type Mix"),
+        e("div",{style:{overflowX:"auto"}},
+          e("div",{style:{display:"grid",gridTemplateColumns:"1.8fr 80px 80px 90px 100px 110px",padding:"8px 12px",background:"#F7F8FC",fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:700,borderBottom:"1px solid #DDE0ED",minWidth:600}},
+            e("span",null,"House Type"),e("span",null,"Plots"),e("span",null,"sqft"),e("span",null,"£/sqft"),e("span",null,"Unit GDV"),e("span",null,"Total")
+          ),
+          mix.map(function(row,i){
+            var info=HOUSE_TYPES[row.type]||HOUSE_TYPES["3-bed semi"];
+            var sp=num(row.psf)||(basePsf*info.adj);
+            var cnt=num(row.count);
+            return e("div",{key:i,style:{display:"grid",gridTemplateColumns:"1.8fr 80px 80px 90px 100px 110px",padding:"8px 12px",borderBottom:"1px solid #DDE0ED",gap:8,alignItems:"center",background:cnt>0?"#FAFDF9":"#fff",minWidth:600}},
+              e("select",{value:row.type,onChange:function(ev){updMix(i,"type",ev.target.value);},style:Object.assign({},S.select,{fontSize:11,padding:"5px 6px"})},
+                Object.keys(HOUSE_TYPES).map(function(t){return e("option",{key:t,value:t},t);})
+              ),
+              e("input",{type:"number",value:row.count||"",onChange:function(ev){updMix(i,"count",ev.target.value);},placeholder:"0",style:Object.assign({},S.input,{fontSize:12,padding:"5px 6px"})}),
+              e("span",{style:{fontSize:12,color:"#7278A0"}},info.sqft),
+              e("input",{type:"number",value:row.psf||"",onChange:function(ev){updMix(i,"psf",ev.target.value);},placeholder:"£"+Math.round(sp),style:Object.assign({},S.input,{fontSize:12,padding:"5px 6px"})}),
+              e("span",{style:{fontSize:12,fontWeight:600,color:"#2E2F8A"}},cnt>0?fmt(info.sqft*sp):"—"),
+              e("span",{style:{fontSize:13,fontWeight:700,color:cnt>0?"#4A4BAE":"#7278A0"}},cnt>0?fmt(info.sqft*sp*cnt):"—")
+            );
+          }),
+          totalUnits>0&&e("div",{style:{display:"grid",gridTemplateColumns:"1.8fr 80px 80px 90px 100px 110px",padding:"10px 12px",background:"#F7F8FC",borderTop:"2px solid #DDE0ED",fontSize:12,fontWeight:700,color:"#2E2F8A",minWidth:600}},
+            e("span",null,"TOTAL"),e("span",null,totalUnits+" plots"),e("span",null,""),e("span",null,""),e("span",null,""),
+            e("span",{style:{color:"#4A4BAE",fontWeight:800}},fmt(totalGdv))
+          ),
+          e("button",{onClick:function(){up("sfh","mix",mix.concat([{type:"3-bed semi",count:"",psf:""}]));},style:{margin:"10px 0 0",padding:"5px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#7278A0",borderRadius:4,fontSize:11,cursor:"pointer"}},
+            "+ Add Row"
+          )
+        )
+      ),
+      totalUnits>0&&totalGdv>0&&e("div",null,
+        e("div",{style:S.card},
+          e("div",{style:S.cardTitle},"SFH Development Appraisal"),
+          e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:12}},
+            e("div",null,
+              e("div",{style:{fontSize:9,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,marginBottom:10}},"INCOME"),
+              houseCalcs.map(function(h){
+                return e("div",{key:h.type,style:{display:"flex",justifyContent:"space-between",fontSize:12,color:"#7278A0",padding:"4px 0",borderBottom:"1px solid #F0F0F0"}},
+                  e("span",null,h.count+"× "+h.type),e("span",null,fmt(h.totalGdv))
+                );
+              }),
+              e("div",{style:{display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:700,color:"#2E2F8A",padding:"8px 0",borderTop:"1px solid #DDE0ED",marginTop:4}},
+                e("span",null,"Total GDV ("+totalUnits+" plots)"),e("span",null,fmt(totalGdv))
+              )
+            ),
+            e("div",null,
+              e("div",{style:{fontSize:9,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,marginBottom:10}},"COSTS"),
+              [["Build ("+totalBuild.toLocaleString()+" sqft @ £"+sBuild+"/sqft)",totalBuild],["Prof Fees (10%)",fees],["Contingency ("+sCont+"%)",contCost],["Finance ("+sFin+"%)",finCost],["S106/CIL",s106Total],["Roads & Sewers (S38/S104)",roadsTotal],["Site Infra & SuDS",infra],["Dev Profit ("+sProfit+"%)",devProfit]].map(function(row){
+                return e("div",{key:row[0],style:{display:"flex",justifyContent:"space-between",fontSize:12,color:"#7278A0",padding:"4px 0",borderBottom:"1px solid #F0F0F0"}},
+                  e("span",null,row[0]),e("span",null,"("+fmt(row[1])+")")
+                );
+              })
+            )
+          ),
+          e("div",{style:Object.assign({},rlv>0?S.resultGreen:S.resultRed)},
+            e("div",{style:Object.assign({},S.tag,{color:sc,marginBottom:6})},"Residual Land Value"),
+            e("div",{style:Object.assign({},S.bigNum,{color:sc})},fmt(rlv)),
+            e("div",{style:{fontSize:12,color:"#7278A0",display:"flex",gap:16,justifyContent:"center",flexWrap:"wrap"}},
+              e("span",null,fmt(rlvPu)+" per plot"),
+              sAcres>0&&e("span",null,fmt(rlvAcre)+" per acre"),
+              e("span",null,"Margin: "+pct(sMargin)),
+              e("span",{style:{color:sc,fontWeight:700}},viable?"✓ Viable":"✗ Below threshold")
+            )
+          )
+        ),
+        ahScenarios.length>0&&e("div",{style:S.card},
+          e("div",{style:S.cardTitle},"Affordable Housing Viability"),
+          e("div",{style:{display:"flex",flexDirection:"column",gap:8}},
+            ahScenarios.map(function(sc4){
+              var scCol=sc4.blRlv>0?"#2D7A65":"#B05A35";
+              var impact=sc4.blRlv<rlv*0.7?"⚠ Significant impact":sc4.blRlv<rlv*0.85?"Moderate impact":"Manageable";
+              return e("div",{key:sc4.label,style:{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 1.5fr",gap:12,padding:"10px 14px",background:"#fff",border:"1px solid #DDE0ED",borderRadius:6,alignItems:"center",fontSize:11}},
+                e("span",{style:{fontWeight:600,color:"#2E2F8A"}},sc4.label),
+                e("span",{style:{color:"#7278A0"}},sc4.ahUnits+" of "+totalUnits+" units"),
+                e("span",{style:{color:"#7278A0"}},"GDV: "+fmt(sc4.blGdv)),
+                e("span",{style:{fontWeight:700,color:scCol}},"RLV: "+fmt(sc4.blRlv)),
+                e("span",{style:{fontWeight:600,color:sc4.blRlv<rlv*0.7?"#B05A35":"#7278A0",fontSize:10}},impact)
+              );
+            })
+          )
+        ),
+        e("div",{style:S.card},
+          e("div",{style:S.cardTitle},"Sensitivity Analysis"),
+          e("div",{style:{border:"1px solid #DDE0ED",borderRadius:8,overflow:"hidden"}},
+            e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",padding:"8px 14px",background:"#F7F8FC",fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:700,borderBottom:"1px solid #DDE0ED"}},
+              e("span",null,"Scenario"),e("span",null,"GDV"),e("span",null,"RLV"),e("span",null,"RLV/Plot"),e("span",null,"RLV/Acre")
+            ),
+            sensitScens.map(function(sc5){
+              var scC5=sc5.rlv>0?"#2D7A65":"#B05A35";
+              return e("div",{key:sc5.l,style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",padding:"8px 14px",borderBottom:"1px solid #DDE0ED",fontSize:12,color:"#7278A0"}},
+                e("span",{style:{fontWeight:700,color:"#2E2F8A"}},sc5.l),
+                e("span",null,fmt(sc5.gdv)),
+                e("span",{style:{fontWeight:600,color:scC5}},fmt(sc5.rlv)),
+                e("span",null,fmt(sc5.rlvPu)),
+                e("span",null,sAcres>0?"£"+Math.round(sc5.rlvAcre/1000)+"k":"—")
+              );
+            })
+          ),
+          e("div",{style:{fontSize:10,color:"#7278A0",padding:"6px 4px"}},"Pessimistic: -10% sales, +12% build costs | Optimistic: +8% sales, -5% build costs")
+        ),
+        e(AIPanel,{user:user,stage:"sfh",label:"SFH Development Analysis",
+          prompt:"Analyse this SFH development. Site: "+sAcres+" acres in "+cityName(sfhCity)+", "+sDph+" dph, "+totalUnits+" plots. Mix: "+houseCalcs.map(function(h){return h.count+"x "+h.type;}).join(", ")+". GDV: "+fmt(totalGdv)+", RLV: "+fmt(rlv)+" ("+fmt(rlvPu)+"/plot), margin: "+pct(sMargin)+". AH: "+ahPct+"% required. Provide: 1) Mix assessment for "+cityName(sfhCity)+" market, 2) Sale price sense check, 3) Affordable housing strategy and best tenure, 4) Infrastructure cost adequacy, 5) Phasing strategy for "+totalUnits+" plots, 6) Key planning and delivery risks."})
+      )
+    );
+  }
+
+  // ── HIGH-RISE ───────────────────────────────────────────────────────────────
+  function renderHRA(){
+    var h=data.hra||{};
+    var hCity=h.city||city;
+    var hm=MKT[hCity]||MKT.manchester;
+    var storeys=num(h.storeys); var fp=num(h.fp);
+    var eff=num(h.eff)||80;
+    var gia2=fp*storeys; var nia=gia2*(eff/100);
+    var ss=num(h.ss)||20; var os=num(h.os)||50; var ts=num(h.ts)||30;
+    var ssqft=num(h.ssqft)||380; var osqft=num(h.osqft)||520; var tsqft=num(h.tsqft)||750;
+    var su=nia>0?Math.round(nia*(ss/100)/ssqft):0;
+    var ou=nia>0?Math.round(nia*(os/100)/osqft):0;
+    var tu=nia>0?Math.round(nia*(ts/100)/tsqft):0;
+    var total=su+ou+tu;
+    var sPsf=num(h.sPsf)||(hm.btr*7.8)||260;
+    var oPsf=num(h.oPsf)||(hm.btr*8.2)||280;
+    var tPsf=num(h.tPsf)||(hm.btr*8.8)||300;
+    var fl=num(h.fl)||0.5;
+    var blend=1+(storeys>1?(storeys/2)*fl/100:0);
+    var sGdv=su*ssqft*sPsf*blend; var oGdv=ou*osqft*oPsf*blend; var tGdv=tu*tsqft*tPsf*blend;
+    var hGdv=sGdv+oGdv+tGdv; var avgPsf=nia>0?hGdv/nia:0;
+    var bcp=num(h.bcp)||(storeys>=20?310:storeys>=15?280:storeys>=10?255:230);
+    var hBc=gia2*bcp;
+    var cores=num(h.cores)||Math.max(1,Math.ceil(gia2/40000));
+    var liftCost=cores*storeys*18000;
+    var sprCost=gia2*18;
+    var ewsCost=storeys>=11?25000:0;
+    var g2Cost=storeys>=18?45000:storeys>=11?28000:0;
+    var structP=storeys>=20?gia2*15:storeys>=15?gia2*10:gia2*6;
+    var amenity=Math.min(total*3500,500000);
+    var hFees=hBc*0.13; var hCont=hBc*(num(h.contingency)||6)/100;
+    var hFin=(hBc+hFees)*(num(h.finRate)||8)/100;
+    var hS106=total*(num(h.s106pu)||10000); var hPlan=total*12000;
+    var hDevProfit=hGdv*(num(h.profitPct)||20)/100;
+    var hrCosts=liftCost+sprCost+ewsCost+g2Cost+structP+amenity;
+    var hTc=hBc+hFees+hCont+hFin+hS106+hPlan+hrCosts;
+    var hRlv=hGdv-hTc-hDevProfit;
+    var hMargin=hGdv>0?(hDevProfit/hGdv)*100:0;
+    var sc=hRlv>0?"#2D7A65":"#B05A35";
+    var bsa=storeys>=18; var ews=storeys>=11;
+
+    var compliance=[
+      {l:"BSA 2022 / HRB regime",v:bsa?"Required — Principal Designer & Contractor":"Not applicable (<18m)",req:bsa},
+      {l:"Gateway 2 (pre-construction)",v:storeys>=18?"Required — HSE submission":"Not required",req:storeys>=18},
+      {l:"Gateway 3 (pre-occupation)",v:storeys>=18?"Required — BSR completion certificate":"Not required",req:storeys>=18},
+      {l:"EWS1 Form",v:ews?"Required for mortgage lending":"Not required (<11m)",req:ews},
+      {l:"Sprinkler system",v:ews?"Mandatory — Building Regs Part B":"Recommended",req:ews},
+      {l:"Fire Engineer",v:storeys>=6?"Required from 6+ storeys":"Consult building regs",req:storeys>=6},
+    ];
+
+    return e("div",null,
+      e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"High-Rise Apartments"),
+      e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Multi-storey flatted development — BSA Gateway 2/3, EWS1, fire strategy, lift provision, GIA efficiency"),
+      storeys>0&&e("div",{style:{border:"1px solid "+(bsa?"#B05A35":"#4A4BAE"),borderRadius:10,padding:"16px 20px",background:bsa?"rgba(176,90,53,0.06)":"rgba(74,75,174,0.04)",marginBottom:16}},
+        e("div",{style:{fontWeight:700,fontSize:13,color:bsa?"#B05A35":"#4A4BAE",marginBottom:12}},bsa?"🔴 Higher Risk Building — Building Safety Act 2022 applies":"🟡 Medium-rise — Fire Safety (England) Regulations apply"),
+        compliance.map(function(fc){
+          return e("div",{key:fc.l,style:{display:"grid",gridTemplateColumns:"200px 1fr",gap:12,fontSize:11,padding:"4px 0",borderBottom:"1px solid rgba(0,0,0,0.05)"}},
+            e("span",{style:{fontWeight:600,color:"#3A3D6A"}},fc.l),
+            e("span",{style:{color:"#7278A0"}},fc.v)
+          );
+        })
+      ),
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Building Specification"),
+        e("div",{style:S.grid2},
+          e(CitySelect,{value:h.city,onChange:function(v){up("hra","city",v);}}),
+          e(Inp,{label:"Number of Storeys",type:"number",value:h.storeys,onChange:function(v){up("hra","storeys",v);},placeholder:"e.g. 12"}),
+          e(Inp,{label:"Floorplate sqft per floor",type:"number",value:h.fp,onChange:function(v){up("hra","fp",v);},placeholder:"e.g. 8000"}),
+          e(Inp,{label:"Efficiency Ratio % (NIA of GIA)",type:"number",value:h.eff,onChange:function(v){up("hra","eff",v);},placeholder:"80 (typical 78-85%)"}),
+          e(Inp,{label:"Number of Cores",type:"number",value:h.cores,onChange:function(v){up("hra","cores",v);},placeholder:"Est: "+Math.max(1,Math.ceil((gia2||8000)/40000))}),
+          e(Sel,{label:"Structural Form",value:h.structure,onChange:function(v){up("hra","structure",v);},
+            options:[{value:"",label:"Select..."},{value:"rc_frame",label:"RC Frame (most common 10+ storeys)"},{value:"steel",label:"Steel/RC Hybrid"},{value:"clt",label:"CLT Hybrid (up to ~18 storeys)"},{value:"modular",label:"Modular/Volumetric"}]})
+        ),
+        gia2>0&&e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,background:"#EEEEF8",borderRadius:8,padding:14,marginTop:8}},
+          [{l:"Total GIA",v:gia2.toLocaleString()+" sqft"},{l:"NIA ("+eff+"% eff)",v:Math.round(nia).toLocaleString()+" sqft"},{l:"Lost to circulation",v:Math.round(gia2-nia).toLocaleString()+" sqft"},{l:"Est. units",v:total+" apts"}].map(function(item){
+            return e("div",{key:item.l},
+              e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:3}},item.l),
+              e("div",{style:{fontSize:14,fontWeight:700,color:"#2E2F8A"}},item.v)
+            );
+          })
+        )
+      ),
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Unit Mix & Pricing"),
+        e("div",{style:S.grid2},
+          e(Inp,{label:"Studio split %",type:"number",value:h.ss,onChange:function(v){up("hra","ss",v);},placeholder:"20"}),
+          e(Inp,{label:"Studio size sqft",type:"number",value:h.ssqft,onChange:function(v){up("hra","ssqft",v);},placeholder:"380"}),
+          e(Inp,{label:"1-bed split %",type:"number",value:h.os,onChange:function(v){up("hra","os",v);},placeholder:"50"}),
+          e(Inp,{label:"1-bed size sqft",type:"number",value:h.osqft,onChange:function(v){up("hra","osqft",v);},placeholder:"520"}),
+          e(Inp,{label:"2-bed split %",type:"number",value:h.ts,onChange:function(v){up("hra","ts",v);},placeholder:"30"}),
+          e(Inp,{label:"2-bed size sqft",type:"number",value:h.tsqft,onChange:function(v){up("hra","tsqft",v);},placeholder:"750"}),
+          e(Inp,{label:"Studio sale £/sqft",type:"number",value:h.sPsf,onChange:function(v){up("hra","sPsf",v);},placeholder:"£"+Math.round(sPsf)}),
+          e(Inp,{label:"1-bed sale £/sqft",type:"number",value:h.oPsf,onChange:function(v){up("hra","oPsf",v);},placeholder:"£"+Math.round(oPsf)}),
+          e(Inp,{label:"2-bed sale £/sqft",type:"number",value:h.tPsf,onChange:function(v){up("hra","tPsf",v);},placeholder:"£"+Math.round(tPsf)}),
+          e(Inp,{label:"Floor level premium % per floor",type:"number",value:h.fl,onChange:function(v){up("hra","fl",v);},placeholder:"0.5"}),
+          e(Inp,{label:"Build cost psf GIA (£) — auto: £"+bcp,type:"number",value:h.bcp,onChange:function(v){up("hra","bcp",v);},placeholder:"£"+bcp}),
+          e(Inp,{label:"Developer Profit % GDV",type:"number",value:h.profitPct,onChange:function(v){up("hra","profitPct",v);},placeholder:"20"}),
+          e(Inp,{label:"Finance Rate %",type:"number",value:h.finRate,onChange:function(v){up("hra","finRate",v);},placeholder:"8.0"}),
+          e(Inp,{label:"S106/CIL per unit (£)",type:"number",value:h.s106pu,onChange:function(v){up("hra","s106pu",v);},placeholder:"10000"})
+        ),
+        total>0&&e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginTop:8}},
+          [{l:"Studios",units:su,sqft:ssqft,psf:Math.round(sPsf),gdv:sGdv,c:"#4A4BAE"},
+           {l:"1-bed",units:ou,sqft:osqft,psf:Math.round(oPsf),gdv:oGdv,c:"#7B6CB0"},
+           {l:"2-bed",units:tu,sqft:tsqft,psf:Math.round(tPsf),gdv:tGdv,c:"#2D7A65"},
+           {l:"Total",units:total,sqft:Math.round(nia/Math.max(total,1)),psf:Math.round(avgPsf),gdv:hGdv,c:"#2E2F8A"}].map(function(row){
+            return e("div",{key:row.l,style:{background:"#fff",border:"1px solid #DDE0ED",borderTop:"3px solid "+row.c,borderRadius:8,padding:12}},
+              e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:5}},row.l),
+              e("div",{style:{fontSize:20,fontWeight:800,color:row.c,lineHeight:1,marginBottom:3}},row.units+" units"),
+              e("div",{style:{fontSize:10,color:"#7278A0"}},row.sqft+" sqft avg"),
+              e("div",{style:{fontSize:10,color:"#7278A0"}},"£"+row.psf+"/sqft"),
+              e("div",{style:{fontSize:13,fontWeight:700,color:"#2E2F8A",marginTop:6,paddingTop:6,borderTop:"1px solid #DDE0ED"}},fmt(row.gdv))
+            );
+          })
+        )
+      ),
+      total>0&&hGdv>0&&e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"High-Rise Development Appraisal"),
+        e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:12}},
+          e("div",null,
+            e("div",{style:{fontSize:9,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,marginBottom:10}},"GDV"),
+            [[su+" studios × "+ssqft+"sqft × £"+Math.round(sPsf)+"/sqft",sGdv],[ou+" 1-beds × "+osqft+"sqft × £"+Math.round(oPsf)+"/sqft",oGdv],[tu+" 2-beds × "+tsqft+"sqft × £"+Math.round(tPsf)+"/sqft",tGdv]].map(function(row){
+              return e("div",{key:row[0],style:{display:"flex",justifyContent:"space-between",fontSize:12,color:"#7278A0",padding:"4px 0",borderBottom:"1px solid #F0F0F0"}},
+                e("span",null,row[0]),e("span",null,fmt(row[1]))
+              );
+            }),
+            e("div",{style:{display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:700,color:"#2E2F8A",padding:"8px 0",borderTop:"1px solid #DDE0ED",marginTop:4}},
+              e("span",null,"Total GDV"),e("span",null,fmt(hGdv))
+            )
+          ),
+          e("div",null,
+            e("div",{style:{fontSize:9,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,marginBottom:10}},"COSTS"),
+            [["Build ("+gia2.toLocaleString()+" sqft @ £"+bcp+"/sqft)",hBc],["Prof Fees (13%)",hFees],["Contingency ("+((num(h.contingency)||6))+"%)",hCont],["Finance ("+((num(h.finRate)||8))+"%)",hFin],["Planning fees",hPlan],["S106/CIL",hS106],["Lifts ("+cores+" cores × "+storeys+" floors)",liftCost],["Sprinklers ("+(ews?"mandatory":"rec.")+")",sprCost],["Structural premium",structP],["Resident amenity",amenity]].concat(ewsCost>0?[["EWS1 assessment",ewsCost]]:[]).concat(g2Cost>0?[["BSA Gateway 2 & 3",g2Cost]]:[]).concat([["Dev Profit ("+(num(h.profitPct)||20)+"%)",hDevProfit]]).map(function(row){
+              return e("div",{key:row[0],style:{display:"flex",justifyContent:"space-between",fontSize:11,color:"#7278A0",padding:"3px 0",borderBottom:"1px solid #F0F0F0"}},
+                e("span",null,row[0]),e("span",null,"("+fmt(row[1])+")")
+              );
+            })
+          )
+        ),
+        e("div",{style:Object.assign({},hRlv>0?S.resultGreen:S.resultRed)},
+          e("div",{style:Object.assign({},S.tag,{color:sc,marginBottom:6})},"Residual Land Value"),
+          e("div",{style:Object.assign({},S.bigNum,{color:sc})},fmt(hRlv)),
+          e("div",{style:{fontSize:12,color:"#7278A0",display:"flex",gap:16,justifyContent:"center",flexWrap:"wrap"}},
+            e("span",null,fmt(hRlv/Math.max(total,1))+" per unit"),
+            e("span",null,"£"+Math.round(avgPsf)+"/sqft NIA"),
+            e("span",null,"Margin: "+pct(hMargin)),
+            e("span",{style:{color:sc,fontWeight:700}},hRlv>0&&hMargin>=15?"✓ Viable":"✗ Below threshold")
+          )
+        ),
+        e("div",{style:{background:"rgba(176,90,53,0.06)",border:"1px solid rgba(176,90,53,0.2)",borderRadius:8,padding:"12px 16px",marginTop:10,fontSize:11,color:"#8A4020"}},
+          "⚠ Est. service charge: £"+(total*2400).toLocaleString()+"/year total (£2,400/unit). Sinking fund required under BSA 2022. High service charges reduce investor pricing by ~2%."
+        ),
+        e(AIPanel,{user:user,stage:"hra",label:"High-Rise Analysis & BSA Compliance",
+          prompt:"Analyse this "+storeys+"-storey apartment scheme in "+cityName(hCity)+". "+total+" units ("+su+" studios, "+ou+" 1-bed, "+tu+" 2-bed), GDV: "+fmt(hGdv)+", RLV: "+fmt(hRlv)+", margin: "+pct(hMargin)+". Structure: "+(h.structure||"RC frame")+". "+(bsa?"Higher Risk Building under BSA 2022.":"")+". Provide: 1) Viability vs "+cityName(hCity)+" market benchmarks, 2) BSA 2022 compliance roadmap and Gateway 2/3 timeline, 3) EWS1 strategy and cladding risk, 4) Structural form recommendation for "+storeys+" storeys, 5) Service charge impact on exit pricing, 6) Mix optimisation for current demand."})
+      )
+    );
+  }
+
+  // ── LAND FINDER (SCRAPER) ──────────────────────────────────────────────────
+  function renderScraper(){
+    var sc2=data.scraper||{};
+    var scrResult=sc2.result||null;
+    var scrLoading=sc2.loading||false;
+    var scrError=sc2.error||"";
+    var imported=sc2.imported||false;
+
+    var SOURCES=[
+      {name:"Bruton Knowles",url:"https://www.brutonknowles.co.uk/search/",hint:"Strategic land listings"},
+      {name:"Savills Land",url:"https://www.savills.co.uk/search/#?Type=SL",hint:"UK land for sale"},
+      {name:"Knight Frank",url:"https://www.knightfrank.co.uk/land-for-sale",hint:"Development land"},
+      {name:"Rightmove Land",url:"https://www.rightmove.co.uk/commercial-property-for-sale/land.html",hint:"All UK listings"},
+      {name:"Acuitus",url:"https://www.acuitus.co.uk/property-search/",hint:"Commercial & mixed use"},
+      {name:"Planning Portal",url:"https://www.planningportal.co.uk/",hint:"Planning applications"},
+    ];
+
+    function doScrape(){
+      var url=sc2.url||"";
+      if(!url)return;
+      up("scraper","loading",true);up("scraper","error","");up("scraper","result",null);up("scraper","imported",false);
+      fetch(WEBHOOK,{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          action:"ai",model:"claude-sonnet-4-20250514",max_tokens:800,
+          system:"You are a UK land data extraction specialist. Return ONLY valid JSON, no markdown, no explanation.",
+          messages:[{role:"user",content:"Extract UK land/property listing data from this URL and return a JSON object with these fields: address, postcode, city, acreage (number or null), hectares (number or null), askingPrice (number or null), priceType (sale/option/promotion/tender), planningStatus, localAuthority, propertyType, description (2-3 sentences), agent, agentContact, dealType (sale/option/promotion/hybrid), developmentPotential, estimatedUnits (number or null), constraints. URL: "+url+" If you cannot access the URL, extract what you can from the URL structure itself. Return only JSON."}],
+          user:(user&&user.name)||"",stage:"Land Finder"
+        })
+      })
+      .then(function(res){return res.json();})
+      .then(function(data2){
+        var text=""; var content=data2.content||[];
+        for(var i=0;i<content.length;i++){if(content[i].type==="text"){text=content[i].text;break;}}
+        var clean=text.replace(/```json|```/g,"").trim();
+        try{
+          var extracted=JSON.parse(clean);
+          up("scraper","result",extracted);
+          up("scraper","loading",false);
+          logEvent(user,"SCRAPE",{url:url,address:extracted.address||"unknown"});
+        }catch(err){
+          up("scraper","error","Could not extract structured data from this URL. Try a direct property listing page.");
+          up("scraper","loading",false);
+        }
+      })
+      .catch(function(){
+        up("scraper","error","Failed to fetch. Check connection.");
+        up("scraper","loading",false);
+      });
+    }
+
+    function doImport(){
+      if(!scrResult)return;
+      var c=(scrResult.city||"").toLowerCase().replace(/\s/g,"_");
+      setData(function(d){
+        return Object.assign({},d,{
+          land:Object.assign({},d.land||{},{address:scrResult.address||"",city:c||d.land&&d.land.city||"",acres:scrResult.acreage||"",price:scrResult.askingPrice||""}),
+          planning:Object.assign({},d.planning||{},{lpa:scrResult.localAuthority||"",units:scrResult.estimatedUnits||""}),
+          rlv:Object.assign({},d.rlv||{},{postcode:scrResult.postcode||"",acres:scrResult.acreage||""}),
+          sfh:Object.assign({},d.sfh||{},{acres:scrResult.acreage||"",city:c||""}),
+          epe:Object.assign({},d.epe||{},{postcode:scrResult.postcode||"",propType:scrResult.propertyType||""}),
+        });
+      });
+      up("scraper","imported",true);
+      logEvent(user,"IMPORT",{address:scrResult.address||"unknown",postcode:scrResult.postcode||""});
+    }
+
+    return e("div",null,
+      e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Land Opportunity Finder"),
+      e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Paste any land agent URL — AI extracts key data and pre-fills your appraisal fields"),
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Quick Links — Major Land Agents"),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}},
+          SOURCES.map(function(src){
+            return e("div",{key:src.name,onClick:function(){up("scraper","url",src.url);},style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,padding:"12px 14px",cursor:"pointer"},
+              onMouseOver:function(ev){ev.currentTarget.style.borderColor="#4A4BAE";},
+              onMouseOut:function(ev){ev.currentTarget.style.borderColor="#DDE0ED";}},
+              e("div",{style:{fontSize:12,fontWeight:700,color:"#2E2F8A",marginBottom:3}},src.name),
+              e("div",{style:{fontSize:10,color:"#7278A0"}},src.hint)
+            );
+          })
+        )
+      ),
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Paste URL to Extract"),
+        e("div",{style:{display:"flex",gap:12,alignItems:"flex-end"}},
+          e("div",{style:{flex:1,display:"flex",flexDirection:"column",gap:4}},
+            e("label",{style:S.label},"Land listing URL"),
+            e("input",{value:sc2.url||"",onChange:function(ev){up("scraper","url",ev.target.value);},onKeyDown:function(ev){if(ev.key==="Enter")doScrape();},placeholder:"e.g. https://www.brutonknowles.co.uk/property/...",style:S.input})
+          ),
+          e("button",{onClick:doScrape,disabled:scrLoading||!sc2.url,style:Object.assign({},S.btn,{flexShrink:0,padding:"9px 20px"})},scrLoading?"⏳ Extracting...":"🔍 Extract Data")
+        ),
+        scrError&&e("div",{style:{background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.25)",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#B05A35",marginTop:8}},scrError)
+      ),
+      scrResult&&e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Extracted Data"),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:12}},
+          [{l:"Asking Price",v:scrResult.askingPrice?fmt(scrResult.askingPrice):(scrResult.priceType||"POA")},
+           {l:"Site Area",v:scrResult.acreage?scrResult.acreage+" acres":"—"},
+           {l:"Deal Type",v:scrResult.dealType||"—"},
+           {l:"Local Authority",v:scrResult.localAuthority||"—"}].map(function(item){
+            return e("div",{key:item.l,style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,padding:12}},
+              e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:4}},item.l),
+              e("div",{style:{fontSize:14,fontWeight:700,color:"#4A4BAE"}},item.v)
+            );
+          })
+        ),
+        e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,overflow:"hidden",marginBottom:12}},
+          [["Address",scrResult.address],["Postcode",scrResult.postcode],["City",scrResult.city],["Property Type",scrResult.propertyType],["Planning Status",scrResult.planningStatus],["Development Potential",scrResult.developmentPotential],["Agent",scrResult.agent],["Agent Contact",scrResult.agentContact]].filter(function(r){return r[1];}).map(function(row){
+            return e("div",{key:row[0],style:{display:"grid",gridTemplateColumns:"160px 1fr",padding:"9px 16px",borderBottom:"1px solid #DDE0ED",fontSize:12,gap:12}},
+              e("span",{style:{color:"#7278A0",fontWeight:600}},row[0]),
+              e("span",{style:{color:"#2E2F8A"}},row[1])
+            );
+          })
+        ),
+        scrResult.description&&e("div",{style:{background:"rgba(74,75,174,0.05)",border:"1px solid rgba(74,75,174,0.15)",borderRadius:8,padding:"12px 16px",fontSize:12,color:"#3A3D6A",lineHeight:1.7,marginBottom:12}},scrResult.description),
+        imported?e("div",{style:{background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.25)",borderRadius:8,padding:"14px 16px",fontSize:13,color:"#2D7A65",fontWeight:600,textAlign:"center"}},
+          "✓ Imported — fields pre-filled across all appraisal stages. Navigate to Land Appraisal, RLV or SFH to see the data."
+        ):e("button",{onClick:doImport,style:{width:"100%",padding:"11px",background:"#4A4BAE",border:"none",borderRadius:7,color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
+          "⚡ Import & Pre-fill All Landform Fields"
+        )
+      )
+    );
+  }
+
+  // ── LAND APPRAISAL ─────────────────────────────────────────────────────────
+  function renderLand(){
+    var l=data.land||{};
+    var score=0;
+    var vm={proximity:{excellent:25,good:15,fair:8,poor:0},transport:{excellent:20,good:12,fair:6,poor:0},contamination:{clean:20,minor:10,major:0,unknown:4},tenure:{freehold:15,long_leasehold:10,short_leasehold:3},constraint:{none:20,minor:12,moderate:6,major:0}};
+    Object.keys(vm).forEach(function(k){score+=(vm[k][l[k]]||0);});
+    var sc=score>=70?"#2D7A65":score>=45?"#9A7B3E":"#B05A35";
+    var benchmark=m.land;
+    var askingPrice=num(l.price);
+    var diff=benchmark>0?((askingPrice-benchmark)/benchmark*100):null;
+
+    return e("div",null,
+      e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Land Appraisal"),
+      e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Site evaluation, location scoring and market benchmarking"),
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Site Details"),
+        e("div",{style:S.grid2},
+          e(Inp,{label:"Site Address",value:l.address,onChange:function(v){up("land","address",v);},placeholder:"e.g. Former Factory, Birmingham B1",full:true}),
+          e(CitySelect,{value:l.city,onChange:function(v){up("land","city",v);}}),
+          e(Inp,{label:"Site Area (acres)",type:"number",value:l.acres,onChange:function(v){up("land","acres",v);},placeholder:"e.g. 2.5"}),
+          e(Inp,{label:"Asking Price (£)",type:"number",value:l.price,onChange:function(v){up("land","price",v);},placeholder:"e.g. 4500000"}),
+          e(Sel,{label:"Proximity to Demand",value:l.proximity,onChange:function(v){up("land","proximity",v);},
+            options:[{value:"",label:"Select..."},{value:"excellent",label:"Excellent — <10 min walk (+25)"},{value:"good",label:"Good — <20 min / 5 min cycle (+15)"},{value:"fair",label:"Fair — public transport needed (+8)"},{value:"poor",label:"Poor — car dependent (0)"}]}),
+          e(Sel,{label:"Transport Connectivity",value:l.transport,onChange:function(v){up("land","transport",v);},
+            options:[{value:"",label:"Select..."},{value:"excellent",label:"Train + Bus + Cycle (+20)"},{value:"good",label:"Bus + Cycle (+12)"},{value:"fair",label:"Bus only (+6)"},{value:"poor",label:"Limited (0)"}]}),
+          e(Sel,{label:"Ground Contamination",value:l.contamination,onChange:function(v){up("land","contamination",v);},
+            options:[{value:"",label:"Select..."},{value:"clean",label:"Phase 1 clear (+20)"},{value:"minor",label:"Minor remediation <£200k (+10)"},{value:"unknown",label:"Not surveyed (+4)"},{value:"major",label:"Significant remediation (0)"}]}),
+          e(Sel,{label:"Land Tenure",value:l.tenure,onChange:function(v){up("land","tenure",v);},
+            options:[{value:"",label:"Select..."},{value:"freehold",label:"Freehold (+15)"},{value:"long_leasehold",label:"Long Leasehold 250yr+ (+10)"},{value:"short_leasehold",label:"Short Leasehold (+3)"}]}),
+          e(Sel,{label:"Planning Constraints",value:l.constraint,onChange:function(v){up("land","constraint",v);},
+            options:[{value:"",label:"Select..."},{value:"none",label:"None / outline consent (+20)"},{value:"minor",label:"TPO / listed adjacent (+12)"},{value:"moderate",label:"Conservation / Flood Zone 2 (+6)"},{value:"major",label:"Green belt / Flood Zone 3 (0)"}]})
+        ),
+        e("div",{style:{display:"flex",alignItems:"center",gap:16,paddingTop:16,borderTop:"1px solid #DDE0ED",marginTop:4}},
+          e("div",{style:{width:64,height:64,borderRadius:"50%",border:"2px solid "+sc,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0}},
+            e("div",{style:{fontSize:22,fontWeight:800,color:sc,lineHeight:1}},score),
+            e("div",{style:{fontSize:9,color:"#7278A0"}},"/100")
+          ),
+          e("div",{style:{flex:1}},
+            e("div",{style:{height:4,background:"#DDE0ED",borderRadius:2,overflow:"hidden",marginBottom:6}},
+              e("div",{style:{height:"100%",width:score+"%",background:sc,borderRadius:2,transition:"width .5s"}})
+            ),
+            e("div",{style:{fontSize:12,color:sc,fontWeight:600}},score>=70?"✓ Strong — proceed to viability":score>=45?"⚠ Moderate — enhanced DD required":"✗ High risk — review alternatives")
+          )
+        )
+      ),
+      city&&m&&e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Market Benchmarks — "+cityName(city)),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}},
+          [{l:"Market Land Value",v:fmt(benchmark),s:"Typical for "+at.toUpperCase()},
+           {l:"Your Asking Price",v:askingPrice?fmt(askingPrice):"—",s:diff!==null?"vs market: "+(diff>0?"+":"")+pct(diff):""},
+           {l:at==="pbsa"?"PBSA Rent/wk":"BTR Rent/mo",v:at==="pbsa"?"£"+m.pbsa+"/wk":"£"+m.btr+"/mo",s:"Market average"},
+           {l:"Exit Yield",v:pct(m.yield*100),s:"Institutional target"}].map(function(item){
+            return e("div",{key:item.l,style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,padding:14}},
+              e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",marginBottom:5}},item.l),
+              e("div",{style:{fontSize:20,fontWeight:700,color:"#4A4BAE",marginBottom:3}},item.v),
+              e("div",{style:{fontSize:10,color:"#7278A0"}},item.s)
+            );
+          })
+        )
+      ),
+      e(AIPanel,{user:user,stage:"land",label:"Analyse Site",
+        prompt:"Evaluate this "+at.toUpperCase()+" development site in "+cityName(city)+". Location score: "+score+"/100. Asking: "+fmt(askingPrice)+", market benchmark: "+fmt(benchmark)+". Site: "+((l.acres||"?")+) " acres, contamination: "+(l.contamination||"unknown")+", tenure: "+(l.tenure||"unknown")+". Provide: 1) Strengths and red flags, 2) Land value vs market assessment, 3) DD priorities in order, 4) Go/No-Go with conditions, 5) Negotiation strategy and opening bid recommendation."})
+    );
+  }
+
+  // ── PLANNING ───────────────────────────────────────────────────────────────
+  function renderPlanning(){
+    var p=data.planning||{};
+    var checks=[
+      {l:"NPPF 2024",s:p.status==="full"||p.status==="outline"?"pass":"pending"},
+      {l:"Local Plan allocation",s:p.status==="full"||p.status==="allocated"?"pass":"review"},
+      {l:"Affordable housing",s:at==="btr"?(p.ahPct?"pass":"pending"):"na"},
+      {l:"BNG 10%",s:p.bng?"pass":"pending"},
+      {l:"Fire Safety Gateway",s:p.gateway&&p.gateway!=="na"?"pass":num(p.storeys)>6?"pending":"na"},
+      {l:"S106 / CIL agreed",s:p.s106?"pass":"pending"},
+    ];
+    var dotC={pass:"#2D7A65",pending:"#9A7B3E",review:"#4A4BAE",na:"#C8CDE0"};
+
+    return e("div",null,
+      e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Planning & Viability"),
+      e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Planning strategy, policy compliance and S106 negotiation"),
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Planning Position"),
+        e("div",{style:S.grid2},
+          e(Inp,{label:"Local Planning Authority",value:p.lpa,onChange:function(v){up("planning","lpa",v);},placeholder:"e.g. Manchester City Council",full:true}),
+          e(Sel,{label:"Planning Status",value:p.status,onChange:function(v){up("planning","status",v);},
+            options:[{value:"",label:"Select..."},{value:"full",label:"Full consent"},{value:"outline",label:"Outline consent"},{value:"allocated",label:"Local Plan allocation"},{value:"pre_app",label:"Pre-application"},{value:"none",label:"None"}]}),
+          e(Inp,{label:at==="pbsa"?"Beds Proposed":"Units Proposed",type:"number",value:p.units,onChange:function(v){up("planning","units",v);},placeholder:"e.g. 180"}),
+          e(Inp,{label:"Storeys",type:"number",value:p.storeys,onChange:function(v){up("planning","storeys",v);},placeholder:"e.g. 8"}),
+          at==="btr"&&e(Inp,{label:"Affordable Housing %",type:"number",value:p.ahPct,onChange:function(v){up("planning","ahPct",v);},placeholder:"25"}),
+          e(Inp,{label:"S106 / CIL Total (£)",type:"number",value:p.s106,onChange:function(v){up("planning","s106",v);},placeholder:"e.g. 850000"}),
+          e(Sel,{label:"Biodiversity Net Gain",value:p.bng,onChange:function(v){up("planning","bng",v);},
+            options:[{value:"",label:"Select..."},{value:"on_site",label:"On-site 10%"},{value:"off_site",label:"Off-site credits"},{value:"exempt",label:"Exempt — brownfield"}]}),
+          e(Sel,{label:"Fire Safety Gateway",value:p.gateway,onChange:function(v){up("planning","gateway",v);},
+            options:[{value:"",label:"Select..."},{value:"na",label:"N/A — under 11m"},{value:"g2",label:"Gateway 2 submitted"},{value:"g2a",label:"Gateway 2 approved"},{value:"g3",label:"Gateway 3 planned"}]})
+        )
+      ),
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Policy Compliance"),
+        checks.map(function(check){
+          return e("div",{key:check.l,style:{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:6,background:check.s==="pass"?"rgba(45,122,101,0.04)":"#F7F8FC",border:"1px solid "+(check.s==="pass"?"rgba(45,122,101,0.2)":"#DDE0ED"),marginBottom:6}},
+            e("div",{style:{width:8,height:8,borderRadius:"50%",background:dotC[check.s]||"#C8CDE0",flexShrink:0}}),
+            e("span",{style:{flex:1,fontSize:12,color:"#3A3D6A"}},check.l),
+            e("span",{style:{fontSize:10,fontWeight:700,color:dotC[check.s]||"#C8CDE0"}},{pass:"Compliant",pending:"To confirm",review:"Under review",na:"N/A"}[check.s]||"")
+          );
+        })
+      ),
+      e(AIPanel,{user:user,stage:"planning",label:"Planning Strategy",
+        prompt:"Planning strategy for "+at.toUpperCase()+" scheme. LPA: "+(p.lpa||"unknown")+", status: "+(p.status||"none")+", "+units+" units, "+(p.ahPct||0)+"% AH. S106: "+fmt(num(p.s106))+". Provide: 1) Risk rating (1-10), 2) NPPF 2024 hooks to use, 3) S106 negotiation strategy, 4) Affordable housing viability argument, 5) Realistic timeline from pre-app to consent, 6) Top 3 likely officer objections and responses."})
+    );
+  }
+
+  // ── FINANCIALS ─────────────────────────────────────────────────────────────
+  function renderFin(){
+    var f=data.fin||{};
+    var voidAdj=at==="pbsa"?0.97:0.95;
+    var opex=units*(at==="pbsa"?600:1050)+gr*voidAdj*0.12;
+    var noi2=gr*voidAdj-opex;
+    var ey2=ey||m.yield;
+    var gdv2=ey2>0?noi2/ey2:0;
+    var tc4=bc+lc+(data.planning&&data.planning.s106?num(data.planning.s106):0)+bc*0.12+bc*(num(f.contingency)||5)/100+(bc+lc)*(num(f.finRate)||7.5)/100+lc*0.05;
+    var profit2=gdv2-tc4; var margin2=gdv2>0?(profit2/gdv2)*100:0;
+    var roc=tc4>0?(profit2/tc4)*100:0;
+    var scV=margin2>=15?"#2D7A65":"#B05A35";
+
+    var scens=[{l:"Bear",sm:-0.10,bm:+0.15},{l:"Base",sm:0,bm:0},{l:"Bull",sm:+0.08,bm:-0.05}].map(function(sc3){
+      var sG=(gr*(1+sc3.sm))*voidAdj-opex; var sGdv=ey2>0?sG/ey2:0;
+      var sCost=tc4*(1+sc3.bm); var sP=sGdv-sCost;
+      return{l:sc3.l,gdv:sGdv,profit:sP,margin:sGdv>0?(sP/sGdv)*100:0};
+    });
+
+    return e("div",null,
+      e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Financial Modelling"),
+      e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Full development appraisal, returns analysis and scenario sensitivity"),
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Assumptions"),
+        e("div",{style:S.grid2},
+          e(Inp,{label:"Build Cost psf (£) — market: £"+m.build,type:"number",value:f.buildPsf,onChange:function(v){up("fin","buildPsf",v);},placeholder:m.build+""}),
+          e(Inp,{label:(at==="pbsa"?"Weekly Rent/Bed":"Monthly Rent/Unit")+" (£) — market: £"+(at==="pbsa"?m.pbsa:m.btr),type:"number",value:f.rent,onChange:function(v){up("fin","rent",v);},placeholder:(at==="pbsa"?m.pbsa:m.btr)+""}),
+          e(Inp,{label:"Exit Yield (%) — market: "+pct(m.yield*100),type:"number",value:f.exitYield,onChange:function(v){up("fin","exitYield",v);},placeholder:(m.yield*100).toFixed(2)}),
+          e(Inp,{label:"Finance Rate (%)",type:"number",value:f.finRate,onChange:function(v){up("fin","finRate",v);},placeholder:"7.5"}),
+          e(Inp,{label:"Contingency (%)",type:"number",value:f.contingency,onChange:function(v){up("fin","contingency",v);},placeholder:"5"})
+        )
+      ),
+      units>0&&gia>0&&e("div",null,
+        e("div",{style:S.card},
+          e("div",{style:S.cardTitle},"Development Appraisal"),
+          e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:12}},
+            e("div",null,
+              e("div",{style:{fontSize:9,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,marginBottom:10}},"COSTS"),
+              [["Land",lc],["Build ("+Math.round(gia).toLocaleString()+" sqft @ £"+buildPsf+"/sqft)",bc],["S106/CIL",data.planning&&data.planning.s106?num(data.planning.s106):0],["Contingency ("+(num(f.contingency)||5)+"%)",bc*(num(f.contingency)||5)/100],["Prof Fees (12%)",bc*0.12],["Finance ("+(num(f.finRate)||7.5)+"%)",(bc+lc)*(num(f.finRate)||7.5)/100],["SDLT (5%)",lc*0.05]].map(function(row){
+                return e("div",{key:row[0],style:{display:"flex",justifyContent:"space-between",fontSize:12,color:"#7278A0",padding:"4px 0",borderBottom:"1px solid #F0F0F0"}},
+                  e("span",null,row[0]),e("span",null,fmt(row[1]))
+                );
+              }),
+              e("div",{style:{display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:700,color:"#2E2F8A",padding:"8px 0",borderTop:"1px solid #DDE0ED",marginTop:4}},
+                e("span",null,"Total Dev Cost"),e("span",null,fmt(tc4))
+              )
+            ),
+            e("div",null,
+              e("div",{style:{fontSize:9,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,marginBottom:10}},"INCOME & GDV"),
+              [["Gross Rent (pa)",gr],["Effective Rent ("+(at==="pbsa"?97:95)+"% occupancy)",gr*voidAdj],["OpEx (pa)",-opex],["NOI (pa)",noi2],["Exit Yield",null,pct(ey2*100)]].map(function(row){
+                return e("div",{key:row[0],style:{display:"flex",justifyContent:"space-between",fontSize:12,color:"#7278A0",padding:"4px 0",borderBottom:"1px solid #F0F0F0"}},
+                  e("span",null,row[0]),e("span",null,row[2]||fmt(row[1]))
+                );
+              }),
+              e("div",{style:{display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:700,color:"#2E2F8A",padding:"8px 0",borderTop:"1px solid #DDE0ED",marginTop:4}},
+                e("span",null,"GDV"),e("span",null,fmt(gdv2))
+              )
+            )
+          ),
+          e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:12}},
+            [{l:"Profit",v:fmt(profit2),ok:margin2>=15},{l:"Margin on GDV",v:pct(margin2),ok:margin2>=15},{l:"Return on Cost",v:pct(roc),ok:roc>20},{l:"Price per "+(at==="pbsa"?"Bed":"Unit"),v:units>0?fmt(gdv2/units):"—",ok:false}].map(function(item){
+              return e("div",{key:item.l,style:{background:item.ok?"rgba(45,122,101,0.06)":"#F7F8FC",border:"1px solid "+(item.ok?"rgba(45,122,101,0.2)":"#DDE0ED"),borderRadius:8,padding:12}},
+                e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:5}},item.l),
+                e("div",{style:{fontSize:18,fontWeight:700,color:item.ok?"#2D7A65":"#2E2F8A"}},item.v)
+              );
+            })
+          ),
+          e("div",{style:{padding:"10px 14px",borderRadius:6,background:margin2>=15?"rgba(45,122,101,0.06)":"rgba(176,90,53,0.06)",border:"1px solid "+(margin2>=15?"rgba(45,122,101,0.2)":"rgba(176,90,53,0.2)"),fontSize:12,fontWeight:700,color:scV}},
+            margin2>=15?"✓ Viable — "+pct(margin2)+" margin on GDV":"✗ Not viable — "+pct(margin2)+" ("+pct(15-margin2)+" below 15% threshold)"
+          )
+        ),
+        e("div",{style:S.card},
+          e("div",{style:S.cardTitle},"Scenario Analysis"),
+          e("div",{style:{border:"1px solid #DDE0ED",borderRadius:8,overflow:"hidden"}},
+            e("div",{style:{display:"grid",gridTemplateColumns:"100px 1fr 1fr 100px",padding:"8px 14px",background:"#F7F8FC",fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:700,borderBottom:"1px solid #DDE0ED"}},
+              e("span",null,"Scenario"),e("span",null,"GDV"),e("span",null,"Profit"),e("span",null,"Margin")
+            ),
+            scens.map(function(sc3){
+              return e("div",{key:sc3.l,style:{display:"grid",gridTemplateColumns:"100px 1fr 1fr 100px",padding:"8px 14px",borderBottom:"1px solid #DDE0ED",fontSize:12,color:"#7278A0",alignItems:"center"}},
+                e("span",{style:{fontWeight:700,color:"#2E2F8A"}},sc3.l),
+                e("span",null,fmt(sc3.gdv)),
+                e("span",{style:{color:sc3.profit>0?"#2D7A65":"#B05A35",fontWeight:600}},fmt(sc3.profit)),
+                e("span",{style:{color:sc3.margin>=15?"#2D7A65":"#B05A35",fontWeight:600}},pct(sc3.margin))
+              );
+            })
+          ),
+          e("div",{style:{fontSize:10,color:"#7278A0",padding:"6px 4px"}},"Bear: -10% rents, +15% costs | Bull: +8% rents, -5% costs")
+        ),
+        e(AIPanel,{user:user,stage:"fin",label:"Deep Financial Analysis",
+          prompt:"Analyse this "+at.toUpperCase()+" development appraisal. GDV: "+fmt(gdv2)+", TDC: "+fmt(tc4)+", Profit: "+fmt(profit2)+", Margin: "+pct(margin2)+", ROC: "+pct(roc)+". City: "+cityName(city)+", "+units+" units. Provide: 1) Return benchmarking vs institutional requirements, 2) Key value drivers and sensitivities, 3) Recommended deal structure (debt/equity split), 4) Value engineering options to improve margin by 3-5%, 5) Most critical assumption that if wrong would kill the deal."})
+      )
+    );
+  }
+
+  // ── DUE DILIGENCE ──────────────────────────────────────────────────────────
+  function renderDD(){
+    var DD={
+      Legal:["Title register & plan","Searches pack","Planning history","Restrictive covenants","Rights of light","Party wall agreements","Collateral warranties"],
+      Technical:["Phase 1 study","Phase 2 (if required)","Topographical survey","Structural report","Fire safety strategy","Flood risk assessment","Acoustic report","Drainage strategy"],
+      Planning:["Planning consent","Pre-commencement conditions","S106 executed","CIL confirmed","AH tenure confirmed","BNG assessment"],
+      Commercial:["QS cost plan","Contractor procurement","JCT contract","Senior debt term sheet","Insurance schedule","Warranties schedule"],
+    };
+    var checked=data.ddChecked||{};
+    var total2=Object.values(DD).reduce(function(a,b){return a+b.length;},0);
+    var done=Object.keys(checked).filter(function(k){return checked[k];}).length;
+    var catC={Legal:"#8B9DC3",Technical:"#7FB3A0",Planning:"#9A7B3E",Commercial:"#B05A35"};
+
+    function toggle(item){
+      var next=Object.assign({},checked);
+      next[item]=!next[item];
+      setData(function(d){return Object.assign({},d,{ddChecked:next});});
+    }
+
+    return e("div",null,
+      e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Due Diligence"),
+      e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Structured checklist across legal, technical, planning and commercial"),
+      e("div",{style:S.card},
+        e("div",{style:{display:"flex",alignItems:"center",gap:16}},
+          e("div",{style:{fontSize:48,fontWeight:800,color:done/total2>=0.8?"#2D7A65":done/total2>=0.5?"#9A7B3E":"#B05A35",lineHeight:1,minWidth:80}},Math.round(done/total2*100)+"%"),
+          e("div",{style:{flex:1}},
+            e("div",{style:{height:6,background:"#DDE0ED",borderRadius:3,overflow:"hidden",marginBottom:6}},
+              e("div",{style:{height:"100%",width:Math.round(done/total2*100)+"%",background:done/total2>=0.8?"#2D7A65":"#9A7B3E",borderRadius:3,transition:"width .4s"}})
+            ),
+            e("div",{style:{fontSize:12,color:"#7278A0"}},done+" of "+total2+" items confirmed")
+          )
+        )
+      ),
+      Object.keys(DD).map(function(cat){
+        var items=DD[cat];
+        var catDone=items.filter(function(item){return checked[item];}).length;
+        return e("div",{key:cat,style:S.card},
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:10,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,paddingBottom:12,borderBottom:"1px solid #DDE0ED",marginBottom:12}},
+            e("span",null,cat+" Due Diligence"),
+            e("span",{style:{color:catC[cat]}},catDone+"/"+items.length)
+          ),
+          items.map(function(item){
+            var isChecked=checked[item]||false;
+            return e("div",{key:item,onClick:function(){toggle(item);},style:{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:6,cursor:"pointer",background:isChecked?"rgba(45,122,101,0.04)":"transparent",border:"1px solid "+(isChecked?catC[cat]:"transparent"),marginBottom:4,transition:"all .12s"}},
+              e("div",{style:{width:16,height:16,borderRadius:3,border:"1px solid "+(isChecked?catC[cat]:"#C8CDE0"),background:isChecked?catC[cat]:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:"#fff",fontSize:10}},isChecked?"✓":""),
+              e("span",{style:{fontSize:12,color:isChecked?"#2E2F8A":"#7278A0"}},item)
+            );
+          })
+        );
+      }),
+      e(AIPanel,{user:user,stage:"dd",label:"DD Gap Analysis",
+        prompt:"Due diligence gap analysis. "+done+"/"+total2+" complete. Missing: "+Object.keys(DD).flatMap(function(cat){return DD[cat].filter(function(i){return !checked[i];}).map(function(i){return cat+": "+i;});}).join(", ")||"None"+". Provide: 1) Critical pre-exchange items that are not yet confirmed, 2) Items that can be deferred with contractual protections, 3) Any missing items that should be on this list for this scheme, 4) Realistic timeline to clear all DD."})
+    );
+  }
+
+  // ── RISK REGISTER ──────────────────────────────────────────────────────────
+  function renderRisks(){
+    var risks=data.risks||RISK_DEFAULTS.map(function(r){return Object.assign({},r);});
+    var RC={red:"#B05A35",amber:"#9A7B3E",green:"#2D7A65"};
+    var counts={red:0,amber:0,green:0};
+    risks.forEach(function(r){if(counts[r.rag]!==undefined)counts[r.rag]++;});
+
+    function updateRisk(id,key,val){
+      var updated=risks.map(function(r){return r.id===id?Object.assign({},r,Object.fromEntries([[key,val]])):r;});
+      setData(function(d){return Object.assign({},d,{risks:updated});});
+    }
+    function addRisk(){
+      var newRisk={id:Date.now(),cat:"Other",desc:"New risk",rag:"amber",mit:"Mitigation TBC"};
+      setData(function(d){return Object.assign({},d,{risks:(d.risks||[]).concat([newRisk])});});
+    }
+
+    return e("div",null,
+      e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Risk Register"),
+      e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Live RAG-rated risk tracking with mitigation strategies"),
+      e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:16}},
+        ["red","amber","green"].map(function(rag){
+          return e("div",{key:rag,style:{background:"#fff",border:"1px solid "+RC[rag],borderRadius:8,padding:"14px 16px",textAlign:"center"}},
+            e("div",{style:{fontSize:32,fontWeight:800,color:RC[rag],lineHeight:1}},counts[rag]),
+            e("div",{style:{fontSize:10,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",marginTop:4}},rag.charAt(0).toUpperCase()+rag.slice(1))
+          );
+        })
+      ),
+      e("div",{style:S.card},
+        e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:10,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,paddingBottom:12,borderBottom:"1px solid #DDE0ED",marginBottom:12}},
+          e("span",null,"Risk Register"),
+          e("button",{onClick:addRisk,style:{padding:"4px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#7278A0",borderRadius:4,fontSize:11,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"+ Add Risk")
+        ),
+        risks.map(function(r){
+          return e("div",{key:r.id,style:{display:"grid",gridTemplateColumns:"10px 90px 1fr 80px 1fr",gap:10,padding:"9px 0",borderBottom:"1px solid #DDE0ED",alignItems:"start",fontSize:11}},
+            e("div",{style:{width:8,height:8,borderRadius:"50%",background:RC[r.rag]||"#C8CDE0",marginTop:3,flexShrink:0}}),
+            e("span",{style:{fontWeight:600,color:"#3A3D6A"}},r.cat),
+            e("span",{style:{color:"#2E2F8A"}},r.desc),
+            e("select",{value:r.rag,onChange:function(ev){updateRisk(r.id,"rag",ev.target.value);},style:{padding:"3px 6px",border:"1px solid #DDE0ED",borderRadius:4,fontSize:11,fontFamily:"DM Sans,sans-serif",background:"#fff"}},
+              ["red","amber","green"].map(function(v){return e("option",{key:v,value:v},v.charAt(0).toUpperCase()+v.slice(1));})
+            ),
+            e("span",{style:{color:"#7278A0",fontSize:10,lineHeight:1.5}},r.mit)
+          );
+        })
+      ),
+      e(AIPanel,{user:user,stage:"risks",label:"Risk Assessment",
+        prompt:"Risk assessment for this "+at.toUpperCase()+" development. Red risks: "+risks.filter(function(r){return r.rag==="red";}).map(function(r){return r.desc;}).join(", ")||"None"+". Amber: "+risks.filter(function(r){return r.rag==="amber";}).map(function(r){return r.desc;}).join(", ")||"None"+". Provide: 1) Priority ranking of top 3 risks, 2) Specific mitigation actions for each red risk, 3) Any missing risks for this scheme type, 4) Risk-adjusted return recommendation — should you proceed?"})
+    );
+  }
+
+  // ── EXIT ───────────────────────────────────────────────────────────────────
+  function renderExit(){
+    var ex=data.exit||{};
+    var gdvM=gdv/1e6;
+    var matchedBuyers=BUYERS.filter(function(b){return gdvM>=b.min*0.7;});
+    var hotState=useState(""); var hot=hotState[0]; var setHot=hotState[1];
+    var hotLoad=useState(false); var hotL=hotLoad[0]; var setHotL=hotLoad[1];
+    var memoState=useState(""); var memo=memoState[0]; var setMemo=memoState[1];
+    var memoLoad=useState(false); var memoL=memoLoad[0]; var setMemoL=memoLoad[1];
+
+    async function genHoT(){
+      setHotL(true); setHot("");
+      try{
+        var result=await callAI(user,"exit","You are a senior real estate solicitor. Generate professional Heads of Terms. Plain text, number each clause.","Generate Heads of Terms for this "+at.toUpperCase()+" asset. "+units+" units in "+cityName(city)+". GDV: "+fmt(gdv)+", NOI: "+fmt(noi)+" pa, yield: "+pct(ey*100)+", investor: "+(ex.investorType||"institutional fund")+", strategy: "+(ex.strategy||"forward fund")+". Include: purchase price, yield, payment milestones, practical completion, management, conditions precedent, break clauses, long stop date, warranties, developer obligations.");
+        setHot(result);
+      }catch(err){setHot("Generation failed");}
+      setHotL(false);
+    }
+
+    async function genMemo(){
+      setMemoL(true); setMemo("");
+      try{
+        var result=await callAI(user,"exit","You are a senior real estate investment banker. Write professional investment memorandum copy. Plain text only, ~400 words.","Write an Investment Memorandum executive summary for institutional investors. "+at.toUpperCase()+" asset, "+units+" units in "+cityName(city)+". GDV: "+fmt(gdv)+", NOI: "+fmt(noi)+" pa, yield: "+pct(ey*100)+". Include: investment thesis, asset overview, market context for "+cityName(city)+", financial summary, risk factors and mitigants, exit thesis and target investor profile.");
+        setMemo(result);
+      }catch(err){setMemo("Generation failed");}
+      setMemoL(false);
+    }
+
+    return e("div",null,
+      e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Investment Exit"),
+      e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Exit strategy, institutional investor targeting, Heads of Terms and Investment Memorandum generator"),
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Exit Parameters"),
+        e("div",{style:S.grid2},
+          e(Sel,{label:"Exit Strategy",value:ex.strategy,onChange:function(v){up("exit","strategy",v);},
+            options:[{value:"",label:"Select..."},{value:"forward_fund",label:"Forward Fund — pre-construction"},{value:"forward_sale",label:"Forward Sale — post-consent"},{value:"stabilised",label:"Stabilised Sale — post-occupancy"},{value:"retain",label:"Retain & Refinance"}]}),
+          e(Inp,{label:"Target Exit Yield (%) — market: "+pct(m.yield*100),type:"number",value:ex.exitYield,onChange:function(v){up("exit","exitYield",v);},placeholder:(m.yield*100).toFixed(2)}),
+          e(Sel,{label:"Target Investor Type",value:ex.investorType,onChange:function(v){up("exit","investorType",v);},
+            options:[{value:"",label:"Select..."},{value:"pension_fund",label:"UK Pension Fund"},{value:"sovereign_wealth",label:"Sovereign Wealth"},{value:"reit",label:"Listed REIT"},{value:"private_equity",label:"Private Equity"},{value:"asset_manager",label:"Specialist Asset Manager"},{value:"family_office",label:"Family Office"}]}),
+          e(Inp,{label:"Transaction Agent",value:ex.agent,onChange:function(v){up("exit","agent",v);},placeholder:"e.g. CBRE, JLL, Savills"})
+        ),
+        units>0&&e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginTop:8}},
+          [{l:"GDV",v:fmt(gdv)},{l:"NOI (pa)",v:fmt(noi)},{l:"Exit Yield",v:pct(ey*100)},{l:"Price per "+(at==="pbsa"?"Bed":"Unit"),v:units>0?fmt(gdv/units):"—"}].map(function(item){
+            return e("div",{key:item.l,style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,padding:12}},
+              e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:4}},item.l),
+              e("div",{style:{fontSize:18,fontWeight:700,color:"#4A4BAE"}},item.v)
+            );
+          })
+        )
+      ),
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Active Institutional Buyers — "+at.toUpperCase()),
+        e("div",{style:{border:"1px solid #DDE0ED",borderRadius:8,overflow:"hidden"}},
+          e("div",{style:{display:"grid",gridTemplateColumns:"1.5fr 70px 80px 70px 70px",padding:"8px 14px",background:"#F7F8FC",fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:700,borderBottom:"1px solid #DDE0ED"}},
+            e("span",null,"Investor"),e("span",null,"Type"),e("span",null,"Focus"),e("span",null,"Min Lot"),e("span",null,"Status")
+          ),
+          (matchedBuyers.length>0?matchedBuyers:BUYERS).map(function(b){
+            return e("div",{key:b.name,style:{display:"grid",gridTemplateColumns:"1.5fr 70px 80px 70px 70px",padding:"8px 14px",borderBottom:"1px solid #DDE0ED",fontSize:11,color:"#7278A0",alignItems:"center"}},
+              e("span",{style:{fontWeight:600,color:"#2E2F8A"}},b.name),
+              e("span",{style:{color:"#4A4BAE",fontWeight:700}},b.type),
+              e("span",null,b.status),
+              e("span",null,"£"+b.min+"m+"),
+              e("span",{style:{fontSize:10,fontWeight:700,padding:"2px 6px",borderRadius:3,background:b.status==="Active"?"rgba(45,122,101,0.12)":"rgba(154,123,62,0.12)",color:b.status==="Active"?"#2D7A65":"#9A7B3E"}},b.status)
+            );
+          })
+        )
+      ),
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Heads of Terms Generator"),
+        e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:12}},"Generate market-standard HoTs from your deal data."),
+        e("button",{onClick:genHoT,disabled:hotL,style:Object.assign({},S.btn,{opacity:hotL?0.6:1,cursor:hotL?"not-allowed":"pointer"})},hotL?"⏳ Generating...":"📄 Generate Heads of Terms"),
+        hot&&e("div",{style:{background:"#F8F8FE",border:"1px solid #DDE0ED",borderLeft:"3px solid #4A4BAE",borderRadius:8,padding:"16px 20px",marginTop:12}},
+          e("pre",{style:{fontSize:12,lineHeight:1.8,color:"#3A3D6A",whiteSpace:"pre-wrap",fontFamily:"DM Sans,sans-serif"}},hot)
+        )
+      ),
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Investment Memorandum"),
+        e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:12}},"Generate an institutional-grade IM executive summary."),
+        e("button",{onClick:genMemo,disabled:memoL,style:Object.assign({},S.btn,{opacity:memoL?0.6:1,cursor:memoL?"not-allowed":"pointer"})},memoL?"⏳ Writing...":"📋 Generate Investment Memo"),
+        memo&&e("div",{style:{background:"#F8F8FE",border:"1px solid #DDE0ED",borderLeft:"3px solid #4A4BAE",borderRadius:8,padding:"16px 20px",marginTop:12}},
+          e("pre",{style:{fontSize:12,lineHeight:1.8,color:"#3A3D6A",whiteSpace:"pre-wrap",fontFamily:"DM Sans,sans-serif"}},memo)
+        )
+      ),
+      e(AIPanel,{user:user,stage:"exit",label:"Exit Strategy Analysis",
+        prompt:"Exit strategy for "+at.toUpperCase()+" in "+cityName(city)+". Strategy: "+(ex.strategy||"not set")+", GDV: "+fmt(gdv)+", NOI: "+fmt(noi)+" pa, yield: "+pct(ey*100)+", investor type: "+(ex.investorType||"not set")+". Provide: 1) Optimal exit route and timing recommendation, 2) Top 5 specific buyers to approach with rationale, 3) Key investor DD requirements and how to prepare, 4) Critical negotiation points and red lines, 5) Risk factors that could compress exit pricing by >10 bps."})
+    );
+  }
+
+  // ── RENDER STAGE ───────────────────────────────────────────────────────────
+  function renderStage(){
+    if(stage==="dashboard")return renderDashboard();
+    if(stage==="epe")return renderEPE();
+    if(stage==="rlv")return renderRLV();
+    if(stage==="sfh")return renderSFH();
+    if(stage==="hra")return renderHRA();
+    if(stage==="land")return renderLand();
+    if(stage==="planning")return renderPlanning();
+    if(stage==="fin")return renderFin();
+    if(stage==="scraper")return renderScraper();
+    if(stage==="dd")return renderDD();
+    if(stage==="risks")return renderRisks();
+    if(stage==="exit")return renderExit();
+    return e("div",null,"Coming soon");
+  }
+
+  // ── LAYOUT ─────────────────────────────────────────────────────────────────
+  return e("div",{style:{display:"flex",minHeight:"100vh"}},
+    e("aside",{style:{width:240,background:"#1E1F5C",display:"flex",flexDirection:"column",position:"fixed",left:0,top:0,bottom:0,overflowY:"auto"}},
+      e("div",{style:{padding:"16px 16px 12px",borderBottom:"1px solid rgba(255,255,255,0.1)",textAlign:"center"}},
+        e("img",{src:"data:image/webp;base64,"+LOGO,alt:"Cassidy Group",style:{width:120,height:"auto",filter:"drop-shadow(0 1px 4px rgba(0,0,0,0.25))"}})
+      ),
+      e("div",{style:{padding:"8px 0",flex:1}},
+        STAGES.map(function(s){
+          var active=stage===s.id;
+          return e("div",{key:s.id,onClick:function(){navTo(s.id);},style:{display:"flex",alignItems:"center",gap:9,padding:"9px 16px",cursor:"pointer",background:active?"rgba(237,232,74,0.12)":"transparent",borderLeft:"3px solid "+(active?"#EDE84A":"transparent"),transition:"all .12s"}},
+            e("span",{style:{fontSize:10,color:active?"#EDE84A":"rgba(255,255,255,0.3)",width:14}},s.icon),
+            e("span",{style:{fontSize:12,color:active?"#fff":"rgba(255,255,255,0.5)"}},s.label)
+          );
+        })
+      ),
+      e("div",{style:{padding:"12px 16px",borderTop:"1px solid rgba(255,255,255,0.08)",fontSize:11,color:"rgba(255,255,255,0.35)"}},
+        (user&&user.name)||"User"," · ",(user&&user.company)||""
       )
     ),
-    // Main
-    React.createElement("main", {style:{marginLeft:240,flex:1,display:"flex",flexDirection:"column",minHeight:"100vh"}},
-      React.createElement("div", {style:{height:58,background:"#fff",borderBottom:"1px solid #DDE0ED",display:"flex",alignItems:"center",padding:"0 28px",gap:12,position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 3px rgba(46,47,138,0.08)"}},
-        React.createElement("div", {style:{fontSize:15,fontWeight:700,color:"#2E2F8A"}}, curStage.label),
-        React.createElement("div", {style:{marginLeft:"auto",fontSize:11,color:"#7278A0"}}, (data.assetType||"btr").toUpperCase()+" · "+(city.charAt(0).toUpperCase()+city.replace(/_/g," ").slice(1)))
+    e("main",{style:{marginLeft:240,flex:1,display:"flex",flexDirection:"column",minHeight:"100vh"}},
+      e("div",{style:{height:58,background:"#fff",borderBottom:"1px solid #DDE0ED",display:"flex",alignItems:"center",padding:"0 28px",gap:12,position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 3px rgba(46,47,138,0.08)"}},
+        e("div",{style:{fontSize:15,fontWeight:700,color:"#2E2F8A"}},curStage.label),
+        e("div",{style:{marginLeft:"auto",fontSize:11,color:"#7278A0"}},at.toUpperCase()+" · "+cityName(city))
       ),
-      React.createElement("div", {style:{height:3,background:"#DDE0ED"}},
-        React.createElement("div", {style:{height:"100%",width:((idx+1)/STAGES.length*100)+"%",background:"linear-gradient(90deg,#4A4BAE,#EDE84A)",transition:"width .4s"}})),
-      React.createElement("div", {style:{flex:1,padding:"28px 32px",maxWidth:960,width:"100%"}},
-        renderStage()
+      e("div",{style:{height:3,background:"#DDE0ED"}},
+        e("div",{style:{height:"100%",width:((idx+1)/STAGES.length*100)+"%",background:"linear-gradient(90deg,#4A4BAE,#EDE84A)",transition:"width .4s"}})
       ),
-      React.createElement("div", {style:{padding:"16px 32px",borderTop:"1px solid #DDE0ED",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff"}},
-        React.createElement("button", {disabled:idx===0,onClick:function(){setStage(STAGES[idx-1].id);setAiRes("");},style:{padding:"8px 18px",border:"1px solid #DDE0ED",background:"transparent",color:"#7278A0",borderRadius:6,fontSize:12,fontWeight:700,cursor:idx===0?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",opacity:idx===0?0.3:1}}, "← Previous"),
-        React.createElement("span", {style:{fontSize:11,color:"#7278A0"}}, (idx+1)+" of "+STAGES.length),
-        React.createElement("button", {disabled:idx===STAGES.length-1,onClick:function(){setStage(STAGES[idx+1].id);setAiRes("");},style:{padding:"8px 18px",background:"#4A4BAE",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:700,cursor:idx===STAGES.length-1?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",opacity:idx===STAGES.length-1?0.3:1}}, "Next →")
+      e("div",{style:{flex:1,padding:"28px 32px",maxWidth:1000,width:"100%"}},renderStage()),
+      e("div",{style:{padding:"16px 32px",borderTop:"1px solid #DDE0ED",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff"}},
+        e("button",{disabled:idx===0,onClick:function(){navTo(STAGES[idx-1].id);},style:{padding:"8px 18px",border:"1px solid #DDE0ED",background:"transparent",color:"#7278A0",borderRadius:6,fontSize:12,fontWeight:700,cursor:idx===0?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",opacity:idx===0?0.3:1}},"← Previous"),
+        e("span",{style:{fontSize:11,color:"#7278A0"}},(idx+1)+" of "+STAGES.length),
+        e("button",{disabled:idx===STAGES.length-1,onClick:function(){navTo(STAGES[idx+1].id);},style:{padding:"8px 18px",background:"#4A4BAE",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:700,cursor:idx===STAGES.length-1?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",opacity:idx===STAGES.length-1?0.3:1}},"Next →")
       )
     )
   );
 }
 
-// ── ROOT ─────────────────────────────────────────────────────────────────────
-function Root() {
-  var s = useState(null); var user = s[0]; var setUser = s[1];
-
-  if (!user) {
-    return React.createElement(AccessGate, {onLogin:function(u){
-      logEvent(u,"LOGIN","Access granted");
-      setUser(u);
-    }});
-  }
-
-  return React.createElement(Tool, {user:user});
+// ── ROOT ──────────────────────────────────────────────────────────────────────
+function Root(){
+  var s=useState(null); var user=s[0]; var setUser=s[1];
+  if(!user)return e(AccessGate,{onLogin:function(u){logEvent(u,"LOGIN","Access granted");setUser(u);}});
+  return e(Tool,{user:user});
 }
 
-ReactDOM.render(React.createElement(Root), document.getElementById("root"));
+ReactDOM.render(e(Root,null),document.getElementById("root"));
+
 </script>
 </body>
 </html>
