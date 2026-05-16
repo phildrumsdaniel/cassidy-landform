@@ -296,19 +296,41 @@ function lookupPostcode(pc){
 
 function logEvent(user,event,details){
   try{
+    var detailStr=typeof details==="object"?JSON.stringify(details).substring(0,400):String(details).substring(0,400);
     var params=new URLSearchParams({
-      action:"log",timestamp:new Date().toISOString(),
-      user:(user&&user.name)||"Unknown",company:(user&&user.company)||"Unknown",
-      role:(user&&user.role)||"demo",event:event,
-      details:typeof details==="object"?JSON.stringify(details).substring(0,300):String(details).substring(0,300),
-      userAgent:navigator.userAgent.substring(0,80)
+      action:"log",
+      timestamp:new Date().toISOString(),
+      user:(user&&user.name)||"Unknown",
+      company:(user&&user.company)||"Unknown",
+      role:(user&&user.role)||"demo",
+      event:event,
+      details:detailStr,
+      userAgent:navigator.userAgent.substring(0,80),
+      url:window.location.href,
+      sessionId:window._sessionId||"unknown"
     });
     fetch(WEBHOOK+"?"+params.toString()).catch(function(){});
   }catch(e){}
 }
 
+// Generate session ID on load for tracking individual sessions
+window._sessionId = (function(){
+  var id = sessionStorage.getItem("clf_sid");
+  if(!id){id=Date.now().toString(36)+Math.random().toString(36).substr(2,5);sessionStorage.setItem("clf_sid",id);}
+  return id;
+})();
+
+// Track time on each page
+window._pageStart = Date.now();
+window._currentStage = "";
+
 async function callAI(user,stage,systemPrompt,userPrompt){
-  logEvent(user,"AI_ANALYSIS",{stage:stage});
+  logEvent(user,"AI_ANALYSIS",{
+    stage:stage,
+    journey:(typeof journey!=="undefined"?journey:"unknown"),
+    promptLength:userPrompt?userPrompt.length:0,
+    time:new Date().toLocaleTimeString("en-GB")
+  });
   // Use GET to avoid CORS preflight blocks from GitHub Pages
   var aiParams=new URLSearchParams({
     action:"ai",stage:stage,
@@ -542,8 +564,17 @@ function Tool(props){
   var curStage=STAGES[idx]||STAGES[0];
 
   function navTo(id){
+    // Log time spent on previous stage before moving
+    var timeSpent=Math.round((Date.now()-window._pageStart)/1000);
+    if(window._currentStage&&timeSpent>2){
+      logEvent(user,"TIME_ON_STAGE",{stage:window._currentStage,seconds:timeSpent,journey:journey});
+    }
+    window._pageStart=Date.now();
+    window._currentStage=id;
+
     setStage(id);
-    logEvent(user,"PAGE_VIEW",{stage:id});
+    logEvent(user,"PAGE_VIEW",{stage:id,journey:journey,assetType:at});
+
     // Auto-switch journey based on stage navigated to
     var stageInfo=ALL_STAGES.find(function(s){return s.id===id;});
     if(stageInfo&&journey==="all"){
@@ -570,6 +601,19 @@ function Tool(props){
       var next=[snapshot].concat(h.slice(0,19));
       try{localStorage.setItem("cassidy_history",JSON.stringify(next));}catch(e){}
       return next;
+    });
+    // Silent log of deal save with full context
+    logEvent(user,"DEAL_SAVED",{
+      dealName:name,
+      assetType:snapshot.assetType,
+      city:snapshot.city,
+      acres:snapshot.acres,
+      price:snapshot.price,
+      journey:journey,
+      stage:stage,
+      gdv:gdv>0?Math.round(gdv):0,
+      profit:profit>0?Math.round(profit):0,
+      margin:margin>0?Math.round(margin*10)/10:0,
     });
     alert("✓ Deal saved: "+name+"\n\nYour data also auto-saves continuously — it will be here when you return.");
   }
@@ -3375,7 +3419,13 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
         });
       });
       up("scraper","imported",true);
-      logEvent(user,"IMPORT",{address:addr,postcode:pc,city:c,acres:acres,price:price,agent:agent});
+      logEvent(user,"IMPORT",{
+        address:addr,postcode:pc,city:c,acres:acres,
+        price:price,agent:agent,
+        dealType:dealType,planStatus:planStatus,
+        estimatedUnits:estUnits,
+        assetType:assetGuess
+      });
       // Run AI auto-fill in background
       doAIAutoFill({address:addr,postcode:pc,city:c,acreage:acres,localAuthority:lpa,planningStatus:planStatus});
       // Navigate to dashboard to show the workflow
