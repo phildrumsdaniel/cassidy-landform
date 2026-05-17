@@ -475,8 +475,8 @@ async function callAI(user,stage,systemPrompt,userPrompt){
   var aiParams=new URLSearchParams({
     action:"ai",stage:stage,
     user:(user&&user.name)||"",company:(user&&user.company)||"",
-    system:(systemPrompt||"You are a senior UK real estate development advisor. Be specific, commercially sharp, use UK conventions. Plain text only.").substring(0,500),
-    prompt:userPrompt.substring(0,2000)
+    system:(systemPrompt||"You are a senior UK real estate development advisor. Be specific, commercially sharp, use UK conventions. Plain text only.").substring(0,800),
+    prompt:userPrompt.substring(0,3500)
   });
   var res=await fetch(WEBHOOK+"?"+aiParams.toString());
   var data=await res.json();
@@ -535,22 +535,8 @@ function AIPanel(props){
   async function run(){
     setAiLoad(true); setAiRes(""); setAiJson(null);
     try{
-      var corrInstr=[
-        "CRITICAL FINAL STEP: After your analysis, you MUST output a corrections block.",
-        "Start it with the exact line: CORRECTIONS_START",
-        "Then a JSON object: {corrections:[{field,stage,value,reason}]}",
-        "End with the exact line: CORRECTIONS_END",
-        "Fields: buildPsf,salePsf,units,s106pu,finRate,contingency,ahPct (stage=fin or sfh or rlv or planning)",
-        "Only include fields where the value needs changing to make the scheme viable.",
-        "If no changes needed, output: CORRECTIONS_START",
-        "{corrections:[]}",
-        "CORRECTIONS_END",
-        "Example:",
-        "CORRECTIONS_START",
-        "{corrections:[{field:buildPsf,stage:fin,value:175,reason:Current 145 below BCIS minimum for semi-rural Worcester}]}",
-        "CORRECTIONS_END"
-      ].join("\n");
-      var enhPrompt=props.prompt+"\n\n"+corrInstr;
+      var corrInstr="INSTRUCTION: End your response with CORRECTIONS_START on its own line, then a JSON object, then CORRECTIONS_END on its own line. JSON format: {corrections:[{field:buildPsf,stage:fin,value:175,reason:why}]}. Valid fields: buildPsf,salePsf,units,s106pu,finRate,contingency,ahPct,dph. Valid stages: fin,sfh,rlv,planning. Only include fields that need changing. If all OK use empty array.";
+      var enhPrompt=corrInstr+"\n\n"+props.prompt;
       var result=await callAI(props.user,props.stage,"You are a senior UK development finance director. Give analysis then ALWAYS end with CORRECTIONS_START...CORRECTIONS_END block as instructed.",enhPrompt);
       // Extract corrections block
       var ci=result.indexOf("CORRECTIONS_START");
