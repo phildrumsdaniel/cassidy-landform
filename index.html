@@ -11,7 +11,8 @@
 <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone@7.23.2/babel.min.js"></script>
-<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'DM Sans',sans-serif;background:#F4F5F9;color:#1A1A3E}#root{min-height:100vh}</style>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'DM Sans',sans-serif;background:#F4F5F9;color:#1A1A3E}#root{min-height:100vh}@keyframes pulse{0%{opacity:1}50%{opacity:0.7}100%{opacity:1}}
+</style>
 </head>
 <body>
 <div id="root"></div>
@@ -529,15 +530,46 @@ function CitySelect(props){
 function AIPanel(props){
   var rs=useState(""); var aiRes=rs[0]; var setAiRes=rs[1];
   var rl=useState(false); var aiLoad=rl[0]; var setAiLoad=rl[1];
+  var rj=useState(null); var aiJson=rj[0]; var setAiJson=rj[1];
+
   async function run(){
-    setAiLoad(true); setAiRes("");
+    setAiLoad(true); setAiRes(""); setAiJson(null);
     try{
-      var result=await callAI(props.user,props.stage,props.system,props.prompt);
+      // Enhanced prompt: always ask AI to return corrections in JSON block
+      var enhPrompt=props.prompt+
+        "\n\nIMPORTANT: At the end of your analysis, include a JSON corrections block wrapped in ===JSON_CORRECTIONS=== markers with any figures that need updating in this format:"+
+        '\n===JSON_CORRECTIONS===\n{"corrections":[{"field":"fieldname","stage":"stagename","value":number,"reason":"why"}]}\n===END_CORRECTIONS==='+
+        "\nValid fields: gdv,buildPsf,salePsf,units,s106pu,exitYield,finRate,contingency,landPrice,ahPct,dph,acres"+
+        "\nValid stages: fin,sfh,rlv,planning,land"+
+        "\nOnly include fields where the current value is clearly wrong. If figures look reasonable, return empty corrections array.";
+      var result=await callAI(props.user,props.stage,props.system,enhPrompt);
+      // Extract JSON corrections if present
+      var jsonMatch=result.match(/===JSON_CORRECTIONS===([\s\S]*?)===END_CORRECTIONS===/);
+      if(jsonMatch){
+        try{
+          var parsed=JSON.parse(jsonMatch[1].trim());
+          if(parsed.corrections&&parsed.corrections.length>0)setAiJson(parsed);
+        }catch(e){}
+        result=result.replace(/===JSON_CORRECTIONS===[\s\S]*?===END_CORRECTIONS===/,"").trim();
+      }
       setAiRes(result);
       logEvent(props.user,"AI_RESULT",{stage:props.stage,result:result.substring(0,200)});
     }catch(err){setAiRes("Analysis failed — check connection");}
     setAiLoad(false);
   }
+
+  function applyCorrections(){
+    if(!aiJson||!aiJson.corrections)return;
+    var applied=[];
+    aiJson.corrections.forEach(function(c){
+      if(!c.field||!c.stage||c.value===undefined)return;
+      props.up(c.stage,c.field,String(c.value));
+      applied.push(c.field+"="+c.value+" ("+c.stage+")");
+    });
+    alert("Applied "+applied.length+" corrections:\n"+applied.join("\n")+"\n\nReview the updated figures in each stage.");
+    setAiJson(null);
+  }
+
   return e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:10,marginTop:4}},
     e("button",{onClick:run,disabled:aiLoad,style:Object.assign({},S.btn,{opacity:aiLoad?0.6:1,cursor:aiLoad?"not-allowed":"pointer"})},
       aiLoad?"⏳ Analysing...":"⚡ "+props.label
@@ -545,15 +577,32 @@ function AIPanel(props){
     aiRes&&e("div",{style:{background:"#F8F8FE",border:"1px solid #DDE0ED",borderLeft:"3px solid #4A4BAE",borderRadius:8,overflow:"hidden"}},
       e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",borderBottom:"1px solid #DDE0ED",background:"#F0F1FA"}},
         e("span",{style:{fontSize:11,fontWeight:700,color:"#4A4BAE"}},"AI Analysis Result"),
-        e("button",{
-          onClick:function(){
-            var el=document.createElement("textarea");
-            el.value=aiRes;
-            document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);
-            alert("Copied to clipboard");
-          },
-          style:{padding:"4px 10px",background:"#4A4BAE",border:"none",borderRadius:4,color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
-        },"📋 Copy")
+        e("div",{style:{display:"flex",gap:8}},
+          aiJson&&aiJson.corrections&&aiJson.corrections.length>0&&e("button",{
+            onClick:applyCorrections,
+            style:{padding:"4px 12px",background:"#2D7A65",border:"none",borderRadius:4,color:"#fff",fontSize:10,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",animation:"pulse 1.5s infinite"}
+          },"✓ Apply "+aiJson.corrections.length+" Corrections to Tool"),
+          e("button",{
+            onClick:function(){
+              var el=document.createElement("textarea");
+              el.value=aiRes;document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);
+              alert("Copied to clipboard");
+            },
+            style:{padding:"4px 10px",background:"#4A4BAE",border:"none",borderRadius:4,color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+          },"📋 Copy")
+        )
+      ),
+      aiJson&&aiJson.corrections&&aiJson.corrections.length>0&&e("div",{style:{background:"rgba(45,122,101,0.08)",borderBottom:"1px solid rgba(45,122,101,0.2)",padding:"10px 16px"}},
+        e("div",{style:{fontSize:11,fontWeight:700,color:"#2D7A65",marginBottom:6}},"✓ AI has identified "+aiJson.corrections.length+" corrections to bring the scheme to viability:"),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:6}},
+          aiJson.corrections.map(function(c,i){
+            return e("div",{key:i,style:{background:"#fff",border:"1px solid rgba(45,122,101,0.3)",borderRadius:5,padding:"6px 10px",fontSize:11}},
+              e("div",{style:{fontWeight:700,color:"#2E2F8A"}},c.field+" ("+c.stage+")"),
+              e("div",{style:{color:"#2D7A65",fontWeight:700}},"→ "+c.value),
+              e("div",{style:{fontSize:9,color:"#7278A0"}},c.reason||"")
+            );
+          })
+        )
       ),
       e("div",{style:{maxHeight:500,overflowY:"auto",padding:"16px 20px"}},
         e("pre",{style:{fontSize:12,lineHeight:1.9,color:"#3A3D6A",whiteSpace:"pre-wrap",fontFamily:"DM Sans,sans-serif",margin:0}},aiRes)
@@ -1182,7 +1231,7 @@ function Tool(props){
         )
       ),
 
-      e(AIPanel,{user:user,stage:"recovery",label:"AI: Full Planning Recovery Strategy",
+      e(AIPanel,{user:user,up:up,stage:"recovery",label:"AI: Full Planning Recovery Strategy",
         prompt:"I have land at "+(l.address||"unknown address")+", "+(l.city||"")+", "+(acres||"?")+" acres. It received a refused planning in principle. Refusal reason type: "+refusalKey+". Refusal details: "+(refusalReason||"not provided")+". Knockdown acquisition price: "+fmt(knockdownPrice)+". LPA: "+(lpa||"unknown")+". Provide: 1) Assessment of the refusal and whether it is fundamentally fatal or recoverable, 2) Best recovery route ranked by probability of success, 3) Specific actions to take in the next 30 days, 4) Whether to appeal (and the grounds) or resubmit (and what changes to make), 5) Realistic timeline to secure consent, 6) Whether the knockdown price justifies the planning risk, 7) Exit strategy once planning is secured."})
     );
   }
@@ -1679,7 +1728,7 @@ function Tool(props){
         )
       ),
 
-      e(AIPanel,{user:user,stage:"landworkflow",label:"AI: Best Scheme & Acquisition Strategy",
+      e(AIPanel,{user:user,up:up,stage:"landworkflow",label:"AI: Best Scheme & Acquisition Strategy",
         prompt:"I have found a "+acres+" acre site in "+cityName(lCity)+(postcode?" ("+postcode+")":"")+". Asking price: "+fmt(askingPrice)+". Owner type: "+owner.label+". Local authority: "+(lpa||"unknown")+". Asset type preference: "+at.toUpperCase()+". Provide: 1) Which development scheme maximises value on "+acres+" acres in "+cityName(lCity)+"? 2) What density is achievable and likely to get planning consent? 3) What acquisition strategy would you recommend — unconditional, conditional, option agreement? 4) What premium above agricultural value would a landowner realistically expect and why? 5) What are the top 3 risks on this specific site? 6) What is the realistic timeline from offer to planning consent to exit?"})
     );
   }
@@ -2179,7 +2228,7 @@ function Tool(props){
         )
       ),
 
-      e(AIPanel,{user:user,stage:"epeworkflow",label:"AI: Which Scheme Is Best For This Property?",
+      e(AIPanel,{user:user,up:up,stage:"epeworkflow",label:"AI: Which Scheme Is Best For This Property?",
         prompt:"I am evaluating a "+propType+" in "+(ep.postcode||"unknown postcode")+" for redevelopment. The existing property is "+num(ep.propSqft)+" sqft, "+ep.bedrooms+" bed, "+ep.storeys+" storeys, condition: "+(ep.condition||"average")+". Plot size is approximately "+Math.round(plotSqft)+" sqft / "+plotAcres.toFixed(3)+" acres. Asset type preference: "+at.toUpperCase()+". Demolition cost estimate: "+fmt(demCost)+". Provide: 1) Which development scheme would you recommend for this site and why? 2) Are there any site-specific constraints I should investigate before committing? 3) What is the realistic planning risk for each scheme type? 4) What is the likely timescale from purchase to exit? 5) What is the minimum viable site size for each scheme type in this location?"})
     );
   }
@@ -2282,7 +2331,7 @@ function Tool(props){
           })()
         )
       ),
-      e(AIPanel,{user:user,stage:"dashboard",label:"Generate Deal Summary",
+      e(AIPanel,{user:user,up:up,stage:"dashboard",label:"Generate Deal Summary",
         prompt:"Provide a comprehensive deal summary with investment thesis, key strengths, risks and next steps for a "+at.toUpperCase()+" development in "+cityName(city)+". GDV: "+fmt(gdv)+", Total cost: "+fmt(tc)+", Profit: "+fmt(profit)+", Margin: "+pct(margin)+". Rate the deal 1-10 with justification."}),
 
       // ── WORKFLOW FLOWCHART ──────────────────────────────────────────────
@@ -2911,7 +2960,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           style:{padding:"11px 24px",background:"#EDE84A",border:"none",borderRadius:7,color:"#1E1F5C",fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",flexShrink:0}
         },"Open Workflow →")
       ),
-      e(AIPanel,{user:user,stage:"epe",label:"Property & Development Analysis",
+      e(AIPanel,{user:user,up:up,stage:"epe",label:"Property & Development Analysis",
           prompt:"Analyse this property opportunity. Type: "+(ep.propType||"unknown")+" at "+(ep.postcode||"postcode not given")+", "+propSqft+"sqft, "+(ep.bedrooms||"?")+" bed, "+(ep.storeys||"?")+" storeys, condition: "+(ep.condition||"average")+". Current value: £"+currentVal.toLocaleString()+". Garden: "+gardenSqft+"sqft ("+((ep.aspect||"aspect unknown"))+"), premium: "+fmt(gVal)+". Proposed: "+newUnits+" new units, GDV: "+fmt(newGdv)+", dev RLV: "+fmt(devRlv)+", uplift: "+(currentVal>0?pct((uplift/currentVal)*100):"n/a")+". Provide: 1) Current value sense check, 2) Development feasibility, 3) Planning risk, 4) Best option recommendation, 5) What would change the recommendation."})
       )
     );
@@ -3156,7 +3205,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
               e("span",{style:{color:sc,fontWeight:700}},rRlv>0&&rlvPctGdv>=15?"✓ Viable":"✗ Below threshold")
             )
           ),
-          e(AIPanel,{user:user,stage:"rlv",label:"RICS Land Valuation Report",
+          e(AIPanel,{user:user,up:up,stage:"rlv",label:"RICS Land Valuation Report",
             prompt:"Provide a professional RICS-style residual land valuation report. Postcode: "+(r.postcode||"not given")+", scheme: "+(r.schType||"residential")+", "+rUnits+" units. LR data: "+(lrData?"£"+lrData.wPsf+"/sqft ("+lrData.totalTx+" transactions)":"not fetched")+". GDV: "+fmt(rGdv)+", RLV: "+fmt(rRlv)+" ("+pct(rlvPctGdv)+" of GDV). Provide: 1) RICS valuation summary, 2) Price per sqft validation, 3) Negotiation strategy (opening bid vs max), 4) Key risks, 5) What would change the valuation."})
         )
       )
@@ -3500,7 +3549,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           ),
           e("div",{style:{fontSize:10,color:"#7278A0",padding:"6px 4px"}},"Pessimistic: -10% sales, +12% build costs | Optimistic: +8% sales, -5% build costs")
         ),
-        e(AIPanel,{user:user,stage:"sfh",label:"SFH Development Analysis",
+        e(AIPanel,{user:user,up:up,stage:"sfh",label:"SFH Development Analysis",
           prompt:"Analyse this SFH development. Site: "+sAcres+" acres in "+cityName(sfhCity)+", "+sDph+" dph, "+totalUnits+" plots. Mix: "+houseCalcs.map(function(h){return h.count+"x "+h.type;}).join(", ")+". GDV: "+fmt(totalGdv)+", RLV: "+fmt(rlv)+" ("+fmt(rlvPu)+"/plot), margin: "+pct(sMargin)+". AH: "+ahPct+"% required. Provide: 1) Mix assessment for "+cityName(sfhCity)+" market, 2) Sale price sense check, 3) Affordable housing strategy and best tenure, 4) Infrastructure cost adequacy, 5) Phasing strategy for "+totalUnits+" plots, 6) Key planning and delivery risks."})
       )
     );
@@ -3658,7 +3707,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
         e("div",{style:{background:"rgba(176,90,53,0.06)",border:"1px solid rgba(176,90,53,0.2)",borderRadius:8,padding:"12px 16px",marginTop:10,fontSize:11,color:"#8A4020"}},
           "⚠ Est. service charge: £"+(total*2400).toLocaleString()+"/year total (£2,400/unit). Sinking fund required under BSA 2022. High service charges reduce investor pricing by ~2%."
         ),
-        e(AIPanel,{user:user,stage:"hra",label:"High-Rise Analysis & BSA Compliance",
+        e(AIPanel,{user:user,up:up,stage:"hra",label:"High-Rise Analysis & BSA Compliance",
           prompt:"Analyse this "+storeys+"-storey apartment scheme in "+cityName(hCity)+". "+total+" units ("+su+" studios, "+ou+" 1-bed, "+tu+" 2-bed), GDV: "+fmt(hGdv)+", RLV: "+fmt(hRlv)+", margin: "+pct(hMargin)+". Structure: "+(h.structure||"RC frame")+". "+(bsa?"Higher Risk Building under BSA 2022.":"")+". Provide: 1) Viability vs "+cityName(hCity)+" market benchmarks, 2) BSA 2022 compliance roadmap and Gateway 2/3 timeline, 3) EWS1 strategy and cladding risk, 4) Structural form recommendation for "+storeys+" storeys, 5) Service charge impact on exit pricing, 6) Mix optimisation for current demand."})
       )
     );
@@ -4325,7 +4374,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           })
         )
       ),
-      e(AIPanel,{user:user,stage:"land",label:"Analyse Site",
+      e(AIPanel,{user:user,up:up,stage:"land",label:"Analyse Site",
         prompt:"Evaluate this "+at.toUpperCase()+" development site in "+cityName(city)+". Location score: "+score+"/100. Asking: "+fmt(askingPrice)+", market benchmark: "+fmt(benchmark)+". Site: "+(l.acres||"?")+" acres, contamination: "+(l.contamination||"unknown")+", tenure: "+(l.tenure||"unknown")+". Provide: 1) Strengths and red flags, 2) Land value vs market assessment, 3) DD priorities in order, 4) Go/No-Go with conditions, 5) Negotiation strategy and opening bid recommendation."}),
 
       e("div",{style:S.card},
@@ -4365,7 +4414,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           ),
           e("div",{style:{fontSize:10,color:"#7278A0",marginTop:8}},"These open Google searches for "+cityName(city)+"'s specific planning documents. Look for the council's planning pages for official documents.")
         ),
-        e(AIPanel,{user:user,stage:"land",label:"Local Plan Analysis for "+cityName(city),
+        e(AIPanel,{user:user,up:up,stage:"land",label:"Local Plan Analysis for "+cityName(city),
           prompt:"Provide a local planning analysis for "+cityName(city)+". Include: 1) Is there an up-to-date Local Plan and when was it adopted? 2) What are the main housing allocation areas? 3) Is the council meeting its housing delivery targets? 4) What is the brownfield/greenfield split in recent permissions? 5) Key planning policies that affect "+at.toUpperCase()+" development in this area. 6) Any Article 4 directions or HMO restrictions relevant to "+at.toUpperCase()+"? 7) Typical S106 contributions and CIL rates if known."})
       )
     );
@@ -4422,7 +4471,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           );
         })
       ),
-      e(AIPanel,{user:user,stage:"planning",label:"Planning Strategy",
+      e(AIPanel,{user:user,up:up,stage:"planning",label:"Planning Strategy",
         prompt:"Planning strategy for "+at.toUpperCase()+" scheme. LPA: "+(p.lpa||"unknown")+", status: "+(p.status||"none")+", "+units+" units, "+(p.ahPct||0)+"% AH. S106: "+fmt(num(p.s106))+". Provide: 1) Risk rating (1-10), 2) NPPF 2024 hooks to use, 3) S106 negotiation strategy, 4) Affordable housing viability argument, 5) Realistic timeline from pre-app to consent, 6) Top 3 likely officer objections and responses."})
     );
   }
@@ -4818,7 +4867,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"AI Appraisal Review — Benchmarked vs Major Housebuilders"),
         e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:10}},"Compares your figures against Persimmon, Barratt, Taylor Wimpey and Bellway published benchmarks and BCIS data. Flags anything outside normal ranges."),
-        e(AIPanel,{user:user,stage:"fin",label:"Run AI Appraisal Benchmark Analysis",
+        e(AIPanel,{user:user,up:up,stage:"fin",label:"Run AI Appraisal Benchmark Analysis",
           prompt:"You are a senior development finance director. Analyse this "+at.toUpperCase()+" appraisal and benchmark against industry standards.\nSITE: "+(l.address||"Unknown")+", "+cityName(city)+" | LPA: "+(data.planning&&data.planning.lpa||"unknown")+"\nGDV: "+fmt(gdv2)+" | TDC: "+fmt(tc4)+" | Profit: "+fmt(profit2)+" | Margin: "+pct(margin2)+" | ROC: "+pct(roc)+"\nUnits: "+(rlvUnits||units)+" | Build Cost: £"+(f.buildPsf||m.build)+"/sqft | S106/unit: £"+(f.s106pu||0)+" | Land Cost: "+fmt(lc)+"\nFinance Rate: "+(f.finRate||7.5)+"% | Contingency: "+(f.contingency||5)+"%\n\nProvide:\n1) ACCURACY CHECK — are build costs, S106, finance rates and yield within normal ranges for "+cityName(city)+"? Give specific correct figures for each.\n2) S106 ESTIMATE — what is a realistic S106/CIL total for "+(data.planning&&data.planning.lpa||cityName(city))+" LPA? Break down by Education, NHS, Highways, BNG, Open Space and give £/unit figures.\n3) HOUSEBUILDER BENCHMARK — compare margin and ROC against Persimmon (20-22% margin, £1,450/m2 build), Barratt (18-20%, £1,550/m2), Taylor Wimpey (19-21%), Bellway (20-23%).\n4) RED FLAGS — top 3 things that are wrong or missing from this appraisal.\n5) CORRECTED APPRAISAL SUMMARY — with your recommended figures, what would the GDV, TDC, profit and margin look like?\n6) SCORE 1-10 and state: Proceed / Caution / Abort."})
       ),
 
@@ -4903,7 +4952,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
           );
         })()
       ),
-      e(AIPanel,{user:user,stage:"fin",label:"AI: Landowner vs Cassidy Commercial Analysis",
+      e(AIPanel,{user:user,up:up,stage:"fin",label:"AI: Landowner vs Cassidy Commercial Analysis",
         prompt:"Analyse the commercial split on this "+at.toUpperCase()+" deal.\nSite: "+(l.address||"Unknown")+", "+cityName(city)+" | Acres: "+(l.acres||"?")+" | GDV: "+fmt(gdv2)+" | RLV: "+fmt(Math.max(0,rlv))+" | Dev Profit: "+fmt(profit2>0?profit2:gdv2*0.20)+" | Owner: "+(l.ownerType||"not set")+"\n\nProvide: 1) What is a fair deal for this landowner given the planning risk Cassidy takes? 2) What acquisition structure — unconditional, conditional, option or promotion? 3) What % of planning uplift should the landowner receive and why? 4) How does this compare to what Persimmon/Barratt/Taylor Wimpey pay for strategic land in this location type? 5) Cassidy negotiation tactics to agree land price?"})
       )
     );
@@ -4959,7 +5008,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
           })
         );
       }),
-      e(AIPanel,{user:user,stage:"dd",label:"DD Gap Analysis",
+      e(AIPanel,{user:user,up:up,stage:"dd",label:"DD Gap Analysis",
         prompt:"Due diligence gap analysis. "+done+"/"+total2+" complete. Missing: "+Object.keys(DD).flatMap(function(cat){return DD[cat].filter(function(i){return !checked[i];}).map(function(i){return cat+": "+i;});}).join(", ")||"None"+". Provide: 1) Critical pre-exchange items that are not yet confirmed, 2) Items that can be deferred with contractual protections, 3) Any missing items that should be on this list for this scheme, 4) Realistic timeline to clear all DD."})
     );
   }
@@ -5008,7 +5057,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
           );
         })
       ),
-      e(AIPanel,{user:user,stage:"risks",label:"Risk Assessment",
+      e(AIPanel,{user:user,up:up,stage:"risks",label:"Risk Assessment",
         prompt:"Risk assessment for this "+at.toUpperCase()+" development. Red risks: "+risks.filter(function(r){return r.rag==="red";}).map(function(r){return r.desc;}).join(", ")||"None"+". Amber: "+risks.filter(function(r){return r.rag==="amber";}).map(function(r){return r.desc;}).join(", ")||"None"+". Provide: 1) Priority ranking of top 3 risks, 2) Specific mitigation actions for each red risk, 3) Any missing risks for this scheme type, 4) Risk-adjusted return recommendation — should you proceed?"})
     );
   }
@@ -5191,7 +5240,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
         e("div",{style:{fontSize:10,color:"#7278A0",fontStyle:"italic"}},"John Baker reference: Paradigm, Fairhive, Hightown offered. Clarion, Stonewater, SNG, Home Group, Vivid, Abri declined. Best GB: £24.8m / Turnkey: £24.8m for 94-unit parcel (Paradigm).")
       ),
 
-      e(AIPanel,{user:user,stage:"exit",label:"Exit Strategy Analysis",
+      e(AIPanel,{user:user,up:up,stage:"exit",label:"Exit Strategy Analysis",
         prompt:"Exit strategy for "+at.toUpperCase()+" in "+cityName(city)+". Strategy: "+(ex.strategy||"not set")+", GDV: "+fmt(gdv)+", NOI: "+fmt(noi)+" pa, yield: "+pct(ey*100)+", investor type: "+(ex.investorType||"not set")+". Provide: 1) Optimal exit route and timing recommendation, 2) Top 5 specific buyers to approach with rationale, 3) Key investor DD requirements and how to prepare, 4) Critical negotiation points and red lines, 5) Risk factors that could compress exit pricing by >10 bps."})
     );
   }
