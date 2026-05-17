@@ -3636,94 +3636,25 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
 
       setData(function(d){return Object.assign({},d,{masterLoading:true,masterReport:""});});
 
-      var prompt="You are an expert UK residential development consultant. Analyse this land opportunity and provide a complete structured assessment with specific numbers to populate a development appraisal tool.
-
-"+
-        "SITE: "+addr+"
-"+
-        "POSTCODE: "+pc+"
-"+
-        "CITY/MARKET: "+cityName(lpaCity)+"
-"+
-        "LPA: "+lpa2+"
-"+
-        "SITE AREA: "+acres2+" acres / "+(acres2*0.404686).toFixed(2)+" ha
-"+
-        "ASKING PRICE: £"+askPrice.toLocaleString()+"
-"+
-        "PLANNING STATUS: "+planStatus2+"
-"+
-        "LANDOWNER TYPE: "+ownerType2+"
-"+
-        "DESCRIPTION: "+description.substring(0,300)+"
-
-"+
-        "Respond ONLY with a valid JSON object containing these exact fields:
-"+
-        "{
-"+
-        ""recommendedScheme": "sfh" or "btr" or "pbsa",
-"+
-        ""recommendedUnits": number,
-"+
-        ""recommendedDph": number,
-"+
-        ""estimatedGdv": number,
-"+
-        ""buildCostPsf": number,
-"+
-        ""salePricePsf": number,
-"+
-        ""exitYieldPct": number,
-"+
-        ""financeRatePct": number,
-"+
-        ""s106PerUnit": number,
-"+
-        ""s106Education": number,
-"+
-        ""s106Highways": number,
-"+
-        ""s106NHS": number,
-"+
-        ""s106BNG": number,
-"+
-        ""s106OpenSpace": number,
-"+
-        ""s106Other": number,
-"+
-        ""ahPct": number,
-"+
-        ""planningRisk": "low" or "medium" or "high",
-"+
-        ""planningTimeline": string,
-"+
-        ""recommendedBid": number,
-"+
-        ""openingBid": number,
-"+
-        ""maxBid": number,
-"+
-        ""houseTypeMix": [
-"+
-        "  {"type": string, "beds": number, "count": number, "sqft": number, "unitPrice": number}
-"+
-        "],
-"+
-        ""goNoGo": "GO" or "CAUTION" or "NO-GO",
-"+
-        ""goNoGoReason": string,
-"+
-        ""topRisks": [string, string, string],
-"+
-        ""marketCommentary": string
-"+
-        "}
-
-"+
-        "Base all figures on actual "+cityName(lpaCity)+" market data for 2024/25. "+
-        "S106 figures should reflect "+lpa2+" LPA typical obligations. "+
-        "House type mix should reflect what is most likely to get planning consent and sell well in "+cityName(lpaCity)+".";
+      var promptParts=[
+        "You are an expert UK residential development consultant. Analyse this land opportunity and provide a complete structured assessment with specific numbers to populate a development appraisal tool.",
+        "",
+        "SITE: "+addr,
+        "POSTCODE: "+pc,
+        "CITY/MARKET: "+cityName(lpaCity),
+        "LPA: "+lpa2,
+        "SITE AREA: "+acres2+" acres / "+(acres2*0.404686).toFixed(2)+" ha",
+        "ASKING PRICE: £"+askPrice.toLocaleString(),
+        "PLANNING STATUS: "+planStatus2,
+        "LANDOWNER TYPE: "+ownerType2,
+        "DESCRIPTION: "+description.substring(0,300),
+        "",
+        "Respond ONLY with a valid JSON object with these exact fields:",
+        "{recommendedScheme: sfh/btr/pbsa, recommendedUnits: number, recommendedDph: number, estimatedGdv: number, buildCostPsf: number, salePricePsf: number, exitYieldPct: number, financeRatePct: number, s106PerUnit: number, s106Education: number, s106Highways: number, s106NHS: number, s106BNG: number, s106OpenSpace: number, s106Other: number, ahPct: number, planningRisk: low/medium/high, planningTimeline: string, recommendedBid: number, openingBid: number, maxBid: number, houseTypeMix: [{type, beds, count, sqft, unitPrice}], goNoGo: GO/CAUTION/NO-GO, goNoGoReason: string, topRisks: [string,string,string], marketCommentary: string}",
+        "",
+        "Base all figures on actual "+cityName(lpaCity)+" market data for 2024/25. S106 should reflect "+lpa2+" LPA. House mix should reflect planning consent likelihood and sales in "+cityName(lpaCity)+"."
+      ];
+      var prompt=promptParts.join("\n");
 
       var params=new URLSearchParams({
         action:"ai",stage:"MasterAnalyse",
