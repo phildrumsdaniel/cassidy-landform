@@ -3972,6 +3972,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     var rlvFin=(rlvBc+rlvFees)*(num(f.finRate||f.finRatePa||8))/100;
     var rlvS106=rlvUnits*num(f.s106pu||8000);
     var rlv=gdv2>0?(gdv2-tc4-gdv2*0.20):rlvGdv-rlvBc-rlvFees-rlvCont-rlvFin-rlvS106-rlvGdv*0.20;
+    var totalBuild=rlvBc>0?rlvBc:tc4*0.65;
     var voidAdj=at==="pbsa"?0.97:0.95;
     var opex=units*(at==="pbsa"?600:1050)+gr*voidAdj*0.12;
     var noi2=gr*voidAdj-opex;
@@ -4101,17 +4102,17 @@ e("div",{style:{fontStyle:"italic",fontSize:10,color:"#7278A0",padding:"6px 0"}}
           var marginF=margin2;
           if(u<1||gdvF<1)return e("div",{style:{fontSize:12,color:"#7278A0",padding:"10px 0"}},"Enter units and GDV in the appraisal above to calculate IRR.");
           var salesMths=salesRate>0?Math.ceil(u/(salesRate*52/12)):progMths;
-          var peakDebt=tcF*0.65;
+          var peakDebt=(tcF>0?tcF:tc4)*0.65;
           var finCost=peakDebt*finRatePa*(progMths/12);
           // Newton-Raphson IRR approximation
           var irrVal=(function(){
-            if(gdvF<=0||tcF<=0)return null;
+            var iGdv=gdvF>0?gdvF:gdv2; var iTc=tcF>0?tcF:tc4; if(iGdv<=0||iTc<=0)return null;
             var r=0.15;
             var n=progMths/12;
             for(var i=0;i<60;i++){
-              var pv=gdv/Math.pow(1+r,n);
-              var npv=pv-tc*(1+finRatePa*n/2);
-              var dpv=-n*gdv/Math.pow(1+r,n+1);
+              var pv=iGdv/Math.pow(1+r,n);
+              var npv=pv-iTc*(1+finRatePa*n/2);
+              var dpv=-n*iGdv/Math.pow(1+r,n+1);
               var nr=r-npv/dpv;
               if(Math.abs(nr-r)<0.00001)break;
               r=nr;
@@ -4151,13 +4152,13 @@ e("div",{style:{fontStyle:"italic",fontSize:10,color:"#7278A0",padding:"6px 0"}}
               e("div",{style:{background:"rgba(255,255,255,0.08)",borderRadius:6,padding:"12px 14px",fontFamily:"monospace",fontSize:10,color:"rgba(255,255,255,0.9)",lineHeight:2.0,marginBottom:12}},
                 "Site: "+(l.address||"—"),e("br"),
                 "Gross Site: "+num(l.acres||0)+" acres / "+(num(l.acres||0)*0.404686).toFixed(2)+" ha",e("br"),
-                "Units: "+u+" | GDV: "+fmt(gdv)+" | Land (RLV): "+fmt(Math.max(0,rlv)),e("br"),
+                "Units: "+u+" | GDV: "+fmt(gdv2>0?gdv2:gdvF)+" | Land (RLV): "+fmt(Math.max(0,rlv)),e("br"),
                 "Build Cost: "+fmt(totalBuild||Math.round(tcF*0.6))+" | S106 Total: "+fmt(num(f.s106pu||0)*u),e("br"),
                 "Finance: "+(f.finRatePa||8)+"% pa | Sales: "+(f.salesRateWeek||0.75)+"/wk | IRR: "+(irrVal?irrVal+"%":"—"),e("br"),
-                "Margin: "+pct(margin)+" | Profit on Cost: "+pct(tc>0?(gdv-tc)/tc*100:0)
+                "Margin: "+pct(margin2)+" | Profit on Cost: "+pct(tc4>0?(gdv2-tc4)/tc4*100:0)
               ),
               e("button",{onClick:function(){
-                var nl="\n";var t=["LANDFORM EXPORT",new Date().toLocaleDateString("en-GB"),"","SITE: "+(l.address||"Unknown"),"LPA: "+(data.planning&&data.planning.lpa||"n/a"),"Gross Site: "+num(l.acres||0)+" acres","Units: "+u,"GDV: "+fmt(gdv),"Land Residual Value: "+fmt(Math.max(0,rlv)),"Build Cost: "+fmt(totalBuild),"S106/unit: "+(f.s106pu||0),"S106 Total: "+fmt(num(f.s106pu||0)*u),"Finance: "+(f.finRatePa||8)+"% pa","Sales Rate: "+(f.salesRateWeek||0.75)+"/wk","Programme: "+(f.programmeMths||36)+" months","Margin on GDV: "+pct(margin),"IRR: "+(irrVal?irrVal+"%":"n/a"),"","NEXT STEP: Enter into John Baker Excel model.","Set land price to RLV. Run Normal Distribution cashflow.","Rebase BCIS build costs. Track RP offers."].join(nl);                var el=document.createElement("textarea");
+                var nl="\n";var t=["LANDFORM EXPORT",new Date().toLocaleDateString("en-GB"),"","SITE: "+(l.address||"Unknown"),"LPA: "+(data.planning&&data.planning.lpa||"n/a"),"Gross Site: "+num(l.acres||0)+" acres","Units: "+u,"GDV: "+fmt(gdv2>0?gdv2:gdvF),"Land Residual Value: "+fmt(Math.max(0,rlv)),"Build Cost: "+fmt(totalBuild),"S106/unit: "+(f.s106pu||0),"S106 Total: "+fmt(num(f.s106pu||0)*u),"Finance: "+(f.finRatePa||8)+"% pa","Sales Rate: "+(f.salesRateWeek||0.75)+"/wk","Programme: "+(f.programmeMths||36)+" months","Margin on GDV: "+pct(margin2),"IRR: "+(irrVal?irrVal+"%":"n/a"),"","NEXT STEP: Enter into John Baker Excel model.","Set land price to RLV. Run Normal Distribution cashflow.","Rebase BCIS build costs. Track RP offers."].join(nl);                var el=document.createElement("textarea");
                 el.value=t;document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);
                 alert("Copied to clipboard — paste into Excel model or email to John Baker");
               },style:{padding:"9px 22px",background:"#EDE84A",border:"none",borderRadius:7,color:"#1E1F5C",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
