@@ -3639,7 +3639,12 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
 
     return e("div",null,
       e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Land Opportunity Finder"),
-      e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Paste any land agent URL — AI extracts key data and pre-fills your appraisal fields"),
+      e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:10}},"Find a listing, extract the data, import to pre-fill all stages automatically."),
+      e("div",{style:{background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.25)",borderRadius:8,padding:"12px 16px",marginBottom:20,fontSize:12,color:"#2A6A5A",lineHeight:1.9}},
+        e("strong",null,"Best method: "),
+        "Open the listing on Bruton Knowles, Savills or any agent site. Select all text (Ctrl+A), copy (Ctrl+C), paste into the text box below, click Extract from Text.",e("br"),
+        e("span",{style:{color:"#7278A0"}},"Note: The URL button may not work on sites that block automated access — the text paste method always works.")
+      ),
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Quick Links — Major Land Agents"),
         e("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10}},
@@ -3666,7 +3671,12 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           ),
           e("button",{onClick:doScrape,disabled:scrLoading||!sc2.url,style:Object.assign({},S.btn,{flexShrink:0,padding:"9px 20px"})},scrLoading?"⏳ Extracting...":"🔍 Extract Data")
         ),
-        scrError&&e("div",{style:{background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.25)",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#B05A35",marginTop:8}},scrError),
+        scrError&&e("div",{style:{background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.25)",borderRadius:6,padding:"12px 14px",fontSize:12,color:"#B05A35",marginTop:8}},
+          e("div",{style:{fontWeight:700,marginBottom:4}},"URL extraction failed"),
+          e("div",null,scrError.indexOf("server")>=0||scrError.indexOf("Internal")>=0?
+            "The agent website blocked automated access. Use the text method below instead: open the listing, select all text (Ctrl+A), copy (Ctrl+C) and paste into the box below.":
+            scrError
+          )),
         e("div",{style:{marginTop:14,paddingTop:14,borderTop:"1px solid #DDE0ED"}},
           e("label",{style:Object.assign({},S.label,{marginBottom:8,display:"block"})},"OR — Paste listing text here (from email, website or brochure):"),
           e("textarea",{value:sc2.pastedText||"",onChange:function(ev){up("scraper","pastedText",ev.target.value);},
@@ -4045,7 +4055,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
             e("span",null,"S106 Obligation"),e("span",null,"Total £"),e("span",null,"Per Unit"),e("span",null,"Status")
           ),
 e("div",{style:{fontStyle:"italic",fontSize:10,color:"#7278A0",padding:"6px 0"}},"Enter S106 obligations below — total auto-calculates and feeds the appraisal."),
-          e(S106Table,{f:f,up:up,fmt:fmt,pct:pct,num:num,S:S,data:data})
+          e(S106Table,{f:f,up:up,fmt:fmt,pct:pct,num:num,S:S})
         ),
         e("div",{style:{fontSize:10,color:"#7278A0",fontStyle:"italic"}},"Reference: John Baker model uses Education £2.36m, NHS £909k, Bus £398k, Sports £799k, BNG (challenged at 50%). S106 is negotiable — mark challenged items accordingly.")
       ),
@@ -4072,14 +4082,17 @@ e("div",{style:{fontStyle:"italic",fontSize:10,color:"#7278A0",padding:"6px 0"}}
           var salesRate=num(f.salesRateWeek||0.75);
           var finRatePa=num(f.finRatePa||8)/100;
           var progMths=num(f.programmeMths||36);
-          var u=num(f.units||totalUnits||0);
-          if(u<1||gdv<1)return e("div",{style:{fontSize:12,color:"#7278A0",padding:"10px 0"}},"Enter units and GDV in the appraisal above to calculate IRR.");
+          var u=num(f.units||units||0);
+          var gdvF=gdv>0?gdv:gdv2;
+          var tcF=tc>0?tc:tc4;
+          var marginF=margin>0?margin:margin2;
+          if(u<1||gdvF<1)return e("div",{style:{fontSize:12,color:"#7278A0",padding:"10px 0"}},"Enter units and GDV in the appraisal above to calculate IRR.");
           var salesMths=salesRate>0?Math.ceil(u/(salesRate*52/12)):progMths;
-          var peakDebt=tc*0.65;
+          var peakDebt=tcF*0.65;
           var finCost=peakDebt*finRatePa*(progMths/12);
           // Newton-Raphson IRR approximation
           var irrVal=(function(){
-            if(gdv<=0||tc<=0)return null;
+            if(gdvF<=0||tcF<=0)return null;
             var r=0.15;
             var n=progMths/12;
             for(var i=0;i<60;i++){
@@ -4102,8 +4115,8 @@ e("div",{style:{fontStyle:"italic",fontSize:10,color:"#7278A0",padding:"6px 0"}}
                 {l:"Programme",v:progMths+" mths"},
                 {l:"Peak Debt (est)",v:fmt(peakDebt)},
                 {l:"Finance Cost (est)",v:fmt(finCost),s:true},
-                {l:"Profit on Cost",v:tc>0?pct((gdv-tc)/tc*100):"—",c:gdv>tc?"#2D7A65":"#B05A35",big:true},
-                {l:"Margin on GDV",v:gdv>0?pct(margin):"—",c:margin>=15?"#2D7A65":"#B05A35",big:true},
+                {l:"Profit on Cost",v:tcF>0?pct((gdvF-tcF)/tcF*100):"—",c:gdvF>tcF?"#2D7A65":"#B05A35",big:true},
+                {l:"Margin on GDV",v:gdvF>0?pct(marginF):"—",c:marginF>=15?"#2D7A65":"#B05A35",big:true},
                 {l:"Approx IRR",v:irrVal?irrVal+"%":"—",c:irrColor,big:true},
               ].map(function(item){
                 return e("div",{key:item.l,style:{background:"#fff",border:"1px solid #DDE0ED",borderTop:"3px solid "+(item.c||"#4A4BAE"),borderRadius:8,padding:12,textAlign:"center"}},
@@ -4126,7 +4139,7 @@ e("div",{style:{fontStyle:"italic",fontSize:10,color:"#7278A0",padding:"6px 0"}}
                 "Site: "+(l.address||"—"),e("br"),
                 "Gross Site: "+num(l.acres||0)+" acres / "+(num(l.acres||0)*0.404686).toFixed(2)+" ha",e("br"),
                 "Units: "+u+" | GDV: "+fmt(gdv)+" | Land (RLV): "+fmt(Math.max(0,rlv)),e("br"),
-                "Build Cost: "+fmt(totalBuild)+" | S106 Total: "+fmt(num(f.s106pu||0)*u),e("br"),
+                "Build Cost: "+fmt(totalBuild||Math.round(tcF*0.6))+" | S106 Total: "+fmt(num(f.s106pu||0)*u),e("br"),
                 "Finance: "+(f.finRatePa||8)+"% pa | Sales: "+(f.salesRateWeek||0.75)+"/wk | IRR: "+(irrVal?irrVal+"%":"—"),e("br"),
                 "Margin: "+pct(margin)+" | Profit on Cost: "+pct(tc>0?(gdv-tc)/tc*100:0)
               ),
