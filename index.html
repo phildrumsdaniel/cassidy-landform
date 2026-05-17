@@ -2121,7 +2121,28 @@ function Tool(props){
     ];
     return e("div",null,
       e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Deal Dashboard"),
-      e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Live overview — fill in the stages to see metrics update"),
+      e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:data.masterReport?8:20}},"Live overview — fill in the stages to see metrics update"),
+      data.masterReport&&(function(){
+        var ai2={};
+        try{ai2=JSON.parse(data.masterReport);}catch(e){return null;}
+        if(!ai2.goNoGo)return null;
+        var goColor=ai2.goNoGo==="GO"?"#2D7A65":ai2.goNoGo==="CAUTION"?"#9A7B3E":"#B05A35";
+        return e("div",{style:{background:goColor+"15",border:"2px solid "+goColor,borderRadius:10,padding:"14px 18px",marginBottom:20,display:"flex",alignItems:"center",gap:16}},
+          e("div",{style:{fontSize:32,fontWeight:900,color:goColor,minWidth:60,textAlign:"center"}},
+            ai2.goNoGo==="GO"?"✓ GO":ai2.goNoGo==="CAUTION"?"⚠ CAUTION":"✗ NO-GO"
+          ),
+          e("div",{style:{flex:1}},
+            e("div",{style:{fontSize:13,fontWeight:700,color:goColor,marginBottom:3}},"AI Deal Assessment — "+ai2.goNoGo),
+            e("div",{style:{fontSize:12,color:"#3A3D6A",lineHeight:1.6}},ai2.goNoGoReason||""),
+            ai2.marketCommentary&&e("div",{style:{fontSize:11,color:"#7278A0",marginTop:4,fontStyle:"italic"}},ai2.marketCommentary)
+          ),
+          e("div",{style:{textAlign:"right",flexShrink:0}},
+            ai2.recommendedUnits&&e("div",{style:{fontSize:11,color:"#7278A0"}},"Recommended: "+ai2.recommendedUnits+" units @ "+ai2.recommendedDph+"dph"),
+            ai2.recommendedBid&&e("div",{style:{fontSize:11,color:goColor,fontWeight:700}},"Bid: £"+Math.round(ai2.recommendedBid).toLocaleString()),
+            ai2.planningRisk&&e("div",{style:{fontSize:10,color:"#7278A0"}},"Planning risk: "+ai2.planningRisk)
+          )
+        );
+      })(),
       e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}},
         cards.map(function(card){
           return e("div",{key:card.l,style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:16}},
@@ -3589,7 +3610,239 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
       });
     }
 
-        function doAreaIntel(){
+        function doMasterAnalyse(){
+      // Gather everything we know about the deal
+      var l2=data.land||{};
+      var r2=data.rlv||{};
+      var p2=data.planning||{};
+      var f2=data.fin||{};
+      var s2=data.sfh||{};
+      var scr=data.scraper&&data.scraper.result||{};
+
+      var addr=l2.address||scr.address||"Unknown site";
+      var pc=(r2.postcode||scr.postcode||"").toUpperCase();
+      var lpaCity=l2.city||city||"unknown";
+      var acres2=num(l2.acres||r2.acres||scr.acreage||0);
+      var askPrice=num(l2.price||scr.askingPrice||0);
+      var lpa2=p2.lpa||l2.localAuthority||scr.localAuthority||cityName(lpaCity)+" Council";
+      var planStatus2=l2.planStatus||scr.planningStatus||"none";
+      var ownerType2=l2.ownerType||"farmer";
+      var description=scr.description||"";
+
+      if(!addr||addr==="Unknown site"){
+        alert("Please import a land listing first using Land Finder.");
+        return;
+      }
+
+      setData(function(d){return Object.assign({},d,{masterLoading:true,masterReport:""});});
+
+      var prompt="You are an expert UK residential development consultant. Analyse this land opportunity and provide a complete structured assessment with specific numbers to populate a development appraisal tool.
+
+"+
+        "SITE: "+addr+"
+"+
+        "POSTCODE: "+pc+"
+"+
+        "CITY/MARKET: "+cityName(lpaCity)+"
+"+
+        "LPA: "+lpa2+"
+"+
+        "SITE AREA: "+acres2+" acres / "+(acres2*0.404686).toFixed(2)+" ha
+"+
+        "ASKING PRICE: £"+askPrice.toLocaleString()+"
+"+
+        "PLANNING STATUS: "+planStatus2+"
+"+
+        "LANDOWNER TYPE: "+ownerType2+"
+"+
+        "DESCRIPTION: "+description.substring(0,300)+"
+
+"+
+        "Respond ONLY with a valid JSON object containing these exact fields:
+"+
+        "{
+"+
+        ""recommendedScheme": "sfh" or "btr" or "pbsa",
+"+
+        ""recommendedUnits": number,
+"+
+        ""recommendedDph": number,
+"+
+        ""estimatedGdv": number,
+"+
+        ""buildCostPsf": number,
+"+
+        ""salePricePsf": number,
+"+
+        ""exitYieldPct": number,
+"+
+        ""financeRatePct": number,
+"+
+        ""s106PerUnit": number,
+"+
+        ""s106Education": number,
+"+
+        ""s106Highways": number,
+"+
+        ""s106NHS": number,
+"+
+        ""s106BNG": number,
+"+
+        ""s106OpenSpace": number,
+"+
+        ""s106Other": number,
+"+
+        ""ahPct": number,
+"+
+        ""planningRisk": "low" or "medium" or "high",
+"+
+        ""planningTimeline": string,
+"+
+        ""recommendedBid": number,
+"+
+        ""openingBid": number,
+"+
+        ""maxBid": number,
+"+
+        ""houseTypeMix": [
+"+
+        "  {"type": string, "beds": number, "count": number, "sqft": number, "unitPrice": number}
+"+
+        "],
+"+
+        ""goNoGo": "GO" or "CAUTION" or "NO-GO",
+"+
+        ""goNoGoReason": string,
+"+
+        ""topRisks": [string, string, string],
+"+
+        ""marketCommentary": string
+"+
+        "}
+
+"+
+        "Base all figures on actual "+cityName(lpaCity)+" market data for 2024/25. "+
+        "S106 figures should reflect "+lpa2+" LPA typical obligations. "+
+        "House type mix should reflect what is most likely to get planning consent and sell well in "+cityName(lpaCity)+".";
+
+      var params=new URLSearchParams({
+        action:"ai",stage:"MasterAnalyse",
+        user:(user&&user.name)||"",company:(user&&user.company)||"",
+        system:"You are a UK residential development consultant and chartered surveyor. Respond ONLY with valid JSON. No explanation, no markdown, no preamble.",
+        prompt:prompt.substring(0,3500)
+      });
+
+      fetch(WEBHOOK+"?"+params.toString())
+      .then(function(res){return res.json();})
+      .then(function(d2){
+        var text=d2.result||"";
+        var clean=text.replace(/```json/g,"").replace(/```/g,"").trim();
+        var js=clean.indexOf("{"); var je=clean.lastIndexOf("}");
+        if(js>=0&&je>js)clean=clean.substring(js,je+1);
+        var ai={};
+        try{ai=JSON.parse(clean);}catch(e){
+          setData(function(d){return Object.assign({},d,{masterLoading:false,masterReport:"AI analysis failed — please try again."});});
+          return;
+        }
+
+        // NOW POPULATE ALL STAGES FROM AI RESPONSE
+        setData(function(d){
+          var updates={masterLoading:false,masterReport:clean};
+
+          // Asset type
+          if(ai.recommendedScheme)updates.assetType=ai.recommendedScheme;
+
+          // Land/appraisal
+          updates.land=Object.assign({},d.land||{});
+
+          // RLV - sale price psf
+          updates.rlv=Object.assign({},d.rlv||{},{
+            units:ai.recommendedUnits?String(ai.recommendedUnits):(d.rlv&&d.rlv.units||""),
+            salePsf:ai.salePricePsf?String(Math.round(ai.salePricePsf)):(d.rlv&&d.rlv.salePsf||""),
+            buildPsf:ai.buildCostPsf?String(Math.round(ai.buildCostPsf)):(d.rlv&&d.rlv.buildPsf||""),
+            avgSqft:"950",
+          });
+
+          // Planning
+          updates.planning=Object.assign({},d.planning||{},{
+            lpa:lpa2||(d.planning&&d.planning.lpa||""),
+            units:ai.recommendedUnits?String(ai.recommendedUnits):(d.planning&&d.planning.units||""),
+            ahPct:ai.ahPct?String(Math.round(ai.ahPct)):(d.planning&&d.planning.ahPct||""),
+            status:planStatus2||(d.planning&&d.planning.status||""),
+          });
+
+          // SFH house type mix
+          if(ai.houseTypeMix&&ai.houseTypeMix.length>0){
+            updates.sfh=Object.assign({},d.sfh||{},{
+              acres:acres2>0?String(acres2):(d.sfh&&d.sfh.acres||""),
+              city:lpaCity||(d.sfh&&d.sfh.city||""),
+              dph:ai.recommendedDph?String(Math.round(ai.recommendedDph)):(d.sfh&&d.sfh.dph||"30"),
+              buildPsf:ai.buildCostPsf?String(Math.round(ai.buildCostPsf)):(d.sfh&&d.sfh.buildPsf||""),
+              basePsf:ai.salePricePsf?String(Math.round(ai.salePricePsf)):(d.sfh&&d.sfh.basePsf||""),
+              mix:ai.houseTypeMix.map(function(h){
+                return{
+                  type:h.type||"House",
+                  beds:String(h.beds||3),
+                  count:String(h.count||0),
+                  sqft:String(h.sqft||900),
+                  unitPrice:h.unitPrice?String(Math.round(h.unitPrice)):"",
+                  psf:"",tenure:"private",ahPct:"0"
+                };
+              }),
+            });
+          }
+
+          // Financial modelling
+          var s106tot=ai.s106PerUnit?ai.s106PerUnit*ai.recommendedUnits:0;
+          updates.fin=Object.assign({},d.fin||{},{
+            units:ai.recommendedUnits?String(ai.recommendedUnits):(d.fin&&d.fin.units||""),
+            buildPsf:ai.buildCostPsf?String(Math.round(ai.buildCostPsf)):(d.fin&&d.fin.buildPsf||""),
+            salePsf:ai.salePricePsf?String(Math.round(ai.salePricePsf)):(d.fin&&d.fin.salePsf||""),
+            exitYield:ai.exitYieldPct?String(ai.exitYieldPct):(d.fin&&d.fin.exitYield||""),
+            finRate:ai.financeRatePct?String(ai.financeRatePct):(d.fin&&d.fin.finRate||"7.5"),
+            contingency:"5",
+            s106pu:ai.s106PerUnit?String(Math.round(ai.s106PerUnit)):(d.fin&&d.fin.s106pu||""),
+            // S106 line items
+            s106edu:ai.s106Education?String(Math.round(ai.s106Education*(ai.recommendedUnits||1))):"",
+            s106highways:ai.s106Highways?String(Math.round(ai.s106Highways*(ai.recommendedUnits||1))):"",
+            s106nhsgp:ai.s106NHS?String(Math.round(ai.s106NHS*(ai.recommendedUnits||1)*0.4)):"",
+            s106nhshosp:ai.s106NHS?String(Math.round(ai.s106NHS*(ai.recommendedUnits||1)*0.6)):"",
+            s106bng:ai.s106BNG?String(Math.round(ai.s106BNG*(ai.recommendedUnits||1))):"",
+            s106open:ai.s106OpenSpace?String(Math.round(ai.s106OpenSpace*(ai.recommendedUnits||1))):"",
+            s106other:ai.s106Other?String(Math.round(ai.s106Other*(ai.recommendedUnits||1))):"",
+            salesRateWeek:"0.75",programmeMths:"36",finRatePa:ai.financeRatePct?String(ai.financeRatePct):"7.5",
+          });
+
+          // Land workflow - bidding
+          updates.land=Object.assign({},updates.land,{
+            recommendedBid:ai.recommendedBid?String(Math.round(ai.recommendedBid)):"",
+            openingBid:ai.openingBid?String(Math.round(ai.openingBid)):"",
+            maxBid:ai.maxBid?String(Math.round(ai.maxBid)):"",
+          });
+
+          // Risk register - add AI identified risks
+          if(ai.topRisks&&ai.topRisks.length>0){
+            var existingRisks=d.risks||RISK_DEFAULTS.map(function(r){return Object.assign({},r);});
+            ai.topRisks.forEach(function(risk,i){
+              existingRisks.push({id:"ai_risk_"+i,category:"Planning",risk:risk,rag:"amber",mitigation:"Review with planning consultant"});
+            });
+            updates.risks=existingRisks;
+          }
+
+          return Object.assign({},d,updates);
+        });
+
+        logEvent(user,"MASTER_ANALYSE",{address:addr,scheme:ai.recommendedScheme,units:ai.recommendedUnits,goNoGo:ai.goNoGo});
+
+        // Navigate to dashboard to show updated metrics
+        setTimeout(function(){navTo("dashboard");},300);
+      })
+      .catch(function(){
+        setData(function(d){return Object.assign({},d,{masterLoading:false,masterReport:"Connection failed — check internet and try again."});});
+      });
+    }
+
+    function doAreaIntel(){
       if(!scrResult)return;
       var addr=scrResult.address||"";
       var pc=scrResult.postcode||"";
@@ -4975,6 +5228,12 @@ Adjust individual lines to match your actual planning negotiations.");
         e("div",{style:{fontSize:11,color:"#7278A0",marginRight:8}},at.toUpperCase()+" · "+cityName(city)),
         e("button",{onClick:function(){navTo("summary");},style:{padding:"6px 12px",background:stage==="summary"?"#2E2F8A":"#F7F8FC",border:"1px solid "+(stage==="summary"?"#2E2F8A":"#DDE0ED"),color:stage==="summary"?"#fff":"#3A3D6A",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},
           "📄 Summary"
+        ),
+        e("button",{
+          onClick:doMasterAnalyse,
+          disabled:data.masterLoading,
+          style:{padding:"6px 14px",background:data.masterLoading?"#8889C8":"linear-gradient(135deg,#2D7A65,#4A4BAE)",border:"none",color:"#fff",borderRadius:5,fontSize:11,fontWeight:800,cursor:data.masterLoading?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(74,75,174,0.3)"}},
+          data.masterLoading?"⏳ Analysing...":"🧠 Analyse Deal"
         ),
         e("button",{onClick:function(){window.open("https://phildrumsdaniel.github.io/cassidy-landform/flowcharts.html","cassidy-flowcharts");},style:{padding:"6px 12px",background:"#4A4BAE",border:"1px solid #4A4BAE",color:"#fff",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},
           "🗺 Flowcharts ↗"
