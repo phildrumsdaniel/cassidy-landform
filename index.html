@@ -535,22 +535,46 @@ function AIPanel(props){
   async function run(){
     setAiLoad(true); setAiRes(""); setAiJson(null);
     try{
-      // Enhanced prompt: always ask AI to return corrections in JSON block
-      var enhPrompt=props.prompt+
-        "\n\nIMPORTANT: At the end of your analysis, include a JSON corrections block wrapped in ===JSON_CORRECTIONS=== markers with any figures that need updating in this format:"+
-        '\n===JSON_CORRECTIONS===\n{"corrections":[{"field":"fieldname","stage":"stagename","value":number,"reason":"why"}]}\n===END_CORRECTIONS==='+
-        "\nValid fields: gdv,buildPsf,salePsf,units,s106pu,exitYield,finRate,contingency,landPrice,ahPct,dph,acres"+
-        "\nValid stages: fin,sfh,rlv,planning,land"+
-        "\nOnly include fields where the current value is clearly wrong. If figures look reasonable, return empty corrections array.";
-      var result=await callAI(props.user,props.stage,props.system,enhPrompt);
-      // Extract JSON corrections if present
-      var jsonMatch=result.match(/===JSON_CORRECTIONS===([\s\S]*?)===END_CORRECTIONS===/);
-      if(jsonMatch){
+      var corrInstr=[
+        "CRITICAL FINAL STEP: After your analysis, you MUST output a corrections block.",
+        "Start it with the exact line: CORRECTIONS_START",
+        "Then a JSON object: {corrections:[{field,stage,value,reason}]}",
+        "End with the exact line: CORRECTIONS_END",
+        "Fields: buildPsf,salePsf,units,s106pu,finRate,contingency,ahPct (stage=fin or sfh or rlv or planning)",
+        "Only include fields where the value needs changing to make the scheme viable.",
+        "If no changes needed, output: CORRECTIONS_START",
+        "{corrections:[]}",
+        "CORRECTIONS_END",
+        "Example:",
+        "CORRECTIONS_START",
+        "{corrections:[{field:buildPsf,stage:fin,value:175,reason:Current 145 below BCIS minimum for semi-rural Worcester}]}",
+        "CORRECTIONS_END"
+      ].join("\n");
+      var enhPrompt=props.prompt+"\n\n"+corrInstr;
+      var result=await callAI(props.user,props.stage,"You are a senior UK development finance director. Give analysis then ALWAYS end with CORRECTIONS_START...CORRECTIONS_END block as instructed.",enhPrompt);
+      // Extract corrections block
+      var ci=result.indexOf("CORRECTIONS_START");
+      var ce=result.indexOf("CORRECTIONS_END");
+      if(ci>=0&&ce>ci){
+        var jsonStr=result.substring(ci+17,ce).trim();
+        // Clean up - remove field name quotes issues
+        jsonStr=jsonStr.replace(/([{,])\s*([a-zA-Z]+)\s*:/g,'$1"$2":');
         try{
-          var parsed=JSON.parse(jsonMatch[1].trim());
-          if(parsed.corrections&&parsed.corrections.length>0)setAiJson(parsed);
-        }catch(e){}
-        result=result.replace(/===JSON_CORRECTIONS===[\s\S]*?===END_CORRECTIONS===/,"").trim();
+          var parsed=JSON.parse(jsonStr);
+          if(parsed.corrections&&parsed.corrections.length>0){
+            setAiJson(parsed);
+          }
+        }catch(e2){
+          // Try extracting just the array
+          var arrMatch=jsonStr.match(/\[[\s\S]*\]/);
+          if(arrMatch){
+            try{
+              var arr=JSON.parse(arrMatch[0]);
+              if(arr.length>0)setAiJson({corrections:arr});
+            }catch(e3){}
+          }
+        }
+        result=result.substring(0,ci).trim();
       }
       setAiRes(result);
       logEvent(props.user,"AI_RESULT",{stage:props.stage,result:result.substring(0,200)});
