@@ -2836,12 +2836,12 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
         lrError&&e("div",{style:{background:"#FFF0EC",border:"1px solid #E8C4B0",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#8A3A1A"}},lrError),
         lrData&&e("div",null,
           e("div",{style:{textAlign:"center",padding:18,background:"linear-gradient(135deg,#EEEEF8,#E4E4F4)",borderRadius:10,marginBottom:12}},
-            e("div",{style:{fontSize:48,fontWeight:800,color:"#4A4BAE",lineHeight:1}},"£"+lrData.wPsf.toLocaleString(),e("span",{style:{fontSize:18,color:"#7278A0"}},"/sqft")),
-            e("div",{style:{fontSize:13,fontWeight:600,color:"#2E2F8A",marginTop:6}},"Weighted average — "+lrData.totalTx+" Land Registry transactions"),
-            e("div",{style:{fontSize:11,color:"#7278A0",marginTop:4}},"Sector: "+lrData.sector)
+            e("div",{style:{fontSize:48,fontWeight:800,color:"#4A4BAE",lineHeight:1}},"£"+(lrData.wPsf||lrData.weightedPsf||0).toLocaleString(),e("span",{style:{fontSize:18,color:"#7278A0"}},"/sqft")),
+            e("div",{style:{fontSize:13,fontWeight:600,color:"#2E2F8A",marginTop:6}},"Weighted average — "+(lrData.totalTx||lrData.total||0)+" Land Registry transactions"),
+            e("div",{style:{fontSize:11,color:"#7278A0",marginTop:4}},"Sector: "+(lrData.sector||lrData.lrSectorUsed||""))
           ),
           e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:10,marginBottom:12}},
-            lrData.typeStats.map(function(t){
+            (lrData.typeStats||[]).map(function(t){
               return e("div",{key:t.code,style:{background:"#fff",border:"1px solid #DDE0ED",borderTop:"3px solid #4A4BAE",borderRadius:8,padding:12}},
                 e("div",{style:{fontSize:10,fontWeight:700,color:"#7278A0",textTransform:"uppercase",marginBottom:6}},t.label),
                 e("div",{style:{fontSize:18,fontWeight:700,color:"#2E2F8A"}},fmt(t.avgAmt||t.avg||0)),
@@ -2854,12 +2854,12 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
             e("div",{style:{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",padding:"8px 12px",background:"#F7F8FC",fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:700,borderBottom:"1px solid #DDE0ED"}},
               e("span",null,"Address"),e("span",null,"Postcode"),e("span",null,"Date"),e("span",null,"Price")
             ),
-            lrData.rows.map(function(t,i){
+            (lrData.transactions||lrData.rows||[]).map(function(t,i){
               return e("div",{key:i,style:{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",padding:"7px 12px",borderBottom:"1px solid #DDE0ED",fontSize:11,color:"#7278A0",alignItems:"center"}},
-                e("span",{style:{color:"#2E2F8A",fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},t.addr||"—"),
-                e("span",{style:{color:"#4A4BAE",fontWeight:700}},t.pc),
-                e("span",null,t.date),
-                e("span",{style:{fontWeight:600,color:"#2E2F8A"}},fmt(t.amount))
+                e("span",{style:{color:"#2E2F8A",fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},(t.address||t.addr||"—")+" "+(t.type||"")),
+                e("span",{style:{color:"#4A4BAE",fontWeight:700}},(t.postcode||t.pc||"")),
+                e("span",null,(t.date||"")),
+                e("span",{style:{fontWeight:600,color:"#2E2F8A"}},fmt(t.amount||0))
               );
             })
           ),
