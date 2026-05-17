@@ -2421,7 +2421,7 @@ function Tool(props){
             var showAll=data.showAllStages;
             var coreStages=["scraper","rlv","sfh","fin","dashboard","portfolio"];
             var filtered=showAll?ALL_STAGES:ALL_STAGES.filter(function(s){
-              return journeyStages.indexOf(s.id)>=0||coreStages.indexOf(s.id)>=0;
+              var inJourney2=s.journeys&&(s.journeys.indexOf(journey)>=0||s.journeys.indexOf("all")>=0); return inJourney2||coreStages.indexOf(s.id)>=0;
             });
             return filtered;
           })().filter(function(s){return s.id!=="dashboard";}):
@@ -2429,7 +2429,7 @@ function Tool(props){
             var showAll=data.showAllStages;
             var coreStages=["scraper","rlv","sfh","fin","dashboard","portfolio"];
             var filtered=showAll?ALL_STAGES:ALL_STAGES.filter(function(s){
-              return journeyStages.indexOf(s.id)>=0||coreStages.indexOf(s.id)>=0;
+              var inJourney2=s.journeys&&(s.journeys.indexOf(journey)>=0||s.journeys.indexOf("all")>=0); return inJourney2||coreStages.indexOf(s.id)>=0;
             });
             return filtered;
           })().filter(function(s){return s.id!=="dashboard"&&(s.journeys.indexOf(journey)>=0||s.journeys.indexOf("all")>=0);});
