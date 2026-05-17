@@ -541,8 +541,22 @@ function AIPanel(props){
     e("button",{onClick:run,disabled:aiLoad,style:Object.assign({},S.btn,{opacity:aiLoad?0.6:1,cursor:aiLoad?"not-allowed":"pointer"})},
       aiLoad?"⏳ Analysing...":"⚡ "+props.label
     ),
-    aiRes&&e("div",{style:{background:"#F8F8FE",border:"1px solid #DDE0ED",borderLeft:"3px solid #4A4BAE",borderRadius:8,padding:"16px 20px"}},
-      e("pre",{style:{fontSize:12,lineHeight:1.8,color:"#3A3D6A",whiteSpace:"pre-wrap",fontFamily:"DM Sans,sans-serif"}},aiRes)
+    aiRes&&e("div",{style:{background:"#F8F8FE",border:"1px solid #DDE0ED",borderLeft:"3px solid #4A4BAE",borderRadius:8,overflow:"hidden"}},
+      e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",borderBottom:"1px solid #DDE0ED",background:"#F0F1FA"}},
+        e("span",{style:{fontSize:11,fontWeight:700,color:"#4A4BAE"}},"AI Analysis Result"),
+        e("button",{
+          onClick:function(){
+            var el=document.createElement("textarea");
+            el.value=aiRes;
+            document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);
+            alert("Copied to clipboard");
+          },
+          style:{padding:"4px 10px",background:"#4A4BAE",border:"none",borderRadius:4,color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+        },"📋 Copy")
+      ),
+      e("div",{style:{maxHeight:500,overflowY:"auto",padding:"16px 20px"}},
+        e("pre",{style:{fontSize:12,lineHeight:1.9,color:"#3A3D6A",whiteSpace:"pre-wrap",fontFamily:"DM Sans,sans-serif",margin:0}},aiRes)
+      )
     )
   );
 }
@@ -1104,9 +1118,11 @@ function Tool(props){
                 style:{padding:"5px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#7278A0",borderRadius:5,fontSize:11,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
               },"📋 Copy to Clipboard")
             ),
-            e("div",{style:{background:"#FAFDF9",border:"1px solid #C8E0D0",borderRadius:8,padding:"20px 24px"}},
-              e("pre",{style:{fontSize:12,lineHeight:2.0,color:"#2E2F8A",whiteSpace:"pre-wrap",fontFamily:"Georgia, serif"}},
-                r.generatedLetter
+            e("div",{style:{background:"#FAFDF9",border:"1px solid #C8E0D0",borderRadius:8,overflow:"hidden"}},
+              e("div",{style:{maxHeight:500,overflowY:"auto",padding:"20px 24px"}},
+                e("pre",{style:{fontSize:12,lineHeight:2.0,color:"#2E2F8A",whiteSpace:"pre-wrap",fontFamily:"Georgia, serif",margin:0}},
+                  r.generatedLetter
+                )
               )
             ),
             e("div",{style:{fontSize:10,color:"#7278A0",fontStyle:"italic",marginTop:8}},
@@ -4131,9 +4147,22 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
               sc2.areaLoading?"🔍 Researching Area...":"🔍 Research This Area"
             )
           ),
-          sc2.areaReport&&e("div",{style:{marginTop:14,background:"#F8F8FE",border:"1px solid #DDE0ED",borderLeft:"3px solid #9A7B3E",borderRadius:8,padding:"16px 20px"}},
-            e("div",{style:{fontSize:11,fontWeight:700,color:"#9A7B3E",textTransform:"uppercase",letterSpacing:".1em",marginBottom:10}},"Area Intelligence Report — "+(scrResult&&scrResult.city||"Unknown Location")),
-            e("pre",{style:{fontSize:12,lineHeight:1.9,color:"#3A3D6A",whiteSpace:"pre-wrap",fontFamily:"DM Sans,sans-serif"}},sc2.areaReport)
+          sc2.areaReport&&e("div",{style:{marginTop:14,background:"#F8F8FE",border:"1px solid #DDE0ED",borderLeft:"3px solid #9A7B3E",borderRadius:8,overflow:"hidden"}},
+            e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",borderBottom:"1px solid #DDE0ED",background:"rgba(154,123,62,0.06)"}},
+              e("div",{style:{fontSize:11,fontWeight:700,color:"#9A7B3E",textTransform:"uppercase",letterSpacing:".1em"}},"Area Intelligence Report — "+(scrResult&&scrResult.city||"Unknown Location")),
+              e("button",{
+                onClick:function(){
+                  var el=document.createElement("textarea");
+                  el.value=sc2.areaReport;
+                  document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);
+                  alert("Copied to clipboard");
+                },
+                style:{padding:"4px 10px",background:"#9A7B3E",border:"none",borderRadius:4,color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+              },"📋 Copy")
+            ),
+            e("div",{style:{maxHeight:500,overflowY:"auto",padding:"16px 20px"}},
+              e("pre",{style:{fontSize:12,lineHeight:1.9,color:"#3A3D6A",whiteSpace:"pre-wrap",fontFamily:"DM Sans,sans-serif",margin:0}},sc2.areaReport)
+            )
           )
         ):e("button",{onClick:doImport,style:{width:"100%",padding:"11px",background:"#4A4BAE",border:"none",borderRadius:7,color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
           "⚡ Import & Pre-fill All Landform Fields"
