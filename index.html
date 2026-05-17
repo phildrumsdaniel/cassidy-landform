@@ -12,6 +12,28 @@
 <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone@7.23.2/babel.min.js"></script>
 <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'DM Sans',sans-serif;background:#F4F5F9;color:#1A1A3E}#root{min-height:100vh}@keyframes pulse{0%{opacity:1}50%{opacity:0.7}100%{opacity:1}}
+
+/* ── MOBILE RESPONSIVE ─────────────────────────── */
+@media(max-width:768px){
+  .lf-sidebar{transform:translateX(-100%);transition:transform .25s ease;z-index:300!important}
+  .lf-sidebar.open{transform:translateX(0)}
+  .lf-main{margin-left:0!important;width:100%!important}
+  .lf-topbar{padding:8px 12px!important}
+  .lf-topbar-btns{display:none}
+  .lf-hamburger{display:flex!important}
+  .lf-overlay{display:block!important}
+  .lf-stage-content{padding:12px!important}
+  .lf-grid2{grid-template-columns:1fr!important}
+  .lf-metrics-grid{grid-template-columns:1fr 1fr!important}
+  .lf-card{padding:14px!important}
+  .lf-scenario-grid{grid-template-columns:1fr!important}
+  .lf-table{font-size:10px!important}
+  input,select{font-size:16px!important} /* prevent iOS zoom */
+}
+@media(max-width:480px){
+  .lf-metrics-grid{grid-template-columns:1fr 1fr!important}
+  .lf-topbar h2{font-size:13px!important}
+}
 </style>
 </head>
 <body>
@@ -489,7 +511,7 @@ async function callAI(user,stage,systemPrompt,userPrompt){
 // ── UI HELPERS ────────────────────────────────────────────────────────────────
 var e=React.createElement;
 var S={
-  card:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:20,marginBottom:16},
+  card:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:20,marginBottom:16,className:"lf-card"},
   cardTitle:{fontSize:10,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,paddingBottom:12,borderBottom:"1px solid #DDE0ED",marginBottom:14},
   grid2:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14},
   label:{fontSize:10,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:600,display:"block",marginBottom:4},
@@ -718,6 +740,8 @@ var JOURNEYS = {
 function Tool(props){
   var user=props.user;
   var st=useState("dashboard"); var stage=st[0]; var setStage=st[1];
+  var mob=useState(false); var mobileMenuOpen=mob[0]; var setMobileMenuOpen=mob[1];
+  var isMobile=typeof window!=="undefined"&&window.innerWidth<=768;
   // Load from localStorage on startup
   var savedData=(function(){
     try{
@@ -5485,8 +5509,10 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
   }
 
   // ── LAYOUT ─────────────────────────────────────────────────────────────────
-  return e("div",{style:{display:"flex",minHeight:"100vh"}},
-    e("aside",{style:{width:240,background:"#1E1F5C",display:"flex",flexDirection:"column",position:"fixed",left:0,top:0,bottom:0,overflowY:"auto"}},
+  var closeMobile=function(){setMobileMenuOpen(false);};
+  return e("div",{style:{display:"flex",minHeight:"100vh",overflowX:"hidden"}},
+    mobileMenuOpen&&e("div",{className:"lf-overlay",onClick:closeMobile,style:{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:299,display:"block"}}),
+    e("aside",{className:"lf-sidebar"+(mobileMenuOpen?" open":""),style:{width:240,background:"#1E1F5C",display:"flex",flexDirection:"column",position:"fixed",left:0,top:0,bottom:0,overflowY:"auto",zIndex:300,transition:"transform .25s ease"}},
       e("div",{style:{padding:"16px 16px 12px",borderBottom:"1px solid rgba(255,255,255,0.1)",textAlign:"center"}},
         e("img",{src:"data:image/webp;base64,"+LOGO,alt:"Cassidy Group",style:{width:120,height:"auto",filter:"drop-shadow(0 1px 4px rgba(0,0,0,0.25))"}})
       ),
@@ -5548,6 +5574,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
       e("div",{style:{height:58,background:"#fff",borderBottom:"1px solid #DDE0ED",display:"flex",alignItems:"center",padding:"0 20px",gap:10,position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 3px rgba(46,47,138,0.08)"}},
         e("div",{style:{fontSize:15,fontWeight:700,color:"#2E2F8A",flex:1}},curStage.label),
         e("div",{style:{fontSize:11,color:"#7278A0",marginRight:8}},at.toUpperCase()+" · "+cityName(city)),
+        e("div",{className:"lf-topbar-btns",style:{display:"flex",gap:6,alignItems:"center"}},
         e("button",{onClick:function(){navTo("summary");},style:{padding:"6px 12px",background:stage==="summary"?"#2E2F8A":"#F7F8FC",border:"1px solid "+(stage==="summary"?"#2E2F8A":"#DDE0ED"),color:stage==="summary"?"#fff":"#3A3D6A",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},
           "📄 Summary"
         ),
