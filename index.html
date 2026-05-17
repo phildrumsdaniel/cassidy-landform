@@ -542,8 +542,8 @@ function Tool(props){
     });
   }
 
-  var city=(data.land&&data.land.city)||"manchester";
-  var m=MKT[city]||MKT.manchester;
+  var city=(data.land&&data.land.city)||(data.hra&&data.hra.city)||(data.sfh&&data.sfh.city)||"";
+  var m=(city&&MKT[city])||MKT.manchester;
   var at=data.assetType||"btr";
   var units=num((data.planning&&data.planning.units)||0);
   var acres=num((data.land&&data.land.acres)||0);
@@ -554,7 +554,7 @@ function Tool(props){
   var rent=num((data.fin&&data.fin.rent)||m[at==="pbsa"?"pbsa":"btr"]);
   var gr=at==="pbsa"?units*rent*52:units*rent*12;
   var noi=gr*0.95-gr*0.95*0.12;
-  var ey=num((data.fin&&data.fin.exitYield)||m.yield*100)/100||m.yield;
+  var ey=data.fin&&data.fin.exitYield?num(data.fin.exitYield)/100:0;
   var gdv=ey>0?noi/ey:0;
   var tc=bc+lc+(data.planning&&data.planning.s106?num(data.planning.s106):0)+bc*0.12+bc*0.05+(bc+lc)*0.075;
   var profit=gdv-tc;
@@ -1976,10 +1976,10 @@ function Tool(props){
   // ── DASHBOARD ──────────────────────────────────────────────────────────────
   function renderDashboard(){
     var cards=[
-      {l:"GDV",v:fmt(gdv)},{l:"Total Dev Cost",v:fmt(tc)},
-      {l:"Profit",v:fmt(profit),c:scM},{l:"Margin",v:pct(margin),c:scM},
-      {l:"NOI (pa)",v:fmt(noi)},{l:"Exit Yield",v:ey?(ey*100).toFixed(2)+"%":"—"},
-      {l:"Units / Beds",v:units||"—"},{l:"City",v:cityName(city)},
+      {l:"GDV",v:gdv>0?fmt(gdv):"—"},{l:"Total Dev Cost",v:tc>0?fmt(tc):"—"},
+      {l:"Profit",v:profit!==0?fmt(profit):"—",c:profit>0?scM:"#C0C4D8"},{l:"Margin",v:margin!==0?pct(margin):"—",c:margin>0?scM:"#C0C4D8"},
+      {l:"NOI (pa)",v:noi>0?fmt(noi):"—"},{l:"Exit Yield",v:ey>0?(ey*100).toFixed(2)+"%":"—"},
+      {l:"Units / Beds",v:units||"—"},{l:"City",v:city?cityName(city):"—"},
     ];
     return e("div",null,
       e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Deal Dashboard"),
