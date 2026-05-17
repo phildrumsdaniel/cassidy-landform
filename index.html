@@ -338,11 +338,12 @@ var PROP_TYPES = ["Detached house","Semi-detached house","End of terrace house",
 
 function num(v){return parseFloat(v)||0;}
 function fmt(n){
-  if(!n||isNaN(n))return"—";
-  var a=Math.abs(n);
-  if(a>=1000000)return"£"+(n/1000000).toFixed(2)+"m";
-  if(a>=1000)return"£"+Math.round(n/1000)+"k";
-  return"£"+Math.round(n).toLocaleString();
+  if(n===null||n===undefined||isNaN(n)||n===""||n===0&&n!==0)return"—";
+  var v=Number(n); if(isNaN(v))return"—";
+  var a=Math.abs(v);
+  if(a>=1000000)return(v<0?"-":"")+"£"+(Math.abs(v)/1000000).toFixed(2)+"m";
+  if(a>=1000)return(v<0?"-":"")+"£"+Math.round(Math.abs(v)/1000)+"k";
+  if(a>0&&a<1000)return(v<0?"-":"")+"£"+Math.round(Math.abs(v)).toLocaleString();
 }
 function pct(n){return n?n.toFixed(1)+"%":"—";}
 function cityName(c){return c?c.charAt(0).toUpperCase()+c.replace(/_/g," ").slice(1):"—";}
@@ -1555,7 +1556,7 @@ function Tool(props){
         ),
         e("div",{style:{background:"rgba(74,75,174,0.06)",border:"1px solid rgba(74,75,174,0.2)",borderRadius:8,padding:14,fontSize:11,color:"#3A3D6A",lineHeight:1.7}},
           e("strong",null,"Option Agreement (recommended for "+owner.label+"): "),
-          "Pay "+fmt(optionFee)+" option fee now ("+acres+" acres × £2,000). ",
+          "Pay "+"£"+optionFee.toLocaleString()+" option fee now ("+acres+" acres × £2,000). ",
           "You control the land for 2-3 years while you get planning. ",
           "On grant of planning you complete at agreed price. ",
           "Protects you from paying full price before consent is secured."
@@ -1621,13 +1622,16 @@ function Tool(props){
                 "Open Full Appraisal →"),
                 e("button",{onClick:function(){
                   setData(function(d){
-                    return Object.assign({},d,{
-                      assetType:sc.assetType,
-                      planning:Object.assign({},d.planning||{},{units:sc.units+"",lpa:lpa}),
-                      fin:Object.assign({},d.fin||{}),
-                    });
+                    var updates={assetType:sc.assetType};
+                    if(sc.type==="SFH"){
+                      updates.sfh=Object.assign({},d.sfh||{},{acres:acres+"",city:lCity,dph:sc.dph+"",buildPsf:sc.buildPsf+""});
+                    } else {
+                      updates.hra=Object.assign({},d.hra||{},{city:lCity});
+                    }
+                    updates.planning=Object.assign({},d.planning||{},{units:sc.units+"",lpa:lpa});
+                    return Object.assign({},d,updates);
                   });
-                  navTo("planning");
+                  navTo(sc.type==="SFH"?"sfh":"hra");
                 },style:{width:"100%",padding:"7px",background:"transparent",border:"1px solid #4A4BAE",borderRadius:6,color:"#4A4BAE",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
                 "→ Jump to Planning"),
                 e("button",{onClick:function(){
@@ -2125,14 +2129,18 @@ function Tool(props){
                 },"Open Full Appraisal →"),
                 e("button",{
                   onClick:function(){
-                    // Set this scheme and navigate to planning
+                    // Set scheme and navigate to correct appraisal
                     setData(function(d){
-                      return Object.assign({},d,{
-                        assetType:sc.assetType,
-                        planning:Object.assign({},d.planning||{},{units:sc.units+""}),
-                      });
+                      var upd={assetType:sc.assetType||at};
+                      upd.planning=Object.assign({},d.planning||{},{units:sc.units+""});
+                      if(sc.assetType==="sfh"||sc.type==="SFH"){
+                        upd.sfh=Object.assign({},d.sfh||{},{acres:sc.acres||d.sfh&&d.sfh.acres||"",dph:sc.dph+""});
+                      } else {
+                        upd.hra=Object.assign({},d.hra||{});
+                      }
+                      return Object.assign({},d,upd);
                     });
-                    navTo("planning");
+                    navTo(sc.assetType==="sfh"||sc.type==="SFH"?"sfh":"hra");
                   },
                   style:{width:"100%",padding:"7px",background:"transparent",border:"1px solid #4A4BAE",borderRadius:6,color:"#4A4BAE",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
                 },"→ Jump to Planning")
@@ -3096,7 +3104,13 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
             })
           ),
           e("div",{style:{fontSize:10,color:"#7278A0",fontStyle:"italic",padding:"6px 4px"}},"Source: HM Land Registry Price Paid Data (Open Government Licence)")
-        )
+        ),
+        lrData&&e("button",{onClick:function(){
+          var lines=["LAND VALUATION EXPORT — "+new Date().toLocaleDateString("en-GB"),"Postcode: "+(r.postcode||"n/a"),"City: "+cityName(city),"Benchmark psf: £"+(lrData.wPsf||lrData.weightedPsf||0)+"/sqft","Transactions: "+(lrData.totalTx||lrData.total||0),"","INPUTS: Units: "+(r.units||"n/a")+" | Sqft: "+(r.avgSqft||"n/a")+" | Sale psf: £"+(r.salePsf||"n/a")+" | Build psf: £"+(r.buildPsf||m.build)];
+          var el=document.createElement("textarea");el.value=lines.join("
+");document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);
+          alert("Land Valuation figures copied to clipboard");
+        },style:{marginTop:8,padding:"5px 12px",background:"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"📋 Copy LV Figures")
       ),
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Residual Land Valuation"),
@@ -3479,9 +3493,10 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     var ou=nia>0?Math.round(nia*(os/100)/osqft):0;
     var tu=nia>0?Math.round(nia*(ts/100)/tsqft):0;
     var total=su+ou+tu;
-    var sPsf=num(h.sPsf)||(hm.btr*7.8)||260;
-    var oPsf=num(h.oPsf)||(hm.btr*8.2)||280;
-    var tPsf=num(h.tPsf)||(hm.btr*8.8)||300;
+    var mktSalePsf=num((data.rlv&&data.rlv.salePsf)||(city&&PC_PSF&&PC_PSF[city.substring(0,3).toUpperCase()])||260);
+    var sPsf=num(h.sPsf)||Math.round(mktSalePsf*0.92);
+    var oPsf=num(h.oPsf)||Math.round(mktSalePsf);
+    var tPsf=num(h.tPsf)||Math.round(mktSalePsf*1.08);
     var fl=num(h.fl)||0.5;
     var blend=1+(storeys>1?(storeys/2)*fl/100:0);
     var sGdv=su*ssqft*sPsf*blend; var oGdv=ou*osqft*oPsf*blend; var tGdv=tu*tsqft*tPsf*blend;
@@ -4546,9 +4561,13 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
         ),
         e("div",{style:S.grid2},
           e(Inp,{label:"Build Cost psf (£) — market: £"+m.build,type:"number",value:f.buildPsf,onChange:function(v){up("fin","buildPsf",v);},placeholder:m.build+""}),
+          f.buildPsf&&(num(f.buildPsf)<120||num(f.buildPsf)>350)&&e("div",{style:{gridColumn:"span 2",background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.25)",borderRadius:5,padding:"6px 12px",fontSize:11,color:"#B05A35"}},
+            num(f.buildPsf)<120?"⚠ Build cost below £120/sqft is very low — Persimmon procure at £135/sqft. Check your figure.":
+            "⚠ Build cost above £350/sqft is very high — Barratt rarely exceed £200/sqft for standard homes. Check your figure."
+          ),
           e(Inp,{label:(at==="pbsa"?"Weekly Rent/Bed":"Monthly Rent/Unit")+" (£) — market: £"+(at==="pbsa"?m.pbsa:m.btr),type:"number",value:f.rent,onChange:function(v){up("fin","rent",v);},placeholder:(at==="pbsa"?m.pbsa:m.btr)+""}),
           e(Inp,{label:"Exit Yield (%) — market: "+pct(m.yield*100),type:"number",value:f.exitYield,onChange:function(v){up("fin","exitYield",v);},placeholder:(m.yield*100).toFixed(2)}),
-          e(Inp,{label:"Finance Rate (%)",type:"number",value:f.finRate,onChange:function(v){up("fin","finRate",v);},placeholder:"7.5"}),
+          e(Inp,{label:"Finance Rate (%) — typical 7.5-9.0% senior debt",type:"number",value:f.finRate,onChange:function(v){up("fin","finRate",v);},placeholder:"7.5"}),
           e(Inp,{label:"Contingency (%)",type:"number",value:f.contingency,onChange:function(v){up("fin","contingency",v);},placeholder:"5"})
         )
       ),
