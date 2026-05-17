@@ -3973,12 +3973,64 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     var rlvS106=rlvUnits*num(f.s106pu||8000);
     var rlv=gdv2>0?(gdv2-tc4-gdv2*0.20):rlvGdv-rlvBc-rlvFees-rlvCont-rlvFin-rlvS106-rlvGdv*0.20;
     var totalBuild=rlvBc>0?rlvBc:tc4*0.65;
-    var voidAdj=at==="pbsa"?0.97:0.95;
-    var opex=units*(at==="pbsa"?600:1050)+gr*voidAdj*0.12;
-    var noi2=gr*voidAdj-opex;
-    var ey2=ey||m.yield;
-    var gdv2=ey2>0?noi2/ey2:0;
-    var tc4=bc+lc+(data.planning&&data.planning.s106?num(data.planning.s106):0)+bc*0.12+bc*(num(f.contingency)||5)/100+(bc+lc)*(num(f.finRate)||7.5)/100+lc*0.05;
+    // ── ASSET-TYPE AWARE GDV CALCULATION ──────────────────────────────────────
+    // SFH: GDV = sum of house sales (not yield-based)
+    // BTR/PBSA: GDV = NOI / exit yield
+    var isSFH = at==="sfh";
+
+    // Pull SFH figures from SFH appraisal if available
+    var sfhTotalGdv = (function(){
+      var mix = (data.sfh&&data.sfh.mix)||[];
+      var lm2 = MKT[city]||MKT.manchester;
+      var bPsf = num(data.sfh&&data.sfh.basePsf)||num(lm2.btr*8.5)||280;
+      var bBuild = num(data.sfh&&data.sfh.buildPsf)||num(lm2.build)||185;
+      var total = 0;
+      for(var mi=0;mi<mix.length;mi++){
+        var row=mix[mi]; var cnt=num(row.count);
+        if(!cnt||!row.type)continue;
+        var rowSqft=num(row.sqft)||900;
+        var unitP=num(row.unitPrice||0);
+        var sp=unitP&&rowSqft?unitP/rowSqft:(num(row.psf)||bPsf);
+        total += rowSqft*sp*cnt;
+      }
+      return total;
+    })();
+    var sfhTotalUnits = (function(){
+      var mix=(data.sfh&&data.sfh.mix)||[]; var t=0;
+      for(var mi=0;mi<mix.length;mi++){t+=num(mix[mi].count||0);}
+      return t||units;
+    })();
+    var sfhTotalBuildCost = (function(){
+      var mix=(data.sfh&&data.sfh.mix)||[];
+      var bBuild=num(data.sfh&&data.sfh.buildPsf)||(MKT[city]&&MKT[city].build)||185;
+      var t=0;
+      for(var mi=0;mi<mix.length;mi++){
+        t+=num(mix[mi].sqft||900)*bBuild*num(mix[mi].count||0);
+      }
+      return t||bc;
+    })();
+
+    // Manual GDV override from Financial Modelling inputs
+    var manualGdv = num(f.manualGdv||0);
+    var manualBuildCost = num(f.manualBuildCost||0);
+
+    // BTR/PBSA yield-based GDV
+    var voidAdj = at==="pbsa"?0.97:0.95;
+    var opex = units*(at==="pbsa"?600:1050)+gr*voidAdj*0.12;
+    var noi2 = gr*voidAdj-opex;
+    var ey2 = ey||m.yield;
+    var btrGdv = ey2>0&&gr>0?noi2/ey2:0;
+
+    // Final GDV: manual override > SFH sales > BTR yield
+    var gdv2 = manualGdv>0?manualGdv:(isSFH&&sfhTotalGdv>0?sfhTotalGdv:(btrGdv>0?btrGdv:0));
+
+    // Build cost: manual override > SFH appraisal > bc from outer scope
+    var effBuildCost = manualBuildCost>0?manualBuildCost:(isSFH&&sfhTotalBuildCost>0?sfhTotalBuildCost:bc);
+
+    // Total Development Cost
+    var s106fin = isSFH?sfhTotalUnits*num(f.s106pu||8000):(data.planning&&data.planning.s106?num(data.planning.s106):units*num(f.s106pu||8000));
+    var tc4 = effBuildCost + lc + s106fin + effBuildCost*0.12 + effBuildCost*(num(f.contingency)||5)/100 + (effBuildCost+lc)*(num(f.finRate)||7.5)/100 + lc*0.05;
+
     var profit2=gdv2-tc4; var margin2=gdv2>0?(profit2/gdv2)*100:0;
     var roc=tc4>0?(profit2/tc4)*100:0;
     var scV=margin2>=15?"#2D7A65":"#B05A35";
@@ -4027,6 +4079,28 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
               e("div",{style:{display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:700,color:"#2E2F8A",padding:"8px 0",borderTop:"1px solid #DDE0ED",marginTop:4}},
                 e("span",null,"GDV"),e("span",null,fmt(gdv2))
               )
+            )
+          ),
+          e("div",{style:{background:"rgba(74,75,174,0.05)",border:"1px solid rgba(74,75,174,0.15)",borderRadius:7,padding:"10px 14px",marginBottom:10,fontSize:11}},
+            e("div",{style:{fontWeight:700,color:"#4A4BAE",marginBottom:6}},"What the model is calculating from:"),
+            e("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:6}},
+              e("div",null,e("span",{style:{color:"#7278A0"}},"GDV source: "),
+                e("span",{style:{fontWeight:700,color:gdv2>0?"#2D7A65":"#B05A35"}},
+                  manualGdv>0?"Manual override ("+fmt(manualGdv)+")":
+                  isSFH&&sfhTotalGdv>0?"SFH house sales ("+fmt(sfhTotalGdv)+")":
+                  btrGdv>0?"BTR/PBSA yield ("+fmt(btrGdv)+")":
+                  "No data — fill in SFH Appraisal or enter manual GDV below"
+                )
+              ),
+              e("div",null,e("span",{style:{color:"#7278A0"}},"Build cost: "),
+                e("span",{style:{fontWeight:700,color:"#2E2F8A"}},
+                  manualBuildCost>0?"Manual ("+fmt(manualBuildCost)+")":
+                  isSFH&&sfhTotalBuildCost>0?"SFH appraisal ("+fmt(sfhTotalBuildCost)+")":
+                  "GIA x psf ("+fmt(effBuildCost)+")"
+                )
+              ),
+              e("div",null,e("span",{style:{color:"#7278A0"}},"Land cost: "),e("span",{style:{fontWeight:600}},fmt(lc))),
+              e("div",null,e("span",{style:{color:"#7278A0"}},"S106 total: "),e("span",{style:{fontWeight:600}},fmt(s106fin)))
             )
           ),
           e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:12}},
