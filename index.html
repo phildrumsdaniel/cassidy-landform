@@ -3558,59 +3558,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
   }
 
   // ── LAND FINDER (SCRAPER) ──────────────────────────────────────────────────
-  function renderScraper(){
-    var sc2=data.scraper||{};
-    var scrResult=sc2.result||null;
-    var scrLoading=sc2.loading||false;
-    var scrError=sc2.error||"";
-    var imported=sc2.imported||false;
-
-    var SOURCES=[
-      {name:"Bruton Knowles",url:"https://www.brutonknowles.co.uk/property-search/strategic-land/",hint:"Strategic land listings — open a property, copy text, paste below"},
-      {name:"Savills Land",url:"https://www.savills.co.uk/find-a-property/land-and-new-homes/index.html",hint:"UK land for sale — find a listing, copy text, paste below"},
-      {name:"Knight Frank",url:"https://www.knightfrank.co.uk/commercial/land-development-for-sale",hint:"Development land — find a listing, copy text, paste below"},
-      {name:"Aston Rose",url:"https://www.astonrose.co.uk/properties/land-development/",hint:"London & SE land"},
-      {name:"Rightmove Land",url:"https://www.rightmove.co.uk/commercial-property-for-sale/land.html",hint:"All UK land listings"},
-      {name:"Zoopla Land",url:"https://www.zoopla.co.uk/commercial/for-sale/?q=land&category=land",hint:"UK land for sale"},
-      {name:"Acuitus",url:"https://www.acuitus.co.uk/property-search/?category=land",hint:"Commercial & mixed use land"},
-      {name:"Planning Portal",url:"https://www.planningportal.co.uk/",hint:"Search planning applications"},
-      {name:"Land Registry",url:"https://www.gov.uk/search-property-information-land-registry",hint:"Check ownership & title"},
-      {name:"Flood Map",url:"https://check-long-term-flood-risk.service.gov.uk/postcode",hint:"Check flood risk by postcode"},
-    ];
-
-    function doScrape(){
-      var url=sc2.url||"";
-      var pasted=(sc2.pastedText||"").trim();
-      if(!url&&!pasted){up("scraper","error","Please enter a URL or paste listing text");return;}
-      up("scraper","loading",true);up("scraper","error","");up("scraper","result",null);up("scraper","imported",false);
-
-      // Send to Apps Script scrape action - it builds the prompt server-side
-      var params=new URLSearchParams({
-        action:"scrape",
-        url:url||"unknown",
-        text:pasted.substring(0,2000),
-        user:(user&&user.name)||"",
-        company:(user&&user.company)||""
-      });
-
-      fetch(WEBHOOK+"?"+params.toString())
-      .then(function(res){return res.json();})
-      .then(function(data2){
-        if(data2.status==="ok"&&data2.data){
-          up("scraper","result",data2.data);
-          logEvent(user,"SCRAPE",{url:url,address:(data2.data&&data2.data.address)||"unknown"});
-        } else {
-          up("scraper","error",data2.message||"Could not extract data. Try pasting more of the listing text.");
-        }
-        up("scraper","loading",false);
-      })
-      .catch(function(err){
-        up("scraper","error","Connection failed: "+err.message);
-        up("scraper","loading",false);
-      });
-    }
-
-        function doMasterAnalyse(){
+    function doMasterAnalyse(){
       // Gather everything we know about the deal
       var l2=data.land||{};
       var r2=data.rlv||{};
@@ -3772,6 +3720,60 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
         setData(function(d){return Object.assign({},d,{masterLoading:false,masterReport:"Connection failed — check internet and try again."});});
       });
     }
+
+    function renderScraper(){
+    var sc2=data.scraper||{};
+    var scrResult=sc2.result||null;
+    var scrLoading=sc2.loading||false;
+    var scrError=sc2.error||"";
+    var imported=sc2.imported||false;
+
+    var SOURCES=[
+      {name:"Bruton Knowles",url:"https://www.brutonknowles.co.uk/property-search/strategic-land/",hint:"Strategic land listings — open a property, copy text, paste below"},
+      {name:"Savills Land",url:"https://www.savills.co.uk/find-a-property/land-and-new-homes/index.html",hint:"UK land for sale — find a listing, copy text, paste below"},
+      {name:"Knight Frank",url:"https://www.knightfrank.co.uk/commercial/land-development-for-sale",hint:"Development land — find a listing, copy text, paste below"},
+      {name:"Aston Rose",url:"https://www.astonrose.co.uk/properties/land-development/",hint:"London & SE land"},
+      {name:"Rightmove Land",url:"https://www.rightmove.co.uk/commercial-property-for-sale/land.html",hint:"All UK land listings"},
+      {name:"Zoopla Land",url:"https://www.zoopla.co.uk/commercial/for-sale/?q=land&category=land",hint:"UK land for sale"},
+      {name:"Acuitus",url:"https://www.acuitus.co.uk/property-search/?category=land",hint:"Commercial & mixed use land"},
+      {name:"Planning Portal",url:"https://www.planningportal.co.uk/",hint:"Search planning applications"},
+      {name:"Land Registry",url:"https://www.gov.uk/search-property-information-land-registry",hint:"Check ownership & title"},
+      {name:"Flood Map",url:"https://check-long-term-flood-risk.service.gov.uk/postcode",hint:"Check flood risk by postcode"},
+    ];
+
+    function doScrape(){
+      var url=sc2.url||"";
+      var pasted=(sc2.pastedText||"").trim();
+      if(!url&&!pasted){up("scraper","error","Please enter a URL or paste listing text");return;}
+      up("scraper","loading",true);up("scraper","error","");up("scraper","result",null);up("scraper","imported",false);
+
+      // Send to Apps Script scrape action - it builds the prompt server-side
+      var params=new URLSearchParams({
+        action:"scrape",
+        url:url||"unknown",
+        text:pasted.substring(0,2000),
+        user:(user&&user.name)||"",
+        company:(user&&user.company)||""
+      });
+
+      fetch(WEBHOOK+"?"+params.toString())
+      .then(function(res){return res.json();})
+      .then(function(data2){
+        if(data2.status==="ok"&&data2.data){
+          up("scraper","result",data2.data);
+          logEvent(user,"SCRAPE",{url:url,address:(data2.data&&data2.data.address)||"unknown"});
+        } else {
+          up("scraper","error",data2.message||"Could not extract data. Try pasting more of the listing text.");
+        }
+        up("scraper","loading",false);
+      })
+      .catch(function(err){
+        up("scraper","error","Connection failed: "+err.message);
+        up("scraper","loading",false);
+      });
+    }
+
+    
 
     function doAreaIntel(){
       if(!scrResult)return;
