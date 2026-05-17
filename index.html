@@ -4154,8 +4154,97 @@ e("div",{style:{fontStyle:"italic",fontSize:10,color:"#7278A0",padding:"6px 0"}}
         })()
       ),
 
-      e(AIPanel,{user:user,stage:"fin",label:"Deep Financial Analysis",
-          prompt:"Analyse this "+at.toUpperCase()+" development appraisal. GDV: "+fmt(gdv2)+", TDC: "+fmt(tc4)+", Profit: "+fmt(profit2)+", Margin: "+pct(margin2)+", ROC: "+pct(roc)+". City: "+cityName(city)+", "+units+" units. Provide: 1) Return benchmarking vs institutional requirements, 2) Key value drivers and sensitivities, 3) Recommended deal structure (debt/equity split), 4) Value engineering options to improve margin by 3-5%, 5) Most critical assumption that if wrong would kill the deal."})
+      // AI BENCHMARKING vs HOUSEBUILDERS
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"AI Appraisal Review — Benchmarked vs Major Housebuilders"),
+        e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:10}},"Compares your figures against Persimmon, Barratt, Taylor Wimpey and Bellway published benchmarks and BCIS data. Flags anything outside normal ranges."),
+        e(AIPanel,{user:user,stage:"fin",label:"Run AI Appraisal Benchmark Analysis",
+          prompt:"You are a senior development finance director. Analyse this "+at.toUpperCase()+" appraisal and benchmark against industry standards.\nSITE: "+(l.address||"Unknown")+", "+cityName(city)+"\nGDV: "+fmt(gdv2)+" | TDC: "+fmt(tc4)+" | Profit: "+fmt(profit2)+" | Margin: "+pct(margin2)+" | ROC: "+pct(roc)+"\nBuild Cost: £"+(f.buildPsf||m.build)+"/sqft | S106/unit: £"+(f.s106pu||0)+"\n\nProvide: 1) ACCURACY CHECK — are build costs, S106, finance rates and yield within normal ranges for "+cityName(city)+"? Flag anything wrong. 2) HOUSEBUILDER BENCHMARK — compare margin and ROC against Persimmon (20-22% margin, £1,450/m2 build), Barratt (18-20%, £1,550/m2), Taylor Wimpey (19-21%), Bellway (20-23%). Better or worse than their average? 3) COMMERCIAL VIABILITY — would a major housebuilder take this deal? 4) RED FLAGS — what assumptions are too optimistic? 5) SCORE 1-10 and state: Proceed / Caution / Abort."})
+      ),
+
+      // LANDOWNER vs CASSIDY COMMERCIAL SPLIT
+      e("div",{style:Object.assign({},S.card,{borderLeft:"4px solid #9A7B3E"})},
+        e("div",{style:S.cardTitle},"Commercial Analysis — Landowner vs Cassidy Group"),
+        e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:14}},"What does the landowner receive vs what does Cassidy make? Three exit scenarios with negotiation range."),
+        (function(){
+          var agriVal2=num(l.acres||0)*15000;
+          var rlvVal2=Math.max(0,rlv);
+          var uplift2=rlvVal2-agriVal2;
+          var lo40=agriVal2+uplift2*0.40;
+          var lo50=agriVal2+uplift2*0.50;
+          var lo60=agriVal2+uplift2*0.60;
+          var devProfit=profit2>0?profit2:(gdv2>0?gdv2*0.20:0);
+          var totalPie2=rlvVal2+devProfit;
+          var scenarios3=[
+            {label:"Pre-Planning Sale",color:"#B05A35",lo:agriVal2,cg:rlvVal2-agriVal2+devProfit,note:"Landowner sells at agricultural value. All planning risk sits with Cassidy."},
+            {label:"Post-Outline Consent",color:"#9A7B3E",lo:Math.round(rlvVal2*0.65),cg:Math.round(rlvVal2*0.35)+devProfit,note:"Landowner gets 65% of RLV. Planning risk shared via option agreement."},
+            {label:"Post-Full Consent",color:"#2D7A65",lo:Math.round(rlvVal2*0.85),cg:Math.round(rlvVal2*0.15)+devProfit,note:"Landowner gets 85% of RLV. Cassidy captures full developer profit."},
+          ];
+          if(rlvVal2<1) return e("div",{style:{fontSize:12,color:"#7278A0",padding:"10px 0"}},"Complete the Financial Modelling inputs above to see the landowner vs Cassidy commercial split.");
+          return e("div",null,
+            e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}},
+              [
+                {l:"Agricultural Value",v:fmt(agriVal2),c:"#7278A0",sub:"Baseline — no planning"},
+                {l:"Planning Uplift",v:fmt(uplift2),c:"#9A7B3E",sub:"Value created by consent"},
+                {l:"Max Land Value (RLV)",v:fmt(rlvVal2),c:"#4A4BAE",sub:"Developer max bid"},
+                {l:"Cassidy Dev Profit",v:fmt(devProfit),c:"#2D7A65",sub:"20% target on GDV"},
+              ].map(function(item){
+                return e("div",{key:item.l,style:{background:"#fff",border:"1px solid #DDE0ED",borderTop:"3px solid "+item.c,borderRadius:8,padding:12,textAlign:"center"}},
+                  e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:4}},item.l),
+                  e("div",{style:{fontSize:17,fontWeight:800,color:item.c}},item.v),
+                  e("div",{style:{fontSize:9,color:"#7278A0",marginTop:3,lineHeight:1.4}},item.sub)
+                );
+              })
+            ),
+            e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:14}},
+              scenarios3.map(function(sc){
+                var loShare=totalPie2>0?Math.round(sc.lo/totalPie2*100):0;
+                var cgShare=totalPie2>0?Math.round(sc.cg/totalPie2*100):0;
+                return e("div",{key:sc.label,style:{background:"#fff",border:"2px solid "+sc.color,borderRadius:9,padding:14}},
+                  e("div",{style:{fontSize:12,fontWeight:800,color:sc.color,marginBottom:10}},sc.label),
+                  e("div",{style:{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #F0F0F0",fontSize:12,fontWeight:700}},
+                    e("span",{style:{color:"#7278A0"}},"Landowner receives"),
+                    e("span",{style:{color:sc.color}},fmt(sc.lo))
+                  ),
+                  e("div",{style:{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:11}},
+                    e("span",{style:{color:"#7278A0"}},"Cassidy (land + profit)"),
+                    e("span",{style:{color:"#2D7A65",fontWeight:700}},fmt(sc.cg))
+                  ),
+                  e("div",{style:{margin:"8px 0"}},
+                    e("div",{style:{fontSize:9,color:"#7278A0",marginBottom:3}},"Landowner "+loShare+"% / Cassidy "+cgShare+"%"),
+                    e("div",{style:{height:8,background:"#DDE0ED",borderRadius:4,overflow:"hidden",display:"flex"}},
+                      e("div",{style:{width:loShare+"%",background:sc.color}}),
+                      e("div",{style:{width:cgShare+"%",background:"#2D7A65"}})
+                    )
+                  ),
+                  e("div",{style:{fontSize:10,color:"#7278A0",lineHeight:1.5}},sc.note)
+                );
+              })
+            ),
+            e("div",{style:{background:"rgba(154,123,62,0.08)",border:"1px solid rgba(154,123,62,0.25)",borderRadius:8,padding:14}},
+              e("div",{style:{fontSize:12,fontWeight:700,color:"#9A7B3E",marginBottom:8}},"Negotiation Range — Fair Share for the Landowner"),
+              e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:10}},
+                [
+                  {l:"Opening Bid (40% uplift)",v:fmt(lo40),sub:"Start here — room to move"},
+                  {l:"Fair Share (50% uplift)",v:fmt(lo50),sub:"Industry norm for options"},
+                  {l:"Maximum (60% uplift)",v:fmt(lo60),sub:"Only if strong competition"},
+                ].map(function(item){
+                  return e("div",{key:item.l,style:{background:"#fff",border:"1px solid rgba(154,123,62,0.3)",borderRadius:6,padding:12,textAlign:"center"}},
+                    e("div",{style:{fontSize:9,color:"#9A7B3E",textTransform:"uppercase",marginBottom:3}},item.l),
+                    e("div",{style:{fontSize:16,fontWeight:800,color:"#9A7B3E"}},item.v),
+                    e("div",{style:{fontSize:9,color:"#7278A0",marginTop:2}},item.sub)
+                  );
+                })
+              ),
+              e("div",{style:{fontSize:11,color:"#7A5A2E",lineHeight:1.7}},
+                "Agricultural value ("+fmt(agriVal2)+") is guaranteed to the landowner regardless. The negotiation is over the planning uplift ("+fmt(uplift2)+"). 40-60% share to landowner is industry standard. Cassidy captures developer profit ("+fmt(devProfit)+") separately — the return for taking planning and build risk."
+              )
+            )
+          );
+        })()
+      ),
+      e(AIPanel,{user:user,stage:"fin",label:"AI: Landowner vs Cassidy Commercial Analysis",
+        prompt:"Analyse the commercial split on this "+at.toUpperCase()+" deal.\nSite: "+(l.address||"Unknown")+", "+cityName(city)+" | Acres: "+(l.acres||"?")+" | GDV: "+fmt(gdv2)+" | RLV: "+fmt(Math.max(0,rlv))+" | Dev Profit: "+fmt(profit2>0?profit2:gdv2*0.20)+" | Owner: "+(l.ownerType||"not set")+"\n\nProvide: 1) What is a fair deal for this landowner given the planning risk Cassidy takes? 2) What acquisition structure — unconditional, conditional, option or promotion? 3) What % of planning uplift should the landowner receive and why? 4) How does this compare to what Persimmon/Barratt/Taylor Wimpey pay for strategic land in this location type? 5) Cassidy negotiation tactics to agree land price?"})
       )
     );
   }
