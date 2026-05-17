@@ -703,14 +703,63 @@ function Tool(props){
   var buildPsf=num((data.fin&&data.fin.buildPsf)||m.build);
   var bc=gia*buildPsf;
   var lc=num((data.land&&data.land.price)||0);
+
+  // ── ASSET-TYPE AWARE GDV for dashboard ─────────────────────────────────
+  var isSFHdash=(at==="sfh");
+
+  // SFH GDV: sum house sales from SFH appraisal mix
+  var sfhDashGdv=(function(){
+    var mix=(data.sfh&&data.sfh.mix)||[];
+    var bPsf=num(data.sfh&&data.sfh.basePsf)||num(m.btr*8.5)||260;
+    var t=0;
+    for(var mi=0;mi<mix.length;mi++){
+      var row=mix[mi]; var cnt=num(row.count||0);
+      if(!cnt)continue;
+      var sqft=num(row.sqft||900);
+      var uPrice=num(row.unitPrice||0);
+      var sp=uPrice&&sqft?uPrice/sqft:(num(row.psf)||bPsf);
+      t+=sqft*sp*cnt;
+    }
+    return t;
+  })();
+  var sfhDashUnits=(function(){
+    var mix=(data.sfh&&data.sfh.mix)||[]; var t=0;
+    for(var mi=0;mi<mix.length;mi++){t+=num(mix[mi].count||0);}
+    return t||units;
+  })();
+  var sfhDashBuild=(function(){
+    var mix=(data.sfh&&data.sfh.mix)||[];
+    var bBuild=num(data.sfh&&data.sfh.buildPsf)||m.build;
+    var t=0;
+    for(var mi=0;mi<mix.length;mi++){t+=num(mix[mi].sqft||900)*bBuild*num(mix[mi].count||0);}
+    return t;
+  })();
+
+  // Manual overrides from fin
+  var manGdv=num(data.fin&&data.fin.manualGdv||0);
+  var manBuild=num(data.fin&&data.fin.manualBuildCost||0);
+
+  // BTR/PBSA yield-based GDV
   var rent=num((data.fin&&data.fin.rent)||m[at==="pbsa"?"pbsa":"btr"]);
   var gr=at==="pbsa"?units*rent*52:units*rent*12;
-  var noi=gr*0.95-gr*0.95*0.12;
+  var noi=gr>0?gr*0.95-gr*0.95*0.12:0;
   var ey=data.fin&&data.fin.exitYield?num(data.fin.exitYield)/100:0;
-  var gdv=ey>0?noi/ey:0;
-  var tc=bc+lc+(data.planning&&data.planning.s106?num(data.planning.s106):0)+bc*0.12+bc*0.05+(bc+lc)*0.075;
-  var profit=gdv-tc;
-  var margin=gdv>0?(profit/gdv)*100:0;
+  var btrGdvDash=ey>0&&gr>0?noi/ey:0;
+
+  // Final GDV — manual > SFH sales > BTR yield > 0
+  var gdv=manGdv>0?manGdv:(isSFHdash&&sfhDashGdv>0?sfhDashGdv:(btrGdvDash>0?btrGdvDash:0));
+
+  // Build cost — manual > SFH > GIA estimate
+  var effBc=manBuild>0?manBuild:(isSFHdash&&sfhDashBuild>0?sfhDashBuild:bc);
+  var effUnits=isSFHdash&&sfhDashUnits>0?sfhDashUnits:units;
+
+  // Total dev cost
+  var s106dash=isSFHdash?effUnits*num(data.fin&&data.fin.s106pu||0):
+    (data.planning&&data.planning.s106?num(data.planning.s106):effUnits*num(data.fin&&data.fin.s106pu||0));
+  var tc=effBc+lc+s106dash+effBc*0.12+effBc*0.05+(effBc+lc)*0.075;
+
+  var profit=gdv>0&&tc>0?gdv-tc:0;
+  var margin=gdv>0&&profit!==0?(profit/gdv)*100:0;
   var scM=margin>=15?"#2D7A65":"#B05A35";
 
   var idx=STAGES.findIndex(function(s){return s.id===stage;});
@@ -2130,10 +2179,10 @@ function Tool(props){
   // ── DASHBOARD ──────────────────────────────────────────────────────────────
   function renderDashboard(){
     var cards=[
-      {l:"GDV",v:gdv>0?fmt(gdv):"—"},{l:"Total Dev Cost",v:tc>0?fmt(tc):"—"},
-      {l:"Profit",v:profit!==0?fmt(profit):"—",c:profit>0?scM:"#C0C4D8"},{l:"Margin",v:margin!==0?pct(margin):"—",c:margin>0?scM:"#C0C4D8"},
-      {l:"NOI (pa)",v:noi>0?fmt(noi):"—"},{l:"Exit Yield",v:ey>0?(ey*100).toFixed(2)+"%":"—"},
-      {l:"Units / Beds",v:units||"—"},{l:"City",v:city?cityName(city):"—"},
+      {l:"GDV",v:gdv>0?fmt(gdv):"—"},{l:"Total Dev Cost",v:tc>0&&gdv>0?fmt(tc):"—"},
+      {l:"Profit",v:gdv>0&&tc>0?fmt(profit):"—",c:profit>0?scM:"#C0C4D8"},{l:"Margin",v:gdv>0&&tc>0?pct(margin):"—",c:margin>0?scM:"#C0C4D8"},
+      {l:"NOI (pa)",v:!isSFHdash&&noi>0?fmt(noi):"—"},{l:"Exit Yield",v:!isSFHdash&&ey>0?(ey*100).toFixed(2)+"%":"—"},
+      {l:"Units / Beds",v:effUnits||"—"},{l:"City",v:city?cityName(city):"—"},
     ];
     return e("div",null,
       e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Deal Dashboard"),
