@@ -2714,45 +2714,109 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     var lrError=r.lrError||"";
 
     function fetchLR(){
-      var pc=(r.postcode||"").toUpperCase().replace(/\s/g,"");
+      var pc=(r.postcode||"").toUpperCase().replace(/\s+/g,"");
       if(!pc)return;
-      var match=pc.match(/^([A-Z]{1,2}\d{1,2}[A-Z]?)\s*(\d)/);
-      if(!match){up("rlv","lrError","Invalid postcode format");return;}
-      var sector=match[1]+" "+match[2];
+      // Extract area, district, sector from postcode
+      var match=pc.match(/^([A-Z]{1,2})(\d{1,2}[A-Z]?)(\d)([A-Z]{2})$/);
+      if(!match){up("rlv","lrError","Please enter a full postcode (e.g. CV6 2DL)");return;}
+      var area=match[1]; var district=match[1]+match[2]; var sector=district+" "+match[3];
+      var fullPc=district+" "+match[3]+match[4];
       up("rlv","lrLoading",true);up("rlv","lrError","");up("rlv","lrData",null);
-      var sparql="PREFIX lrppi: <http://landregistry.data.gov.uk/def/ppi/> PREFIX lrcommon: <http://landregistry.data.gov.uk/def/common/> PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> SELECT ?paon ?street ?postcode ?amount ?date ?type WHERE { ?addr lrcommon:postcode \""+sector+"\"^^xsd:string . ?t lrppi:propertyAddress ?addr ; lrppi:pricePaid ?amount ; lrppi:transactionDate ?date ; lrppi:propertyType ?typeUri . OPTIONAL { ?addr lrcommon:paon ?paon } OPTIONAL { ?addr lrcommon:street ?street } OPTIONAL { ?addr lrcommon:postcode ?postcode } BIND(STRAFTER(STR(?typeUri),\"type/\") AS ?type) } ORDER BY DESC(?date) LIMIT 30";
-      fetch("https://landregistry.data.gov.uk/landregistry/query?query="+encodeURIComponent(sparql)+"&output=json",{headers:{"Accept":"application/json"}})
-        .then(function(res){return res.json();})
-        .then(function(json){
-          var rows=(json&&json.results&&json.results.bindings)||[];
-          var TYPE_SQF={D:1350,S:980,T:820,F:620,O:900};
-          var byType={};
-          rows.forEach(function(b){
-            var tc2=(b.type&&b.type.value||"O").charAt(0).toUpperCase();
-            var amt=parseInt((b.amount&&b.amount.value)||0);
-            if(amt>10000){if(!byType[tc2])byType[tc2]=[];byType[tc2].push(amt);}
+      up("rlv","lrSectorUsed",sector);
+
+      // Try the full postcode first for best results
+      var sparql="PREFIX lrppi: <http://landregistry.data.gov.uk/def/ppi/> "+
+        "PREFIX lrcommon: <http://landregistry.data.gov.uk/def/common/> "+
+        "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> "+
+        "SELECT ?paon ?street ?town ?postcode ?amount ?date ?typeUri WHERE { "+
+        "?addr lrcommon:postcode ?postcode . "+
+        "FILTER(STRSTARTS(?postcode, \""+district+"\")) "+
+        "?t lrppi:propertyAddress ?addr ; lrppi:pricePaid ?amount ; lrppi:transactionDate ?date ; lrppi:propertyType ?typeUri . "+
+        "OPTIONAL{?addr lrcommon:paon ?paon} OPTIONAL{?addr lrcommon:street ?street} OPTIONAL{?addr lrcommon:town ?town} "+
+        "FILTER(?date >= \"2022-01-01\"^^xsd:date) "+
+        "} ORDER BY DESC(?date) LIMIT 50";
+
+      fetch("https://landregistry.data.gov.uk/landregistry/query?query="+encodeURIComponent(sparql)+"&output=json",
+        {headers:{"Accept":"application/json"}})
+      .then(function(res){return res.json();})
+      .then(function(json){
+        var rows=(json&&json.results&&json.results.bindings)||[];
+
+        // If still no results, try broader district
+        if(rows.length===0){
+          var sparql2="PREFIX lrppi: <http://landregistry.data.gov.uk/def/ppi/> "+
+            "PREFIX lrcommon: <http://landregistry.data.gov.uk/def/common/> "+
+            "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> "+
+            "SELECT ?paon ?street ?town ?postcode ?amount ?date ?typeUri WHERE { "+
+            "?addr lrcommon:postcode ?postcode . "+
+            "FILTER(STRSTARTS(STR(?postcode), \""+district+"\")) "+
+            "?t lrppi:propertyAddress ?addr ; lrppi:pricePaid ?amount ; lrppi:transactionDate ?date ; lrppi:propertyType ?typeUri . "+
+            "OPTIONAL{?addr lrcommon:paon ?paon} OPTIONAL{?addr lrcommon:street ?street} OPTIONAL{?addr lrcommon:town ?town} "+
+            "FILTER(?date >= \"2021-01-01\"^^xsd:date) "+
+            "} ORDER BY DESC(?date) LIMIT 50";
+          return fetch("https://landregistry.data.gov.uk/landregistry/query?query="+encodeURIComponent(sparql2)+"&output=json",
+            {headers:{"Accept":"application/json"}}).then(function(r2){return r2.json();})
+          .then(function(j2){
+            up("rlv","lrSectorUsed",district+" (district)");
+            return (j2&&j2.results&&j2.results.bindings)||[];
           });
-          var typeStats=Object.keys(byType).map(function(code){
-            var prices=byType[code];
-            var avg=prices.reduce(function(a,b){return a+b;},0)/prices.length;
-            var sqf=TYPE_SQF[code]||900;
-            var labels={D:"Detached",S:"Semi",T:"Terraced",F:"Flat",O:"Other"};
-            return{code:code,label:labels[code]||"Other",avg:Math.round(avg),psf:Math.round(avg/sqf),count:prices.length};
-          });
-          var totalTx=rows.filter(function(b){return parseInt((b.amount&&b.amount.value)||0)>10000;}).length;
-          var wPsf=totalTx>0?Math.round(typeStats.reduce(function(a,t){return a+t.psf*t.count;},0)/totalTx):0;
-          var recentRows=rows.slice(0,8).map(function(b){
-            return{addr:(b.paon&&b.paon.value||"")+" "+(b.street&&b.street.value||""),pc:(b.postcode&&b.postcode.value||sector),amount:parseInt((b.amount&&b.amount.value)||0),date:(b.date&&b.date.value||"").substring(0,10),type:(b.type&&b.type.value||"O").charAt(0)};
-          });
-          if(wPsf>0&&!r.salePsf)up("rlv","salePsf",wPsf);
-          up("rlv","lrData",{sector:sector,typeStats:typeStats,wPsf:wPsf,totalTx:totalTx,rows:recentRows});
-          up("rlv","lrLoading",false);
-        })
-        .catch(function(){
-          up("rlv","lrError","Could not reach Land Registry. Enter sale price manually below.");
-          up("rlv","lrLoading",false);
+        }
+        return rows;
+      })
+      .then(function(rows){
+        var TYPE_SQF={D:1350,S:980,T:820,F:620,O:900};
+        var byType={};
+        var allPsf=[];
+        rows.forEach(function(b){
+          var typeStr=(b.typeUri&&b.typeUri.value)||"";
+          var tc2=typeStr.charAt(typeStr.length-1).toUpperCase();
+          if(!"DSTFO".includes(tc2))tc2="O";
+          var amt=parseInt((b.amount&&b.amount.value)||0);
+          if(amt>50000&&amt<5000000){
+            var sqf=TYPE_SQF[tc2]||900;
+            var psf=Math.round(amt/sqf);
+            if(psf>50&&psf<1500){
+              if(!byType[tc2])byType[tc2]=[];
+              byType[tc2].push({amt:amt,psf:psf});
+              allPsf.push(psf);
+            }
+          }
         });
+        var weightedPsf=allPsf.length>0?Math.round(allPsf.reduce(function(a,b){return a+b;},0)/allPsf.length):0;
+        var typeStats=Object.keys(byType).map(function(code){
+          var entries=byType[code];
+          var avgAmt=Math.round(entries.reduce(function(a,b){return a+b.amt;},0)/entries.length);
+          var avgPsf=Math.round(entries.reduce(function(a,b){return a+b.psf;},0)/entries.length);
+          var labels={D:"Detached",S:"Semi-detached",T:"Terraced",F:"Flat",O:"Other"};
+          return{code:code,label:labels[code]||"Other",avgAmt:avgAmt,avgPsf:avgPsf,count:entries.length};
+        }).sort(function(a,b){return b.count-a.count;});
+        var txns=rows.slice(0,25).map(function(b){
+          var typeStr=(b.typeUri&&b.typeUri.value)||"";
+          var tc2=typeStr.charAt(typeStr.length-1).toUpperCase();
+          return{
+            address:[(b.paon&&b.paon.value||""),(b.street&&b.street.value||"")].filter(Boolean).join(" "),
+            postcode:(b.postcode&&b.postcode.value)||"",
+            date:(b.date&&b.date.value||"").substring(0,10),
+            amount:parseInt((b.amount&&b.amount.value)||0),
+            type:{D:"Det",S:"Semi",T:"Terr",F:"Flat",O:"Other"}[tc2]||"Other"
+          };
+        });
+        up("rlv","lrData",{wPsf:weightedPsf,transactions:txns,typeStats:typeStats,totalTx:rows.length,sector:r.lrSectorUsed||sector||""});
+        if(weightedPsf>0){
+          up("rlv","salePsf",String(weightedPsf)); up("rlv","avgPsf",String(weightedPsf));
+          up("rlv","lrError","");
+        } else {
+          up("rlv","lrError","No transactions found for "+district+". The Land Registry SPARQL endpoint has partial coverage. Try entering the sale price manually using local agent data — Rightmove or Zoopla sold prices for the area.");
+        }
+        up("rlv","lrLoading",false);
+      })
+      .catch(function(err){
+        up("rlv","lrError","Land Registry connection failed. Use Rightmove/Zoopla sold prices and enter manually.");
+        up("rlv","lrLoading",false);
+      });
     }
+
+  
 
     return e("div",null,
       e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Land Valuation Engine"),
@@ -2780,9 +2844,9 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
             lrData.typeStats.map(function(t){
               return e("div",{key:t.code,style:{background:"#fff",border:"1px solid #DDE0ED",borderTop:"3px solid #4A4BAE",borderRadius:8,padding:12}},
                 e("div",{style:{fontSize:10,fontWeight:700,color:"#7278A0",textTransform:"uppercase",marginBottom:6}},t.label),
-                e("div",{style:{fontSize:18,fontWeight:700,color:"#2E2F8A"}},fmt(t.avg)),
-                e("div",{style:{fontSize:11,fontWeight:600,color:"#4A4BAE"}},"£"+t.psf+"/sqft"),
-                e("div",{style:{fontSize:10,color:"#7278A0"}},t.count+" sales")
+                e("div",{style:{fontSize:18,fontWeight:700,color:"#2E2F8A"}},fmt(t.avgAmt||t.avg||0)),
+                e("div",{style:{fontSize:11,fontWeight:600,color:"#4A4BAE"}},"£"+(t.avgPsf||t.psf||0)+"/sqft"),
+                e("div",{style:{fontSize:10,color:"#7278A0"}},(t.count||0)+" sales")
               );
             })
           ),
