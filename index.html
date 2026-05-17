@@ -3173,11 +3173,11 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     // Sale price psf: look up from market data, NOT from rent * multiplier
     // sm.btr is monthly rent - using as psf multiplier gives wrong results
     var mktPsf=(function(){
-      var pcPsfVal=PC_PSF&&sCity?(PC_PSF[sCity.toUpperCase()]||PC_PSF[(sCity.substring(0,3)).toUpperCase()]||0):0;
+      var sc=sfhCity||city||"";
+      var pcPsfVal=PC_PSF&&sc?(PC_PSF[sc.toUpperCase()]||PC_PSF[(sc.substring(0,3)).toUpperCase()]||0):0;
       if(pcPsfVal>0)return pcPsfVal;
-      // Use city from MKT - typical sale prices
       var cityPsf={taunton:260,bristol:340,bath:400,exeter:285,worcester:265,birmingham:240,manchester:295,london:650,oxford:480,cambridge:460,coventry:230,guildford:400,brighton:380};
-      return cityPsf[sCity]||265;
+      return cityPsf[sc]||265;
     })();
     var basePsf=num(s.basePsf)||mktPsf;
     var sBuild=num(s.buildPsf)||195;
