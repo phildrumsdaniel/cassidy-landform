@@ -3959,6 +3959,19 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
   // ── FINANCIALS ─────────────────────────────────────────────────────────────
   function renderFin(){
     var f=data.fin||{};
+    var l=data.land||{};
+    var sf=data.sfh||{};
+    // Calculate RLV for commercial split (mirrors SFH appraisal logic)
+    var rlvAcres=num(l.acres||sf.acres||0);
+    var rlvUnits=num(data.planning&&data.planning.units||f.units||0);
+    var rlvBuild=num(f.buildPsf||m.build);
+    var rlvSalePsf=num(f.salePsf||m.btr*8.5||280);
+    var rlvGdv=rlvUnits*900*rlvSalePsf;
+    var rlvBc=rlvUnits*900*rlvBuild;
+    var rlvFees=rlvBc*0.12; var rlvCont=rlvBc*0.05;
+    var rlvFin=(rlvBc+rlvFees)*(num(f.finRate||f.finRatePa||8))/100;
+    var rlvS106=rlvUnits*num(f.s106pu||8000);
+    var rlv=gdv2>0?(gdv2-tc4-gdv2*0.20):rlvGdv-rlvBc-rlvFees-rlvCont-rlvFin-rlvS106-rlvGdv*0.20;
     var voidAdj=at==="pbsa"?0.97:0.95;
     var opex=units*(at==="pbsa"?600:1050)+gr*voidAdj*0.12;
     var noi2=gr*voidAdj-opex;
@@ -4083,9 +4096,9 @@ e("div",{style:{fontStyle:"italic",fontSize:10,color:"#7278A0",padding:"6px 0"}}
           var finRatePa=num(f.finRatePa||8)/100;
           var progMths=num(f.programmeMths||36);
           var u=num(f.units||units||0);
-          var gdvF=gdv>0?gdv:gdv2;
-          var tcF=tc>0?tc:tc4;
-          var marginF=margin>0?margin:margin2;
+          var gdvF=gdv2>0?gdv2:0;
+          var tcF=tc4>0?tc4:0;
+          var marginF=margin2;
           if(u<1||gdvF<1)return e("div",{style:{fontSize:12,color:"#7278A0",padding:"10px 0"}},"Enter units and GDV in the appraisal above to calculate IRR.");
           var salesMths=salesRate>0?Math.ceil(u/(salesRate*52/12)):progMths;
           var peakDebt=tcF*0.65;
