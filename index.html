@@ -4583,9 +4583,8 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
                 // Calculate total and set s106pu
                 var tot=Object.values(def).reduce(function(s,v){return s+v;},0);
                 up("fin","s106pu",String(tot));
-                alert("S106 populated with typical "+cityName(lpaCity||"Taunton")+" LPA rates for "+u2+" units.
-Total: £"+Math.round(tot*u2).toLocaleString()+" (£"+tot.toLocaleString()+"/unit)
-Adjust individual lines to match your actual planning negotiations.");
+                var alertMsg=["S106 populated with typical "+cityName(lpaCity||"Taunton")+" LPA rates for "+u2+" units.","Total: £"+Math.round(tot*u2).toLocaleString()+" (£"+tot.toLocaleString()+"/unit)","Adjust individual lines to match your actual planning negotiations."].join("\n");
+                alert(alertMsg);
               },
               style:{padding:"6px 14px",background:"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",flexShrink:0}
             },"⚡ Auto-fill S106 for "+(city?cityName(city):"your area"))
