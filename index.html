@@ -14,25 +14,67 @@
 <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'DM Sans',sans-serif;background:#F4F5F9;color:#1A1A3E}#root{min-height:100vh}@keyframes pulse{0%{opacity:1}50%{opacity:0.7}100%{opacity:1}}
 
 /* ── MOBILE RESPONSIVE ─────────────────────────── */
+
+/* Sidebar hidden by default on mobile */
+.lf-sidebar{transition:transform .25s cubic-bezier(.4,0,.2,1);}
+
 @media(max-width:768px){
-  .lf-sidebar{transform:translateX(-100%);transition:transform .25s ease;z-index:300!important}
-  .lf-sidebar.open{transform:translateX(0)}
-  .lf-main{margin-left:0!important;width:100%!important}
-  .lf-topbar{padding:8px 12px!important}
-  .lf-topbar-btns{display:none}
-  .lf-hamburger{display:flex!important}
-  .lf-overlay{display:block!important}
-  .lf-stage-content{padding:12px!important}
-  .lf-grid2{grid-template-columns:1fr!important}
-  .lf-metrics-grid{grid-template-columns:1fr 1fr!important}
-  .lf-card{padding:14px!important}
-  .lf-scenario-grid{grid-template-columns:1fr!important}
-  .lf-table{font-size:10px!important}
-  input,select{font-size:16px!important} /* prevent iOS zoom */
+  /* ── SIDEBAR ── */
+  .lf-sidebar{
+    transform:translateX(-100%);
+    z-index:1000!important;
+    width:280px!important;
+    box-shadow:4px 0 24px rgba(0,0,0,0.4);
+  }
+  .lf-sidebar.open{transform:translateX(0)!important;}
+
+  /* ── OVERLAY ── */
+  .lf-overlay{display:block!important;}
+
+  /* ── MAIN AREA ── */
+  .lf-main{margin-left:0!important;width:100vw!important;max-width:100vw!important;overflow-x:hidden!important;}
+
+  /* ── TOPBAR ── */
+  .lf-topbar{padding:10px 12px!important;gap:8px!important;}
+  .lf-topbar-btns{display:none!important;}
+  .lf-hamburger{display:flex!important;align-items:center!important;}
+
+  /* ── CONTENT AREA ── */
+  .lf-stage-content{padding:14px 12px!important;overflow-x:hidden!important;}
+
+  /* ── FORMS ── */
+  input,select,textarea{
+    font-size:16px!important; /* prevent iOS zoom on focus */
+    padding:10px 12px!important;
+    border-radius:6px!important;
+    width:100%!important;
+    box-sizing:border-box!important;
+  }
+  button{min-height:42px!important;padding:10px 14px!important;}
+
+  /* ── GRIDS → SINGLE COLUMN ── */
+  [style*="grid-template-columns:1fr 1fr"],[style*="gridTemplateColumns:"1fr 1fr""],
+  [style*="repeat(2,1fr)"],[style*="repeat(3,1fr)"],[style*="repeat(4,1fr)"]{
+    grid-template-columns:1fr!important;
+  }
+  .lf-grid2{grid-template-columns:1fr!important;}
+  .lf-metrics-grid{grid-template-columns:1fr 1fr!important;}
+
+  /* ── CARDS ── */
+  .lf-card,[style*="S.card"]{padding:14px 12px!important;margin-bottom:12px!important;}
+
+  /* ── TABLES → SCROLLABLE ── */
+  [style*="gridTemplateColumns"]{overflow-x:auto!important;}
+
+  /* ── TYPOGRAPHY ── */
+  h2{font-size:20px!important;}
+  h3{font-size:15px!important;}
 }
+
 @media(max-width:480px){
-  .lf-metrics-grid{grid-template-columns:1fr 1fr!important}
-  .lf-topbar h2{font-size:13px!important}
+  .lf-sidebar{width:85vw!important;max-width:300px!important;}
+  .lf-topbar h2,.lf-stage-title{font-size:14px!important;}
+  .lf-metrics-grid{grid-template-columns:1fr 1fr!important;}
 }
 </style>
 </head>
@@ -707,6 +749,8 @@ function AccessGate(props){
 
 // ── STAGES ───────────────────────────────────────────────────────────────────
 var ALL_STAGES = [
+  {id:"monitor",     label:"Planning Monitor",     icon:"📡", group:"1. Find",    journeys:["land","all"]},
+  {id:"constraint",  label:"Constraint Check",     icon:"⚠",  group:"1. Find",    journeys:["land","all"]},
   {id:"scraper",     label:"Land Finder",          icon:"🔍", group:"1. Find",    journeys:["land","all"]},
   {id:"rlv",         label:"Land Valuation",        icon:"◆",  group:"1. Find",    journeys:["land","all"]},
   {id:"land",        label:"Land Appraisal",        icon:"⬟",  group:"1. Find",    journeys:["land","all"]},
@@ -723,6 +767,7 @@ var ALL_STAGES = [
   {id:"recovery",    label:"Planning Recovery",     icon:"⚖",  group:"5. Exit",    journeys:["recovery","all"]},
   {id:"summary",     label:"Executive Summary",     icon:"📄", group:"6. Overview",journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
   {id:"flowcharts",  label:"Process Flowcharts",     icon:"🗺", group:"6. Overview",journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
+  {id:"portfolio",     label:"Deal Portfolio",       icon:"📊", group:"6. Overview", journeys:["all"]},
   {id:"dashboard",   label:"Deal Dashboard",        icon:"◈",  group:"6. Overview",journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
 ];
 var STAGES = ALL_STAGES;
@@ -741,7 +786,14 @@ function Tool(props){
   var user=props.user;
   var st=useState("dashboard"); var stage=st[0]; var setStage=st[1];
   var mob=useState(false); var mobileMenuOpen=mob[0]; var setMobileMenuOpen=mob[1];
-  var isMobile=typeof window!=="undefined"&&window.innerWidth<=768;
+  var wmq=useState(typeof window!=="undefined"&&window.innerWidth<=768);
+  var isMobile=wmq[0]; var setIsMobile=wmq[1];
+  React.useEffect(function(){
+    function checkMobile(){setIsMobile(window.innerWidth<=768);}
+    window.addEventListener("resize",checkMobile);
+    checkMobile();
+    return function(){window.removeEventListener("resize",checkMobile);};
+  },[]);
   // Load from localStorage on startup
   var savedData=(function(){
     try{
@@ -2292,6 +2344,383 @@ function Tool(props){
   }
 
   // ── DASHBOARD ──────────────────────────────────────────────────────────────
+  // ── PLANNING MONITOR ──────────────────────────────────────────────────────
+  function renderPlanningMonitor(){
+    var pm=data.planMonitor||{};
+    var watchList=pm.watchList||[];
+    var alerts=pm.alerts||[];
+    var isSearching=pm.searching||false;
+
+    // Planning Portal SPARQL/API endpoint
+    function searchPlanningApps(postcode,lpa){
+      if(!postcode&&!lpa)return;
+      up("planMonitor","searching",true);
+      up("planMonitor","searchError","");
+
+      // Use AI to analyse planning pressure for the area
+      var promptParts=[
+        "You are a UK planning intelligence analyst. Analyse planning activity for this area and provide actionable intelligence for a residential land developer.",
+        "AREA: "+(lpa||postcode),
+        "POSTCODE: "+(postcode||"not provided"),
+        "",
+        "Search your knowledge for recent planning activity in this LPA area and provide:",
+        "1. RECENT APPROVALS: Any significant residential outline or full planning approvals in the last 2 years (list 3-5 with approximate location and units)",
+        "2. EMERGING ZONES: Areas showing increasing development pressure or emerging Local Plan allocations",
+        "3. OPPORTUNITY SIGNALS: Any grey belt sites, Use Class Q conversions, appeal wins, or planning precedents that signal development opportunity",
+        "4. LPA PERFORMANCE: Is this LPA achieving its housing target? 5-year land supply status?",
+        "5. PLANNING PROBABILITY: On a scale 1-10, how pro-development is this LPA right now and why?",
+        "6. HOT POSTCODE AREAS: Which postcode districts within this LPA have the strongest recent planning approval track record?",
+        "7. WATCH LIST: 3 specific types of sites Cassidy Group should be targeting in this LPA right now",
+        "",
+        "Format as clear sections. Be specific with locations and numbers where possible."
+      ].join("\n");
+
+      callAI(user,"planMonitor","You are a senior UK planning intelligence analyst with deep knowledge of UK LPA decision-making, housing targets, 5-year land supply, and development trends.",promptParts)
+      .then(function(result){
+        var newAlerts=alerts.slice();
+        newAlerts.unshift({
+          id:Date.now(),
+          lpa:lpa||postcode,
+          postcode:postcode,
+          date:new Date().toLocaleDateString("en-GB"),
+          report:result,
+          type:"ai_analysis"
+        });
+        up("planMonitor","alerts",newAlerts);
+        up("planMonitor","searching",false);
+
+        // Add to watch list if not already there
+        var key=lpa||postcode;
+        if(!watchList.some(function(w){return w.key===key;})){
+          var newWatch=watchList.concat([{key:key,lpa:lpa,postcode:postcode,added:new Date().toLocaleDateString("en-GB")}]);
+          up("planMonitor","watchList",newWatch);
+        }
+      })
+      .catch(function(){
+        up("planMonitor","searchError","Analysis failed — check connection and try again");
+        up("planMonitor","searching",false);
+      });
+    }
+
+    // Planning application types we watch
+    var APP_TYPES=[
+      {code:"outline",label:"Outline Planning",icon:"🏗",desc:"Major residential schemes — signals developer appetite"},
+      {code:"reserved",label:"Reserved Matters",icon:"📐",desc:"Following outline — site moving to delivery"},
+      {code:"full",label:"Full Planning",icon:"✓",desc:"Ready to build — comparable evidence"},
+      {code:"appeal",label:"Appeal Wins",icon:"⚖",desc:"LPA overruled — creates precedent for similar sites"},
+      {code:"classq",label:"Use Class Q/R",icon:"🌾",desc:"Agricultural conversions — rural opportunity signal"},
+      {code:"prior",label:"Prior Approval",icon:"⚡",desc:"Fast-track conversions — quick-win sites"},
+      {code:"grey",label:"Grey Belt",icon:"🔶",desc:"Weak Green Belt — NPPF 2024 opportunity"},
+      {code:"pip",label:"Permission in Principle",icon:"📋",desc:"Emerging sites — early-stage opportunities"},
+    ];
+
+    // Planning Portal links by LPA
+    function planPortalUrl(lpa,type){
+      var searchLpa=encodeURIComponent(lpa||"");
+      return "https://www.planning.data.gov.uk/entity/?dataset=local-authority&name="+searchLpa;
+    }
+
+    return e("div",null,
+      e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:12}},
+        e("div",null,
+          e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Planning Monitor"),
+          e("p",{style:{fontSize:12,color:"#7278A0"}},"Watch LPAs for planning activity that signals land opportunity. Spot sites before they hit the market.")
+        ),
+        e("a",{href:"https://www.planning.data.gov.uk/",target:"_blank",style:{padding:"8px 16px",background:"#4A4BAE",border:"none",borderRadius:6,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",textDecoration:"none",display:"inline-flex",alignItems:"center",gap:6}},
+          "🔗 Planning Data Gov UK ↗"
+        )
+      ),
+
+      // SEARCH BAR
+      e("div",{style:Object.assign({},S.card,{background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",color:"#fff",marginBottom:16})},
+        e("div",{style:{fontSize:13,fontWeight:700,color:"#EDE84A",marginBottom:10}},"🔍 Search Planning Intelligence"),
+        e("div",{style:{display:"flex",gap:10,flexWrap:"wrap"}},
+          e("input",{type:"text",value:pm.searchLpa||"",
+            onChange:function(ev){up("planMonitor","searchLpa",ev.target.value);},
+            placeholder:"LPA name — e.g. Somerset West and Taunton",
+            style:{flex:2,padding:"10px 14px",borderRadius:7,border:"none",fontSize:13,fontFamily:"DM Sans,sans-serif",minWidth:200}
+          }),
+          e("input",{type:"text",value:pm.searchPc||"",
+            onChange:function(ev){up("planMonitor","searchPc",ev.target.value);},
+            placeholder:"Postcode — e.g. TA3",
+            style:{flex:1,padding:"10px 14px",borderRadius:7,border:"none",fontSize:13,fontFamily:"DM Sans,sans-serif",minWidth:120}
+          }),
+          e("button",{
+            onClick:function(){searchPlanningApps(pm.searchPc||"",pm.searchLpa||"");},
+            disabled:isSearching||(!pm.searchLpa&&!pm.searchPc),
+            style:{padding:"10px 20px",background:"#EDE84A",border:"none",borderRadius:7,color:"#1E1F5C",fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",opacity:isSearching?0.7:1}
+          },isSearching?"⏳ Analysing...":"📡 Analyse LPA")
+        ),
+        pm.searchError&&e("div",{style:{marginTop:8,fontSize:11,color:"#EDE84A"}},pm.searchError),
+        e("div",{style:{marginTop:8,fontSize:10,color:"rgba(255,255,255,0.5)"}},"AI analyses planning pressure, approval rates, grey belt opportunities and emerging allocations for your target LPA")
+      ),
+
+      // WATCH LIST
+      watchList.length>0&&e("div",{style:S.card},
+        e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}},
+          e("div",{style:S.cardTitle},"Watch List — Active LPAs"),
+          e("div",{style:{fontSize:10,color:"#7278A0"}},watchList.length+" LPAs monitored")
+        ),
+        e("div",{style:{display:"flex",flexWrap:"wrap",gap:8}},
+          watchList.map(function(w,i){
+            return e("div",{key:i,style:{background:"#F0F1FA",border:"1px solid #DDE0ED",borderRadius:6,padding:"6px 12px",display:"flex",alignItems:"center",gap:8,fontSize:11}},
+              e("span",{style:{fontWeight:700,color:"#2E2F8A"}},w.lpa||w.postcode),
+              e("span",{style:{color:"#7278A0",fontSize:9}},"added "+w.added),
+              e("button",{onClick:function(){
+                var newList=watchList.filter(function(_,j){return j!==i;});
+                up("planMonitor","watchList",newList);
+              },style:{background:"none",border:"none",color:"#B05A35",cursor:"pointer",fontSize:14,padding:"0 2px"}},"×")
+            );
+          })
+        )
+      ),
+
+      // WHAT TO WATCH FOR
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Planning Signals — What to Watch For"),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:10,marginBottom:8}},
+          APP_TYPES.map(function(t){
+            return e("a",{key:t.code,
+              href:"https://www.planning.data.gov.uk/entity/?dataset=development-policy-document",
+              target:"_blank",
+              style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,padding:"12px 14px",textDecoration:"none",display:"block",transition:"all .15s",cursor:"pointer"}},
+              e("div",{style:{fontSize:18,marginBottom:4}},t.icon),
+              e("div",{style:{fontSize:12,fontWeight:700,color:"#2E2F8A",marginBottom:2}},t.label),
+              e("div",{style:{fontSize:10,color:"#7278A0",lineHeight:1.5}},t.desc)
+            );
+          })
+        ),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginTop:8}},
+          [
+            {label:"Planning Portal — Search Apps",url:"https://www.planningportal.co.uk/",desc:"Search live planning applications by postcode"},
+            {label:"Planning Data Gov UK",url:"https://www.planning.data.gov.uk/",desc:"National dataset of planning decisions and allocations"},
+            {label:"PINS Appeal Decisions",url:"https://acp.planninginspectorate.gov.uk/",desc:"Planning Inspectorate — appeal wins create precedent"},
+          ].map(function(link){
+            return e("a",{key:link.label,href:link.url,target:"_blank",
+              style:{background:"rgba(74,75,174,0.06)",border:"1px solid rgba(74,75,174,0.2)",borderRadius:7,padding:"10px 12px",textDecoration:"none",display:"block"}},
+              e("div",{style:{fontSize:11,fontWeight:700,color:"#4A4BAE",marginBottom:2}},link.label+" ↗"),
+              e("div",{style:{fontSize:10,color:"#7278A0"}},link.desc)
+            );
+          })
+        )
+      ),
+
+      // AI ANALYSIS RESULTS
+      alerts.length>0&&e("div",null,
+        e("div",{style:S.cardTitle},"Planning Intelligence Reports"),
+        alerts.map(function(alert,i){
+          return e("div",{key:alert.id,style:Object.assign({},S.card,{borderLeft:"4px solid #4A4BAE",marginBottom:12})},
+            e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}},
+              e("div",null,
+                e("div",{style:{fontSize:13,fontWeight:700,color:"#2E2F8A"}},alert.lpa),
+                e("div",{style:{fontSize:10,color:"#7278A0"}},"Analysed: "+alert.date)
+              ),
+              e("div",{style:{display:"flex",gap:8}},
+                e("button",{onClick:function(){
+                  // Load this LPA into land appraisal
+                  up("land","localAuthority",alert.lpa);
+                  up("land","city",alert.lpa.toLowerCase().split(" ")[0]);
+                  navTo("land");
+                },style:{padding:"5px 12px",background:"#2D7A65",border:"none",borderRadius:5,color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"→ Use in Appraisal"),
+                e("button",{onClick:function(){
+                  var newAlerts=alerts.filter(function(_,j){return j!==i;});
+                  up("planMonitor","alerts",newAlerts);
+                },style:{padding:"5px 10px",background:"none",border:"1px solid #DDE0ED",borderRadius:5,color:"#B05A35",fontSize:10,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Remove")
+              )
+            ),
+            e("div",{style:{maxHeight:400,overflowY:"auto",background:"#F8F8FE",borderRadius:7,padding:"14px 16px"}},
+              e("pre",{style:{fontSize:11,lineHeight:1.9,color:"#3A3D6A",whiteSpace:"pre-wrap",fontFamily:"DM Sans,sans-serif",margin:0}},alert.report)
+            )
+          );
+        })
+      ),
+
+      // EMPTY STATE
+      alerts.length===0&&e("div",{style:{textAlign:"center",padding:"40px 20px",color:"#7278A0"}},
+        e("div",{style:{fontSize:40,marginBottom:12}},"📡"),
+        e("div",{style:{fontSize:14,fontWeight:700,color:"#2E2F8A",marginBottom:6}},"No planning intelligence yet"),
+        e("div",{style:{fontSize:12,lineHeight:1.7}},"Enter a target LPA or postcode above and click Analyse LPA.",e("br"),"The AI will analyse planning pressure, recent approvals, grey belt opportunities and what sites to target.")
+      )
+    );
+  }
+
+  // ── CONSTRAINT CHECK ───────────────────────────────────────────────────────
+  function renderConstraintCheck(){
+    var cc=data.constraintCheck||{};
+    var isChecking=cc.checking||false;
+    var results=cc.results||null;
+
+    function runConstraintCheck(){
+      var pc=cc.postcode||"";
+      var addr=cc.address||"";
+      if(!pc&&!addr)return;
+      up("constraintCheck","checking",true);
+      up("constraintCheck","error","");
+      up("constraintCheck","results",null);
+
+      var promptParts=[
+        "You are a UK planning consultant and GIS analyst. Provide a rapid constraint assessment for a potential development site.",
+        "SITE: "+(addr||pc),
+        "POSTCODE: "+pc,
+        "",
+        "Assess ALL of the following constraints and opportunities. For each, give: status (✓ Clear / ⚠ Check / ✗ Constraint), detail, and commercial impact.",
+        "",
+        "PLANNING CONSTRAINTS:",
+        "1. Green Belt designation (is this postcode area typically Green Belt?)",
+        "2. Conservation Area proximity",
+        "3. Article 4 Direction likelihood",
+        "4. AONB or National Park",
+        "5. Local Plan allocation (likely allocated, unallocated, or safeguarded?)",
+        "",
+        "PHYSICAL CONSTRAINTS:",
+        "6. Flood Risk Zone (Zone 1 clear / Zone 2-3 constraint)",
+        "7. Agricultural Land Classification (Grade 1-2 = constraint for development)",
+        "8. Topography issues (flat, sloping, or significantly challenging?)",
+        "",
+        "ECOLOGY:",
+        "9. SSSI proximity risk",
+        "10. Ancient Woodland proximity risk",
+        "11. Biodiversity Net Gain requirement (mandatory 10%)",
+        "",
+        "INFRASTRUCTURE:",
+        "12. Utilities proximity (mains water, sewage, gas, electric)",
+        "13. Highways / road access assessment",
+        "14. Public transport accessibility",
+        "15. School capacity in area",
+        "",
+        "OPPORTUNITIES:",
+        "16. Grey Belt potential (weak Green Belt, fragmented boundary?)",
+        "17. Use Class Q / agricultural conversion potential",
+        "18. Nearby planning precedents that support development",
+        "19. NPPF 2024 tilted balance applicability",
+        "",
+        "PLANNING PROBABILITY SCORE:",
+        "Give an overall planning probability score 1-100 with reasoning.",
+        "Breakdown: Planning policy score (x/25), Physical constraints score (x/25), Ecology score (x/25), Infrastructure score (x/25)",
+        "",
+        "END with: GO / CAUTION / AVOID and one sentence why.",
+        "",
+        "Base on your knowledge of UK planning policy and typical patterns for this type of area. Be specific and commercially focused."
+      ].join("\n");
+
+      callAI(user,"constraintCheck","You are a senior UK planning consultant providing rapid site constraint assessments for residential land developers.",promptParts)
+      .then(function(result){
+        // Parse score from result
+        var scoreMatch=result.match(/(\d{1,3})\s*(?:out of|\/)\s*100/i)||result.match(/score[:\s]+(\d{1,3})/i);
+        var score=scoreMatch?parseInt(scoreMatch[1]):null;
+        var goMatch=result.match(/(GO|CAUTION|AVOID)/);
+        var verdict=goMatch?goMatch[1]:null;
+        up("constraintCheck","results",{report:result,score:score,verdict:verdict,site:addr||pc,date:new Date().toLocaleDateString("en-GB")});
+        up("constraintCheck","checking",false);
+
+        // Auto-populate land appraisal if we have data
+        if(addr)up("land","address",addr);
+        if(pc){up("land","postcode",pc); up("rlv","postcode",pc);}
+      })
+      .catch(function(){
+        up("constraintCheck","error","Constraint check failed — check connection");
+        up("constraintCheck","checking",false);
+      });
+    }
+
+    var verdictColor=results&&results.verdict==="GO"?"#2D7A65":results&&results.verdict==="CAUTION"?"#9A7B3E":"#B05A35";
+
+    var CONSTRAINT_LINKS=[
+      {label:"Flood Map for Planning",url:"https://flood-map-for-planning.service.gov.uk/",icon:"💧"},
+      {label:"Magic Map (Natural England)",url:"https://magic.defra.gov.uk/MagicMap.aspx",icon:"🗺"},
+      {label:"Land Registry Title Search",url:"https://eservices.landregistry.gov.uk/eservices/FindAProperty/view/QuickEnquiryInit.do",icon:"📜"},
+      {label:"Environment Agency Flood",url:"https://environment.data.gov.uk/flood-planning/r/flood-risk-zones",icon:"🌊"},
+      {label:"Historic England (Listed/Conservation)",url:"https://historicengland.org.uk/listing/the-list/",icon:"🏛"},
+      {label:"SSSI / Natural England",url:"https://www.gov.uk/guidance/protected-sites-and-areas-how-to-check-if-your-land-is-affected",icon:"🌿"},
+    ];
+
+    return e("div",null,
+      e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Constraint Check"),
+      e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:16}},"Rapid AI assessment of planning constraints, physical issues and development opportunity for any site. Replaces hours of manual checking across 6+ government websites."),
+
+      // SEARCH
+      e("div",{style:Object.assign({},S.card,{background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",color:"#fff"})},
+        e("div",{style:{fontSize:13,fontWeight:700,color:"#EDE84A",marginBottom:10}},"⚠ Check Site Constraints"),
+        e("div",{style:{display:"flex",gap:10,flexWrap:"wrap",marginBottom:8}},
+          e("input",{type:"text",value:cc.address||"",
+            onChange:function(ev){up("constraintCheck","address",ev.target.value);},
+            placeholder:"Site address — e.g. Land West of Bushy Cross Lane, Ruishton",
+            style:{flex:2,padding:"10px 14px",borderRadius:7,border:"none",fontSize:12,fontFamily:"DM Sans,sans-serif",minWidth:200}
+          }),
+          e("input",{type:"text",value:cc.postcode||"",
+            onChange:function(ev){up("constraintCheck","postcode",ev.target.value);},
+            placeholder:"Postcode e.g. TA3 5LS",
+            style:{flex:1,padding:"10px 14px",borderRadius:7,border:"none",fontSize:12,fontFamily:"DM Sans,sans-serif",minWidth:120}
+          }),
+          e("button",{
+            onClick:runConstraintCheck,
+            disabled:isChecking||(!cc.postcode&&!cc.address),
+            style:{padding:"10px 20px",background:"#EDE84A",border:"none",borderRadius:7,color:"#1E1F5C",fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",opacity:isChecking?0.7:1}
+          },isChecking?"⏳ Checking...":"⚠ Check Constraints")
+        ),
+        cc.error&&e("div",{style:{fontSize:11,color:"#EDE84A"}},cc.error),
+        e("div",{style:{fontSize:10,color:"rgba(255,255,255,0.5)"}},"AI checks: Green Belt, flood risk, SSSI, TPOs, Article 4, AONB, Conservation Area, highways, ecology, planning precedent and more")
+      ),
+
+      // RESULTS
+      results&&e("div",null,
+        // Verdict banner
+        e("div",{style:{background:verdictColor+"15",border:"2px solid "+verdictColor,borderRadius:10,padding:"16px 20px",marginBottom:16,display:"flex",alignItems:"center",gap:16}},
+          e("div",{style:{fontSize:36,fontWeight:900,color:verdictColor,minWidth:80,textAlign:"center"}},
+            results.verdict==="GO"?"✓ GO":results.verdict==="CAUTION"?"⚠ CAUTION":"✗ AVOID"
+          ),
+          e("div",{style:{flex:1}},
+            e("div",{style:{fontSize:14,fontWeight:800,color:verdictColor}},"Constraint Assessment — "+results.site),
+            e("div",{style:{fontSize:11,color:"#7278A0"}},"Assessed: "+results.date),
+            results.score&&e("div",{style:{marginTop:6}},
+              e("div",{style:{fontSize:10,color:"#7278A0",marginBottom:4}},"Planning Probability Score"),
+              e("div",{style:{height:8,background:"#DDE0ED",borderRadius:4,overflow:"hidden",width:200}},
+                e("div",{style:{height:"100%",width:(results.score||0)+"%",background:results.score>=60?"#2D7A65":results.score>=40?"#9A7B3E":"#B05A35",transition:"width 1s"}})
+              ),
+              e("div",{style:{fontSize:14,fontWeight:800,color:verdictColor,marginTop:2}},(results.score||0)+"/100")
+            )
+          ),
+          e("button",{onClick:function(){
+            navTo("land");
+          },style:{padding:"8px 16px",background:verdictColor,border:"none",borderRadius:6,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"→ Go to Appraisal")
+        ),
+
+        // Full report
+        e("div",{style:Object.assign({},S.card,{borderLeft:"4px solid "+verdictColor})},
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}},
+            e("div",{style:S.cardTitle},"Full Constraint Report"),
+            e("button",{onClick:function(){
+              var el=document.createElement("textarea");
+              el.value=results.report;
+              document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);
+              alert("Report copied to clipboard");
+            },style:{padding:"5px 12px",background:"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"📋 Copy Report")
+          ),
+          e("div",{style:{maxHeight:500,overflowY:"auto"}},
+            e("pre",{style:{fontSize:11,lineHeight:1.9,color:"#3A3D6A",whiteSpace:"pre-wrap",fontFamily:"DM Sans,sans-serif",margin:0}},results.report)
+          )
+        )
+      ),
+
+      // QUICK LINKS
+      e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Government Constraint Data Sources"),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:8}},
+          CONSTRAINT_LINKS.map(function(link){
+            return e("a",{key:link.label,href:link.url,target:"_blank",
+              style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:7,padding:"10px 12px",textDecoration:"none",display:"flex",alignItems:"center",gap:8}},
+              e("span",{style:{fontSize:18}},link.icon),
+              e("div",null,
+                e("div",{style:{fontSize:11,fontWeight:700,color:"#2E2F8A"}},link.label+" ↗"),
+                e("div",{style:{fontSize:9,color:"#7278A0"}},"gov.uk")
+              )
+            );
+          })
+        )
+      )
+    );
+  }
+
   function renderPortfolio(){
     var deals=JSON.parse(localStorage.getItem("cassidy_deals")||"[]");
     var current={ts:Date.now(),name:data.land&&data.land.address||"Current Deal",city:city?cityName(city):"—",at:at,gdv:gdv,tc:tc,profit:profit,margin:margin,units:effUnits||units,status:data.masterReport?(function(){try{return JSON.parse(data.masterReport).goNoGo||"—";}catch(e){return "—";}}()):"—"};
@@ -5488,6 +5917,8 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
   // ── RENDER STAGE ───────────────────────────────────────────────────────────
   function renderStage(){
     if(stage==="portfolio")return renderPortfolio();
+    if(stage==="monitor")return renderPlanningMonitor();
+    if(stage==="constraint")return renderConstraintCheck();
     if(stage==="dashboard")return renderDashboard();
     if(stage==="epeworkflow")return renderEPEWorkflow();
     if(stage==="landworkflow")return renderLandWorkflow();
@@ -5511,9 +5942,9 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
   // ── LAYOUT ─────────────────────────────────────────────────────────────────
   var closeMobile=function(){setMobileMenuOpen(false);};
   return e("div",{style:{display:"flex",minHeight:"100vh",overflowX:"hidden"}},
-    mobileMenuOpen&&e("div",{className:"lf-overlay",onClick:closeMobile,style:{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:299,display:"block"}}),
-    e("aside",{className:"lf-sidebar"+(mobileMenuOpen?" open":""),style:{width:240,background:"#1E1F5C",display:"flex",flexDirection:"column",position:"fixed",left:0,top:0,bottom:0,overflowY:"auto",zIndex:300,transition:"transform .25s ease"}},
-      e("div",{style:{padding:"16px 16px 12px",borderBottom:"1px solid rgba(255,255,255,0.1)",textAlign:"center"}},
+    isMobile&&mobileMenuOpen&&e("div",{onClick:closeMobile,style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.6)",zIndex:999,touchAction:"none"}}),
+    e("aside",{style:{width:240,background:"#1E1F5C",display:"flex",flexDirection:"column",position:"fixed",left:0,top:0,bottom:0,overflowY:"auto",zIndex:1001,transition:"transform .25s cubic-bezier(.4,0,.2,1)",transform:isMobile?(mobileMenuOpen?"translateX(0)":"translateX(-100%)"):"translateX(0)"}},
+      e("div",{style:{padding:"14px 16px 12px",borderBottom:"1px solid rgba(255,255,255,0.1)",display:"flex",alignItems:"center",justifyContent:"space-between"}},
         e("img",{src:"data:image/webp;base64,"+LOGO,alt:"Cassidy Group",style:{width:120,height:"auto",filter:"drop-shadow(0 1px 4px rgba(0,0,0,0.25))"}})
       ),
       e("div",{style:{padding:"8px 0",flex:1}},
@@ -5570,8 +6001,16 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
         (user&&user.name)||"User"," · ",(user&&user.company)||""
       )
     ),
-    e("main",{style:{marginLeft:240,flex:1,display:"flex",flexDirection:"column",minHeight:"100vh"}},
+    e("main",{style:{marginLeft:isMobile?0:240,flex:1,display:"flex",flexDirection:"column",minHeight:"100vh",transition:"margin .25s ease",overflowX:"hidden"}},
       e("div",{style:{height:58,background:"#fff",borderBottom:"1px solid #DDE0ED",display:"flex",alignItems:"center",padding:"0 20px",gap:10,position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 3px rgba(46,47,138,0.08)"}},
+        isMobile&&e("button",{
+          onClick:function(){setMobileMenuOpen(function(o){return !o;});},
+          style:{display:"flex",flexDirection:"column",justifyContent:"center",gap:5,padding:"8px 10px",background:"#F0F1FA",border:"1px solid #DDE0ED",borderRadius:7,cursor:"pointer",flexShrink:0,width:40,height:40,marginRight:6}
+        },
+          e("span",{style:{width:18,height:2,background:"#2E2F8A",display:"block",borderRadius:2}}),
+          e("span",{style:{width:18,height:2,background:"#2E2F8A",display:"block",borderRadius:2}}),
+          e("span",{style:{width:18,height:2,background:"#2E2F8A",display:"block",borderRadius:2}})
+        ),
         e("div",{style:{fontSize:15,fontWeight:700,color:"#2E2F8A",flex:1}},curStage.label),
         e("div",{style:{fontSize:11,color:"#7278A0",marginRight:8}},at.toUpperCase()+" · "+cityName(city)),
         e("div",{className:"lf-topbar-btns",style:{display:"flex",gap:6,alignItems:"center"}},
