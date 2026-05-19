@@ -802,7 +802,8 @@ function AccessGate(props){
         error&&e("div",{style:{background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.3)",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#B05A35"}},error),
         e("button",{onClick:login,disabled:loading,style:{padding:12,background:loading?"#8889C8":"#4A4BAE",border:"none",borderRadius:7,color:"#fff",fontSize:14,fontWeight:700,cursor:loading?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif"}},loading?"Verifying...":"Access Tool →")
       ),
-      e("p",{style:{textAlign:"center",fontSize:11,color:"#A0A4C0",marginTop:20}},"Demo expires 31 Dec 2027 · Cassidy Group © 2026")
+      e("p",{style:{textAlign:"center",fontSize:11,color:"#A0A4C0",marginTop:20}},"Demo expires 31 Dec 2027 · Cassidy Group © 2026"),
+      e("p",{style:{textAlign:"center",fontSize:10,color:"#C0C4D8",marginTop:6}},"Built by Phil Daniel")
     )
   );
 }
@@ -6881,7 +6882,8 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
         })()
       ),
       e("div",{style:{padding:"12px 16px",borderTop:"1px solid rgba(255,255,255,0.08)",fontSize:11,color:"rgba(255,255,255,0.35)"}},
-        (user&&user.name)||"User"," · ",(user&&user.company)||""
+        (user&&user.name)||"User"," · ",(user&&user.company)||"",
+        e("div",{style:{marginTop:6,fontSize:9,color:"rgba(255,255,255,0.2)",letterSpacing:".06em"}},"Built by Phil Daniel")
       )
     ),
     e("main",{style:{marginLeft:isMobile?0:240,flex:1,display:"flex",flexDirection:"column",minHeight:"100vh",transition:"margin .25s ease",overflowX:"hidden"}},
