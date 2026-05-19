@@ -6,7 +6,9 @@
 <meta http-equiv="Pragma" content="no-cache"/>
 <meta http-equiv="Expires" content="0"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Cassidy Group — Land & Development Intelligence</title>
+<meta name="description" content="Landform — Land & Development Intelligence Platform. Built for Cassidy Group by Phil Daniel."/>
+<meta name="author" content="Phil Daniel"/>
+<title>Cassidy Group — Landform Intelligence Platform</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
@@ -36,7 +38,7 @@
 
   /* ── TOPBAR ── */
   .lf-topbar{padding:10px 12px!important;gap:8px!important;}
-  .lf-topbar-btns{display:none!important;}
+  /* lf-topbar-btns no longer used - buttons controlled by React */
   .lf-hamburger{display:flex!important;align-items:center!important;}
 
   /* ── CONTENT AREA ── */
@@ -587,8 +589,67 @@ function Sel(props){
 }
 
 function CitySelect(props){
-  return e(Sel,{label:props.label||"City / Market",value:props.value,onChange:props.onChange,
-    options:[{value:"",label:"Select city..."}].concat(CITIES.map(function(c){return{value:c,label:cityName(c)};}))});
+  // Get all cities including any user-added ones
+  var allCities=Object.keys(MKT).sort();
+  var val=props.value||"";
+  var isKnown=val&&MKT[val.toLowerCase().replace(/\s+/g,"_")];
+  var displayVal=val?cityName(val):val;
+
+  function handleChange(rawInput){
+    var trimmed=rawInput.trim();
+    if(!trimmed){props.onChange("");return;}
+    // Normalise: lowercase, underscores for spaces
+    var key=trimmed.toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_|_$/g,"");
+    // If known city (exact or normalised match) use its key
+    var exactMatch=allCities.find(function(c){return c===key||cityName(c).toLowerCase()===trimmed.toLowerCase();});
+    if(exactMatch){props.onChange(exactMatch);return;}
+    // New city — add to MKT with estimated values based on regional patterns
+    var isNorthern=/manchester|liverpool|leeds|sheffield|hull|newcastle|sunderland|durham|blackpool|preston|bolton|wigan|oldham|rochdale|salford|stockport/i.test(trimmed);
+    var isMidlands=/birmingham|coventry|nottingham|leicester|derby|stoke|wolverhampton|walsall|solihull|worcester|hereford|shrewsbury|telford/i.test(trimmed);
+    var isSouthWest=/bristol|bath|exeter|taunton|plymouth|truro|bournemouth|poole|dorchester|salisbury|swindon|gloucester|cheltenham/i.test(trimmed);
+    var isSouthEast=/london|guildford|brighton|crawley|maidstone|tunbridge|reading|oxford|cambridge|windsor|slough|watford/i.test(trimmed);
+    var btr=isSouthEast?1800:isSouthWest?820:isMidlands?900:isNorthern?1100:850;
+    var buildCost=isSouthEast?220:isSouthWest?190:isMidlands?185:isNorthern?175:182;
+    var yld=isSouthEast?0.048:isSouthWest?0.065:isMidlands?0.062:isNorthern?0.06:0.063;
+    var landVal=isSouthEast?5000000:isSouthWest?1000000:isMidlands?900000:isNorthern?800000:850000;
+    // Add to MKT
+    MKT[key]={btr:btr,pbsa:Math.round(btr*0.55),yield:yld,land:landVal,build:buildCost,custom:true};
+    // Rebuild CITIES
+    CITIES.length=0;
+    Object.keys(MKT).forEach(function(c){CITIES.push(c);});
+    props.onChange(key);
+    // Save to localStorage for persistence
+    try{
+      var custom=JSON.parse(localStorage.getItem("cassidy_custom_cities")||"{}");
+      custom[key]={btr:btr,pbsa:Math.round(btr*0.55),yield:yld,land:landVal,build:buildCost,label:trimmed,custom:true};
+      localStorage.setItem("cassidy_custom_cities",JSON.stringify(custom));
+    }catch(e){}
+  }
+
+  return e("div",{style:{display:"flex",flexDirection:"column",gap:4}},
+    e("label",{style:S.label},props.label||"City / Market"),
+    e("div",{style:{position:"relative"}},
+      e("input",{
+        type:"text",
+        value:displayVal,
+        list:"city-datalist-"+Math.abs(props.label||"").length,
+        onChange:function(ev){handleChange(ev.target.value);},
+        onBlur:function(ev){
+          // On blur, if user typed something not in list, treat as new city
+          var v=ev.target.value.trim();
+          if(v&&!MKT[val])handleChange(v);
+        },
+        placeholder:"Type city or town name...",
+        style:Object.assign({},S.input,{paddingRight:isKnown?"36px":"10px"})
+      }),
+      isKnown&&e("span",{style:{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:10,color:"#2D7A65",fontWeight:700,pointerEvents:"none"}},"✓"),
+      !isKnown&&val&&e("span",{style:{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:9,color:"#9A7B3E",fontWeight:700,pointerEvents:"none"}},"NEW")
+    ),
+    e("datalist",{id:"city-datalist-"+Math.abs(props.label||"").length},
+      allCities.map(function(c){return e("option",{key:c,value:cityName(c)});})
+    ),
+    val&&!isKnown&&e("div",{style:{fontSize:10,color:"#9A7B3E",marginTop:2}},"New city added with estimated market data — check figures in Financial Modelling")
+  );
 }
 
 function AIPanel(props){
@@ -640,7 +701,7 @@ function AIPanel(props){
       props.up(c.stage,c.field,String(c.value));
       applied.push(c.field+"="+c.value+" ("+c.stage+")");
     });
-    alert("Applied "+applied.length+" corrections:\n"+applied.join("\n")+"\n\nReview the updated figures in each stage.");
+    alert("Applied "+applied.length+" corrections. Review the updated figures in each stage.");
     setAiJson(null);
   }
 
@@ -768,6 +829,8 @@ var ALL_STAGES = [
   {id:"summary",     label:"Executive Summary",     icon:"📄", group:"6. Overview",journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
   {id:"flowcharts",  label:"Process Flowcharts",     icon:"🗺", group:"6. Overview",journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
   {id:"portfolio",     label:"Deal Portfolio",       icon:"📊", group:"6. Overview", journeys:["all"]},
+  {id:"viability",     label:"Detailed Appraisal",   icon:"📐", group:"4. Develop",  journeys:["land","sfh","all"]},
+  {id:"meetings",      label:"Meeting Transcripts",  icon:"📝", group:"7. Records",   journeys:["all"]},
   {id:"dashboard",   label:"Deal Dashboard",        icon:"◈",  group:"6. Overview",journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
 ];
 var STAGES = ALL_STAGES;
@@ -1323,6 +1386,249 @@ function Tool(props){
   }
 
   // ── EXECUTIVE SUMMARY ────────────────────────────────────────────────────────
+  // ── BRANDED PDF REPORT GENERATOR ──────────────────────────────────────────
+  function generateReport(){
+    var addr=data.land&&data.land.address||"Development Site";
+    var lpa=data.planning&&data.planning.lpa||"—";
+    var assetLabel=at==="sfh"?"Single Family Housing":at==="btr"?"Build to Rent":"PBSA";
+    var cityLabel=city?cityName(city):"—";
+    var reportDate=new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"});
+
+    // Get all key figures
+    var gdvVal=gdv>0?gdv:0;
+    var tcVal=tc>0?tc:0;
+    var profitVal=profit;
+    var marginVal=margin;
+    var unitsVal=effUnits||units||0;
+    var lcVal=lc>0?lc:0;
+    var f2=data.fin||{};
+    var s2=data.sfh||{};
+    var p2=data.planning||{};
+    var l2=data.land||{};
+    var sfhMixHtml="";
+    if(s2.mix&&s2.mix.length>0){
+      var mixRows=s2.mix.filter(function(r){return num(r.count)>0;}).map(function(r){
+        var uPrice=num(r.unitPrice||0)||(num(r.sqft||900)*num(r.psf||basePsf));
+        return "<tr><td>"+r.type+"</td><td>"+r.beds+"</td><td>"+r.count+"</td><td>"+num(r.sqft||900)+"</td><td>"+fmt(uPrice)+"</td><td>"+fmt(uPrice*num(r.count))+"</td></tr>";
+      }).join("");
+      sfhMixHtml='<table class="data-table"><thead><tr><th>House Type</th><th>Beds</th><th>Plots</th><th>Sqft</th><th>Unit Price</th><th>Revenue</th></tr></thead><tbody>'+mixRows+'</tbody></table>';
+    }
+
+    // Risks
+    var risks2=data.risks||[];
+    var redRisks=risks2.filter(function(r){return r.rag==="red";});
+    var amberRisks=risks2.filter(function(r){return r.rag==="amber";});
+    var risksHtml=risks2.slice(0,8).map(function(r){
+      var c=r.rag==="red"?"#B05A35":r.rag==="amber"?"#9A7B3E":"#2D7A65";
+      return '<tr><td><span style="color:'+c+';font-weight:700">'+r.rag.toUpperCase()+'</span></td><td>'+r.category+'</td><td>'+r.risk+'</td><td>'+r.mitigation+'</td></tr>';
+    }).join("");
+
+    // AI deal assessment
+    var aiAssessment="";
+    try{
+      var aiData=data.masterReport?JSON.parse(data.masterReport):{};
+      if(aiData.goNoGo){
+        aiAssessment='<div class="verdict-box verdict-'+aiData.goNoGo.toLowerCase()+'">'+
+          '<div class="verdict-label">AI Deal Assessment: '+aiData.goNoGo+'</div>'+
+          '<div class="verdict-reason">'+(aiData.goNoGoReason||"")+'</div>'+
+          (aiData.recommendedBid?'<div class="verdict-bid">Recommended Bid: '+fmt(aiData.recommendedBid)+'</div>':'')+'</div>';
+      }
+    }catch(e){}
+
+    // S-curve data
+    var progMths=num(f2.programmeMths||36);
+    var salesRate=num(f2.salesRateWeek||0.75);
+
+    var html='<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/>'+
+    '<meta name="viewport" content="width=device-width,initial-scale=1.0"/>'+
+    '<title>Development Appraisal — '+addr+'</title>'+
+    '<style>'+
+    '*{box-sizing:border-box;margin:0;padding:0}'+
+    'body{font-family:Arial,Helvetica,sans-serif;color:#1A1A3E;background:#fff;font-size:11px;line-height:1.5}'+
+    '.page{max-width:210mm;margin:0 auto;padding:0}'+
+    '/* COVER */'+
+    '.cover{background:linear-gradient(135deg,#1E1F5C,#2E2F8A);color:#fff;padding:60px 50px;min-height:200px;position:relative}'+
+    '.cover-logo{width:100px;margin-bottom:30px}'+
+    '.cover h1{font-size:28px;font-weight:900;margin-bottom:8px;line-height:1.2}'+
+    '.cover h2{font-size:16px;font-weight:400;color:rgba(255,255,255,0.7);margin-bottom:30px}'+
+    '.cover-meta{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:30px}'+
+    '.cover-meta-item label{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,0.5);display:block}'+
+    '.cover-meta-item span{font-size:13px;font-weight:700;color:#EDE84A}'+
+    '.cover-bar{height:4px;background:#EDE84A;margin-top:40px}'+
+    '/* SECTIONS */'+
+    '.section{padding:30px 40px;border-bottom:1px solid #EAEBF5}'+
+    '.section-title{font-size:14px;font-weight:800;color:#2E2F8A;text-transform:uppercase;letter-spacing:.1em;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #EDE84A}'+
+    '/* METRIC GRID */'+
+    '.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}'+
+    '.metric{background:#F7F8FC;border:1px solid #DDE0ED;border-top:3px solid #4A4BAE;border-radius:6px;padding:12px;text-align:center}'+
+    '.metric.green{border-top-color:#2D7A65}.metric.red{border-top-color:#B05A35}.metric.gold{border-top-color:#9A7B3E}'+
+    '.metric label{font-size:8px;color:#7278A0;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px}'+
+    '.metric span{font-size:18px;font-weight:800;color:#2E2F8A}'+
+    '/* SCENARIO GRID */'+
+    '.scenarios{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:12px 0}'+
+    '.scenario{border:1px solid #DDE0ED;border-radius:6px;padding:12px}'+
+    '.scenario h4{font-size:10px;font-weight:700;color:#4A4BAE;margin-bottom:8px;text-transform:uppercase}'+
+    '.scenario-row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #F0F0F0;font-size:10px}'+
+    '/* TABLE */'+
+    '.data-table{width:100%;border-collapse:collapse;font-size:10px;margin:12px 0}'+
+    '.data-table th{background:#2E2F8A;color:#fff;padding:7px 10px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.05em}'+
+    '.data-table td{padding:6px 10px;border-bottom:1px solid #EAEBF5}'+
+    '.data-table tr:nth-child(even) td{background:#F7F8FC}'+
+    '/* VERDICT */'+
+    '.verdict-box{border-radius:8px;padding:16px 20px;margin:12px 0}'+
+    '.verdict-go{background:rgba(45,122,101,0.1);border:2px solid #2D7A65}'+
+    '.verdict-caution{background:rgba(154,123,62,0.1);border:2px solid #9A7B3E}'+
+    '.verdict-no-go{background:rgba(176,90,53,0.1);border:2px solid #B05A35}'+
+    '.verdict-label{font-size:14px;font-weight:800;margin-bottom:6px}'+
+    '.verdict-go .verdict-label{color:#2D7A65}.verdict-caution .verdict-label{color:#9A7B3E}.verdict-no-go .verdict-label{color:#B05A35}'+
+    '.verdict-reason{font-size:11px;color:#3A3D6A;line-height:1.6}'+
+    '.verdict-bid{font-size:13px;font-weight:700;color:#2E2F8A;margin-top:8px}'+
+    '/* COMMERCIAL SPLIT */'+
+    '.split-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:12px 0}'+
+    '.split-card{border-radius:6px;padding:14px;border:1px solid #DDE0ED}'+
+    '.split-card h4{font-size:10px;font-weight:700;margin-bottom:10px}'+
+    '.split-bar{height:8px;background:#DDE0ED;border-radius:4px;overflow:hidden;display:flex;margin:6px 0}'+
+    '/* RISK */'+
+    '.risk-summary{display:flex;gap:16px;margin-bottom:12px}'+
+    '.risk-badge{border-radius:20px;padding:4px 14px;font-size:10px;font-weight:700}'+
+    '.risk-red{background:rgba(176,90,53,0.15);color:#B05A35}'+
+    '.risk-amber{background:rgba(154,123,62,0.15);color:#9A7B3E}'+
+    '.risk-green{background:rgba(45,122,101,0.15);color:#2D7A65}'+
+    '/* FOOTER */'+
+    '.footer{background:#F7F8FC;padding:16px 40px;display:flex;justify-content:space-between;align-items:center;font-size:9px;color:#7278A0;border-top:2px solid #DDE0ED}'+
+    '@media print{'+
+    'body{-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
+    '.section{page-break-inside:avoid}'+
+    '.cover{page-break-after:always}'+
+    '}'+
+    '</style></head><body>'+
+
+    // COVER PAGE
+    '<div class="cover">'+
+    '<img class="cover-logo" src="data:image/webp;base64,'+logo+'" alt="Cassidy Group"/>'+
+    '<h1>Development Appraisal</h1>'+
+    '<h2>'+addr+'</h2>'+
+    '<div class="cover-bar"></div>'+
+    '<div class="cover-meta">'+
+    '<div class="cover-meta-item"><label>City / Market</label><span>'+cityLabel+'</span></div>'+
+    '<div class="cover-meta-item"><label>Asset Type</label><span>'+assetLabel+'</span></div>'+
+    '<div class="cover-meta-item"><label>Local Planning Authority</label><span>'+lpa+'</span></div>'+
+    '<div class="cover-meta-item"><label>Report Date</label><span>'+reportDate+'</span></div>'+
+    '<div class="cover-meta-item"><label>GDV</label><span>'+(gdvVal>0?fmt(gdvVal):"TBC")+'</span></div>'+
+    '<div class="cover-meta-item"><label>Target Margin</label><span>'+(marginVal?Math.round(marginVal)+"%":"TBC")+'</span></div>'+
+    '</div>'+
+    '</div>'+
+
+    // SECTION 1 - FINANCIAL SUMMARY
+    '<div class="section">'+
+    '<div class="section-title">1. Financial Summary</div>'+
+    aiAssessment+
+    '<div class="metrics">'+
+    '<div class="metric '+(gdvVal>0?"":"")+'"><label>Gross Development Value</label><span>'+(gdvVal>0?fmt(gdvVal):"—")+'</span></div>'+
+    '<div class="metric"><label>Total Development Cost</label><span>'+(tcVal>0?fmt(tcVal):"—")+'</span></div>'+
+    '<div class="metric '+(profitVal>0?"green":"red")+'"><label>Developer Profit</label><span>'+(profitVal?fmt(profitVal):"—")+'</span></div>'+
+    '<div class="metric '+(marginVal>=15?"green":marginVal>=0?"gold":"red")+'"><label>Margin on GDV</label><span>'+(marginVal?Math.round(marginVal)+"%":"—")+'</span></div>'+
+    '<div class="metric"><label>Units / Beds</label><span>'+(unitsVal||"—")+'</span></div>'+
+    '<div class="metric"><label>Land Cost</label><span>'+(lcVal>0?fmt(lcVal):"—")+'</span></div>'+
+    '<div class="metric"><label>Build Cost psf</label><span>£'+(f2.buildPsf||"—")+'/sqft</span></div>'+
+    '<div class="metric"><label>Finance Rate</label><span>'+(f2.finRate||f2.finRatePa||"—")+'%</span></div>'+
+    '</div>'+
+
+    // Bear/Base/Bull
+    '<div class="scenarios">'+
+    '<div class="scenario"><h4>🐻 Bear Case</h4>'+
+    '<div class="scenario-row"><span>GDV</span><span>'+fmt(gdvVal*0.9)+'</span></div>'+
+    '<div class="scenario-row"><span>Margin</span><span>'+(gdvVal>0?Math.round(((gdvVal*0.9-tcVal*1.1)/(gdvVal*0.9))*100)+"%":"—")+'</span></div>'+
+    '</div>'+
+    '<div class="scenario"><h4>📊 Base Case</h4>'+
+    '<div class="scenario-row"><span>GDV</span><span>'+fmt(gdvVal)+'</span></div>'+
+    '<div class="scenario-row"><span>Margin</span><span>'+Math.round(marginVal)+"%</span></div>"+
+    '</div>'+
+    '<div class="scenario"><h4>🚀 Bull Case</h4>'+
+    '<div class="scenario-row"><span>GDV</span><span>'+fmt(gdvVal*1.1)+'</span></div>'+
+    '<div class="scenario-row"><span>Margin</span><span>'+(gdvVal>0?Math.round(((gdvVal*1.1-tcVal*0.9)/(gdvVal*1.1))*100)+"%":"—")+'</span></div>'+
+    '</div>'+
+    '</div>'+
+    '</div>'+
+
+    // SECTION 2 - SITE & PLANNING
+    '<div class="section">'+
+    '<div class="section-title">2. Site & Planning</div>'+
+    '<div class="metrics">'+
+    '<div class="metric"><label>Site Area</label><span>'+(l2.acres||"—")+" acres</span></div>"+
+    '<div class="metric"><label>Planning Status</label><span>'+(p2.status||"—")+'</span></div>'+
+    '<div class="metric"><label>Affordable Housing</label><span>'+(p2.ahPct||"—")+"%</span></div>"+
+    '<div class="metric"><label>S106 Total</label><span>'+fmt(num(f2.s106pu||0)*unitsVal)+'</span></div>'+
+    '</div>'+
+    '<table class="data-table">'+
+    '<thead><tr><th>Planning Factor</th><th>Detail</th></tr></thead>'+
+    '<tbody>'+
+    '<tr><td>Local Planning Authority</td><td>'+lpa+'</td></tr>'+
+    '<tr><td>Planning Status</td><td>'+(p2.status||"Not set")+'</td></tr>'+
+    '<tr><td>Planning Risk</td><td>'+(p2.riskLevel||"Not assessed")+'</td></tr>'+
+    '<tr><td>Affordable Housing %</td><td>'+(p2.ahPct||"—")+"%</td></tr>"+
+    '<tr><td>BNG Requirement</td><td>10% mandatory (NPPF 2024)</td></tr>'+
+    '<tr><td>Fire Safety Gateway</td><td>'+(p2.storeys>17?"Gateway 2 — mandatory":p2.storeys>10?"Check required":"Not required")+'</td></tr>'+
+    '</tbody></table>'+
+    '</div>'+
+
+    // SECTION 3 - HOUSE TYPE MIX (SFH only)
+    (sfhMixHtml?'<div class="section"><div class="section-title">3. House Type Mix & Revenue</div>'+sfhMixHtml+'</div>':"")+
+
+    // SECTION 4 - COMMERCIAL SPLIT
+    (lcVal>0||gdvVal>0?'<div class="section">'+
+    '<div class="section-title">'+(sfhMixHtml?"4":"3")+'. Landowner vs Cassidy Commercial Split</div>'+
+    '<div class="split-grid">'+
+    (function(){
+      var agriVal=num(l2.acres||0)*15000;
+      var rlvVal=Math.max(0,gdvVal-tcVal-gdvVal*0.20);
+      var uplift=Math.max(0,rlvVal-agriVal);
+      var scenarios3=[
+        {label:"Pre-Planning Sale",lo:agriVal,cg:rlvVal-agriVal+profitVal,color:"#B05A35"},
+        {label:"Post-Outline",lo:Math.round(rlvVal*0.65),cg:Math.round(rlvVal*0.35)+profitVal,color:"#9A7B3E"},
+        {label:"Post-Full Consent",lo:Math.round(rlvVal*0.85),cg:Math.round(rlvVal*0.15)+profitVal,color:"#2D7A65"},
+      ];
+      return scenarios3.map(function(sc){
+        var total=Math.max(1,sc.lo+Math.max(0,sc.cg));
+        var loPct=Math.round(sc.lo/total*100);
+        return '<div class="split-card"><h4 style="color:'+sc.color+'">'+sc.label+'</h4>'+
+          '<div class="scenario-row"><span>Landowner</span><span style="font-weight:700;color:'+sc.color+'">'+fmt(Math.max(0,sc.lo))+'</span></div>'+
+          '<div class="scenario-row"><span>Cassidy Group</span><span style="font-weight:700;color:#2D7A65">'+fmt(Math.max(0,sc.cg))+'</span></div>'+
+          '<div class="split-bar"><div style="width:'+loPct+'%;background:'+sc.color+'"></div><div style="flex:1;background:#2D7A65"></div></div>'+
+          '<div style="font-size:9px;color:#7278A0">Landowner '+loPct+'% / Cassidy '+(100-loPct)+'%</div>'+
+          '</div>';
+      }).join("");
+    })()+
+    '</div></div>':"" )+
+
+    // SECTION 5 - RISK REGISTER
+    (risks2.length>0?'<div class="section">'+
+    '<div class="section-title">'+(sfhMixHtml?"5":"4")+'. Risk Register</div>'+
+    '<div class="risk-summary">'+
+    '<span class="risk-badge risk-red">'+redRisks.length+' Red</span>'+
+    '<span class="risk-badge risk-amber">'+amberRisks.length+' Amber</span>'+
+    '<span class="risk-badge risk-green">'+(risks2.length-redRisks.length-amberRisks.length)+' Green</span>'+
+    '</div>'+
+    '<table class="data-table"><thead><tr><th>RAG</th><th>Category</th><th>Risk</th><th>Mitigation</th></tr></thead>'+
+    '<tbody>'+risksHtml+'</tbody></table>'+
+    '</div>':"" )+
+
+    // FOOTER
+    '<div class="footer">'+
+    '<div><strong>Cassidy Group Ltd</strong> — Confidential Development Appraisal</div>'+
+    '<div>'+addr+' | '+reportDate+'</div>'+
+    '<div>Landform Intelligence Platform — Built by Phil Daniel</div>'+
+    '</div>'+
+
+    '</body></html>';
+
+    var w=window.open("","_blank","width=900,height=700");
+    if(!w){alert("Please allow popups for this site to generate the report.");return;}
+    w.document.write(html);
+    w.document.close();
+    setTimeout(function(){w.print();},800);
+  }
+
   function renderSummary(){
     var l=data.land||{};
     var r=data.rlv||{};
@@ -1409,7 +1715,18 @@ function Tool(props){
       // Header
       e("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:20}},
         e("div",null,
-          e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Executive Summary"),
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:12}},
+        e("div",null,
+          e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Executive Summary")
+        ),
+        e("button",{
+          onClick:generateReport,
+          style:{padding:"10px 22px",background:"linear-gradient(135deg,#B05A35,#9A4A28)",border:"none",borderRadius:8,color:"#fff",fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",boxShadow:"0 3px 12px rgba(176,90,53,0.3)",display:"flex",alignItems:"center",gap:8}
+        },
+          e("span",{style:{fontSize:18}},"🖨"),
+          e("span",null,"Print / PDF Report")
+        )
+      ),
           e("p",{style:{fontSize:12,color:"#7278A0"}},"Live deal brief — generates from your completed stages. Share with investors and partners.")
         ),
         e("div",{style:{textAlign:"right"}},
@@ -2715,6 +3032,570 @@ function Tool(props){
                 e("div",{style:{fontSize:9,color:"#7278A0"}},"gov.uk")
               )
             );
+          })
+        )
+      )
+    );
+  }
+
+  // ── MEETING TRANSCRIPTS ────────────────────────────────────────────────────
+  function renderMeetings(){
+    var ms=data.meetings||{transcripts:[],analysing:false,activeId:null};
+    var transcripts=ms.transcripts||[];
+    var activeId=ms.activeId||null;
+    var activeTranscript=transcripts.find(function(t){return t.id===activeId;})||null;
+
+    function upM(key,val){up("meetings",key,val);}
+
+    function handleFileUpload(ev){
+      var files=ev.target.files;
+      if(!files||files.length===0)return;
+      var file=files[0];
+      var reader=new FileReader();
+      reader.onload=function(e){
+        var text=e.target.result;
+        var newT={
+          id:"mtg-"+Date.now(),
+          name:file.name.replace(/\.[^.]+$/,""),
+          filename:file.name,
+          date:new Date().toLocaleDateString("en-GB"),
+          uploadedAt:Date.now(),
+          text:text,
+          analysis:"",
+          actionItems:[],
+          siteRefs:[],
+          keyDecisions:[],
+          attendees:[],
+          tags:[],
+          dealRef:data.land&&data.land.address||""
+        };
+        var newList=transcripts.concat([newT]);
+        upM("transcripts",newList);
+        upM("activeId",newT.id);
+      };
+      reader.readAsText(file);
+      ev.target.value="";
+    }
+
+    function handleTextPaste(text){
+      if(!text||text.trim().length<20)return;
+      var newT={
+        id:"mtg-"+Date.now(),
+        name:"Meeting "+new Date().toLocaleDateString("en-GB"),
+        filename:"pasted-text",
+        date:new Date().toLocaleDateString("en-GB"),
+        uploadedAt:Date.now(),
+        text:text,
+        analysis:"",
+        actionItems:[],
+        siteRefs:[],
+        keyDecisions:[],
+        attendees:[],
+        tags:[],
+        dealRef:data.land&&data.land.address||""
+      };
+      var newList=transcripts.concat([newT]);
+      upM("transcripts",newList);
+      upM("activeId",newT.id);
+      upM("pasteText","");
+    }
+
+    function deleteTranscript(id){
+      if(!confirm("Delete this transcript?"))return;
+      var newList=transcripts.filter(function(t){return t.id!==id;});
+      upM("transcripts",newList);
+      if(activeId===id)upM("activeId",newList.length>0?newList[0].id:null);
+    }
+
+    function updateTranscript(id,changes){
+      var newList=transcripts.map(function(t){
+        return t.id===id?Object.assign({},t,changes):t;
+      });
+      upM("transcripts",newList);
+    }
+
+    function analyseTranscript(t){
+      if(!t||!t.text)return;
+      upM("analysing",true);
+      var siteCtx=data.land&&data.land.address?"Site: "+data.land.address+". LPA: "+(data.planning&&data.planning.lpa||"unknown")+".":"No site currently loaded.";
+      var prompt=[
+        "Analyse this meeting transcript for a UK residential property development company.",
+        "Context: "+siteCtx,
+        "",
+        "Extract and return in EXACTLY this format:",
+        "",
+        "ATTENDEES: [comma separated list of names/roles mentioned]",
+        "",
+        "KEY DECISIONS:",
+        "- [each key decision made, one per line]",
+        "",
+        "ACTION ITEMS:",
+        "- [OWNER] [ACTION] by [DATE if mentioned]",
+        "",
+        "SITE REFERENCES:",
+        "- [any sites, addresses, postcodes, LPAs mentioned]",
+        "",
+        "DEAL IMPACTS:",
+        "[how this meeting affects any active deals or land appraisals]",
+        "",
+        "RISKS IDENTIFIED:",
+        "- [any risks, concerns or blockers raised]",
+        "",
+        "FOLLOW UP REQUIRED:",
+        "- [what needs to happen next]",
+        "",
+        "SUMMARY:",
+        "[2-3 sentence executive summary of the meeting]",
+        "",
+        "TRANSCRIPT:",
+        t.text.substring(0,3000)
+      ].join("\n");
+
+      callAI(user,"meetings","You are a senior UK residential property development advisor extracting structured intelligence from meeting transcripts. Be specific, extract real names and commitments.",prompt)
+      .then(function(result){
+        // Parse structured sections
+        function extractSection(text,start,end){
+          var si=text.indexOf(start);
+          if(si<0)return"";
+          var ei=end?text.indexOf(end,si+start.length):text.length;
+          return ei<0?text.substring(si+start.length).trim():text.substring(si+start.length,ei).trim();
+        }
+        function extractList(text,section){
+          var s=extractSection(text,section,"\n\n");
+          return s.split("\n").map(function(l){return l.replace(/^[-*]\s*/,"").trim();}).filter(function(l){return l.length>5;});
+        }
+        var attendees=extractSection(result,"ATTENDEES:","\n\n").split(",").map(function(s){return s.trim();}).filter(Boolean);
+        var actions=extractList(result,"ACTION ITEMS:\n");
+        var decisions=extractList(result,"KEY DECISIONS:\n");
+        var sites=extractList(result,"SITE REFERENCES:\n");
+        var summary=extractSection(result,"SUMMARY:","");
+
+        updateTranscript(t.id,{
+          analysis:result,
+          actionItems:actions,
+          keyDecisions:decisions,
+          siteRefs:sites,
+          attendees:attendees,
+          summary:summary
+        });
+        upM("analysing",false);
+      })
+      .catch(function(e){
+        updateTranscript(t.id,{analysis:"Analysis failed: "+e.message});
+        upM("analysing",false);
+      });
+    }
+
+    var TAG_COLORS={planning:"#4A4BAE",commercial:"#2D7A65",finance:"#9A7B3E",legal:"#B05A35",site:"#7B3FAE",board:"#2E2F8A"};
+
+    return e("div",null,
+      e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:12}},
+        e("div",null,
+          e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Meeting Transcripts"),
+          e("p",{style:{fontSize:12,color:"#7278A0"}},"Upload or paste meeting notes. AI extracts action items, decisions, site references and risks automatically.")
+        ),
+        e("div",{style:{display:"flex",gap:8}},
+          e("label",{style:{padding:"8px 16px",background:"#4A4BAE",border:"none",borderRadius:6,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",display:"inline-flex",alignItems:"center",gap:6}},
+            "📁 Upload File",
+            e("input",{type:"file",accept:".txt,.doc,.docx,.pdf,.md",onChange:handleFileUpload,style:{display:"none"}})
+          )
+        )
+      ),
+
+      // PASTE TEXT AREA
+      e("div",{style:Object.assign({},S.card,{marginBottom:16})},
+        e("div",{style:{fontSize:12,fontWeight:700,color:"#2E2F8A",marginBottom:8}},"📋 Paste Meeting Notes"),
+        e("textarea",{
+          value:ms.pasteText||"",
+          onChange:function(ev){upM("pasteText",ev.target.value);},
+          placeholder:"Paste meeting transcript, notes or minutes here...",
+          style:{width:"100%",minHeight:100,padding:"10px 14px",border:"1px solid #DDE0ED",borderRadius:7,fontSize:12,fontFamily:"DM Sans,sans-serif",resize:"vertical",color:"#2E2F8A"}
+        }),
+        e("button",{
+          onClick:function(){handleTextPaste(ms.pasteText||"");},
+          disabled:!(ms.pasteText&&ms.pasteText.trim().length>20),
+          style:{marginTop:8,padding:"7px 16px",background:"#2D7A65",border:"none",borderRadius:6,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+        },"Add Meeting →")
+      ),
+
+      transcripts.length===0&&e("div",{style:{textAlign:"center",padding:"40px 20px",color:"#7278A0",background:"rgba(74,75,174,0.03)",borderRadius:10,border:"1px dashed rgba(74,75,174,0.2)"}},
+        e("div",{style:{fontSize:40,marginBottom:12}},"📝"),
+        e("div",{style:{fontSize:14,fontWeight:700,color:"#2E2F8A",marginBottom:6}},"No meeting transcripts yet"),
+        e("div",{style:{fontSize:12,lineHeight:1.7}},"Upload a .txt file or paste notes above.",e("br"),"AI will extract action items, decisions and site references automatically.")
+      ),
+
+      transcripts.length>0&&e("div",{style:{display:"grid",gridTemplateColumns:"260px 1fr",gap:16}},
+
+        // LEFT — TRANSCRIPT LIST
+        e("div",null,
+          e("div",{style:{fontSize:10,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",fontWeight:700,marginBottom:8}},transcripts.length+" Transcript"+(transcripts.length!==1?"s":"")),
+          transcripts.slice().sort(function(a,b){return b.uploadedAt-a.uploadedAt;}).map(function(t){
+            var isActive=t.id===activeId;
+            return e("div",{key:t.id,
+              onClick:function(){upM("activeId",t.id);},
+              style:{background:isActive?"#4A4BAE":"#fff",border:"1px solid "+(isActive?"#4A4BAE":"#DDE0ED"),borderRadius:8,padding:"12px 14px",marginBottom:8,cursor:"pointer",transition:"all .15s"}},
+              e("div",{style:{fontSize:12,fontWeight:700,color:isActive?"#fff":"#2E2F8A",marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},t.name),
+              e("div",{style:{fontSize:10,color:isActive?"rgba(255,255,255,0.6)":"#7278A0",marginBottom:4}},t.date),
+              t.dealRef&&e("div",{style:{fontSize:9,color:isActive?"rgba(255,255,255,0.5)":"#9A7B3E",fontWeight:600}},t.dealRef.substring(0,30)+"..."),
+              e("div",{style:{display:"flex",gap:4,marginTop:6,alignItems:"center"}},
+                t.actionItems&&t.actionItems.length>0&&e("span",{style:{fontSize:9,padding:"2px 6px",background:isActive?"rgba(255,255,255,0.2)":"rgba(45,122,101,0.1)",color:isActive?"#fff":"#2D7A65",borderRadius:10,fontWeight:700}},t.actionItems.length+" actions"),
+                t.keyDecisions&&t.keyDecisions.length>0&&e("span",{style:{fontSize:9,padding:"2px 6px",background:isActive?"rgba(255,255,255,0.2)":"rgba(74,75,174,0.1)",color:isActive?"#fff":"#4A4BAE",borderRadius:10,fontWeight:700}},t.keyDecisions.length+" decisions")
+              )
+            );
+          }),
+          e("button",{
+            onClick:function(){if(confirm("Delete all transcripts?"))upM("transcripts",[]);},
+            style:{width:"100%",padding:"6px",background:"none",border:"1px solid rgba(176,90,53,0.3)",borderRadius:5,color:"#B05A35",fontSize:10,cursor:"pointer",fontFamily:"DM Sans,sans-serif",marginTop:4}
+          },"Clear all")
+        ),
+
+        // RIGHT — ACTIVE TRANSCRIPT
+        activeTranscript&&e("div",null,
+          // Header
+          e("div",{style:Object.assign({},S.card,{marginBottom:12})},
+            e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}},
+              e("div",{style:{flex:1}},
+                e("input",{
+                  value:activeTranscript.name,
+                  onChange:function(ev){updateTranscript(activeTranscript.id,{name:ev.target.value});},
+                  style:{fontSize:16,fontWeight:700,color:"#2E2F8A",border:"none",background:"transparent",width:"100%",fontFamily:"DM Sans,sans-serif",outline:"none"}
+                }),
+                e("div",{style:{fontSize:11,color:"#7278A0",marginTop:2}},activeTranscript.filename+" · "+activeTranscript.date)
+              ),
+              e("div",{style:{display:"flex",gap:8}},
+                e("button",{
+                  onClick:function(){analyseTranscript(activeTranscript);},
+                  disabled:ms.analysing,
+                  style:{padding:"7px 14px",background:ms.analysing?"#8889C8":"linear-gradient(135deg,#2D7A65,#4A4BAE)",border:"none",borderRadius:6,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+                },ms.analysing?"⏳ Analysing...":"🧠 Analyse Transcript"),
+                e("button",{
+                  onClick:function(){deleteTranscript(activeTranscript.id);},
+                  style:{padding:"7px 12px",background:"none",border:"1px solid #DDE0ED",borderRadius:6,color:"#B05A35",fontSize:11,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+                },"🗑")
+              )
+            ),
+
+            // Deal reference field
+            e("div",{style:{display:"flex",gap:8,alignItems:"center"}},
+              e("span",{style:{fontSize:10,color:"#7278A0",whiteSpace:"nowrap"}},"Deal ref:"),
+              e("input",{
+                value:activeTranscript.dealRef||"",
+                onChange:function(ev){updateTranscript(activeTranscript.id,{dealRef:ev.target.value});},
+                placeholder:"Link to site / deal...",
+                style:{flex:1,padding:"5px 10px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:11,fontFamily:"DM Sans,sans-serif",color:"#2E2F8A"}
+              })
+            )
+          ),
+
+          // AI ANALYSIS RESULTS - if analysed
+          activeTranscript.analysis&&activeTranscript.actionItems&&activeTranscript.actionItems.length>0&&e("div",null,
+
+            // Summary banner
+            activeTranscript.summary&&e("div",{style:{background:"rgba(74,75,174,0.05)",border:"1px solid rgba(74,75,174,0.2)",borderRadius:8,padding:"12px 16px",marginBottom:12}},
+              e("div",{style:{fontSize:10,color:"#4A4BAE",fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}},"Meeting Summary"),
+              e("div",{style:{fontSize:12,color:"#2E2F8A",lineHeight:1.7}},activeTranscript.summary)
+            ),
+
+            // 3-col grid: Actions, Decisions, Sites
+            e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12}},
+
+              // Action items
+              e("div",{style:{background:"rgba(45,122,101,0.05)",border:"1px solid rgba(45,122,101,0.2)",borderRadius:8,padding:"12px 14px"}},
+                e("div",{style:{fontSize:10,color:"#2D7A65",fontWeight:800,textTransform:"uppercase",letterSpacing:".1em",marginBottom:8}},"✓ Action Items"),
+                activeTranscript.actionItems.map(function(a,i){
+                  return e("div",{key:i,style:{fontSize:11,color:"#2E2F8A",padding:"5px 0",borderBottom:"1px dashed rgba(45,122,101,0.15)",lineHeight:1.5}},a);
+                })
+              ),
+
+              // Key decisions
+              e("div",{style:{background:"rgba(74,75,174,0.05)",border:"1px solid rgba(74,75,174,0.2)",borderRadius:8,padding:"12px 14px"}},
+                e("div",{style:{fontSize:10,color:"#4A4BAE",fontWeight:800,textTransform:"uppercase",letterSpacing:".1em",marginBottom:8}},"⚡ Key Decisions"),
+                activeTranscript.keyDecisions.map(function(d,i){
+                  return e("div",{key:i,style:{fontSize:11,color:"#2E2F8A",padding:"5px 0",borderBottom:"1px dashed rgba(74,75,174,0.15)",lineHeight:1.5}},d);
+                })
+              ),
+
+              // Site references
+              e("div",{style:{background:"rgba(154,123,62,0.05)",border:"1px solid rgba(154,123,62,0.2)",borderRadius:8,padding:"12px 14px"}},
+                e("div",{style:{fontSize:10,color:"#9A7B3E",fontWeight:800,textTransform:"uppercase",letterSpacing:".1em",marginBottom:8}},"📍 Site References"),
+                activeTranscript.siteRefs.length>0?activeTranscript.siteRefs.map(function(s,i){
+                  return e("div",{key:i,style:{fontSize:11,color:"#2E2F8A",padding:"5px 0",borderBottom:"1px dashed rgba(154,123,62,0.15)",lineHeight:1.5}},s);
+                }):e("div",{style:{fontSize:11,color:"#7278A0",fontStyle:"italic"}},"None detected")
+              )
+            ),
+
+            // Full analysis in scrollable panel
+            e("div",{style:Object.assign({},S.card,{padding:0,overflow:"hidden"})},
+              e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",background:"#F0F1FA",borderBottom:"1px solid #DDE0ED"}},
+                e("span",{style:{fontSize:11,fontWeight:700,color:"#4A4BAE"}},"Full AI Analysis"),
+                e("button",{onClick:function(){
+                  var el=document.createElement("textarea");
+                  el.value=activeTranscript.analysis;
+                  document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);
+                  alert("Copied to clipboard");
+                },style:{padding:"4px 10px",background:"#4A4BAE",border:"none",borderRadius:4,color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"📋 Copy")
+              ),
+              e("div",{style:{maxHeight:300,overflowY:"auto",padding:"14px 16px"}},
+                e("pre",{style:{fontSize:11,lineHeight:1.9,color:"#3A3D6A",whiteSpace:"pre-wrap",fontFamily:"DM Sans,sans-serif",margin:0}},activeTranscript.analysis)
+              )
+            )
+          ),
+
+          // Raw transcript (always visible if not yet analysed, collapsible if analysed)
+          e("div",{style:Object.assign({},S.card,{marginTop:12})},
+            e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}},
+              e("div",{style:{fontSize:11,fontWeight:700,color:"#2E2F8A"}},"Raw Transcript"),
+              e("div",{style:{fontSize:10,color:"#7278A0"}},Math.ceil(activeTranscript.text.length/5)+" approx words")
+            ),
+            e("textarea",{
+              value:activeTranscript.text,
+              onChange:function(ev){updateTranscript(activeTranscript.id,{text:ev.target.value,analysis:"",actionItems:[],keyDecisions:[],siteRefs:[],summary:""});},
+              style:{width:"100%",minHeight:200,padding:"10px 14px",border:"1px solid #DDE0ED",borderRadius:7,fontSize:11,fontFamily:"DM Sans,sans-serif",resize:"vertical",color:"#2E2F8A",lineHeight:1.7}
+            }),
+            !activeTranscript.analysis&&e("button",{
+              onClick:function(){analyseTranscript(activeTranscript);},
+              disabled:ms.analysing||!activeTranscript.text,
+              style:{marginTop:8,padding:"8px 18px",background:ms.analysing?"#8889C8":"linear-gradient(135deg,#2D7A65,#4A4BAE)",border:"none",borderRadius:6,color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+            },ms.analysing?"⏳ Analysing...":"🧠 Analyse This Transcript")
+          )
+        )
+      )
+    );
+  }
+
+  // ── DETAILED VIABILITY APPRAISAL ────────────────────────────────────────────
+  function renderViability(){
+    var v=data.viability||{};
+    var f2=data.fin||{};
+    var s2=data.sfh||{};
+    var p2=data.planning||{};
+    var l2=data.land||{};
+    var m2=MKT[city]||MKT.manchester;
+    var ap=v.appraisal||{};
+
+    function setAp(k,val){up("viability","appraisal",Object.assign({},ap,Object.fromEntries([[k,val]])));}
+    function setApN(k,val){setAp(k,val===''?null:Number(val));}
+
+    function autoPopulate(){
+      var sfhMix=s2.mix||[];
+      var totalSqftMix=0;
+      sfhMix.forEach(function(row){totalSqftMix+=num(row.sqft||900)*num(row.count||0);});
+      var gia2=totalSqftMix>0?totalSqftMix:(num(l2.acres||0)*43560*0.65);
+      var totalUnitsV=num(p2.units||0)||sfhMix.reduce(function(t,r){return t+num(r.count||0);},0)||1;
+      var ahPctV=num(p2.ahPct||0)/100;
+      var privU=Math.round(totalUnitsV*(1-ahPctV));
+      var ahU=Math.round(totalUnitsV*ahPctV*0.9);
+      var fhU=Math.round(totalUnitsV*ahPctV*0.1);
+      var totalGdvV=gdv>0?gdv:0;
+      var bpsf=num(f2.buildPsf||m2.build||188);
+      var privSqft=Math.round(gia2*0.65);var ahSqft=Math.round(gia2*0.25);var fhSqft=Math.round(gia2*0.10);
+      var privBuild=Math.round(privSqft*bpsf);var ahBuild=Math.round(ahSqft*bpsf*0.95);var fhBuild=Math.round(fhSqft*bpsf*0.95);
+      var acresV=num(l2.acres||0);
+      var infraBase=Math.max(acresV*150000,totalUnitsV*8000);
+      var s106V=num(f2.s106pu||0)*totalUnitsV||num(p2.s106||0);
+      var newAp={
+        siteName:l2.address||"Development Site",
+        date:new Date().toISOString().substring(0,10),
+        grossSiteArea:acresV,netSiteArea:Math.round(acresV*0.55*100)/100,
+        privateUnits:privU,affordableUnits:ahU,firstHomesUnits:fhU,
+        privateRevenueSqft:privSqft,privateRevenueTotal:Math.round(totalGdvV*0.72),
+        affordableRevenueSqft:ahSqft,affordableRevenueTotal:Math.round(totalGdvV*0.20),
+        firstHomesRevenueSqft:fhSqft,firstHomesRevenueTotal:Math.round(totalGdvV*0.08),
+        residualLandPrice:lc>0?Math.round(lc):num(l2.price||0),
+        agentFeeRate:0.01,legalFeesRate:0.01,landDiscount:0.35,
+        rawLandValuePerAcre:acresV>0?Math.round((lc||1)/(acresV*1.5)):75000,
+        privateBuild:privBuild,affordableBuild:ahBuild,firstHomesBuild:fhBuild,
+        enablingWorks:Math.round(infraBase*0.10),
+        s278:Math.round(infraBase*0.12),onSiteHighways:Math.round(infraBase*0.18),
+        footpaths:Math.round(infraBase*0.03),swDrainage:Math.round(infraBase*0.09),
+        fwDrainage:Math.round(infraBase*0.06),utilities:Math.round(infraBase*0.14),
+        landscape:Math.round(infraBase*0.08),overheads:Math.round((privBuild+ahBuild+fhBuild)*0.03),
+        professionalFees:Math.round((privBuild+ahBuild+fhBuild)*0.09),
+        plotAbnormals:Math.round((privBuild+ahBuild+fhBuild)*0.12),
+        contingency:Math.round((privBuild+ahBuild+fhBuild)*0.05),
+        cil:Math.round(totalGdvV*0.04),s106:Math.round(s106V),
+        salesMktgRate:0.03,affordableDisposal:100000,
+        developmentFinanceRate:num(f2.finRate||f2.finRatePa||8)/100,
+        targetPrivateMargin:0.20,targetAffordableMargin:0.06,
+        durationMonths:num(f2.programmeMths||36),
+        meanMonth:num(f2.programmeMths||36)/2,stdDev:num(f2.programmeMths||36)/4,
+        autoPopulated:true
+      };
+      up("viability","appraisal",newAp);
+      alert("Populated from deal data. Infrastructure costs are ESTIMATES — replace with scheme-specific figures before presenting.");
+    }
+
+    // Calc metrics
+    var vm=(function(){
+      if(!ap.siteName)return null;
+      var tr=(ap.privateRevenueTotal||0)+(ap.affordableRevenueTotal||0)+(ap.firstHomesRevenueTotal||0);
+      var ts=(ap.privateRevenueSqft||0)+(ap.affordableRevenueSqft||0)+(ap.firstHomesRevenueSqft||0);
+      var sdlt2=(function(price){if(!price||price<=0)return 0;var s=0;if(price>150000)s+=Math.min(price-150000,100000)*0.02;if(price>250000)s+=(price-250000)*0.05;return s;})(ap.residualLandPrice||0);
+      var aFee=(ap.residualLandPrice||0)*(ap.agentFeeRate||0.01);
+      var lFee=(ap.residualLandPrice||0)*(ap.legalFeesRate||0.01);
+      var tlc=(ap.residualLandPrice||0)+sdlt2+aFee+lFee;
+      var tb=(ap.privateBuild||0)+(ap.affordableBuild||0)+(ap.firstHomesBuild||0);
+      var ti=(ap.enablingWorks||0)+(ap.s278||0)+(ap.onSiteHighways||0)+(ap.footpaths||0)+(ap.swDrainage||0)+(ap.fwDrainage||0)+(ap.utilities||0)+(ap.landscape||0)+(ap.overheads||0)+(ap.professionalFees||0)+(ap.plotAbnormals||0)+(ap.contingency||0);
+      var sm=((ap.privateRevenueTotal||0)+(ap.firstHomesRevenueTotal||0))*(ap.salesMktgRate||0.03);
+      var tdc=tb+ti+(ap.cil||0)+(ap.s106||0)+sm+(ap.affordableDisposal||0);
+      var disc=(ap.residualLandPrice||0)*(ap.landDiscount||0.35);
+      var devFin=(tb+ti)/2*(ap.developmentFinanceRate||0.08);
+      var gp=tr-tdc-tlc-devFin;
+      var sp=gp+disc;
+      var mgdv=tr>0?gp/tr:0;var smgdv=tr>0?sp/tr:0;
+      var tbl=tr>0?((ap.privateRevenueTotal||0)*(ap.targetPrivateMargin||0.20)+((ap.affordableRevenueTotal||0)+(ap.firstHomesRevenueTotal||0))*(ap.targetAffordableMargin||0.06))/tr:0;
+      return{tr,ts,tlc,tb,ti,sm,tdc,disc,devFin,gp,sp,mgdv,smgdv,tbl,
+        lpgdv:tr>0?(ap.residualLandPrice||0)/tr:0,lpna:(ap.netSiteArea||0)>0?(ap.residualLandPrice||0)/(ap.netSiteArea||1):0,
+        pabpct:tb>0?(ap.plotAbnormals||0)/tb:0,ahpct:tr>0?((ap.affordableRevenueTotal||0)+(ap.firstHomesRevenueTotal||0))/tr:0,
+        arpf:ts>0?tr/ts:0,abpf:ts>0?tb/ts:0};
+    })();
+
+    // Cashflow
+    var vc=(function(){
+      if(!vm||!(ap.durationMonths>0))return{pd:0,pm:0,fp:null,tf:0};
+      var dur2=ap.durationMonths||36;var mn=ap.meanMonth||dur2/2;var sd2=ap.stdDev||dur2/4;
+      var ns=[],sm2=0;for(var i=1;i<=dur2;i++){var pp=(1/(sd2*Math.sqrt(6.283)))*Math.exp(-Math.pow(i-mn,2)/(2*sd2*sd2));ns.push(pp);sm2+=pp;}
+      ns=ns.map(function(x){return x/sm2;});
+      var cc=0,pd=0,pm=0,fp=null,ti2=0;var mr2=(ap.developmentFinanceRate||0.08)/12;
+      for(var j=0;j<dur2;j++){cc+=(vm.tr*ns[j])-(vm.tdc*ns[j])-(j===0?vm.tlc:0);if(cc<0){var int3=cc*mr2;cc+=int3;ti2+=(-int3);}if(cc<pd){pd=cc;pm=j+1;}if(fp===null&&cc>0)fp=j+1;}
+      return{pd:Math.abs(pd),pm,fp,tf:ti2};
+    })();
+
+    var infraFields=[
+      ["enablingWorks","Enabling works"],["s278","S278 highways"],["onSiteHighways","On-site highways"],
+      ["footpaths","Footpaths"],["swDrainage","SW drainage"],["fwDrainage","FW drainage"],
+      ["utilities","Utilities"],["landscape","Landscaping"],["overheads","Overheads & prelims"],
+      ["professionalFees","Professional fees"],["plotAbnormals","Plot abnormals"],["contingency","Contingency"],
+    ];
+    var hasData=!!(ap&&ap.siteName);
+
+    return e("div",null,
+      e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:12}},
+        e("div",null,
+          e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Detailed Appraisal"),
+          e("p",{style:{fontSize:12,color:"#7278A0"}},"Institutional-grade residual with Normal Distribution cashflow. Honest margin vs sheet margin.")
+        ),
+        e("div",{style:{display:"flex",gap:8}},
+          e("button",{onClick:autoPopulate,style:{padding:"8px 18px",background:"#EDE84A",border:"none",borderRadius:6,color:"#1E1F5C",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"⚡ Auto-Populate from Deal"),
+          hasData&&e("button",{onClick:function(){if(confirm("Clear?"))up("viability","appraisal",{});},style:{padding:"8px 14px",background:"none",border:"1px solid #DDE0ED",borderRadius:6,color:"#B05A35",fontSize:11,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Clear")
+        )
+      ),
+      !hasData&&e("div",{style:{textAlign:"center",padding:"48px 24px",background:"rgba(74,75,174,0.04)",borderRadius:10,border:"1px dashed rgba(74,75,174,0.25)"}},
+        e("div",{style:{fontSize:40,marginBottom:12}},"📐"),
+        e("div",{style:{fontSize:15,fontWeight:700,color:"#2E2F8A",marginBottom:8}},"Start with your deal data"),
+        e("div",{style:{fontSize:12,color:"#7278A0",marginBottom:16,lineHeight:1.8}},"Click Auto-Populate to pull GDV, land cost, units, build cost and programme from your current deal.",e("br"),"Infrastructure costs are estimated — review before presenting to board or lender."),
+        e("button",{onClick:autoPopulate,style:{padding:"10px 28px",background:"#4A4BAE",border:"none",borderRadius:7,color:"#fff",fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"⚡ Auto-Populate from Deal Data")
+      ),
+      hasData&&e("div",{style:{display:"grid",gridTemplateColumns:"1fr 320px",gap:16,alignItems:"start"}},
+        e("div",null,
+          e("div",{style:S.card},
+            e("div",{style:S.cardTitle},"Site Details"),
+            e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}},
+              e(Inp,{label:"Site name",value:ap.siteName||"",onChange:function(v){setAp("siteName",v);},full:true}),
+              e(Inp,{label:"Date",type:"date",value:ap.date||"",onChange:function(v){setAp("date",v);}}),
+              e(Inp,{label:"Gross acres",type:"number",step:"0.01",value:ap.grossSiteArea||"",onChange:function(v){setApN("grossSiteArea",v);}}),
+              e(Inp,{label:"Net acres",type:"number",step:"0.01",value:ap.netSiteArea||"",onChange:function(v){setApN("netSiteArea",v);}}),
+              e(Inp,{label:"Private units",type:"number",value:ap.privateUnits||"",onChange:function(v){setApN("privateUnits",v);}}),
+              e(Inp,{label:"AH units",type:"number",value:ap.affordableUnits||"",onChange:function(v){setApN("affordableUnits",v);}}),
+              e(Inp,{label:"First Homes units",type:"number",value:ap.firstHomesUnits||"",onChange:function(v){setApN("firstHomesUnits",v);}})
+            )
+          ),
+          e("div",{style:S.card},
+            e("div",{style:S.cardTitle},"Revenue by Tenure"),
+            ap.autoPopulated&&e("div",{style:{fontSize:10,color:"#9A7B3E",padding:"6px 10px",background:"rgba(154,123,62,0.08)",borderRadius:5,marginBottom:8}},"⚠ Revenue splits estimated — verify against agent advice"),
+            [["private","Private"],["affordable","Affordable Rent + SO"],["firstHomes","First Homes"]].map(function(pair){
+              var k=pair[0];var lbl=pair[1];
+              return e("div",{key:k,style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:8,paddingBottom:8,borderBottom:"1px solid #F5F5FA"}},
+                e(Inp,{label:lbl+" sqft",type:"number",value:ap[k+"RevenueSqft"]||"",onChange:function(v){setApN(k+"RevenueSqft",v);}}),
+                e(Inp,{label:lbl+" total £",type:"number",value:ap[k+"RevenueTotal"]||"",onChange:function(v){setApN(k+"RevenueTotal",v);}})
+              );
+            })
+          ),
+          e("div",{style:S.card},
+            e("div",{style:S.cardTitle},"Land & Acquisition"),
+            e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}},
+              e(Inp,{label:"Residual land price (£)",type:"number",value:ap.residualLandPrice||"",onChange:function(v){setApN("residualLandPrice",v);},full:true}),
+              e(Inp,{label:"Agent fee rate",type:"number",step:"0.001",value:ap.agentFeeRate||0.01,onChange:function(v){setApN("agentFeeRate",v);}}),
+              e(Inp,{label:"Legal fees rate",type:"number",step:"0.001",value:ap.legalFeesRate||0.01,onChange:function(v){setApN("legalFeesRate",v);}}),
+              e(Inp,{label:"Land discount (deferred)",type:"number",step:"0.01",value:ap.landDiscount||0.35,onChange:function(v){setApN("landDiscount",v);}}),
+              e(Inp,{label:"Raw land £/acre (agri)",type:"number",value:ap.rawLandValuePerAcre||75000,onChange:function(v){setApN("rawLandValuePerAcre",v);}})
+            )
+          ),
+          e("div",{style:S.card},
+            e("div",{style:S.cardTitle},"Build Cost by Tenure"),
+            e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}},
+              e(Inp,{label:"Private build £",type:"number",value:ap.privateBuild||"",onChange:function(v){setApN("privateBuild",v);}}),
+              e(Inp,{label:"Affordable build £",type:"number",value:ap.affordableBuild||"",onChange:function(v){setApN("affordableBuild",v);}}),
+              e(Inp,{label:"First Homes build £",type:"number",value:ap.firstHomesBuild||"",onChange:function(v){setApN("firstHomesBuild",v);}})
+            )
+          ),
+          e("div",{style:S.card},
+            e("div",{style:S.cardTitle},"Infrastructure & Externals"),
+            ap.autoPopulated&&e("div",{style:{fontSize:10,color:"#9A7B3E",padding:"6px 10px",background:"rgba(154,123,62,0.08)",borderRadius:5,marginBottom:8}},"⚠ Infrastructure ESTIMATED from site size — replace with scheme-specific figures before presenting to board or lender"),
+            e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}},
+              infraFields.map(function(pair){return e(Inp,{key:pair[0],label:pair[1],type:"number",value:ap[pair[0]]||"",onChange:function(v){setApN(pair[0],v);}});})
+            )
+          ),
+          e("div",{style:S.card},
+            e("div",{style:S.cardTitle},"Planning, Finance & Profit"),
+            e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}},
+              e(Inp,{label:"CIL (£)",type:"number",value:ap.cil||"",onChange:function(v){setApN("cil",v);}}),
+              e(Inp,{label:"S106 (£)",type:"number",value:ap.s106||"",onChange:function(v){setApN("s106",v);}}),
+              e(Inp,{label:"Sales & mktg rate",type:"number",step:"0.001",value:ap.salesMktgRate||0.03,onChange:function(v){setApN("salesMktgRate",v);}}),
+              e(Inp,{label:"Finance rate (pa)",type:"number",step:"0.001",value:ap.developmentFinanceRate||0.08,onChange:function(v){setApN("developmentFinanceRate",v);}}),
+              e(Inp,{label:"Target private margin",type:"number",step:"0.001",value:ap.targetPrivateMargin||0.20,onChange:function(v){setApN("targetPrivateMargin",v);}}),
+              e(Inp,{label:"Target AH margin",type:"number",step:"0.001",value:ap.targetAffordableMargin||0.06,onChange:function(v){setApN("targetAffordableMargin",v);}}),
+              e(Inp,{label:"Programme (months)",type:"number",value:ap.durationMonths||36,onChange:function(v){setApN("durationMonths",v);}}),
+              e(Inp,{label:"Mean cashflow month",type:"number",step:"0.5",value:ap.meanMonth||18,onChange:function(v){setApN("meanMonth",v);}}),
+              e(Inp,{label:"Std deviation",type:"number",value:ap.stdDev||10,onChange:function(v){setApN("stdDev",v);}})
+            )
+          )
+        ),
+        vm&&e("div",{style:{position:"sticky",top:68}},
+          e("div",{style:S.card},
+            e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:2}},"GDV"),
+            e("div",{style:{fontSize:22,fontWeight:800,color:"#2E2F8A",marginBottom:10}},fmt(vm.tr)),
+            e("div",{style:{height:1,background:"#DDE0ED",marginBottom:8}}),
+            [["Dev cost",fmt(vm.tdc),null],["Land cost",fmt(vm.tlc),null],["Land % GDV",pct(vm.lpgdv*100),"norm 8-15%"],["£/net acre",fmt(vm.lpna,0),null],["Dev profit",fmt(vm.gp),null],["Honest margin",pct(vm.mgdv*100),"target "+pct(vm.tbl*100)],["Sheet margin (+discount)",pct(vm.smgdv*100),"incl. addback"],["Plot abnormals",pct(vm.pabpct*100),vm.pabpct>0.15?"⚠ HIGH":"ok"],["Rev £/sqft","£"+Math.round(vm.arpf),null],["Build £/sqft","£"+Math.round(vm.abpf),null]].map(function(row){
+              var warn=(row[0]==="Honest margin"&&vm.mgdv<vm.tbl)||(row[0]==="Plot abnormals"&&vm.pabpct>0.15);
+              return e("div",{key:row[0],style:{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px dashed #F0F0F8",fontSize:12}},
+                e("span",{style:{color:"#7278A0"}},row[0]),
+                e("span",{style:{textAlign:"right"}},e("span",{style:{fontWeight:700,color:warn?"#B05A35":"#2E2F8A"}},row[1]),row[2]&&e("div",{style:{fontSize:9,color:warn?"#B05A35":"#7278A0"}},row[2]))
+              );
+            })
+          ),
+          e("div",{style:S.card},
+            e("div",{style:S.cardTitle},"Cashflow"),
+            e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}},
+              [{l:"Peak Debt",v:fmt(vc.pd),c:"#B05A35",s:"month "+vc.pm},{l:"True Finance",v:fmt(vc.tf),c:"#9A7B3E",s:"sheet: "+fmt(vm.devFin)},{l:"Sheet Finance",v:fmt(vm.devFin),c:"#4A4BAE",s:"avg debt method"},{l:"First Positive",v:vc.fp?"m"+vc.fp:"—",c:"#2D7A65",s:"cashflow turns"}].map(function(item){
+                return e("div",{key:item.l,style:{background:"#F7F8FC",borderRadius:6,padding:"8px 10px",borderTop:"2px solid "+item.c}},
+                  e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:2}},item.l),
+                  e("div",{style:{fontSize:14,fontWeight:800,color:item.c}},item.v),
+                  e("div",{style:{fontSize:9,color:"#7278A0"}},item.s)
+                );
+              })
+            ),
+            e("div",{style:{fontSize:10,color:"#B05A35",background:"rgba(176,90,53,0.06)",borderRadius:5,padding:"6px 8px"}},
+              "True finance ("+fmt(vc.tf)+") vs sheet ("+fmt(vm.devFin)+") — difference of "+fmt(Math.abs(vc.tf-vm.devFin))
+            )
+          ),
+          e("div",{style:S.card},
+            e("div",{style:S.cardTitle},"Bear / Base / Bull"),
+            e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}},
+              [{l:"🐻 Bear",ga:0.9,ca:1.1},{l:"📊 Base",ga:1.0,ca:1.0},{l:"🚀 Bull",ga:1.1,ca:0.9}].map(function(sc){
+                var am=vm.tr*sc.ga>0?(vm.tr*sc.ga-vm.tdc*sc.ca-vm.tlc)/(vm.tr*sc.ga)*100:0;
+                var col=am>=20?"#2D7A65":am>=15?"#9A7B3E":"#B05A35";
+                return e("div",{key:sc.l,style:{background:"#F7F8FC",borderRadius:6,padding:"8px",textAlign:"center"}},
+                  e("div",{style:{fontSize:11,fontWeight:700,color:"#2E2F8A",marginBottom:2}},sc.l),
+                  e("div",{style:{fontSize:14,fontWeight:800,color:col}},Math.round(am)+"%"),
+                  e("div",{style:{fontSize:9,color:"#7278A0"}},"margin")
+                );
+              })
+            )
+          ),
+          e(AIPanel,{user:user,up:up,stage:"viability",label:"⚖ AI Audit Numbers",
+            system:"You are a UK residential development finance director auditing a detailed residual land appraisal. Be specific and numerate. Flag material issues clearly.",
+            prompt:"Audit: "+(ap.siteName||"Site")+". Units: "+((ap.privateUnits||0)+(ap.affordableUnits||0)+(ap.firstHomesUnits||0))+". GDV: "+fmt(vm?vm.tr:0)+". Land: "+fmt(ap.residualLandPrice||0)+" ("+pct((vm?vm.lpgdv:0)*100)+" of GDV). Build: "+fmt(vm?vm.tb:0)+" at £"+Math.round(vm?vm.abpf:0)+"/sqft. Plot abnormals: "+pct((vm?vm.pabpct:0)*100)+" of build. Honest margin: "+pct((vm?vm.mgdv:0)*100)+" vs target "+pct((vm?vm.tbl:0)*100)+". Sheet margin: "+pct((vm?vm.smgdv:0)*100)+". Peak debt: "+fmt(vc?vc.pd:0)+" at month "+((vc?vc.pm:0)||0)+". True finance: "+fmt(vc?vc.tf:0)+". Infrastructure estimated: "+(ap.autoPopulated?"YES provisional":"No")+". Give 4-6 findings severity Material/Moderate/Minor."
           })
         )
       )
@@ -5321,7 +6202,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
       e("div",{style:S.card},
         e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}},
           e("div",{style:S.cardTitle},"S106 Line-Item Calculator"),
-          e("div",{style:{fontSize:10,color:"#7278A0"}},"Matches John Baker appraisal — 12 standard categories")
+          e("div",{style:{fontSize:10,color:"#7278A0"}},"Standard S106 line-item breakdown — 12 categories")
         ),
         e("div",{style:{border:"1px solid #DDE0ED",borderRadius:8,overflow:"hidden",marginBottom:10}},
           e("div",{style:{display:"grid",gridTemplateColumns:"2fr 130px 90px 100px",padding:"7px 12px",background:"#2E2F8A",fontSize:9,color:"#fff",textTransform:"uppercase",letterSpacing:".08em",fontWeight:700}},
@@ -5358,13 +6239,13 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
           ),
           e(S106Table,{f:f,up:up,fmt:fmt,pct:pct,num:num,S:S})
         ),
-        e("div",{style:{fontSize:10,color:"#7278A0",fontStyle:"italic"}},"Reference: John Baker model uses Education £2.36m, NHS £909k, Bus £398k, Sports £799k, BNG (challenged at 50%). S106 is negotiable — mark challenged items accordingly.")
+        e("div",{style:{fontSize:10,color:"#7278A0",fontStyle:"italic"}},"Reference rates: Education £2.36m, NHS £909k, Bus £398k, Sports £799k, BNG (often challenged). S106 is negotiable — mark challenged items accordingly.")
       ),
 
       // IRR & PHASED CASHFLOW SUMMARY
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"IRR & Phased Cashflow — Initial Screening"),
-        e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:12}},"Simplified IRR for go/no-go screening. Once the deal passes, export key figures to the John Baker Excel model for full month-by-month Normal Distribution cashflow."),
+        e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:12}},"Simplified IRR for go/no-go screening. Once the deal passes, export key figures to the detailed Excel appraisal model for full month-by-month Normal Distribution cashflow."),
         e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:14}},
           e("div",{style:{display:"flex",flexDirection:"column",gap:4}},
             e("label",{style:S.label},"Private Sales Rate (units/week)"),
@@ -5429,7 +6310,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
             // PHASED S-CURVE CASHFLOW
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Phased Cashflow — S-Curve Distribution"),
-        e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:12}},"Industry-standard S-curve sales phasing. Slow start, peak mid-programme, tail-off at end. Matches Landval Cloud and John Baker methodology."),
+        e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:12}},"Industry-standard S-curve sales phasing. Slow start, peak mid-programme, tail-off at end. Matches Landval Cloud and institutional appraisal methodology."),
         (function(){
           var u3=num(f.units||sfhTotalUnits||0);
           var prog3=num(f.programmeMths||36);
@@ -5504,7 +6385,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
       ),
 
       e("div",{style:{background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",borderRadius:9,padding:"16px 20px"}},
-              e("div",{style:{fontSize:13,fontWeight:800,color:"#EDE84A",marginBottom:6}},"📊 Export to John Baker Excel Model"),
+              e("div",{style:{fontSize:13,fontWeight:800,color:"#EDE84A",marginBottom:6}},"📊 Export to Detailed Excel Model"),
               e("div",{style:{fontSize:11,color:"rgba(255,255,255,0.7)",lineHeight:1.8,marginBottom:12}},
                 "Landform is designed for fast initial screening — Go/No-Go in minutes. Once a deal passes, copy these figures into the full Excel model for: ",
                 e("br"),
@@ -5522,9 +6403,9 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
                 "Margin: "+pct(margin2)+" | Profit on Cost: "+pct(tc4>0?(gdv2-tc4)/tc4*100:0)
               ),
               e("button",{onClick:function(){
-                var nl="\n";var t=["LANDFORM EXPORT",new Date().toLocaleDateString("en-GB"),"","SITE: "+(l.address||"Unknown"),"LPA: "+(data.planning&&data.planning.lpa||"n/a"),"Gross Site: "+num(l.acres||0)+" acres","Units: "+u,"GDV: "+fmt(gdv2>0?gdv2:gdvF),"Land Residual Value: "+fmt(Math.max(0,rlv)),"Build Cost: "+fmt(totalBuild),"S106/unit: "+(f.s106pu||0),"S106 Total: "+fmt(num(f.s106pu||0)*u),"Finance: "+(f.finRatePa||8)+"% pa","Sales Rate: "+(f.salesRateWeek||0.75)+"/wk","Programme: "+(f.programmeMths||36)+" months","Margin on GDV: "+pct(margin2),"IRR: "+(irrVal?irrVal+"%":"n/a"),"","NEXT STEP: Enter into John Baker Excel model.","Set land price to RLV. Run Normal Distribution cashflow.","Rebase BCIS build costs. Track RP offers."].join(nl);                var el=document.createElement("textarea");
+                var nl="\n";var t=["LANDFORM EXPORT",new Date().toLocaleDateString("en-GB"),"","SITE: "+(l.address||"Unknown"),"LPA: "+(data.planning&&data.planning.lpa||"n/a"),"Gross Site: "+num(l.acres||0)+" acres","Units: "+u,"GDV: "+fmt(gdv2>0?gdv2:gdvF),"Land Residual Value: "+fmt(Math.max(0,rlv)),"Build Cost: "+fmt(totalBuild),"S106/unit: "+(f.s106pu||0),"S106 Total: "+fmt(num(f.s106pu||0)*u),"Finance: "+(f.finRatePa||8)+"% pa","Sales Rate: "+(f.salesRateWeek||0.75)+"/wk","Programme: "+(f.programmeMths||36)+" months","Margin on GDV: "+pct(margin2),"IRR: "+(irrVal?irrVal+"%":"n/a"),"","NEXT STEP: Enter into the detailed Excel appraisal model.","Set land price to RLV. Run Normal Distribution cashflow.","Rebase BCIS build costs. Track RP offers."].join(nl);                var el=document.createElement("textarea");
                 el.value=t;document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);
-                alert("Copied to clipboard — paste into Excel model or email to John Baker");
+                alert("Copied to clipboard — paste into your Excel appraisal model");
               },style:{padding:"9px 22px",background:"#EDE84A",border:"none",borderRadius:7,color:"#1E1F5C",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
               "📋 Copy Key Figures for Excel Model")
             )
@@ -5852,7 +6733,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
       e("div",{style:S.card},
         e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}},
           e("div",{style:S.cardTitle},"Housing Association / RP Offer Tracker"),
-          e("div",{style:{fontSize:10,color:"#7278A0"}},"Record actual RP offers — matches John Baker appraisal methodology")
+          e("div",{style:{fontSize:10,color:"#7278A0"}},"Record actual RP offers — matches professional appraisal methodology")
         ),
         e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:12}},"Track offers from Registered Providers. Golden Brick = land and infrastructure ready for RP to build. Turnkey = completed units handed over. Enter actual £ offers."),
         e("div",{style:{border:"1px solid #DDE0ED",borderRadius:8,overflow:"hidden",marginBottom:10}},
@@ -5906,7 +6787,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
             });
           })()
         ),
-        e("div",{style:{fontSize:10,color:"#7278A0",fontStyle:"italic"}},"John Baker reference: Paradigm, Fairhive, Hightown offered. Clarion, Stonewater, SNG, Home Group, Vivid, Abri declined. Best GB: £24.8m / Turnkey: £24.8m for 94-unit parcel (Paradigm).")
+        e("div",{style:{fontSize:10,color:"#7278A0",fontStyle:"italic"}},"Reference: track actual RP offers received — Golden Brick and Turnkey pricing per housing association.")
       ),
 
       e(AIPanel,{user:user,up:up,stage:"exit",label:"Exit Strategy Analysis",
@@ -5917,6 +6798,8 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
   // ── RENDER STAGE ───────────────────────────────────────────────────────────
   function renderStage(){
     if(stage==="portfolio")return renderPortfolio();
+    if(stage==="viability")return renderViability();
+    if(stage==="meetings")return renderMeetings();
     if(stage==="monitor")return renderPlanningMonitor();
     if(stage==="constraint")return renderConstraintCheck();
     if(stage==="dashboard")return renderDashboard();
@@ -6013,27 +6896,29 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
         ),
         e("div",{style:{fontSize:15,fontWeight:700,color:"#2E2F8A",flex:1}},curStage.label),
         e("div",{style:{fontSize:11,color:"#7278A0",marginRight:8}},at.toUpperCase()+" · "+cityName(city)),
-        e("div",{className:"lf-topbar-btns",style:{display:"flex",gap:6,alignItems:"center"}},
-        e("button",{onClick:function(){navTo("summary");},style:{padding:"6px 12px",background:stage==="summary"?"#2E2F8A":"#F7F8FC",border:"1px solid "+(stage==="summary"?"#2E2F8A":"#DDE0ED"),color:stage==="summary"?"#fff":"#3A3D6A",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},
-          "📄 Summary"
-        ),
+        e("div",{style:{display:"flex",gap:6,alignItems:"center"}},
+        // Always visible - critical actions
         e("button",{
           onClick:doMasterAnalyse,
           disabled:data.masterLoading,
-          style:{padding:"6px 14px",background:data.masterLoading?"#8889C8":"linear-gradient(135deg,#2D7A65,#4A4BAE)",border:"none",color:"#fff",borderRadius:5,fontSize:11,fontWeight:800,cursor:data.masterLoading?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(74,75,174,0.3)"}},
-          data.masterLoading?"⏳ Analysing...":"🧠 Analyse Deal"
+          title:"Analyse Deal — populate all stages with AI",
+          style:{padding:isMobile?"8px 10px":"6px 14px",background:data.masterLoading?"#8889C8":"linear-gradient(135deg,#2D7A65,#4A4BAE)",border:"none",color:"#fff",borderRadius:5,fontSize:isMobile?16:11,fontWeight:800,cursor:data.masterLoading?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(74,75,174,0.3)",minHeight:36}},
+          data.masterLoading?"⏳":(isMobile?"🧠":"🧠 Analyse Deal")
         ),
         e("button",{onClick:function(){window.open("https://phildrumsdaniel.github.io/cassidy-landform/flowcharts.html","cassidy-flowcharts");},style:{padding:"6px 12px",background:"#4A4BAE",border:"1px solid #4A4BAE",color:"#fff",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},
           "🗺 Flowcharts ↗"
         ),
         e("button",{onClick:function(){setShowHist(function(s){return !s;});},style:{padding:"6px 12px",background:showHist?"#4A4BAE":"#F7F8FC",border:"1px solid "+(showHist?"#4A4BAE":"#DDE0ED"),color:showHist?"#fff":"#3A3D6A",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},
-          "📋 History"+(history.length>0?" ("+history.length+")":"")
+          isMobile?("📋"+(history.length>0?" "+history.length:"")):"📋 History"+(history.length>0?" ("+history.length+")":"")
         ),
-        e("button",{onClick:saveDeal,style:{padding:"6px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#3A3D6A",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},
-          "💾 Save Deal"
+        e("button",{onClick:generateReport,title:"Print / PDF Report",style:{padding:"6px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#B05A35",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36}},
+          isMobile?"🖨":"🖨 Report"
         ),
-        e("button",{onClick:clearDeal,style:{padding:"6px 12px",background:"#FFF5F0",border:"1px solid #E8C4B0",color:"#B05A35",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},
-          "✕ New Deal"
+        e("button",{onClick:saveDeal,title:"Save Deal",style:{padding:"6px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#3A3D6A",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36}},
+          isMobile?"💾":"💾 Save Deal"
+        ),
+        e("button",{onClick:clearDeal,title:"New Deal — clears current data",style:{padding:"6px 12px",background:"#FFF5F0",border:"1px solid #E8C4B0",color:"#B05A35",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36}},
+          isMobile?"✕":"✕ New Deal"
         )
         ) 
       ),
