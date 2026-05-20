@@ -4802,6 +4802,124 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
             );
           })(),
 
+          // ── 1. SENSITIVITY SLIDERS ──────────────────────────────────────────
+          e("div",{style:{background:"#F7F8FC",borderRadius:8,padding:"14px 16px",marginTop:12}},
+            e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:12}},"Sensitivity Analysis — drag to test scenarios"),
+            [
+              {k:"salePsf",l:"Sale price £/sqft",base:rSalePsf,min:Math.round(rSalePsf*0.7),max:Math.round(rSalePsf*1.3),step:5,fmt2:function(v){return"£"+v+"/sqft"}},
+              {k:"buildPsf",l:"Build cost £/sqft",base:rBuild,min:Math.round(rBuild*0.7),max:Math.round(rBuild*1.3),step:5,fmt2:function(v){return"£"+v+"/sqft"}},
+              {k:"units",l:"Number of units",base:rUnits||50,min:Math.max(1,Math.round((rUnits||50)*0.5)),max:Math.round((rUnits||50)*1.5),step:1,fmt2:function(v){return v+" units"}},
+              {k:"profitPct",l:"Developer profit %",base:rProfit,min:10,max:30,step:1,fmt2:function(v){return v+"%"}},
+            ].map(function(sl){
+              var curVal=num(r[sl.k])||sl.base;
+              // Calc RLV at this value
+              function rlvAt(sp,bp,un,pr){
+                var g=un*(rSqft||850)*sp;
+                var bc=un*(rSqft||850)*bp;
+                var fees2=bc*bt.fees;
+                var cc=bc*(rCont/100);
+                var fc=(bc+fees2)*(rFin/100);
+                var s=un*(num(r.s106pu)||8000);
+                var pl=un*bt.plan;
+                return g-bc-fees2-cc-fc-s-pl-g*(pr/100);
+              }
+              var adjSale=sl.k==="salePsf"?curVal:rSalePsf;
+              var adjBuild=sl.k==="buildPsf"?curVal:rBuild;
+              var adjUnits=sl.k==="units"?curVal:rUnits;
+              var adjProfit=sl.k==="profitPct"?curVal:rProfit;
+              var adjRlv=rlvAt(adjSale,adjBuild,adjUnits,adjProfit);
+              var adjColor=adjRlv>0?"#2D7A65":"#B05A35";
+              var pctFromBase=rRlv!==0?(adjRlv-rRlv)/Math.abs(rRlv)*100:0;
+
+              return e("div",{key:sl.k,style:{marginBottom:14}},
+                e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}},
+                  e("span",{style:{fontSize:11,color:"#4A4B6E",fontWeight:600}},sl.l),
+                  e("div",{style:{display:"flex",gap:12,alignItems:"center"}},
+                    e("span",{style:{fontSize:11,color:"#7278A0"}},sl.fmt2(curVal)),
+                    e("span",{style:{fontSize:12,fontWeight:800,color:adjColor}},
+                      "RLV: "+fmt(adjRlv)+" ("+(pctFromBase>=0?"+":"")+Math.round(pctFromBase)+"% vs base)"
+                    )
+                  )
+                ),
+                e("input",{
+                  type:"range",min:sl.min,max:sl.max,step:sl.step,
+                  value:curVal,
+                  onChange:function(ev){up("rlv",sl.k,Number(ev.target.value));},
+                  style:{width:"100%",accentColor:"#4A4BAE",cursor:"pointer"}
+                })
+              );
+            }),
+            e("div",{style:{fontSize:10,color:"#7278A0",marginTop:4}},"Base RLV: "+fmt(rRlv)+" · Sliders adjust the live calculation above")
+          ),
+
+          // ── 2. HOW THIS IS CALCULATED ────────────────────────────────────────
+          e("div",{style:{background:"#F7F8FC",borderRadius:8,marginTop:12,overflow:"hidden"}},
+            e("div",{
+              onClick:function(){up("rlv","showFormula",!r.showFormula);},
+              style:{padding:"10px 16px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",userSelect:"none"}
+            },
+              e("span",{style:{fontSize:10,fontWeight:800,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".1em"}},"📐 How this is calculated"),
+              e("span",{style:{fontSize:12,color:"#7278A0"}},r.showFormula?"▲ Hide":"▼ Show")
+            ),
+            r.showFormula&&e("div",{style:{padding:"4px 16px 16px",borderTop:"1px solid #DDE0ED"}},
+              [
+                {step:"1",l:"Gross Development Value (GDV)",formula:"Units × Avg sqft × Sale £/sqft",val:fmt(rGdv),note:"Revenue if every unit sells at the assumed price"},
+                {step:"2",l:"Build cost",formula:"Units × Avg sqft × Build £/sqft",val:fmt(rBc),note:"Raw construction cost, no fees or contingency"},
+                {step:"3",l:"Professional fees & prelims",formula:"Build cost × "+Math.round(bt.fees*100)+"%",val:fmt(rFees),note:"Architects, engineers, project management, prelims — "+Math.round(bt.fees*100)+"% is the BCIS norm for this scheme type"},
+                {step:"4",l:"Contingency",formula:"Build cost × "+rCont+"%",val:fmt(rContCost),note:"Risk allowance — industry standard 5–10% of build"},
+                {step:"5",l:"Development finance",formula:"(Build + fees) × "+rFin+"%",val:fmt(rFinCost),note:"Interest on peak debt — simplified average debt method. Detailed Appraisal uses Normal Distribution cashflow for the true figure"},
+                {step:"6",l:"S106 obligations",formula:"Units × £"+(num(r.s106pu)||8000).toLocaleString()+"/unit",val:fmt(rS106),note:"Planning obligations — affordable housing, education, open space. Varies by LPA"},
+                {step:"7",l:"Planning & infrastructure fees",formula:"Units × scheme factor",val:fmt(rPlan),note:"CIL, planning application fees, infrastructure contributions"},
+                {step:"8",l:"Developer profit",formula:"GDV × "+rProfit+"%",val:fmt(rDevProfit),note:"Required return — majors target 18–22% on GDV. Below 15% most schemes are unviable"},
+                {step:"=",l:"Residual Land Value",formula:"GDV − all above costs",val:fmt(rRlv),note:"Maximum you can pay for the land and still hit your profit target",bold:true},
+              ].map(function(row){
+                return e("div",{key:row.step,style:{display:"flex",gap:12,padding:"7px 0",borderBottom:"1px dashed #E8E8F2",alignItems:"flex-start"}},
+                  e("span",{style:{width:20,height:20,borderRadius:"50%",background:row.bold?"#2E2F8A":"#DDE0ED",color:row.bold?"#fff":"#7278A0",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},row.step),
+                  e("div",{style:{flex:1}},
+                    e("div",{style:{fontSize:11,fontWeight:row.bold?800:600,color:"#2E2F8A"}},row.l),
+                    e("div",{style:{fontSize:10,color:"#7278A0",fontFamily:"DM Mono,monospace",margin:"2px 0"}},row.formula),
+                    e("div",{style:{fontSize:10,color:"#9A9AAE",lineHeight:1.5}},row.note)
+                  ),
+                  e("span",{style:{fontWeight:row.bold?800:600,color:row.bold?(rRlv>0?"#2D7A65":"#B05A35"):"#2E2F8A",fontSize:row.bold?14:12,minWidth:70,textAlign:"right",fontFamily:"DM Mono,monospace"}},row.val)
+                );
+              })
+            )
+          ),
+
+          // ── 3. INPUT VALIDATION WARNINGS ─────────────────────────────────────
+          (function(){
+            var warnings=[];
+            var m3=MKT[rCity]||MKT.manchester;
+            var benchmarkSale=(pcData&&pcData.salePsf)||(m3.btr*8.5)||280;
+            var saleDev=benchmarkSale>0?Math.abs(rSalePsf-benchmarkSale)/benchmarkSale*100:0;
+            if(rSalePsf>0&&saleDev>25)warnings.push({sev:"warn",msg:"Sale price of £"+rSalePsf+"/sqft is "+Math.round(saleDev)+"% "+(rSalePsf>benchmarkSale?"above":"below")+" the "+cityName(rCity)+" benchmark of £"+Math.round(benchmarkSale)+"/sqft — verify with agent"});
+            if(rBuild>0&&rBuild<120)warnings.push({sev:"error",msg:"Build cost of £"+rBuild+"/sqft is very low — BCIS minimum for residential is £130–£150/sqft. Check your inputs"});
+            if(rBuild>0&&rBuild>350)warnings.push({sev:"warn",msg:"Build cost of £"+rBuild+"/sqft is high — typical range is £150–£280/sqft depending on specification and location"});
+            if(rBuild>0&&rBuild>200&&rCity&&["manchester","liverpool","leeds","sheffield","newcastle"].indexOf(rCity)>=0)warnings.push({sev:"warn",msg:"Build cost of £"+rBuild+"/sqft is above typical for "+cityName(rCity)+" — Northern markets usually £150–£200/sqft"});
+            if(rUnits>0&&rSqft>0&&data.land&&data.land.acres>0){
+              var dph=rUnits/(num(data.land.acres)*0.405);
+              if(dph>80)warnings.push({sev:"warn",msg:"Density of "+Math.round(dph)+" dph is very high for this scheme type — check unit count and site area"});
+              if(dph<10&&r.schType&&r.schType.indexOf("apart")<0)warnings.push({sev:"info",msg:"Density of "+Math.round(dph)+" dph is low — typical SFH is 25–40 dph. Consider whether higher density is achievable"});
+            }
+            if(rProfit>0&&rProfit<15)warnings.push({sev:"error",msg:"Developer profit of "+rProfit+"% is below the viability threshold — most lenders require minimum 15–18% on GDV"});
+            if(rProfit>30)warnings.push({sev:"info",msg:"Developer profit of "+rProfit+"% is above typical — majors target 18–22%. A lower target would increase the land value you can offer"});
+            if(rRlv>0&&data.land&&data.land.price>0&&rRlv<num(data.land.price)*0.7)warnings.push({sev:"error",msg:"RLV of "+fmt(rRlv)+" is "+Math.round((1-rRlv/num(data.land.price))*100)+"% below the asking price of "+fmt(num(data.land.price))+" — deal is likely unviable at current assumptions"});
+            if(rRlv>0&&data.land&&data.land.price>0&&rRlv>num(data.land.price)*1.3)warnings.push({sev:"info",msg:"RLV of "+fmt(rRlv)+" is "+Math.round((rRlv/num(data.land.price)-1)*100)+"% above asking price — strong position. Consider whether assumptions are conservative enough"});
+
+            if(warnings.length===0)return null;
+            var sevColors={error:{bg:"rgba(176,90,53,0.08)",border:"#B05A35",icon:"⚠",col:"#B05A35"},warn:{bg:"rgba(154,123,62,0.08)",border:"#9A7B3E",icon:"⚡",col:"#9A7B3E"},info:{bg:"rgba(74,75,174,0.06)",border:"#4A4BAE",icon:"ℹ",col:"#4A4BAE"}};
+            return e("div",{style:{marginTop:12}},
+              e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:6}},"Validation checks"),
+              warnings.map(function(w,wi){
+                var sc2=sevColors[w.sev]||sevColors.info;
+                return e("div",{key:wi,style:{background:sc2.bg,border:"1px solid "+sc2.border,borderRadius:6,padding:"8px 12px",marginBottom:6,display:"flex",gap:8,alignItems:"flex-start",fontSize:11}},
+                  e("span",{style:{flexShrink:0,color:sc2.col,fontWeight:700}},sc2.icon),
+                  e("span",{style:{color:"#2E2F8A",lineHeight:1.6}},w.msg)
+                );
+              })
+            );
+          })(),
+
           e(AIPanel,{user:user,up:up,stage:"rlv",data:data,persistKey:"rics",label:"RICS Land Valuation Report",
             prompt:"Provide a professional RICS-style residual land valuation report. Postcode: "+(r.postcode||"not given")+", scheme: "+(r.schType||"residential")+", "+rUnits+" units. LR data: "+(lrData?"£"+lrData.wPsf+"/sqft ("+lrData.totalTx+" transactions)":"not fetched")+". GDV: "+fmt(rGdv)+", RLV: "+fmt(rRlv)+" ("+pct(rlvPctGdv)+" of GDV). Provide: 1) RICS valuation summary, 2) Price per sqft validation, 3) Negotiation strategy (opening bid vs max), 4) Key risks, 5) What would change the valuation."})
         )
