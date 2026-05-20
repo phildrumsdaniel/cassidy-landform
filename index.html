@@ -862,6 +862,9 @@ function Tool(props){
   var user=props.user;
   var st=useState("dashboard"); var stage=st[0]; var setStage=st[1];
   var mob=useState(false); var mobileMenuOpen=mob[0]; var setMobileMenuOpen=mob[1];
+  var fup=useState(false); var showFileUpload=fup[0]; var setShowFileUpload=fup[1];
+  var fpr=useState(false); var fileProcessing=fpr[0]; var setFileProcessing=fpr[1];
+  var frs=useState([]); var fileResults=frs[0]; var setFileResults=frs[1];
   var wmq=useState(typeof window!=="undefined"&&window.innerWidth<=768);
   var isMobile=wmq[0]; var setIsMobile=wmq[1];
   React.useEffect(function(){
@@ -4689,6 +4692,116 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
               e("span",{style:{color:sc,fontWeight:700}},rRlv>0&&rlvPctGdv>=15?"✓ Viable":"✗ Below threshold")
             )
           ),
+
+          // ── COST BREAKDOWN — what's deducted from GDV to reach land value
+          e("div",{style:{marginTop:12,background:"#F7F8FC",borderRadius:8,padding:"14px 16px"}},
+            e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:10}},"What's deducted to reach the land value"),
+            [
+              {l:"Build cost ("+rUnits+" units × "+rSqft+"sqft × £"+rBuild+"/sqft)",v:rBc,pct2:rGdv>0?rBc/rGdv:0},
+              {l:"Professional fees & prelims ("+Math.round(bt.fees*100)+"% of build)",v:rFees,pct2:rGdv>0?rFees/rGdv:0},
+              {l:"Contingency ("+rCont+"%)",v:rContCost,pct2:rGdv>0?rContCost/rGdv:0},
+              {l:"Development finance ("+rFin+"% on build+fees)",v:rFinCost,pct2:rGdv>0?rFinCost/rGdv:0},
+              {l:"S106 obligations (£"+(num(r.s106pu)||8000).toLocaleString()+"/unit)",v:rS106,pct2:rGdv>0?rS106/rGdv:0},
+              {l:"Planning & infrastructure fees",v:rPlan,pct2:rGdv>0?rPlan/rGdv:0},
+              {l:"Developer profit margin ("+rProfit+"%)",v:rDevProfit,pct2:rGdv>0?rDevProfit/rGdv:0},
+            ].map(function(row){
+              return e("div",{key:row.l,style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px dashed #E8E8F0",fontSize:11}},
+                e("span",{style:{color:"#4A4B6E",flex:1}},row.l),
+                e("div",{style:{display:"flex",gap:12,alignItems:"center"}},
+                  e("div",{style:{width:80,height:5,background:"#E8E8F0",borderRadius:3,overflow:"hidden"}},
+                    e("div",{style:{width:Math.min(100,row.pct2*100)+"%",height:"100%",background:"#4A4BAE",borderRadius:3}})
+                  ),
+                  e("span",{style:{fontWeight:700,color:"#2E2F8A",minWidth:60,textAlign:"right"}},fmt(row.v)),
+                  e("span",{style:{color:"#7278A0",minWidth:35,textAlign:"right",fontSize:10}},pct(row.pct2*100))
+                )
+              );
+            }),
+            e("div",{style:{display:"flex",justifyContent:"space-between",padding:"8px 0 0",marginTop:4,borderTop:"2px solid #2E2F8A",fontSize:12,fontWeight:800}},
+              e("span",{style:{color:"#2E2F8A"}},"Residual Land Value"),
+              e("span",{style:{color:sc}},fmt(rRlv)+" ("+pct(rlvPctGdv)+" of GDV)")
+            ),
+            e("div",{style:{marginTop:8,fontSize:10,color:"#7278A0",lineHeight:1.7}},
+              "Note: S106, drainage, utilities and enabling works are included within S106 obligations and infrastructure fees above. ",
+              "For site-specific infrastructure costs (S278, flood drainage, utility diversions), use the Detailed Appraisal stage which itemises each cost line."
+            )
+          ),
+
+          // ── PROJECT TIMELINE ESTIMATOR ──────────────────────────────────
+          (function(){
+            var planSt=(data.planning&&data.planning.status)||"none";
+            var units2=rUnits||num(data.planning&&data.planning.units)||50;
+            var schType2=r.schType||"Residential houses";
+
+            // Planning phase estimate
+            var planPhase=planSt==="full"?0:planSt==="outline"?0.5:planSt==="allocated"?1.0:1.5;
+            // Reserved matters / discharge conditions
+            var rmPhase=planSt==="full"?0:0.5;
+            // Pre-commencement (roads, drainage, utilities)
+            var preComm=0.5;
+            // Build phase: ~50 units/year for SFH, faster for apartments
+            var buildRate=schType2.indexOf("apart")>=0||schType2.indexOf("BTR")>=0||schType2.indexOf("PBSA")>=0?120:50;
+            var buildPhase=Math.max(0.5,units2/buildRate);
+            // Sales/handover (runs concurrent with last year of build for SFH)
+            var salesPhase=schType2.indexOf("apart")>=0||schType2.indexOf("BTR")>=0?0:Math.min(1,units2/100);
+
+            var totalYears=planPhase+rmPhase+preComm+buildPhase;
+            var totalRounded=Math.round(totalYears*2)/2; // round to nearest 0.5
+
+            // Timeline segments for display
+            var segments=[
+              planSt!=="full"&&planSt!=="outline"&&{l:"Planning application",yrs:planPhase,color:"#B05A35"},
+              planSt!=="full"&&{l:"Reserved matters / conditions",yrs:rmPhase,color:"#9A7B3E"},
+              {l:"Pre-commencement (infrastructure)",yrs:preComm,color:"#4A4BAE"},
+              {l:"Construction",yrs:Math.round(buildPhase*10)/10,color:"#2D7A65"},
+            ].filter(Boolean);
+
+            var maxYrs=Math.max(totalRounded,1);
+            var yearLabel=totalRounded===1?"year":"years";
+
+            return e("div",{style:{marginTop:12,background:"#F7F8FC",borderRadius:8,padding:"14px 16px"}},
+              e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:10}},
+                e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em"}},"Estimated project timeline"),
+                e("div",{style:{fontSize:20,fontWeight:800,color:"#2E2F8A"}},
+                  totalRounded+" ",e("span",{style:{fontSize:12,fontWeight:500,color:"#7278A0"}},yearLabel+" total")
+                )
+              ),
+              // Visual bar chart
+              e("div",{style:{display:"flex",height:28,borderRadius:6,overflow:"hidden",marginBottom:12}},
+                segments.map(function(seg){
+                  return e("div",{key:seg.l,
+                    style:{flex:seg.yrs,background:seg.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:"#fff",fontWeight:700,minWidth:seg.yrs/maxYrs>0.15?0:0,overflow:"hidden",whiteSpace:"nowrap",padding:"0 4px"}},
+                    seg.yrs/totalRounded>0.2?(Math.round(seg.yrs*10)/10+"yr"):""
+                  );
+                })
+              ),
+              // Legend
+              segments.map(function(seg){
+                return e("div",{key:seg.l,style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"3px 0",fontSize:11}},
+                  e("div",{style:{display:"flex",alignItems:"center",gap:6}},
+                    e("span",{style:{width:10,height:10,borderRadius:2,background:seg.color,display:"inline-block",flexShrink:0}}),
+                    e("span",{style:{color:"#4A4B6E"}},seg.l)
+                  ),
+                  e("span",{style:{fontWeight:700,color:"#2E2F8A"}},Math.round(seg.yrs*10)/10+" yr"+(seg.yrs!==1?"s":""))
+                );
+              }),
+              e("div",{style:{marginTop:10,paddingTop:8,borderTop:"1px dashed #DDE0ED",display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}},
+                [{l:"Start on site",v:planSt==="full"?"Ready now":planSt==="outline"?Math.round((rmPhase+preComm)*12)+" mths":"12-24 mths"},
+                 {l:"Build rate",v:buildRate+" units/yr"},
+                 {l:"Year range",v:Math.floor(totalRounded)+"-"+Math.ceil(totalRounded+0.5)+" yrs"},
+                ].map(function(item){
+                  return e("div",{key:item.l,style:{background:"#fff",borderRadius:6,padding:"8px 10px",border:"1px solid #DDE0ED"}},
+                    e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".08em",marginBottom:2}},item.l),
+                    e("div",{style:{fontSize:12,fontWeight:700,color:"#2E2F8A"}},item.v)
+                  );
+                })
+              ),
+              e("div",{style:{marginTop:8,fontSize:10,color:"#7278A0",lineHeight:1.7}},
+                "Based on "+units2+" units, planning status: "+(planSt||"unknown")+", scheme type: "+schType2+". ",
+                "Adjust in Planning & Viability stage to update. Assumes sequential phases; pre-app work and S106 negotiation may run concurrently."
+              )
+            );
+          })(),
+
           e(AIPanel,{user:user,up:up,stage:"rlv",data:data,persistKey:"rics",label:"RICS Land Valuation Report",
             prompt:"Provide a professional RICS-style residual land valuation report. Postcode: "+(r.postcode||"not given")+", scheme: "+(r.schType||"residential")+", "+rUnits+" units. LR data: "+(lrData?"£"+lrData.wPsf+"/sqft ("+lrData.totalTx+" transactions)":"not fetched")+". GDV: "+fmt(rGdv)+", RLV: "+fmt(rRlv)+" ("+pct(rlvPctGdv)+" of GDV). Provide: 1) RICS valuation summary, 2) Price per sqft validation, 3) Negotiation strategy (opening bid vs max), 4) Key risks, 5) What would change the valuation."})
         )
@@ -6949,6 +7062,13 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
         e("div",{style:{fontSize:11,color:"#7278A0",marginRight:8}},at.toUpperCase()+" · "+cityName(city)),
         e("div",{style:{display:"flex",gap:6,alignItems:"center"}},
         // Always visible - critical actions
+        e("label",{
+          title:"Upload Relevant Files — Excel, CSV, PDF or text files are analysed and extracted into your deal",
+          style:{padding:isMobile?"8px 10px":"6px 14px",background:"#F0F1FA",border:"1px solid #DDE0ED",color:"#2E2F8A",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,display:"inline-flex",alignItems:"center",gap:5}
+        },
+          isMobile?"📎":"📎 Upload Files",
+          e("input",{type:"file",accept:".xlsx,.xls,.csv,.txt,.pdf,.doc,.docx,.json",multiple:true,onChange:function(ev){handleFileUpload(ev);},style:{display:"none"}})
+        ),
         e("button",{
           onClick:doMasterAnalyse,
           disabled:data.masterLoading,
@@ -7014,6 +7134,75 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
         e("button",{disabled:idx===0,onClick:function(){navTo(STAGES[idx-1].id);},style:{padding:"8px 18px",border:"1px solid #DDE0ED",background:"transparent",color:"#7278A0",borderRadius:6,fontSize:12,fontWeight:700,cursor:idx===0?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",opacity:idx===0?0.3:1}},"← Previous"),
         e("span",{style:{fontSize:11,color:"#7278A0"}},(idx+1)+" of "+STAGES.length),
         e("button",{disabled:idx===STAGES.length-1,onClick:function(){navTo(STAGES[idx+1].id);},style:{padding:"8px 18px",background:"#4A4BAE",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:700,cursor:idx===STAGES.length-1?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",opacity:idx===STAGES.length-1?0.3:1}},"Next →")
+      )
+    )
+    ,
+    // ── FILE UPLOAD RESULTS MODAL ────────────────────────────────────────
+    (showFileUpload||fileProcessing)&&e("div",{style:{position:"fixed",inset:0,background:"rgba(15,15,30,0.65)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20}},
+      e("div",{style:{background:"#fff",borderRadius:14,width:"100%",maxWidth:760,maxHeight:"85vh",display:"flex",flexDirection:"column",boxShadow:"0 30px 60px rgba(15,15,30,0.3)"}},
+        e("div",{style:{padding:"18px 24px",borderBottom:"1px solid #DDE0ED",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}},
+          e("div",null,
+            e("div",{style:{fontSize:16,fontWeight:800,color:"#2E2F8A"}},"📎 Uploaded Files — AI Extraction"),
+            e("div",{style:{fontSize:11,color:"#7278A0",marginTop:2}},"Relevant data extracted from your files. Review and apply to your deal stages.")
+          ),
+          e("button",{onClick:function(){setShowFileUpload(false);},style:{padding:"6px 14px",background:"#F0F1FA",border:"1px solid #DDE0ED",borderRadius:6,fontSize:12,fontWeight:700,color:"#2E2F8A",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Close")
+        ),
+        e("div",{style:{overflowY:"auto",flex:1,padding:24}},
+          fileProcessing&&e("div",{style:{textAlign:"center",padding:"40px 20px"}},
+            e("div",{style:{fontSize:40,marginBottom:12}},"⏳"),
+            e("div",{style:{fontSize:15,fontWeight:700,color:"#2E2F8A",marginBottom:8}},"Analysing your files..."),
+            e("div",{style:{fontSize:12,color:"#7278A0",lineHeight:1.8}},"Extracting land data, financials, unit mix, contacts and programme details")
+          ),
+          !fileProcessing&&fileResults.map(function(fr,fi){
+            var sections=fr.result?fr.result.split("## ").filter(function(s){return s.trim().length>0;}):[fr.result];
+            return e("div",{key:fi,style:{marginBottom:20,border:"1px solid #DDE0ED",borderRadius:10,overflow:"hidden"}},
+              e("div",{style:{background:"#F7F8FC",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid #DDE0ED"}},
+                e("div",{style:{display:"flex",alignItems:"center",gap:10}},
+                  e("span",{style:{fontSize:22}},(fr.ext==="xlsx"||fr.ext==="xls")?"📊":(fr.ext==="csv"?"📋":(fr.ext==="pdf"?"📄":"📝"))),
+                  e("div",null,
+                    e("div",{style:{fontSize:13,fontWeight:700,color:"#2E2F8A"}},fr.name),
+                    e("div",{style:{fontSize:10,color:"#7278A0"}},Math.round((fr.size||0)/1024)+"kb · "+(fr.ext||"").toUpperCase()+" file")
+                  )
+                ),
+                e("span",{style:{fontSize:10,padding:"3px 8px",background:"rgba(45,122,101,0.1)",color:"#2D7A65",borderRadius:10,fontWeight:700}},"✓ Extracted")
+              ),
+              e("div",{style:{padding:"14px 16px"}},
+                sections.map(function(sec,si){
+                  var lines=sec.trim().split("\n");
+                  var title=lines[0]?lines[0].trim():"";
+                  var body=lines.slice(1).join("\n").trim();
+                  var isEmpty=!body||body.toLowerCase().indexOf("none found")>=0;
+                  if(isEmpty)return null;
+                  return e("div",{key:si,style:{marginBottom:12}},
+                    title&&e("div",{style:{fontSize:10,fontWeight:800,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}},title),
+                    e("div",{style:{fontSize:12,color:"#3A3D6A",lineHeight:1.8,whiteSpace:"pre-wrap",background:"#F7F8FC",borderRadius:6,padding:"8px 12px"}},body)
+                  );
+                }).filter(Boolean)
+              ),
+              e("div",{style:{padding:"10px 16px",borderTop:"1px solid #DDE0ED",background:"#F7F8FC",display:"flex",gap:8,alignItems:"center"}},
+                e("button",{
+                  onClick:function(){
+                    var existing=(data.meetings&&data.meetings.transcripts)||[];
+                    var newT={id:"file-"+Date.now(),name:fr.name,filename:fr.name,date:new Date().toLocaleDateString("en-GB"),uploadedAt:Date.now(),text:fr.result,analysis:fr.result,actionItems:[],keyDecisions:[],siteRefs:[],attendees:[],tags:[],dealRef:(data.land&&data.land.address)||"",summary:"Data extracted from uploaded file: "+fr.name};
+                    up("meetings","transcripts",existing.concat([newT]));
+                    alert("Saved to Meeting Transcripts — review there and copy figures into the relevant deal stages.");
+                  },
+                  style:{padding:"6px 14px",background:"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+                },"💾 Save to Records"),
+                e("span",{style:{fontSize:10,color:"#7278A0"}},"Review the extracted data and enter figures into the relevant deal stages")
+              )
+            );
+          }),
+          !fileProcessing&&(data.uploadedFiles&&data.uploadedFiles.files&&data.uploadedFiles.files.length>0)&&e("div",{style:{marginTop:16,paddingTop:16,borderTop:"2px dashed #DDE0ED"}},
+            e("div",{style:{fontSize:10,fontWeight:800,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",marginBottom:10}},"Previously uploaded in this deal"),
+            (data.uploadedFiles.files||[]).slice().reverse().map(function(f,fi2){
+              return e("div",{key:fi2,style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",background:"#F7F8FC",borderRadius:6,marginBottom:6,fontSize:12}},
+                e("span",{style:{color:"#2E2F8A",fontWeight:600}},f.name),
+                e("span",{style:{color:"#7278A0",fontSize:10}},new Date(f.uploadedAt).toLocaleDateString("en-GB"))
+              );
+            })
+          )
+        )
       )
     )
   );
