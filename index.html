@@ -840,6 +840,10 @@ var ALL_STAGES = [
   {id:"exit",        label:"Investment Exit",       icon:"◆",  group:"5. Exit",    journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
   {id:"recovery",    label:"Planning Recovery",     icon:"⚖",  group:"5. Exit",    journeys:["recovery","all"]},
   {id:"summary",     label:"Executive Summary",     icon:"📄", group:"6. Overview",journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
+  {id:"scorecard",   label:"Site Scorecard",         icon:"🏆", group:"5. Report",  journeys:["land","all"]},
+  {id:"teaser",      label:"Teaser PDF",              icon:"📬", group:"5. Report",  journeys:["land","all"]},
+  {id:"im",          label:"Investor Memorandum",     icon:"📑", group:"5. Report",  journeys:["land","all"]},
+  {id:"grants",      label:"Grant & Funding",         icon:"💷", group:"5. Report",  journeys:["land","all"]},
   {id:"flowcharts",  label:"Process Flowcharts",     icon:"🗺", group:"6. Overview",journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
   {id:"portfolio",     label:"Deal Portfolio",       icon:"📊", group:"6. Overview", journeys:["all"]},
   {id:"viability",     label:"Detailed Appraisal",   icon:"📐", group:"4. Develop",  journeys:["land","sfh","all"]},
@@ -3617,6 +3621,1077 @@ function Tool(props){
       )
     );
   }
+
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // SITE SCORECARD
+  // ══════════════════════════════════════════════════════════════════════════
+  function renderScorecard(){
+    var l=data.land||{}; var p=data.planning||{}; var f=data.fin||{};
+    var rlvD=data.rlv||{}; var cc=data.constraint||{}; var mon=data.monitor||{};
+    var addr=l.address||data.scraper&&data.scraper.result&&data.scraper.result.address||"Site";
+
+    // Score each dimension 1-10
+    function scoreViability(){
+      var margin=num(f.marginPct||f.devMargin||0);
+      if(margin>=20)return{s:9,l:"Strong"};if(margin>=17)return{s:7,l:"Good"};
+      if(margin>=14)return{s:5,l:"Marginal"};if(margin>=10)return{s:3,l:"Weak"};return{s:1,l:"Unviable"};
+    }
+    function scorePlanning(){
+      var ps=p.status||l.planningStatus||"";
+      if(ps==="full")return{s:10,l:"Full consent"};
+      if(ps==="outline")return{s:8,l:"Outline consent"};
+      if(ps==="allocated")return{s:7,l:"Allocated in local plan"};
+      if(ps==="preApp")return{s:5,l:"Pre-app stage"};
+      var prob=num(cc.planningScore||p.planningProb||0);
+      if(prob>=70)return{s:6,l:"Good probability"};
+      if(prob>=50)return{s:4,l:"Moderate probability"};
+      return{s:3,l:"Speculative"};
+    }
+    function scoreMarket(){
+      var c2=city||l.city||"manchester";
+      var mk=MKT[c2]||MKT.manchester;
+      if(mk.btr>=1500)return{s:9,l:"Prime market"};
+      if(mk.btr>=1000)return{s:7,l:"Strong market"};
+      if(mk.btr>=750)return{s:5,l:"Established market"};
+      return{s:3,l:"Secondary market"};
+    }
+    function scoreLocation(){
+      var score=num(l.locationScore||0);
+      if(score>=80)return{s:9,l:"Excellent"};if(score>=60)return{s:7,l:"Good"};
+      if(score>=40)return{s:5,l:"Average"};return{s:3,l:"Poor"};
+    }
+    function scoreRisk(){
+      var verdict=cc.verdict||"";
+      if(verdict==="GO")return{s:8,l:"Low risk"};
+      if(verdict==="CAUTION")return{s:5,l:"Moderate risk"};
+      if(verdict==="AVOID")return{s:2,l:"High risk"};
+      return{s:5,l:"Not assessed"};
+    }
+    function scoreDelivery(){
+      var ac=num(l.acres||0); var un=num(p.units||rlvD.units||0);
+      if(un>0&&un<=100)return{s:8,l:"Manageable scale"};
+      if(un>100&&un<=300)return{s:6,l:"Medium scheme"};
+      if(un>300)return{s:4,l:"Complex delivery"};
+      return{s:5,l:"Scale unknown"};
+    }
+    function scoreFinancial(){
+      var rlvV=num(rlvD.rlv||0); var ask=num(l.price||0);
+      if(ask>0&&rlvV>ask*1.1)return{s:9,l:"Strong residual"};
+      if(ask>0&&rlvV>ask*0.9)return{s:7,l:"Viable at ask"};
+      if(ask>0&&rlvV>ask*0.7)return{s:4,l:"Gap to close"};
+      if(ask>0)return{s:2,l:"Unviable at ask"};
+      return{s:5,l:"Not compared"};
+    }
+
+    var dimensions=[
+      {k:"viability",l:"Development Viability",icon:"💰",score:scoreViability()},
+      {k:"planning",l:"Planning Position",icon:"📋",score:scorePlanning()},
+      {k:"market",l:"Market Strength",icon:"📈",score:scoreMarket()},
+      {k:"location",l:"Location Quality",icon:"📍",score:scoreLocation()},
+      {k:"risk",l:"Constraint Risk",icon:"⚠",score:scoreRisk()},
+      {k:"delivery",l:"Delivery Complexity",icon:"🏗",score:scoreDelivery()},
+      {k:"financial",l:"Financial Return",icon:"◆",score:scoreFinancial()},
+    ];
+
+    // Allow manual overrides
+    function getScore(dim){
+      var override=data.scorecard&&data.scorecard["s_"+dim.k];
+      return override!==undefined?{s:num(override),l:dim.score.l}:dim.score;
+    }
+
+    var scores=dimensions.map(function(d){return{...d,final:getScore(d)};});
+    var totalScore=Math.round(scores.reduce(function(t,d){return t+d.final.s;},0)/scores.length*10)/10;
+    var verdict=totalScore>=7.5?"STRONG BUY":totalScore>=6?"BUY":totalScore>=4.5?"CONDITIONAL":"PASS";
+    var verdictColor=verdict==="STRONG BUY"?"#2D7A65":verdict==="BUY"?"#4A4BAE":verdict==="CONDITIONAL"?"#9A7B3E":"#B05A35";
+
+    function barColor(s){return s>=7?"#2D7A65":s>=5?"#4A4BAE":s>=3?"#9A7B3E":"#B05A35";}
+
+    return e("div",null,
+      e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:12}},
+        e("div",null,
+          e("div",{style:{fontSize:11,color:"#7278A0",textTransform:"uppercase",letterSpacing:".12em",fontWeight:700,marginBottom:4}},"Site Scorecard"),
+          e("h2",{style:{fontSize:22,fontWeight:800,color:"#2E2F8A",margin:0}},addr)
+        ),
+        e("div",{style:{textAlign:"right"}},
+          e("div",{style:{fontSize:36,fontWeight:800,color:verdictColor}},totalScore+"/10"),
+          e("div",{style:{fontSize:13,fontWeight:800,color:verdictColor,letterSpacing:".08em"}},"● "+verdict)
+        )
+      ),
+
+      // Score bars
+      e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"20px 24px",marginBottom:14}},
+        e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:16}},"Dimension Scores"),
+        scores.map(function(dim){
+          var s=dim.final.s;
+          return e("div",{key:dim.k,style:{marginBottom:14}},
+            e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}},
+              e("div",{style:{display:"flex",alignItems:"center",gap:8}},
+                e("span",{style:{fontSize:16}},dim.icon),
+                e("span",{style:{fontSize:12,fontWeight:600,color:"#2E2F8A"}},dim.l)
+              ),
+              e("div",{style:{display:"flex",alignItems:"center",gap:10}},
+                e("span",{style:{fontSize:11,color:"#7278A0"}},dim.final.l),
+                e("span",{style:{fontSize:14,fontWeight:800,color:barColor(s),minWidth:28,textAlign:"right"}},s+"/10")
+              )
+            ),
+            e("div",{style:{height:8,background:"#F0F1FA",borderRadius:4,overflow:"hidden"}},
+              e("div",{style:{width:(s/10*100)+"%",height:"100%",background:barColor(s),borderRadius:4,transition:"width .4s ease"}})
+            ),
+            e("div",{style:{marginTop:4}},
+              e("input",{type:"range",min:1,max:10,step:1,value:s,
+                onChange:function(ev){up("scorecard","s_"+dim.k,Number(ev.target.value));},
+                style:{width:"100%",accentColor:barColor(s),cursor:"pointer",height:12}
+              })
+            )
+          );
+        })
+      ),
+
+      // Key metrics summary
+      e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10,marginBottom:14}},
+        [
+          {l:"GDV",v:fmt(gdv)},{l:"RLV",v:fmt(num(rlvD.rlv||lc))},
+          {l:"Dev Margin",v:pct(num(f.marginPct||f.devMargin||0))},
+          {l:"Units",v:fmtN(num(p.units||rlvD.units||0))},
+          {l:"Site area",v:(l.acres||"—")+" acres"},
+          {l:"Planning",v:p.status||l.planningStatus||"Unknown"},
+        ].map(function(item){
+          return e("div",{key:item.l,style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,padding:"10px 14px"}},
+            e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",marginBottom:2}},item.l),
+            e("div",{style:{fontSize:15,fontWeight:800,color:"#2E2F8A"}},item.v)
+          );
+        })
+      ),
+
+      // AI narrative + print
+      e("div",{style:{display:"flex",gap:8,marginBottom:12}},
+        e(AIPanel,{user:user,up:up,stage:"scorecard",data:data,persistKey:"scorecard_narrative",
+          label:"🏆 Generate Scorecard Narrative",
+          system:"You are a senior UK property investment analyst writing a concise site scorecard commentary for an investment committee.",
+          prompt:"Write a 150-word investment committee scorecard commentary for this site. Overall score: "+totalScore+"/10 ("+verdict+"). Address: "+addr+". Scores: "+scores.map(function(d){return d.l+": "+d.final.s+"/10 ("+d.final.l+")";}).join(", ")+". GDV: "+fmt(gdv)+", RLV: "+fmt(num(rlvD.rlv||lc))+", margin: "+pct(num(f.marginPct||0))+". Be direct, numerate, investment committee tone. Lead with overall verdict, then key strengths, then key risks, then recommendation."
+        }),
+        e("button",{
+          onClick:function(){window.print();},
+          style:{padding:"8px 16px",background:"#2E2F8A",border:"none",borderRadius:6,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",alignSelf:"flex-start"}
+        },"🖨 Print Scorecard")
+      )
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // TEASER PDF
+  // ══════════════════════════════════════════════════════════════════════════
+  function renderTeaser(){
+    var l=data.land||{}; var p=data.planning||{}; var f=data.fin||{};
+    var rlvD=data.rlv||{}; var s2=data.sfh||{}; var cc=data.constraint||{};
+    var addr=l.address||data.scraper&&data.scraper.result&&data.scraper.result.address||"Development Site";
+    var cityDisp=cityName(city||l.city||"");
+    var planStatus=p.status||l.planningStatus||"Unallocated";
+    var units2=num(p.units||rlvD.units||0);
+    var ask=num(l.price||0);
+    var lpa=p.lpa||l.localAuthority||"";
+
+    function generateTeaser(){
+      var html='<!DOCTYPE html><html><head><meta charset="UTF-8">'+
+        '<style>@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap");'+
+        'body{font-family:"DM Sans",sans-serif;margin:0;padding:0;background:#fff;color:#1a1a2e;}'+
+        '.page{max-width:794px;margin:0 auto;padding:0;}'+
+        '.header{background:linear-gradient(135deg,#1E1F5C,#2E2F8A);color:#fff;padding:40px 48px 32px;}'+
+        '.logo-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;}'+
+        '.logo-text{font-size:18px;font-weight:800;letter-spacing:.2em;}'+
+        '.logo-sub{font-size:9px;letter-spacing:.3em;opacity:.5;margin-top:2px;}'+
+        '.confidential{font-size:9px;padding:4px 10px;border:1px solid rgba(255,255,255,.3);border-radius:20px;letter-spacing:.08em;}'+
+        '.site-name{font-size:28px;font-weight:800;line-height:1.2;margin-bottom:8px;}'+
+        '.site-sub{font-size:14px;opacity:.7;margin-bottom:24px;}'+
+        '.pill{display:inline-block;padding:4px 12px;background:rgba(255,255,255,.15);border-radius:20px;font-size:11px;font-weight:700;margin-right:8px;}'+
+        '.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:0;background:#fff;}'+
+        '.metric-box{padding:20px 24px;border-right:1px solid #E8E8F0;border-bottom:1px solid #E8E8F0;}'+
+        '.metric-box:nth-child(4n){border-right:none;}'+
+        '.metric-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#7278A0;margin-bottom:4px;}'+
+        '.metric-value{font-size:22px;font-weight:800;color:#2E2F8A;}'+
+        '.metric-sub2{font-size:10px;color:#9A9AAE;margin-top:2px;}'+
+        '.body{padding:32px 48px;}'+
+        '.section-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:#4A4BAE;margin:24px 0 10px;}'+
+        '.two-col{display:grid;grid-template-columns:1fr 1fr;gap:24px;}'+
+        '.info-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed #E8E8F0;font-size:12px;}'+
+        '.info-key{color:#7278A0;}'+
+        '.info-val{font-weight:700;color:#2E2F8A;}'+
+        '.highlight-box{background:#F7F8FC;border-left:3px solid #4A4BAE;padding:14px 18px;border-radius:0 6px 6px 0;margin:16px 0;}'+
+        '.verdict{display:inline-block;padding:6px 16px;border-radius:20px;font-size:11px;font-weight:800;letter-spacing:.06em;}'+
+        '.verdict-go{background:rgba(45,122,101,.1);color:#2D7A65;}'+
+        '.verdict-caution{background:rgba(154,123,62,.1);color:#9A7B3E;}'+
+        '.verdict-avoid{background:rgba(176,90,53,.1);color:#B05A35;}'+
+        '.footer{background:#F7F8FC;padding:16px 48px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #E8E8F0;font-size:10px;color:#7278A0;}'+
+        '.ai-text{font-size:12px;line-height:1.75;color:#3A3D6A;}'+
+        '</style></head><body><div class="page">'+
+        '<div class="header">'+
+          '<div class="logo-bar">'+
+            '<div><div class="logo-text">CASSIDY</div><div class="logo-sub">GROUP</div></div>'+
+            '<div class="confidential">CONFIDENTIAL — NOT FOR DISTRIBUTION</div>'+
+          '</div>'+
+          '<div class="site-name">'+addr+'</div>'+
+          '<div class="site-sub">'+cityDisp+(lpa?" · "+lpa:"")+'</div>'+
+          '<div>'+
+            '<span class="pill">'+planStatus+'</span>'+
+            (units2>0?'<span class="pill">'+units2+' units</span>':'')+
+            (ask>0?'<span class="pill">£'+(ask/1e6).toFixed(2)+'m ask</span>':'')+
+          '</div>'+
+        '</div>'+
+        '<div class="metrics">'+
+          '<div class="metric-box"><div class="metric-label">GDV</div><div class="metric-value">'+fmt(gdv)+'</div><div class="metric-sub2">Gross development value</div></div>'+
+          '<div class="metric-box"><div class="metric-label">Residual Land Value</div><div class="metric-value">'+fmt(num(rlvD.rlv||lc))+'</div><div class="metric-sub2">Maximum land offer</div></div>'+
+          '<div class="metric-box"><div class="metric-label">Dev Margin</div><div class="metric-value">'+pct(num(f.marginPct||f.devMargin||0))+'</div><div class="metric-sub2">On GDV</div></div>'+
+          '<div class="metric-box"><div class="metric-label">Site Area</div><div class="metric-value">'+(l.acres||"—")+'ac</div><div class="metric-sub2">'+(l.acres?Math.round(num(l.acres)*0.405*10)/10+' ha':"")+' gross</div></div>'+
+        '</div>'+
+        '<div class="body">'+
+          '<div class="two-col">'+
+            '<div>'+
+              '<div class="section-title">Site & Planning</div>'+
+              ['Planning status:'+planStatus,
+               'LPA:'+(lpa||"Unknown"),
+               'AH requirement:'+(p.ahPct||"—")+"%",
+               'S106 estimate:'+fmt(num(p.s106||0)),
+               'Planning risk:'+(cc.verdict||"Not assessed"),
+              ].map(function(r2){var p2=r2.split(":");return'<div class="info-row"><span class="info-key">'+p2[0]+'</span><span class="info-val">'+p2.slice(1).join(":")+'</span></div>';}).join("")+
+            '</div>'+
+            '<div>'+
+              '<div class="section-title">Financial Summary</div>'+
+              ['Asking price:'+fmt(ask),
+               'RLV:'+fmt(num(rlvD.rlv||lc)),
+               'Build cost psf:£'+(rlvD.buildPsf||f.buildPsf||"—"),
+               'Finance rate:'+(rlvD.finRate||f.finRatePa||"—")+"%",
+               'Programme:'+(f.programmeMths||"—")+" months",
+              ].map(function(r2){var p2=r2.split(":");return'<div class="info-row"><span class="info-key">'+p2[0]+'</span><span class="info-val">'+p2.slice(1).join(":")+'</span></div>';}).join("")+
+            '</div>'+
+          '</div>'+
+          '<div class="section-title">Investment Rationale</div>'+
+          '<div class="highlight-box"><div class="ai-text">'+(data.teaser&&data.teaser.ai_teaser_rationale||"Click Generate Teaser to populate this section with AI-generated investment rationale.")+'</div></div>'+
+          '<div class="section-title">Constraint Summary</div>'+
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">'+
+            (cc.verdict?'<span class="verdict verdict-'+(cc.verdict==="GO"?"go":cc.verdict==="CAUTION"?"caution":"avoid")+'">'+cc.verdict+'</span>':"<span style='font-size:12px;color:#7278A0'>Run Constraint Check to populate</span>")+
+            (cc.planningScore?'<span style="font-size:11px;padding:4px 12px;background:#F0F1FA;border-radius:20px;color:#4A4BAE;font-weight:700">Planning score: '+cc.planningScore+'/100</span>':"")+'</div>'+
+        '</div>'+
+        '<div class="footer">'+
+          '<div>'+addr+' · Prepared by Cassidy Group</div>'+
+          '<div>Confidential · '+new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})+'</div>'+
+          '<div>Built by Phil Daniel · Landform Intelligence Platform</div>'+
+        '</div>'+
+        '</div></body></html>';
+
+      var w=window.open("","_blank","width=900,height=700");
+      if(!w){alert("Allow pop-ups to generate the teaser PDF");return;}
+      w.document.write(html);w.document.close();
+      setTimeout(function(){w.print();},500);
+    }
+
+    return e("div",null,
+      e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:12}},
+        e("div",null,
+          e("div",{style:{fontSize:11,color:"#7278A0",textTransform:"uppercase",letterSpacing:".12em",fontWeight:700,marginBottom:4}},"1–2 Page Teaser"),
+          e("h2",{style:{fontSize:22,fontWeight:800,color:"#2E2F8A",margin:0}},addr||"Development Site")
+        ),
+        e("button",{onClick:generateTeaser,style:{padding:"10px 22px",background:"#2E2F8A",border:"none",borderRadius:7,color:"#fff",fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"🖨 Generate Teaser PDF")
+      ),
+
+      // Preview card
+      e("div",{style:{background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",borderRadius:"10px 10px 0 0",padding:"28px 32px",color:"#fff",marginBottom:0}},
+        e("div",{style:{fontSize:9,letterSpacing:".3em",opacity:.5,marginBottom:12}},"CASSIDY GROUP"),
+        e("div",{style:{fontSize:22,fontWeight:800,marginBottom:4}},addr||"Development Site"),
+        e("div",{style:{fontSize:12,opacity:.65,marginBottom:16}},cityDisp+(lpa?" · "+lpa:"")),
+        e("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+          [planStatus,units2>0&&units2+" units",ask>0&&"£"+(ask/1e6).toFixed(2)+"m ask"].filter(Boolean).map(function(tag){
+            return e("span",{key:tag,style:{padding:"4px 12px",background:"rgba(255,255,255,.15)",borderRadius:20,fontSize:11,fontWeight:700}},tag);
+          })
+        )
+      ),
+      e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",border:"1px solid #DDE0ED",borderTop:"none",marginBottom:14}},
+        [{l:"GDV",v:fmt(gdv),s:"Gross dev value"},{l:"RLV",v:fmt(num(rlvD.rlv||lc)),s:"Max land offer"},{l:"Margin",v:pct(num(f.marginPct||0)),s:"On GDV"},{l:"Site area",v:(l.acres||"—")+"ac",s:"Gross"}].map(function(m2){
+          return e("div",{key:m2.l,style:{padding:"14px 18px",borderRight:"1px solid #DDE0ED"}},
+            e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",marginBottom:2}},m2.l),
+            e("div",{style:{fontSize:18,fontWeight:800,color:"#2E2F8A"}},m2.v),
+            e("div",{style:{fontSize:9,color:"#9A9AAE"}},m2.s)
+          );
+        })
+      ),
+
+      // AI rationale generator
+      e(AIPanel,{user:user,up:up,stage:"teaser",data:data,persistKey:"teaser_rationale",
+        label:"✍ Generate Investment Rationale",
+        system:"You are a senior UK property investment analyst writing a teaser document for a residential development site. Be compelling, concise, specific.",
+        prompt:"Write a 120-word investment rationale for this site teaser. Site: "+addr+", "+cityDisp+". GDV: "+fmt(gdv)+". RLV: "+fmt(num(rlvD.rlv||lc))+". Margin: "+pct(num(f.marginPct||0))+". Planning: "+planStatus+(lpa?", LPA: "+lpa:"")+". Units: "+units2+". Constraint check: "+(cc.verdict||"not run")+". Write as if pitching to an RP or investor — lead with the opportunity, support with the numbers, close with the ask. No bullet points."
+      }),
+
+      e("div",{style:{background:"rgba(74,75,174,0.05)",border:"1px solid rgba(74,75,174,0.2)",borderRadius:8,padding:"12px 16px",marginTop:8,fontSize:11,color:"#4A4BAE"}},
+        "ℹ Complete Land Appraisal, RLV and Planning stages first for the most accurate teaser figures. The generated rationale populates automatically into the PDF."
+      )
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // INVESTOR MEMORANDUM
+  // ══════════════════════════════════════════════════════════════════════════
+  function renderIM(){
+    var l=data.land||{}; var p=data.planning||{}; var f=data.fin||{};
+    var rlvD=data.rlv||{}; var ap=data.viability&&data.viability.appraisal||{};
+    var risks=data.risks||{}; var cc=data.constraint||{}; var mon=data.monitor||{};
+    var addr=l.address||"Development Site";
+    var cityDisp=cityName(city||l.city||"");
+    var planStatus=p.status||l.planningStatus||"Unallocated";
+    var units2=num(p.units||rlvD.units||0);
+    var ask=num(l.price||0);
+    var lpa=p.lpa||l.localAuthority||"";
+
+    var sections=[
+      {id:"exec",l:"1. Executive Summary",key:"im_exec"},
+      {id:"site",l:"2. Site & Location",key:"im_site"},
+      {id:"planning",l:"3. Planning Position",key:"im_planning"},
+      {id:"appraisal",l:"4. Financial Appraisal",key:"im_appraisal"},
+      {id:"market",l:"5. Market Analysis",key:"im_market"},
+      {id:"risk",l:"6. Risk & Mitigations",key:"im_risk"},
+      {id:"team",l:"7. Team & Next Steps",key:"im_team"},
+    ];
+
+    function generateSection(sec){
+      var prompts={
+        exec:"Write the executive summary section (150 words) for an investor memorandum. Site: "+addr+", "+cityDisp+". GDV: "+fmt(gdv)+". RLV: "+fmt(num(rlvD.rlv||lc))+". Margin: "+pct(num(f.marginPct||0))+". Units: "+units2+". Planning: "+planStatus+", LPA: "+lpa+". Lead with the investment opportunity, headline numbers, and recommended action. Professional UK property investment tone.",
+        site:"Write the site & location section (150 words) covering physical characteristics ("+l.acres+" acres, "+planStatus+"), location context in "+cityDisp+", transport links, proximity to demand, and any notable site features. Address: "+addr+". LPA: "+lpa+".",
+        planning:"Write the planning position section (150 words) covering planning status ("+planStatus+"), LPA: "+lpa+", affordable housing requirement: "+(p.ahPct||"unknown")+"%, S106 estimate: "+fmt(num(p.s106||0))+", constraint check result: "+(cc.verdict||"not assessed")+", planning probability score: "+(cc.planningScore||"not assessed")+"/100. Cover key planning risks and programme.",
+        appraisal:"Write the financial appraisal section (180 words) with these figures: GDV "+fmt(gdv)+", RLV "+fmt(num(rlvD.rlv||lc))+", asking price "+fmt(ask)+", development margin "+pct(num(f.marginPct||0))+" on GDV, build cost £"+(rlvD.buildPsf||f.buildPsf||"tbc")+"/sqft, finance rate "+(f.finRatePa||rlvD.finRate||7.5)+"%, programme "+(f.programmeMths||"tbc")+" months, S106 "+fmt(num(p.s106||0))+". Include sensitivity to ±10% GDV and ±10% build cost. Professional tone with honest commentary on margin relative to target.",
+        market:"Write the market analysis section (150 words) for "+cityDisp+" residential market. Cover demand drivers, comparable land transactions, new-build pricing, affordable housing need, and why this location supports the proposed scheme. Scheme type: "+(at||"residential")+". Draw on general UK market knowledge for "+cityDisp+".",
+        risk:"Write the risk & mitigations section (150 words) as a structured risk register commentary. Cover planning risk (status: "+planStatus+"), construction risk, market risk, financial risk (margin: "+pct(num(f.marginPct||0))+"), and S106/obligation risk. For each risk state the likelihood, impact and proposed mitigation. Professional IC tone.",
+        team:"Write the team & next steps section (120 words) for Cassidy Group. Cover Cassidy's track record in UK residential development, the proposed transaction structure, heads of terms requirements, and a clear timetable with next steps. Close with the key ask and contact instruction.",
+      };
+      up("im","loading_"+sec.id,true);
+      var params=new URLSearchParams({action:"ai",stage:"im",
+        user:(user&&user.name)||"",company:(user&&user.company)||"",
+        system:"You are a senior UK property investment director writing a formal investor memorandum section. Use professional language, be specific with numbers, avoid marketing clichés.",
+        prompt:prompts[sec.id]||"Write a professional "+sec.l+" section for a UK residential development investor memorandum."
+      });
+      fetch(WEBHOOK+"?"+params.toString())
+      .then(function(r2){return r2.json();})
+      .then(function(d){
+        up("im",sec.key,d.result||"Generation failed");
+        up("im","loading_"+sec.id,false);
+      })
+      .catch(function(){up("im","loading_"+sec.id,false);});
+    }
+
+    function generateAllSections(){
+      sections.forEach(function(sec,i){
+        setTimeout(function(){generateSection(sec);},i*800);
+      });
+    }
+
+    function printIM(){
+      var imData=data.im||{};
+      var html='<!DOCTYPE html><html><head><meta charset="UTF-8">'+
+        '<style>@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap");'+
+        'body{font-family:"DM Sans",sans-serif;margin:0;padding:0;color:#1a1a2e;font-size:13px;line-height:1.75;}'+
+        '.cover{background:linear-gradient(160deg,#1E1F5C,#2E2F8A);color:#fff;min-height:100vh;padding:60px;display:flex;flex-direction:column;justify-content:space-between;page-break-after:always;}'+
+        '.cover-logo{font-size:20px;font-weight:800;letter-spacing:.2em;}'+
+        '.cover-sub{font-size:9px;letter-spacing:.3em;opacity:.4;margin-top:3px;}'+
+        '.cover-tag{font-size:9px;padding:4px 12px;border:1px solid rgba(255,255,255,.2);border-radius:20px;display:inline-block;letter-spacing:.08em;margin-bottom:40px;}'+
+        '.cover-title{font-size:38px;font-weight:800;line-height:1.15;margin-bottom:12px;}'+
+        '.cover-loc{font-size:16px;opacity:.65;margin-bottom:32px;}'+
+        '.cover-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:rgba(255,255,255,.15);border-radius:8px;overflow:hidden;}'+
+        '.cover-metric{padding:16px 20px;background:rgba(255,255,255,.08);}'+
+        '.cm-label{font-size:9px;opacity:.5;text-transform:uppercase;letter-spacing:.12em;margin-bottom:4px;}'+
+        '.cm-value{font-size:22px;font-weight:800;}'+
+        '.cover-footer{font-size:10px;opacity:.4;margin-top:40px;}'+
+        '.content{max-width:720px;margin:0 auto;padding:48px 60px;}'+
+        'h2{font-size:18px;font-weight:800;color:#2E2F8A;margin:36px 0 8px;padding-top:12px;border-top:2px solid #E8E8F0;}'+
+        'h2:first-child{margin-top:0;border-top:none;}'+
+        'p{margin:0 0 14px;color:#3A3D6A;}'+
+        '.metrics-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0;}'+
+        '.mbox{background:#F7F8FC;border:1px solid #DDE0ED;border-radius:8px;padding:14px 16px;}'+
+        '.mbox-label{font-size:9px;color:#7278A0;text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;}'+
+        '.mbox-value{font-size:18px;font-weight:800;color:#2E2F8A;}'+
+        '.footer-im{background:#F7F8FC;border-top:1px solid #DDE0ED;padding:14px 60px;font-size:9px;color:#7278A0;display:flex;justify-content:space-between;}'+
+        '@media print{.cover{-webkit-print-color-adjust:exact;print-color-adjust:exact;}body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}'+
+        '</style></head><body>'+
+        '<div class="cover">'+
+          '<div><div class="cover-logo">CASSIDY</div><div class="cover-sub">GROUP</div></div>'+
+          '<div>'+
+            '<div class="cover-tag">INVESTOR MEMORANDUM — CONFIDENTIAL</div>'+
+            '<div class="cover-title">'+addr+'</div>'+
+            '<div class="cover-loc">'+cityDisp+(lpa?" · "+lpa:"")+'</div>'+
+            '<div class="cover-metrics">'+
+              '<div class="cover-metric"><div class="cm-label">GDV</div><div class="cm-value">'+fmt(gdv)+'</div></div>'+
+              '<div class="cover-metric"><div class="cm-label">Residual Land Value</div><div class="cm-value">'+fmt(num(rlvD.rlv||lc))+'</div></div>'+
+              '<div class="cover-metric"><div class="cm-label">Dev Margin</div><div class="cm-value">'+pct(num(f.marginPct||f.devMargin||0))+'</div></div>'+
+              '<div class="cover-metric"><div class="cm-label">Units</div><div class="cm-value">'+units2+'</div></div>'+
+            '</div>'+
+          '</div>'+
+          '<div class="cover-footer">Prepared by Cassidy Group · '+new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})+' · Confidential — not for distribution · Built by Phil Daniel / Landform Intelligence Platform</div>'+
+        '</div>'+
+        '<div class="content">'+
+          '<div class="metrics-row">'+
+            '<div class="mbox"><div class="mbox-label">Site area</div><div class="mbox-value">'+(l.acres||"—")+'ac</div></div>'+
+            '<div class="mbox"><div class="mbox-label">Planning status</div><div class="mbox-value" style="font-size:13px">'+planStatus+'</div></div>'+
+            '<div class="mbox"><div class="mbox-label">AH %</div><div class="mbox-value">'+(p.ahPct||"—")+"%</div></div>"+
+          "</div>"+
+          sections.map(function(sec){
+            var txt=imData[sec.key]||"";
+            if(!txt)return"";
+            return"<h2>"+sec.l+"</h2><p>"+txt.replace(/\n\n/g,"</p><p>").replace(/\n/g," ")+"</p>";
+          }).join("")+
+        '</div>'+
+        '<div class="footer-im"><span>'+addr+' · Cassidy Group Investor Memorandum</span><span>'+new Date().toLocaleDateString("en-GB")+'</span><span>Confidential</span></div>'+
+        '</body></html>';
+      var w=window.open("","_blank","width=900,height=700");
+      if(!w){alert("Allow pop-ups to generate the IM");return;}
+      w.document.write(html);w.document.close();
+      setTimeout(function(){w.print();},600);
+    }
+
+    var imData=data.im||{};
+    var completedSections=sections.filter(function(s){return imData[s.key]&&imData[s.key].length>20;}).length;
+
+    return e("div",null,
+      e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:12}},
+        e("div",null,
+          e("div",{style:{fontSize:11,color:"#7278A0",textTransform:"uppercase",letterSpacing:".12em",fontWeight:700,marginBottom:4}},"Investor Memorandum"),
+          e("h2",{style:{fontSize:22,fontWeight:800,color:"#2E2F8A",margin:0}},addr||"Development Site"),
+          e("div",{style:{fontSize:11,color:"#7278A0",marginTop:4}},completedSections+"/"+sections.length+" sections generated")
+        ),
+        e("div",{style:{display:"flex",gap:8}},
+          e("button",{onClick:generateAllSections,style:{padding:"10px 18px",background:"linear-gradient(135deg,#2D7A65,#4A4BAE)",border:"none",borderRadius:7,color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"🧠 Generate All Sections"),
+          completedSections>0&&e("button",{onClick:printIM,style:{padding:"10px 18px",background:"#2E2F8A",border:"none",borderRadius:7,color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"🖨 Print / PDF")
+        )
+      ),
+
+      // Progress bar
+      e("div",{style:{height:6,background:"#F0F1FA",borderRadius:3,marginBottom:16,overflow:"hidden"}},
+        e("div",{style:{height:"100%",width:(completedSections/sections.length*100)+"%",background:"linear-gradient(90deg,#2D7A65,#4A4BAE)",borderRadius:3,transition:"width .4s"}})
+      ),
+
+      // Sections
+      sections.map(function(sec){
+        var txt=imData[sec.key]||"";
+        var loading=imData["loading_"+sec.id];
+        return e("div",{key:sec.id,style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,marginBottom:10,overflow:"hidden"}},
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",background:txt?"#F7F8FC":"#fff",borderBottom:txt?"1px solid #DDE0ED":"none",cursor:"pointer"},
+            onClick:function(){up("im","open_"+sec.id,!imData["open_"+sec.id]);}},
+            e("div",{style:{display:"flex",alignItems:"center",gap:10}},
+              e("span",{style:{width:22,height:22,borderRadius:"50%",background:txt?"#2D7A65":"#DDE0ED",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:txt?"#fff":"#7278A0",flexShrink:0}},txt?"✓":"·"),
+              e("span",{style:{fontSize:13,fontWeight:700,color:"#2E2F8A"}},sec.l)
+            ),
+            e("div",{style:{display:"flex",gap:8}},
+              e("button",{
+                onClick:function(ev){ev.stopPropagation();generateSection(sec);},
+                disabled:loading,
+                style:{padding:"4px 12px",background:loading?"#8889C8":"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+              },loading?"Generating...":"Generate"),
+              e("span",{style:{fontSize:12,color:"#7278A0"}},imData["open_"+sec.id]?"▲":"▼")
+            )
+          ),
+          (txt&&imData["open_"+sec.id])&&e("div",{style:{padding:"16px 20px"}},
+            e("textarea",{
+              value:txt,
+              onChange:function(ev){up("im",sec.key,ev.target.value);},
+              style:{width:"100%",minHeight:120,padding:"10px 14px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:12,fontFamily:"DM Sans,sans-serif",color:"#3A3D6A",lineHeight:1.75,resize:"vertical"}
+            })
+          ),
+          !txt&&!loading&&e("div",{style:{padding:"12px 16px",fontSize:11,color:"#7278A0",fontStyle:"italic"}},"Click Generate to create this section")
+        );
+      }),
+
+      completedSections===0&&e("div",{style:{background:"rgba(74,75,174,0.05)",border:"1px solid rgba(74,75,174,0.2)",borderRadius:8,padding:"16px 20px",marginTop:8,fontSize:11,color:"#4A4BAE",lineHeight:1.8}},
+        "ℹ Complete Land Appraisal, RLV, Planning & Viability and Financial Modelling stages first for accurate IM figures. Then click Generate All Sections — all 7 sections are written simultaneously."
+      )
+    );
+  }
+
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // GRANT & FUNDING INTELLIGENCE
+  // ══════════════════════════════════════════════════════════════════════════
+  function renderGrants(){
+    var l=data.land||{}; var p=data.planning||{}; var f=data.fin||{};
+    var rlvD=data.rlv||{}; var cc=data.constraint||{}; var g=data.grants||{};
+    var addr=l.address||"Development Site";
+    var units2=num(p.units||rlvD.units||0);
+    var ahPct=num(p.ahPct||0);
+    var ahUnits=Math.round(units2*ahPct/100);
+    var ask=num(l.price||0);
+    var acres2=num(l.acres||0);
+    var gdvVal=gdv>0?gdv:0;
+    var rlvVal=num(rlvD.rlv||lc||0);
+    var margin=num(f.marginPct||f.devMargin||0);
+    var isBrownfield=l.planningStatus==="brownfield"||(cc.constraints&&cc.constraints.toLowerCase().indexOf("brownfield")>=0)||(g.isBrownfield||false);
+    var hasFlood=cc.verdict==="AVOID"||(cc.constraints&&cc.constraints.toLowerCase().indexOf("flood")>=0)||(g.hasFlood||false);
+    var cityVal=city||l.city||"manchester";
+    var lpa=p.lpa||l.localAuthority||"";
+
+    // ── GRANT ELIGIBILITY SCORING ──────────────────────────────────────────
+    // Each grant scored 0-100 for probability of eligibility
+    var GRANTS=[
+      {
+        id:"brownfield",
+        name:"Brownfield Land Release Fund",
+        funder:"Homes England / DLUHC",
+        type:"Capital grant",
+        purpose:"Remediating and unlocking brownfield sites for housing",
+        typical:"£500k–£5m depending on remediation costs",
+        score:function(){
+          var s=0;
+          if(isBrownfield)s+=50;
+          if(units2>=20)s+=15;
+          if(ahPct>=20)s+=10;
+          if(margin<20)s+=15; // viability gap helps
+          if(lpa)s+=10;
+          return Math.min(s,95);
+        },
+        conditions:["Site must be previously developed land","Demonstrable remediation or enabling cost","Local authority partnership or support","Minimum housing output (typically 10+ units)"],
+        abnormalEstimate:function(){return Math.round(acres2*120000)||500000;},
+        notes:"BLRF is highly competitive. Sites with significant remediation costs and strong LA support score highest."
+      },
+      {
+        id:"hif",
+        name:"Housing Infrastructure Fund",
+        funder:"Homes England",
+        type:"Infrastructure grant",
+        purpose:"Forward funding infrastructure to unlock housing delivery",
+        typical:"£1m–£250m (marginal viability interventions)",
+        score:function(){
+          var s=0;
+          if(units2>=200)s+=40;
+          if(units2>=500)s+=20;
+          if(gdvVal>10000000)s+=15;
+          if(margin<18)s+=15;
+          if(ahPct>=25)s+=10;
+          return Math.min(s,90);
+        },
+        conditions:["Large strategic sites (200+ units typical)","Infrastructure deficit (highways, drainage, utilities)","Demonstrable viability gap without grant","Strong local authority support","Housing delivery within 3 years of funding"],
+        abnormalEstimate:function(){return Math.round(units2*8500)||0;},
+        notes:"HIF is for strategic sites where infrastructure costs prevent delivery. Repayable element possible on stronger sites."
+      },
+      {
+        id:"ah_subsidy",
+        name:"Affordable Homes Programme",
+        funder:"Homes England",
+        type:"Revenue grant per unit",
+        purpose:"Grant per affordable unit delivered",
+        typical:"£28k–£80k per affordable unit depending on tenure and region",
+        score:function(){
+          var s=0;
+          if(ahUnits>=10)s+=40;
+          if(ahPct>=25)s+=20;
+          if(ahPct>=35)s+=15;
+          if(margin<20)s+=15;
+          if(["manchester","birmingham","leeds","sheffield","liverpool","bristol","nottingham"].indexOf(cityVal)>=0)s+=10;
+          return Math.min(s,92);
+        },
+        conditions:["Affordable units must meet AHP definition (social rent, AFF rent, shared ownership)","Registered Provider must be involved","Units must be additional (not converting existing stock)","Compliance with design standards"],
+        abnormalEstimate:function(){return ahUnits*45000||0;},
+        notes:"The most reliable grant for schemes with meaningful affordable housing. RPs access this directly  -  structure your deal to include an RP partner."
+      },
+      {
+        id:"heat_network",
+        name:"Heat Network Investment Project",
+        funder:"DESNZ / UKGI",
+        type:"Loan / grant hybrid",
+        purpose:"Supporting heat network infrastructure in new developments",
+        typical:"£2m–£30m per project",
+        score:function(){
+          var s=0;
+          if(units2>=100)s+=30;
+          if(units2>=300)s+=20;
+          if(["london","manchester","birmingham","leeds","bristol","nottingham"].indexOf(cityVal)>=0)s+=20;
+          if(gdvVal>15000000)s+=15;
+          if(ahPct>=20)s+=15;
+          return Math.min(s,75);
+        },
+        conditions:["Scheme of sufficient scale (100+ units typical)","Heat network technically viable","District heating connection planned","Carbon reduction evidence"],
+        abnormalEstimate:function(){return Math.round(units2*3500)||0;},
+        notes:"Primarily loan-based with potential grant element. Works best on larger mixed-tenure schemes in urban locations."
+      },
+      {
+        id:"ukspf",
+        name:"UK Shared Prosperity Fund",
+        funder:"Local Authority / DLUHC",
+        type:"Capital grant",
+        purpose:"Local economic regeneration and community infrastructure",
+        typical:"£100k–£2m",
+        score:function(){
+          var s=0;
+          if(isBrownfield)s+=25;
+          var deprivedAreas=["blackpool","burnley","bradford","middlesbrough","hull","sunderland","stoke","wolverhampton","oldham","rochdale"];
+          if(deprivedAreas.indexOf(cityVal)>=0)s+=30;
+          if(ahPct>=25)s+=15;
+          if(units2>=50)s+=15;
+          if(lpa)s+=15;
+          return Math.min(s,80);
+        },
+        conditions:["Located in UKSPF investment area","Demonstrable community / economic benefit","Local authority support","Employment or skills element preferred"],
+        abnormalEstimate:function(){return 500000;},
+        notes:"Administered locally  -  contact the LA directly. Most useful for mixed-use or community-led schemes."
+      },
+      {
+        id:"lep_grant",
+        name:"LEP / Mayoral Development Grant",
+        funder:"Local Enterprise Partnership / Combined Authority",
+        type:"Capital grant",
+        purpose:"Regional economic development and housing delivery",
+        typical:"£250k–£5m",
+        score:function(){
+          var s=0;
+          var mayors=["manchester","birmingham","leeds","liverpool","bristol","sheffield","cambridge","london"];
+          if(mayors.indexOf(cityVal)>=0)s+=30;
+          if(units2>=100)s+=20;
+          if(gdvVal>5000000)s+=15;
+          if(isBrownfield)s+=20;
+          if(ahPct>=20)s+=15;
+          return Math.min(s,80);
+        },
+        conditions:["Within Combined Authority area","Aligned with local economic strategy","Housing output demonstrated","Job creation or retention element"],
+        abnormalEstimate:function(){return Math.round(units2*3000)||0;},
+        notes:"Very location-dependent. Greater Manchester, West Midlands and West of England have most active programmes."
+      },
+      {
+        id:"remediation_relief",
+        name:"Remediation Relief / Contamination Tax Credit",
+        funder:"HMRC / Treasury",
+        type:"Tax relief",
+        purpose:"Corporation tax relief on contamination / remediation costs",
+        typical:"150% relief on qualifying remediation costs",
+        score:function(){
+          var s=0;
+          if(isBrownfield)s+=50;
+          if(g.hasContamination)s+=30;
+          if(gdvVal>2000000)s+=20;
+          return Math.min(s,90);
+        },
+        conditions:["Previously developed or contaminated land","Remediation costs incurred by developer","Corporation tax payer","Qualifying works evidenced"],
+        abnormalEstimate:function(){return Math.round(acres2*80000*0.5)||0;},
+        notes:"Not a grant but often overlooked  -  150% tax relief on remediation can be worth £500k+ on a brownfield site. Speak to your tax adviser."
+      },
+    ];
+
+    // Calculate total potential funding
+    var eligibleGrants=GRANTS.filter(function(gr){return gr.score()>=40;});
+    var totalPotential=eligibleGrants.reduce(function(t,gr){return t+gr.abnormalEstimate();},0);
+    var viabilityGap=gdvVal>0&&margin<18?Math.round(gdvVal*(0.18-margin/100)):0;
+
+    // Brownfield toggle
+    function toggle(k){up("grants",k,!g[k]);}
+
+    // Funding gap model
+    var abnormalTotal=num(g.enablingCost||0)+num(g.remediationCost||0)+num(g.drainageCost||0)+num(g.highwayCost||0)+num(g.utilityCost||0)+num(g.otherAbnormal||0);
+    var grantsClaimed=num(g.brownfieldGrant||0)+num(g.ahpGrant||0)+num(g.hifGrant||0)+num(g.otherGrant||0);
+    var fundingGap=Math.max(0,abnormalTotal-grantsClaimed);
+    var grantedViabilityMargin=gdvVal>0?(margin+(grantsClaimed/gdvVal*100)):margin;
+
+    function scoreColor(s){return s>=70?"#2D7A65":s>=45?"#9A7B3E":"#B05A35";}
+    function scoreBadge(s){return s>=70?"HIGH":s>=45?"MEDIUM":"LOW";}
+
+    return e("div",null,
+      // Header
+      e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:12}},
+        e("div",null,
+          e("div",{style:{fontSize:11,color:"#7278A0",textTransform:"uppercase",letterSpacing:".12em",fontWeight:700,marginBottom:4}},"Grant & Funding Intelligence"),
+          e("h2",{style:{fontSize:22,fontWeight:800,color:"#2E2F8A",margin:"0 0 4px"}},"💷 "+addr),
+          e("div",{style:{fontSize:12,color:"#7278A0"}},"Eligible grants are identified from your deal data. Scores are indicative  -  not legal or financial advice.")
+        ),
+        e("div",{style:{textAlign:"right"}},
+          e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:2}},"Total potential funding"),
+          e("div",{style:{fontSize:28,fontWeight:800,color:"#2D7A65"}},fmt(totalPotential)),
+          e("div",{style:{fontSize:10,color:"#7278A0"}},"across "+eligibleGrants.length+" eligible grants")
+        )
+      ),
+
+      // Site flags
+      e("div",{style:{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}},
+        e("label",{style:{display:"flex",alignItems:"center",gap:6,padding:"6px 12px",background:isBrownfield?"rgba(45,122,101,0.1)":"#F7F8FC",border:"1px solid "+(isBrownfield?"#2D7A65":"#DDE0ED"),borderRadius:20,cursor:"pointer",fontSize:11,fontWeight:700,color:isBrownfield?"#2D7A65":"#7278A0"}},
+          e("input",{type:"checkbox",checked:isBrownfield,onChange:function(){toggle("isBrownfield");},style:{accentColor:"#2D7A65"}}),
+          "Brownfield / Previously developed"
+        ),
+        e("label",{style:{display:"flex",alignItems:"center",gap:6,padding:"6px 12px",background:g.hasContamination?"rgba(176,90,53,0.08)":"#F7F8FC",border:"1px solid "+(g.hasContamination?"#B05A35":"#DDE0ED"),borderRadius:20,cursor:"pointer",fontSize:11,fontWeight:700,color:g.hasContamination?"#B05A35":"#7278A0"}},
+          e("input",{type:"checkbox",checked:g.hasContamination||false,onChange:function(){toggle("hasContamination");},style:{accentColor:"#B05A35"}}),
+          "Contamination / Remediation required"
+        ),
+        e("label",{style:{display:"flex",alignItems:"center",gap:6,padding:"6px 12px",background:g.hasFlood?"rgba(154,123,62,0.08)":"#F7F8FC",border:"1px solid "+(g.hasFlood?"#9A7B3E":"#DDE0ED"),borderRadius:20,cursor:"pointer",fontSize:11,fontWeight:700,color:g.hasFlood?"#9A7B3E":"#7278A0"}},
+          e("input",{type:"checkbox",checked:g.hasFlood||false,onChange:function(){toggle("hasFlood");},style:{accentColor:"#9A7B3E"}}),
+          "Flood risk / Drainage abnormals"
+        )
+      ),
+
+      // Grant cards
+      e("div",{style:{marginBottom:16}},
+        e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:10}},"Grant Eligibility Scoring"),
+        GRANTS.map(function(gr){
+          var sc=gr.score();
+          var est=gr.abnormalEstimate();
+          var col=scoreColor(sc);
+          var badge=scoreBadge(sc);
+          var isOpen=g["open_"+gr.id];
+          return e("div",{key:gr.id,style:{background:"#fff",border:"1px solid "+(sc>=70?"#2D7A65":sc>=45?"#DDE0ED":"#E8E8F0"),borderRadius:10,marginBottom:8,overflow:"hidden",opacity:sc<30?0.6:1}},
+            e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",cursor:"pointer"},onClick:function(){up("grants","open_"+gr.id,!isOpen);}},
+              e("div",{style:{flex:1}},
+                e("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:2}},
+                  e("span",{style:{fontSize:13,fontWeight:700,color:"#2E2F8A"}},gr.name),
+                  e("span",{style:{padding:"2px 8px",background:sc>=70?"rgba(45,122,101,0.1)":sc>=45?"rgba(154,123,62,0.1)":"rgba(176,90,53,0.08)",color:col,fontSize:9,fontWeight:800,borderRadius:10,letterSpacing:".06em"}},badge+" PROBABILITY")
+                ),
+                e("div",{style:{fontSize:11,color:"#7278A0"}},gr.funder+" · "+gr.type+" · Typical: "+gr.typical)
+              ),
+              e("div",{style:{display:"flex",alignItems:"center",gap:12,marginLeft:12}},
+                e("div",{style:{textAlign:"right"}},
+                  e("div",{style:{fontSize:16,fontWeight:800,color:col}},sc+"%"),
+                  e("div",{style:{fontSize:9,color:"#7278A0"}},fmt(est)+" est.")
+                ),
+                e("div",{style:{width:36,height:36,borderRadius:"50%",background:"#F0F1FA",display:"flex",alignItems:"center",justifyContent:"center",color:"#7278A0",fontSize:14}},isOpen?"▲":"▼")
+              )
+            ),
+            // Score bar
+            e("div",{style:{height:4,background:"#F0F1FA"}},
+              e("div",{style:{width:sc+"%",height:"100%",background:col,transition:"width .4s"}})
+            ),
+            // Expanded detail
+            isOpen&&e("div",{style:{padding:"14px 16px",borderTop:"1px solid #F0F1FA"}},
+              e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:12}},
+                e("div",null,
+                  e("div",{style:{fontSize:10,fontWeight:800,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".08em",marginBottom:6}},"Eligibility conditions"),
+                  gr.conditions.map(function(c2,ci){
+                    return e("div",{key:ci,style:{display:"flex",gap:6,marginBottom:4,fontSize:11,color:"#3A3D6A"}},
+                      e("span",{style:{color:"#2D7A65",flexShrink:0}},"✓"),c2
+                    );
+                  })
+                ),
+                e("div",null,
+                  e("div",{style:{fontSize:10,fontWeight:800,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".08em",marginBottom:6}},"Estimated quantum"),
+                  e("div",{style:{fontSize:22,fontWeight:800,color:"#2E2F8A",marginBottom:4}},fmt(est)),
+                  e("div",{style:{fontSize:11,color:"#7278A0",lineHeight:1.6}},gr.notes)
+                )
+              )
+            )
+          );
+        })
+      ),
+
+      // Abnormal cost & funding gap model
+      e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",marginBottom:14}},
+        e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:14}},"Abnormal Cost & Funding Gap Model"),
+        e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}},
+          [
+            {k:"enablingCost",l:"Enabling & demolition"},
+            {k:"remediationCost",l:"Remediation / decontamination"},
+            {k:"drainageCost",l:"Drainage abnormals"},
+            {k:"highwayCost",l:"Highways / S278"},
+            {k:"utilityCost",l:"Utility diversions"},
+            {k:"otherAbnormal",l:"Other abnormals"},
+          ].map(function(row){
+            return e("div",{key:row.k},
+              e("label",{style:{fontSize:10,color:"#7278A0",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",display:"block",marginBottom:3}},row.l),
+              e("input",{type:"number",value:g[row.k]||"",onChange:function(ev){up("grants",row.k,ev.target.value);},placeholder:"£0",style:{width:"100%",padding:"7px 10px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:12,fontFamily:"DM Mono,monospace",color:"#2E2F8A"}})
+            );
+          })
+        ),
+        e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14,paddingTop:12,borderTop:"1px solid #DDE0ED"}},
+          [
+            {k:"brownfieldGrant",l:"Brownfield / BLRF grant secured"},
+            {k:"ahpGrant",l:"AHP grant (per unit × units)"},
+            {k:"hifGrant",l:"HIF / infrastructure grant"},
+            {k:"otherGrant",l:"Other grant funding"},
+          ].map(function(row){
+            return e("div",{key:row.k},
+              e("label",{style:{fontSize:10,color:"#2D7A65",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",display:"block",marginBottom:3}},row.l),
+              e("input",{type:"number",value:g[row.k]||"",onChange:function(ev){up("grants",row.k,ev.target.value);},placeholder:"£0",style:{width:"100%",padding:"7px 10px",border:"1px solid rgba(45,122,101,0.3)",borderRadius:6,fontSize:12,fontFamily:"DM Mono,monospace",color:"#2D7A65"}})
+            );
+          })
+        ),
+        e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}},
+          [
+            {l:"Total abnormals",v:fmt(abnormalTotal),c:"#B05A35"},
+            {l:"Total grants",v:fmt(grantsClaimed),c:"#2D7A65"},
+            {l:"Residual funding gap",v:fmt(fundingGap),c:fundingGap>0?"#B05A35":"#2D7A65"},
+          ].map(function(item){
+            return e("div",{key:item.l,style:{background:"#F7F8FC",borderRadius:8,padding:"12px 14px",borderTop:"3px solid "+item.c}},
+              e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".08em",marginBottom:3}},item.l),
+              e("div",{style:{fontSize:18,fontWeight:800,color:item.c}},item.v)
+            );
+          })
+        ),
+        grantsClaimed>0&&e("div",{style:{marginTop:10,padding:"8px 12px",background:"rgba(45,122,101,0.06)",borderRadius:6,fontSize:11,color:"#2D7A65"}},
+          "With grants of "+fmt(grantsClaimed)+" applied, effective development margin improves to "+Math.round(grantedViabilityMargin*10)/10+"% (was "+Math.round(margin*10)/10+"% without funding)"
+        )
+      ),
+
+      // Grant Strategy Pack generator
+      e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",marginBottom:14}},
+        e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}},"Grant Strategy Pack"),
+        e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:12,lineHeight:1.7}},"AI generates a 10-section funding application pack covering all the criteria funders look for. Based on your deal data."),
+        [
+          {id:"gs_site",l:"1. Site Summary & Public Benefits",key:"gs_site"},
+          {id:"gs_housing",l:"2. Housing Outputs & Affordability",key:"gs_housing"},
+          {id:"gs_viability",l:"3. Viability Gap Explanation",key:"gs_viability"},
+          {id:"gs_abnormal",l:"4. Abnormal Costs Schedule",key:"gs_abnormal"},
+          {id:"gs_programme",l:"5. Delivery Programme",key:"gs_programme"},
+          {id:"gs_economic",l:"6. Economic Benefits & Jobs",key:"gs_economic"},
+          {id:"gs_infra",l:"7. Infrastructure Need",key:"gs_infra"},
+          {id:"gs_ask",l:"8. Funding Ask & Justification",key:"gs_ask"},
+          {id:"gs_roi",l:"9. Return on Public Investment",key:"gs_roi"},
+          {id:"gs_strategy",l:"10. Grant Structuring Strategy",key:"gs_strategy"},
+        ].map(function(sec){
+          var txt=g[sec.key]||"";
+          var loading=g["loading_"+sec.id];
+          var isOpen=g["gopen_"+sec.id];
+
+          var prompts={
+            gs_site:"Write a site summary section for a grant application. Site: "+addr+", "+cityName(cityVal)+", "+acres2+" acres. Planning status: "+(p.status||"unallocated")+". LPA: "+lpa+". Brownfield: "+isBrownfield+". Units: "+units2+". Describe the public benefit of bringing this site forward, the housing need it addresses, and why public funding support is appropriate. 150 words, formal grant application tone.",
+            gs_housing:"Write a housing outputs section for a grant application. Total units: "+units2+". Affordable: "+ahUnits+" units ("+ahPct+"%). GDV: "+fmt(gdvVal)+". Describe the housing mix, affordability levels, the local housing need context, and how the affordable housing output justifies grant support. Reference Homes England AHP criteria. 150 words.",
+            gs_viability:"Write a viability gap explanation for a grant application. Current development margin: "+Math.round(margin)+"%. Target viability threshold: 18-20%. Abnormal costs: "+fmt(abnormalTotal)+". Funding gap: "+fmt(fundingGap)+". GDV: "+fmt(gdvVal)+". Explain clearly why this site cannot come forward without grant support, using the residual method and referencing RICS Red Book guidance. 180 words. Formal tone.",
+            gs_abnormal:"Write an abnormal costs schedule narrative for a grant application. Itemise these costs: enabling works £"+num(g.enablingCost||0).toLocaleString()+", remediation £"+num(g.remediationCost||0).toLocaleString()+", drainage £"+num(g.drainageCost||0).toLocaleString()+", highways £"+num(g.highwayCost||0).toLocaleString()+", utilities £"+num(g.utilityCost||0).toLocaleString()+", other £"+num(g.otherAbnormal||0).toLocaleString()+". Total: "+fmt(abnormalTotal)+". Explain why these costs are abnormal compared to a standard greenfield site and how they've been quantified. 150 words.",
+            gs_programme:"Write a delivery programme section for a grant application. Site: "+addr+". Planning status: "+(p.status||"unallocated")+". Units: "+units2+". Estimated programme: "+(f.programmeMths||36)+" months build, total project "+(Math.round((f.programmeMths||36)/12+1.5))+" years. Describe key milestones, start on site target, phasing and how the grant funding enables earlier delivery. 150 words.",
+            gs_economic:"Write an economic benefits section for a grant application covering: direct construction jobs (estimate 1 job per £100k spend), indirect supply chain employment, business rates uplift from completed homes, council tax revenue, local spend by new residents. Build cost: "+fmt(num(rlvD.buildPsf||f.buildPsf||180)*units2*850)+". "+units2+" new homes. "+cityName(cityVal)+" location. 150 words.",
+            gs_infra:"Write an infrastructure need section for a grant application. Describe the infrastructure requirements for "+addr+": drainage ("+fmt(num(g.drainageCost||0))+"), highways ("+fmt(num(g.highwayCost||0))+"), utilities ("+fmt(num(g.utilityCost||0))+"). Explain why these are necessary for the site to come forward and how they connect to wider strategic infrastructure. 150 words.",
+            gs_ask:"Write a clear funding ask section for a grant application. Total grant sought: "+fmt(grantsClaimed||totalPotential)+". Breakdown: BLRF/brownfield grant £"+num(g.brownfieldGrant||0).toLocaleString()+", AHP grant £"+num(g.ahpGrant||0).toLocaleString()+", HIF/infrastructure £"+num(g.hifGrant||0).toLocaleString()+", other £"+num(g.otherGrant||0).toLocaleString()+". Total abnormals: "+fmt(abnormalTotal)+". Explain how the grant will be spent, the basis for the quantum, and why this is the minimum necessary to make the scheme viable. 150 words.",
+            gs_roi:"Write a return on public investment section for a grant application. Grant sought: "+fmt(grantsClaimed||totalPotential)+". Housing output: "+units2+" homes ("+ahUnits+" affordable). Council tax per year from completed homes (est. £"+Math.round(units2*1800).toLocaleString()+"pa). Business rates unlocked. Developer contribution to infrastructure. Calculate cost per home, cost per affordable home, and payback period. Make the case for public investment clearly. 150 words.",
+            gs_strategy:"Write a grant structuring strategy section. Explain the professional approach to using grant funding: grants should enhance viability not be the sole reason a deal works; structuring schemes to qualify; using grants to reduce risk and improve leverage; layering multiple funding sources; and maintaining commercial discipline. Site: "+addr+". Current margin: "+Math.round(margin)+"%. With grants: "+Math.round(grantedViabilityMargin)+"%. 150 words. This should demonstrate sophisticated grant management."
+          };
+
+          function generateSection2(){
+            up("grants","loading_"+sec.id,true);
+            var params=new URLSearchParams({action:"ai",stage:"grants",
+              user:(user&&user.name)||"",company:(user&&user.company)||"",
+              system:"You are a senior UK development finance director writing a formal grant application for a Homes England or DLUHC funding programme. Be specific, evidence-based and professional.",
+              prompt:(prompts[sec.key]||"Write a professional grant application section for "+sec.l+".")
+            });
+            fetch(WEBHOOK+"?"+params.toString())
+            .then(function(r2){return r2.json();})
+            .then(function(d){up("grants",sec.key,d.result||"");up("grants","loading_"+sec.id,false);})
+            .catch(function(){up("grants","loading_"+sec.id,false);});
+          }
+
+          return e("div",{key:sec.id,style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,marginBottom:6,overflow:"hidden"}},
+            e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",cursor:"pointer"},onClick:function(){up("grants","gopen_"+sec.id,!isOpen);}},
+              e("div",{style:{display:"flex",alignItems:"center",gap:8}},
+                e("span",{style:{width:18,height:18,borderRadius:"50%",background:txt?"#2D7A65":"#DDE0ED",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:txt?"#fff":"#7278A0",flexShrink:0}},txt?"✓":"·"),
+                e("span",{style:{fontSize:12,fontWeight:600,color:"#2E2F8A"}},sec.l)
+              ),
+              e("div",{style:{display:"flex",gap:8}},
+                e("button",{onClick:function(ev){ev.stopPropagation();generateSection2();},disabled:loading,
+                  style:{padding:"4px 10px",background:loading?"#8889C8":"#4A4BAE",border:"none",borderRadius:4,color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+                },loading?"Writing...":"Generate"),
+                e("span",{style:{fontSize:11,color:"#7278A0"}},isOpen?"▲":"▼")
+              )
+            ),
+            (txt&&isOpen)&&e("div",{style:{padding:"12px 14px",borderTop:"1px solid #DDE0ED"}},
+              e("textarea",{value:txt,onChange:function(ev){up("grants",sec.key,ev.target.value);},
+                style:{width:"100%",minHeight:100,padding:"8px 12px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:11,fontFamily:"DM Sans,sans-serif",color:"#3A3D6A",lineHeight:1.75,resize:"vertical"}
+              })
+            )
+          );
+        }),
+
+        e("div",{style:{display:"flex",gap:8,marginTop:10}},
+          e("button",{
+            onClick:function(){
+              var secs=["gs_site","gs_housing","gs_viability","gs_abnormal","gs_programme","gs_economic","gs_infra","gs_ask","gs_roi","gs_strategy"];
+              var prompts2={
+                gs_site:"Site summary for grant application. Site: "+addr+", "+cityName(cityVal)+", "+acres2+" acres, "+units2+" units, "+ahPct+"% affordable. Brownfield: "+isBrownfield+". LPA: "+lpa+". Public benefit and housing need. 120 words formal tone.",
+                gs_housing:"Housing outputs section. "+units2+" total, "+ahUnits+" affordable ("+ahPct+"%). GDV "+fmt(gdvVal)+". Housing need context and AHP criteria. 120 words.",
+                gs_viability:"Viability gap explanation. Margin "+Math.round(margin)+"%, target 18-20%, abnormals "+fmt(abnormalTotal)+", gap "+fmt(fundingGap)+". RICS Red Book residual method. 140 words.",
+                gs_abnormal:"Abnormal costs: enabling £"+num(g.enablingCost||0).toLocaleString()+", remediation £"+num(g.remediationCost||0).toLocaleString()+", drainage £"+num(g.drainageCost||0).toLocaleString()+", highways £"+num(g.highwayCost||0).toLocaleString()+". Total "+fmt(abnormalTotal)+". 120 words.",
+                gs_programme:"Delivery programme: "+units2+" units, "+(p.status||"unallocated")+" planning, "+(f.programmeMths||36)+" months build. Milestones and grant enabling earlier delivery. 120 words.",
+                gs_economic:"Economic benefits: construction jobs, council tax "+fmt(units2*1800)+"pa, local spend, supply chain. "+units2+" homes in "+cityName(cityVal)+". 120 words.",
+                gs_infra:"Infrastructure need: drainage "+fmt(num(g.drainageCost||0))+", highways "+fmt(num(g.highwayCost||0))+", utilities "+fmt(num(g.utilityCost||0))+". Why necessary. 120 words.",
+                gs_ask:"Funding ask: "+fmt(grantsClaimed||totalPotential)+" total. Breakdown and minimum necessary for viability. 120 words.",
+                gs_roi:"Return on public investment: "+units2+" homes, "+ahUnits+" affordable, council tax "+fmt(units2*1800)+"pa, cost per home "+fmt((grantsClaimed||totalPotential)/Math.max(units2,1))+". 120 words.",
+                gs_strategy:"Grant structuring strategy: enhance viability not replace it, layering sources, margin "+Math.round(margin)+"% to "+Math.round(grantedViabilityMargin)+"% with grants. 120 words."
+              };
+              secs.forEach(function(k,i){
+                setTimeout(function(){
+                  up("grants","loading_grant_"+i,true);
+                  var params=new URLSearchParams({action:"ai",stage:"grants",
+                    user:(user&&user.name)||"",company:(user&&user.company)||"",
+                    system:"You are a senior UK development finance director writing a formal grant application. Be specific and professional.",
+                    prompt:prompts2[k]||k
+                  });
+                  fetch(WEBHOOK+"?"+params.toString())
+                  .then(function(r2){return r2.json();})
+                  .then(function(d){up("grants",k,d.result||"");up("grants","loading_grant_"+i,false);})
+                  .catch(function(){up("grants","loading_grant_"+i,false);});
+                },i*700);
+              });
+            },
+            style:{padding:"10px 20px",background:"linear-gradient(135deg,#2D7A65,#4A4BAE)",border:"none",borderRadius:7,color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+          },"🧠 Generate Full Grant Strategy Pack"),
+          e("button",{
+            onClick:function(){
+              var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap");body{font-family:"DM Sans",sans-serif;max-width:720px;margin:0 auto;padding:48px 60px;color:#1a1a2e;font-size:13px;line-height:1.75;}h1{font-size:24px;font-weight:800;color:#2E2F8A;margin:0 0 4px;}h2{font-size:16px;font-weight:800;color:#2E2F8A;margin:28px 0 8px;padding-top:12px;border-top:2px solid #E8E8F0;}p{margin:0 0 12px;color:#3A3D6A;}.header{background:linear-gradient(135deg,#1E1F5C,#2E2F8A);color:#fff;padding:32px 40px;margin:-48px -60px 40px;}.h-logo{font-size:14px;font-weight:800;letter-spacing:.2em;margin-bottom:4px;}.h-title{font-size:22px;font-weight:800;margin:16px 0 4px;}.h-sub{font-size:12px;opacity:.6;}.metrics-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:20px 0;}.mbox{background:#F7F8FC;border:1px solid #DDE0ED;border-radius:8px;padding:12px 14px;}.ml{font-size:9px;color:#7278A0;text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px;}.mv{font-size:16px;font-weight:800;color:#2E2F8A;}.footer{margin-top:40px;padding-top:16px;border-top:1px solid #E8E8F0;font-size:10px;color:#7278A0;display:flex;justify-content:space-between;}@media print{.header{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}'+
+              '</style></head><body>'+
+              '<div class="header"><div class="h-logo">CASSIDY GROUP</div><div class="h-title">Grant Strategy Pack</div><div class="h-title" style="font-size:16px">'+addr+'</div><div class="h-sub">'+cityName(cityVal)+(lpa?" · "+lpa:"")+" · Prepared "+new Date().toLocaleDateString("en-GB")+'</div></div>'+
+              '<div class="metrics-row"><div class="mbox"><div class="ml">GDV</div><div class="mv">'+fmt(gdvVal)+'</div></div><div class="mbox"><div class="ml">Total abnormals</div><div class="mv">'+fmt(abnormalTotal)+'</div></div><div class="mbox"><div class="ml">Grant potential</div><div class="mv">'+fmt(totalPotential)+'</div></div><div class="mbox"><div class="ml">Margin with grants</div><div class="mv">'+Math.round(grantedViabilityMargin)+'%</div></div></div>'+
+              ['gs_site','gs_housing','gs_viability','gs_abnormal','gs_programme','gs_economic','gs_infra','gs_ask','gs_roi','gs_strategy'].map(function(k,i){
+                var labels=['Site Summary & Public Benefits','Housing Outputs & Affordability','Viability Gap Explanation','Abnormal Costs Schedule','Delivery Programme','Economic Benefits & Jobs','Infrastructure Need','Funding Ask & Justification','Return on Public Investment','Grant Structuring Strategy'];
+                var txt2=g[k]||"";
+                if(!txt2)return"";
+                return'<h2>'+(i+1)+'. '+labels[i]+'</h2><p>'+txt2.replace(/\n\n/g,"</p><p>").replace(/\n/g," ")+'</p>';
+              }).join("")+
+              '<div class="footer"><span>'+addr+' Grant Strategy Pack · Cassidy Group</span><span>'+new Date().toLocaleDateString("en-GB")+'</span><span>Built by Phil Daniel · Landform</span></div>'+
+              '</body></html>';
+              var w=window.open("","_blank","width=900,height=700");
+              if(!w){alert("Allow pop-ups");return;}
+              w.document.write(html);w.document.close();
+              setTimeout(function(){w.print();},500);
+            },
+            style:{padding:"10px 18px",background:"#2E2F8A",border:"none",borderRadius:7,color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+          },"🖨 Print Grant Pack")
+        )
+      ),
+
+      // ── GRANT ACTION PLAN ────────────────────────────────────────────────────
+      e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",marginBottom:14}},
+        e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}},"Grant Action Plan"),
+        e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:14,lineHeight:1.7}},"Prioritised next steps for each eligible programme. Do these in order  -  AHP first, BLRF second, HIF third."),
+
+        // AHP Action Plan
+        ahUnits>=10&&e("div",{style:{marginBottom:16,padding:"14px 16px",background:"rgba(45,122,101,0.04)",border:"1px solid rgba(45,122,101,0.2)",borderRadius:8}},
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}},
+            e("div",{style:{fontSize:12,fontWeight:800,color:"#2D7A65"}},"(1) Affordable Homes Programme  -  do this first"),
+            e("span",{style:{fontSize:10,padding:"3px 8px",background:"rgba(45,122,101,0.1)",color:"#2D7A65",borderRadius:10,fontWeight:700}},"HIGHEST IMPACT")
+          ),
+          [
+            {n:1,l:"Identify your RP partner",d:"The RP applies for AHP  -  not you. Contact VIVID, L&Q, Clarion, Platform, Sovereign or a local RP. They must be on Homes England's strategic partner list. Your existing RP relationships are the fastest route.",act:"Email your shortlist of RPs with the deal summary from the Teaser PDF stage"},
+            {n:2,l:"Share your viability appraisal with the RP",d:"They need your GDV, build cost, affordable unit numbers, transfer price and delivery programme to submit their AHP bid. Use the Detailed Appraisal export from Landform.",act:"Export the Detailed Appraisal PDF and send to RP alongside the Grant Strategy Pack viability section"},
+            {n:3,l:"Agree the affordable transfer price",d:"The RP will calculate what they can pay for the affordable units based on the grant they receive (typically £28k–£80k/unit depending on region and tenure). This sets your land price negotiation.",act:"Model the transfer price in the Financial Modelling stage  -  target 40-60% of open market value for social rent"},
+            {n:4,l:"RP submits AHP bid via Homes England IMS",d:"The RP logs into the Investment Management System (IMS) at gov.uk/homes-england. They submit unit numbers, tenure split, grant per unit request, and development programme. You provide supporting evidence.",act:"Prepare: site address, planning status, unit schedule, programme dates  -  all extractable from Landform"},
+            {n:5,l:"Decision and drawdown",d:"Homes England assess within 8-16 weeks. Grant paid to RP in tranches: on start on site and practical completion. Your land deal should be conditional on AHP approval.",act:"Structure heads of terms with AHP approval as a condition precedent"},
+          ].map(function(step){
+            return e("div",{key:step.n,style:{display:"flex",gap:12,marginBottom:10,paddingBottom:10,borderBottom:"1px dashed rgba(45,122,101,0.15)"}},
+              e("div",{style:{width:24,height:24,borderRadius:"50%",background:"#2D7A65",color:"#fff",fontSize:11,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},step.n),
+              e("div",{style:{flex:1}},
+                e("div",{style:{fontSize:12,fontWeight:700,color:"#2E2F8A",marginBottom:2}},step.l),
+                e("div",{style:{fontSize:11,color:"#7278A0",lineHeight:1.6,marginBottom:4}},step.d),
+                e("div",{style:{fontSize:10,color:"#2D7A65",fontWeight:700,background:"rgba(45,122,101,0.07)",padding:"4px 8px",borderRadius:4}},"→ "+step.act)
+              )
+            );
+          }),
+          e("div",{style:{fontSize:11,color:"#2D7A65",fontWeight:600,marginTop:4}},
+            "Key contact: Homes England Investment & Sales team · 0300 1234 500 · homesengland.gov.uk · Your RP does this, not you"
+          )
+        ),
+
+        // BLRF Action Plan
+        isBrownfield&&e("div",{style:{marginBottom:16,padding:"14px 16px",background:"rgba(74,75,174,0.04)",border:"1px solid rgba(74,75,174,0.2)",borderRadius:8}},
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}},
+            e("div",{style:{fontSize:12,fontWeight:800,color:"#4A4BAE"}},"(2) Brownfield Land Release Fund"),
+            e("span",{style:{fontSize:10,padding:"3px 8px",background:"rgba(74,75,174,0.1)",color:"#4A4BAE",borderRadius:10,fontWeight:700}},"BROWNFIELD SITES")
+          ),
+          [
+            {n:1,l:"Call your LA planning or regeneration team",d:"BLRF requires LA sponsorship or co-application. The LA must support the application. Get a meeting with the Head of Regeneration or Planning Policy  -  not the duty planner.",act:"Email: 'We are bringing forward [site] and want to explore BLRF funding  -  can we meet to discuss LA support?'"},
+            {n:2,l:"Check if BLRF is open",d:"BLRF runs in competitive rounds managed by Homes England. Check homesengland.gov.uk/brownfield-land-release-fund for current rounds and deadlines. Applications are typically open 6-8 weeks.",act:"Bookmark: homesengland.gov.uk and sign up for Homes England developer updates"},
+            {n:3,l:"Prepare the BLRF business case",d:"Assessment criteria: value for money (cost per home unlocked), additionality (would it happen without the grant), deliverability, and housing output. Your Grant Strategy Pack sections 1, 3, 4, 7 and 8 map directly to these criteria.",act:"Use the Grant Strategy Pack from Landform as your business case draft  -  edit sections 3 (viability gap) and 4 (abnormal costs) with actual cost schedules"},
+            {n:4,l:"Submit via the Homes England portal",d:"Joint submission with the LA. You provide the site, cost evidence and delivery commitment. The LA provides a support letter and sometimes contributes match funding.",act:"Gather: Phase 1 environmental report, remediation cost estimate (get a quote), planning pre-app evidence, delivery programme"},
+            {n:5,l:"Grant agreement and milestones",d:"If successful, a grant agreement is signed with Homes England and the LA. Typically paid in tranches tied to delivery milestones. Clawback provisions apply if housing not delivered.",act:"Instruct solicitors to review grant agreement before signing  -  clawback and repayment terms vary"},
+          ].map(function(step){
+            return e("div",{key:step.n,style:{display:"flex",gap:12,marginBottom:10,paddingBottom:10,borderBottom:"1px dashed rgba(74,75,174,0.15)"}},
+              e("div",{style:{width:24,height:24,borderRadius:"50%",background:"#4A4BAE",color:"#fff",fontSize:11,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},step.n),
+              e("div",{style:{flex:1}},
+                e("div",{style:{fontSize:12,fontWeight:700,color:"#2E2F8A",marginBottom:2}},step.l),
+                e("div",{style:{fontSize:11,color:"#7278A0",lineHeight:1.6,marginBottom:4}},step.d),
+                e("div",{style:{fontSize:10,color:"#4A4BAE",fontWeight:700,background:"rgba(74,75,174,0.07)",padding:"4px 8px",borderRadius:4}},"→ "+step.act)
+              )
+            );
+          }),
+          e("div",{style:{fontSize:11,color:"#4A4BAE",fontWeight:600,marginTop:4}},
+            "Key contact: Homes England regional office for your area · homesengland.gov.uk/contact · Also contact your LA Head of Regeneration"
+          )
+        ),
+
+        // HIF Action Plan
+        units2>=200&&e("div",{style:{marginBottom:16,padding:"14px 16px",background:"rgba(154,123,62,0.04)",border:"1px solid rgba(154,123,62,0.2)",borderRadius:8}},
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}},
+            e("div",{style:{fontSize:12,fontWeight:800,color:"#9A7B3E"}},"(3) Housing Infrastructure Fund"),
+            e("span",{style:{fontSize:10,padding:"3px 8px",background:"rgba(154,123,62,0.1)",color:"#9A7B3E",borderRadius:10,fontWeight:700}},"200+ UNITS")
+          ),
+          [
+            {n:1,l:"Check if HIF is open  -  it runs in rounds",d:"HIF is not always available. Monitor Homes England website and consider registering as a developer. When open, the window is typically 8-12 weeks. Applications must be supported by the LA.",act:"Register at homesengland.gov.uk/developers and set up email alerts"},
+            {n:2,l:"Engage Homes England before applying",d:"HIF is relationship-driven at large scale. Contact your local Homes England Area Director for an informal discussion before committing to a formal application. They will tell you whether your site is competitive.",act:"Find your Homes England Area Director at homesengland.gov.uk/about/our-people"},
+            {n:3,l:"Prepare the full business case",d:"HIF requires a detailed infrastructure cost schedule (prepared by a QS), a viability appraisal showing the funding gap, a planning programme, a delivery agreement and LA sign-off. Lead time is 3-6 months.",act:"Commission a QS infrastructure cost report  -  this is the evidence base. Costs £5-15k but essential"},
+            {n:4,l:"LA must lead or co-lead",d:"Homes England prefer LA-led HIF bids. The stronger the LA support letter, the better. Ideally the LA should be a delivery partner, not just a supporter.",act:"Present your scheme to the LA leader and portfolio holder  -  get political as well as officer support"},
+          ].map(function(step){
+            return e("div",{key:step.n,style:{display:"flex",gap:12,marginBottom:10,paddingBottom:10,borderBottom:"1px dashed rgba(154,123,62,0.15)"}},
+              e("div",{style:{width:24,height:24,borderRadius:"50%",background:"#9A7B3E",color:"#fff",fontSize:11,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},step.n),
+              e("div",{style:{flex:1}},
+                e("div",{style:{fontSize:12,fontWeight:700,color:"#2E2F8A",marginBottom:2}},step.l),
+                e("div",{style:{fontSize:11,color:"#7278A0",lineHeight:1.6,marginBottom:4}},step.d),
+                e("div",{style:{fontSize:10,color:"#9A7B3E",fontWeight:700,background:"rgba(154,123,62,0.07)",padding:"4px 8px",borderRadius:4}},"→ "+step.act)
+              )
+            );
+          }),
+          e("div",{style:{fontSize:11,color:"#9A7B3E",fontWeight:600,marginTop:4}},
+            "Key contact: Homes England Strategic Sites team · Large-scale enquiries: 0300 1234 500 option 2"
+          )
+        ),
+
+        // Remediation relief
+        (isBrownfield||g.hasContamination)&&e("div",{style:{marginBottom:16,padding:"14px 16px",background:"rgba(138,138,168,0.04)",border:"1px solid #DDE0ED",borderRadius:8}},
+          e("div",{style:{fontSize:12,fontWeight:800,color:"#2E2F8A",marginBottom:10}},"(4) Remediation Relief  -  speak to your tax adviser now"),
+          e("div",{style:{fontSize:11,color:"#7278A0",lineHeight:1.7,marginBottom:8}},
+            "150% corporation tax relief on qualifying remediation costs. Not a grant  -  but often worth more than BLRF on a contaminated site. Keep all remediation cost records from day one. Your accountant claims this through your corporation tax return.",
+          ),
+          e("div",{style:{fontSize:10,color:"#4A4BAE",fontWeight:700,background:"rgba(74,75,174,0.07)",padding:"6px 10px",borderRadius:4}},
+            "→ Action: Instruct your tax adviser to review qualifying costs before work starts. HMRC guidance: gov.uk/guidance/remediation-of-contaminated-land-relief"
+          )
+        ),
+
+        // Draft email button
+        e("div",{style:{marginTop:14,padding:"14px 16px",background:"#F7F8FC",borderRadius:8,border:"1px solid #DDE0ED"}},
+          e("div",{style:{fontSize:11,fontWeight:700,color:"#2E2F8A",marginBottom:6}},"Draft your first move"),
+          e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:10,lineHeight:1.6}},"The fastest next step on most deals is emailing your RP shortlist. Click below to draft the email."),
+          e("button",{
+            onClick:function(){
+              if(!g.showEmailDraft&&!g.emailDraft){
+                var subj="Subject: Affordable Housing Opportunity - "+addr;
+                var body="Dear [RP Housing Development Team],"+"\n\nI am writing to introduce a residential development opportunity that may be of interest as part of your affordable housing pipeline."+"\n\nSite: "+addr+"\nLocation: "+cityName(cityVal||"")+(lpa?" ("+lpa+")":"")+"\nProposed units: "+units2+" total, "+ahUnits+" affordable ("+ahPct+"%)\nPlanning status: "+(p.status||l.planningStatus||"Pre-application")+"\nGDV: "+fmt(gdvVal)+"\nResidual land value: "+fmt(rlvVal)+"\n\nWe believe this site may qualify for AHP funding and are seeking an RP partner to work with us.\n\nKind regards,\n"+((user&&user.name)||"[Your name]")+"\nCassidy Group";
+                up("grants","emailDraft",subj+"\n\n"+body);
+              }
+              up("grants","showEmailDraft",!g.showEmailDraft);
+            },
+            style:{padding:"7px 16px",background:"#2E2F8A",border:"none",borderRadius:6,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+          },"✉ Draft RP Introduction Email"),
+          g.showEmailDraft&&e("div",{style:{marginTop:12}},
+            e("div",{style:{fontSize:10,color:"#7278A0",marginBottom:4}},"Edit before sending:"),
+            e("textarea",{
+              value:g.emailDraft||"",
+              onChange:function(ev){up("grants","emailDraft",ev.target.value);},
+              style:{width:"100%",minHeight:300,padding:"10px 14px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:11,fontFamily:"DM Sans,sans-serif",color:"#3A3D6A",lineHeight:1.75,resize:"vertical"}
+            }),
+            e("div",{style:{display:"flex",gap:8,marginTop:8}},
+              e("button",{
+                onClick:function(){
+                  var txt=g.emailDraft||"";
+                  var lines=txt.split("\n");
+                  var subject=lines[0].replace("Subject: ","").trim();
+                  var body=lines.slice(2).join("\n").trim();
+                  var mailto="mailto:?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body);
+                  window.open(mailto,"_blank");
+                },
+                style:{padding:"7px 16px",background:"#2D7A65",border:"none",borderRadius:6,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+              },"📧 Open in Email Client"),
+              e("button",{
+                onClick:function(){
+                  var txt=g.emailDraft||"";
+                  var el=document.createElement("textarea");
+                  el.value=txt;document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);
+                  alert("Email copied to clipboard");
+                },
+                style:{padding:"7px 16px",background:"#F0F1FA",border:"1px solid #DDE0ED",borderRadius:6,color:"#2E2F8A",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+              },"📋 Copy to Clipboard")
+            )
+          )
+        )
+      ),
+
+      // Commercial reality note
+      e("div",{style:{background:"rgba(74,75,174,0.05)",border:"1px solid rgba(74,75,174,0.2)",borderRadius:8,padding:"14px 18px",marginTop:4,fontSize:11,color:"#4A4BAE",lineHeight:1.8}},
+        e("strong",null,"Commercial note: "),"The best developers structure schemes to qualify for grants  -  they don't rely on grants to make a deal work. Use this tool to enhance viability, reduce risk and improve leverage on sites that are already viable or near-viable. A grant should add margin, not create it."
+      )
+    );
+  }
+
 
   function renderPortfolio(){
     var deals=JSON.parse(localStorage.getItem("cassidy_deals")||"[]");
@@ -6918,9 +7993,366 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
       setMemoL(false);
     }
 
+    // ── EXIT INTELLIGENCE CALCULATIONS ─────────────────────────────────────────
+    var cityMkt=MKT[city]||MKT.manchester;
+    var rlvVal2=num(data.rlv&&data.rlv.rlv||lc||0);
+    var units2=num(data.planning&&data.planning.units||data.rlv&&data.rlv.units||0)||units||50;
+    var ahPct2=num(data.planning&&data.planning.ahPct||0);
+    var acres2=num(data.land&&data.land.acres||0);
+    var buildCostTotal=units2*(num(data.rlv&&data.rlv.avgSqft||850))*(num(data.rlv&&data.rlv.buildPsf||cityMkt.build||188));
+    var finRate2=num(data.fin&&data.fin.finRatePa||data.rlv&&data.rlv.finRate||7.5)/100;
+    var programmeMths=num(data.fin&&data.fin.programmeMths||36);
+
+    // ── MULTI-BUYER VALUATION ENGINE ─────────────────────────────────────────
+    // Same site, different buyer types = different values
+    var BUYER_TYPES=[
+      {
+        id:"housebuilder",
+        label:"National Housebuilder",
+        icon:"🏡",
+        color:"#2E2F8A",
+        buyers:"Barratt Redrow, Persimmon, Vistry, Taylor Wimpey, Bellway",
+        description:"Will pay for land with planning, take build risk, sell on open market",
+        valuationMethod:"Residual — GDV minus build, fees, finance, profit margin (18-22%)",
+        calc:function(){
+          // Housebuilder pays residual after their margin
+          var hbGdv=gdv>0?gdv:(units2*(num(data.rlv&&data.rlv.avgSqft||850))*(num(data.rlv&&data.rlv.salePsf||cityMkt.btr*8.5||280)));
+          var hbBuild=buildCostTotal*1.08; // with fees
+          var hbFinance=hbBuild*finRate2;
+          var hbProfit=hbGdv*0.20; // 20% target
+          return Math.max(0,hbGdv-hbBuild-hbFinance-hbProfit);
+        },
+        metrics:function(val){return[
+          {l:"Valuation basis",v:"Residual land value"},
+          {l:"Profit margin",v:"18-22% on GDV"},
+          {l:"Build risk",v:"Taken by housebuilder"},
+          {l:"Typical timescale",v:"12-18 months to exchange"},
+          {l:"Payment terms",v:"Unconditional or conditional on planning"},
+        ];},
+        appetite:function(){
+          var score=0;
+          if(units2>=50&&units2<=500)score+=30;
+          if(units2>=100&&units2<=300)score+=20;
+          if(ahPct2<=35)score+=20;
+          if(gdv>3000000)score+=20;
+          if(["manchester","birmingham","leeds","bristol","oxford","cambridge","london"].indexOf(city)>=0)score+=10;
+          return Math.min(score,95);
+        }
+      },
+      {
+        id:"btr_fund",
+        label:"BTR Institutional Fund",
+        icon:"🏢",
+        color:"#4A4BAE",
+        buyers:"Grainger, Legal & General, M&G, Invesco, Patrizia, Cortland",
+        description:"Forward fund or forward purchase of entire scheme at a yield. Wants 150+ units in city centres.",
+        valuationMethod:"Income capitalisation — NOI / target yield. Yield is king.",
+        calc:function(){
+          // BTR fund values on yield
+          var noiVal=noi>0?noi:(units2*cityMkt.btr*12*0.72); // 72% NRI after voids/costs
+          var btrYield=cityMkt.yield||0.055;
+          var btrVal=noiVal/btrYield;
+          // Less: construction cost + developer profit they want
+          var devCost=buildCostTotal*(1+finRate2+0.08); // build + finance + fees
+          var devProfit=btrVal*0.08; // 8% developer margin on forward fund
+          return Math.max(0,btrVal-devCost-devProfit);
+        },
+        metrics:function(val){
+          var noiVal=noi>0?noi:(units2*cityMkt.btr*12*0.72);
+          var btrYield=cityMkt.yield||0.055;
+          return[
+            {l:"Capitalised value",v:fmt(noiVal/(btrYield))},
+            {l:"Target yield",v:pct(btrYield*100)},
+            {l:"Estimated NOI pa",v:fmt(noiVal)},
+            {l:"Typical units",v:"150+ preferred, 80+ minimum"},
+            {l:"Forward fund premium",v:"Pays during construction"},
+          ];
+        },
+        appetite:function(){
+          var score=0;
+          if(units2>=150)score+=35;else if(units2>=80)score+=15;
+          if(["manchester","london","birmingham","leeds","bristol","edinburgh","glasgow"].indexOf(city)>=0)score+=25;
+          if(at==="btr")score+=20;
+          if(cityMkt.btr>=900)score+=10;
+          if(ahPct2<=20)score+=10;
+          return Math.min(score,95);
+        }
+      },
+      {
+        id:"pbsa_fund",
+        label:"PBSA / Student Fund",
+        icon:"🎓",
+        color:"#2D7A65",
+        buyers:"Unite, Empiric, Scape, Student Roost, Harrison Street, Blackstone",
+        description:"Purpose-Built Student Accommodation. Proximity to university is everything. High yields.",
+        valuationMethod:"Income cap at 5.5-6.5% yield. Per-bed values £35k-£80k depending on city.",
+        calc:function(){
+          // PBSA values on per-bed and yield
+          var pbsaNoi=noi>0?noi:(units2*cityMkt.pbsa*52*0.80);
+          var pbsaYield=0.06;
+          var pbsaCapVal=pbsaNoi/pbsaYield;
+          var devCost=buildCostTotal*(1+finRate2+0.07);
+          var devMargin=pbsaCapVal*0.10;
+          return Math.max(0,pbsaCapVal-devCost-devMargin);
+        },
+        metrics:function(val){
+          var pbsaNoi=noi>0?noi:(units2*cityMkt.pbsa*52*0.80);
+          return[
+            {l:"Per-bed NOI",v:fmt(cityMkt.pbsa*52*0.80)+"/bed pa"},
+            {l:"Target yield",v:"5.5-6.5%"},
+            {l:"Per-bed value",v:"£35k-£80k depending on city"},
+            {l:"Key requirement",v:"<1km to university campus"},
+            {l:"Forward fund",v:"Preferred at 6.0-6.25%"},
+          ];
+        },
+        appetite:function(){
+          var score=0;
+          if(at==="pbsa")score+=40;
+          if(cityMkt.pbsa>300)score+=25;
+          if(["manchester","london","bristol","edinburgh","leeds","nottingham","sheffield","birmingham"].indexOf(city)>=0)score+=20;
+          if(units2>=100)score+=15;
+          return Math.min(score,90);
+        }
+      },
+      {
+        id:"rp_ha",
+        label:"Registered Provider / Housing Association",
+        icon:"🤝",
+        color:"#9A7B3E",
+        buyers:"L&Q, Clarion, Sovereign, VIVID, Platform, Midland Heart, Places for People",
+        description:"Buys affordable units at transfer price, backed by AHP grant. Values on social rent yield.",
+        valuationMethod:"Transfer price: % of OMV. Social rent capitalised at 3.5-4.5%. Grant-backed.",
+        calc:function(){
+          // RP pays transfer price for affordable units
+          var afUnits=Math.round(units2*ahPct2/100);
+          var omvPerUnit=gdv>0?gdv/units2:(num(data.rlv&&data.rlv.avgSqft||850)*num(data.rlv&&data.rlv.salePsf||280));
+          var transferPct=0.52; // 52% of OMV typical with AHP
+          return afUnits*omvPerUnit*transferPct;
+        },
+        metrics:function(val){
+          var afUnits=Math.round(units2*ahPct2/100);
+          return[
+            {l:"Affordable units",v:afUnits+" ("+ahPct2+"%)"},
+            {l:"Transfer price basis",v:"45-60% of OMV with AHP grant"},
+            {l:"AHP grant per unit",v:"£28k-£80k depending on region"},
+            {l:"Yield basis",v:"Social rent 3.5-4.5%"},
+            {l:"Payment",v:"On practical completion"},
+          ];
+        },
+        appetite:function(){
+          var score=0;
+          if(ahPct2>=25)score+=40;else if(ahPct2>=15)score+=20;
+          if(units2>=20)score+=20;
+          if(["manchester","birmingham","london","bristol","leeds"].indexOf(city)>=0)score+=15;
+          score+=25; // always relevant if AH present
+          return Math.min(score,90);
+        }
+      },
+      {
+        id:"pension_fund",
+        label:"Pension / Sovereign Wealth Fund",
+        icon:"🏛",
+        color:"#B05A35",
+        buyers:"Aviva, L&G Capital, LGIM, Pension SuperFund, CPP, GIC Singapore",
+        description:"Long income, inflation-linked assets. Wants 25+ year leases or stabilised BTR. Very selective.",
+        valuationMethod:"Long-dated income capitalised at 4.0-5.0%. Quality of income over quantum.",
+        calc:function(){
+          // Pension funds want stabilised income at low yield
+          var noiVal=noi>0?noi:(units2*cityMkt.btr*12*0.75);
+          var pensionYield=0.045; // tighter than BTR fund
+          return noiVal/pensionYield;
+        },
+        metrics:function(val){
+          var noiVal=noi>0?noi:(units2*cityMkt.btr*12*0.75);
+          return[
+            {l:"Capitalised value",v:fmt(noiVal/0.045)},
+            {l:"Target yield",v:"4.0-5.0% (tightest in market)"},
+            {l:"Minimum ticket",v:"£50m+ typical"},
+            {l:"Key requirement",v:"Stabilised, institutionally managed"},
+            {l:"Best suited to",v:"Retain & refinance strategy"},
+          ];
+        },
+        appetite:function(){
+          var score=0;
+          if(gdv>50000000)score+=30;
+          if(at==="btr")score+=25;
+          if(["london","manchester","birmingham"].indexOf(city)>=0)score+=20;
+          if(units2>=200)score+=15;
+          if(noi>2000000)score+=10;
+          return Math.min(score,80);
+        }
+      },
+    ];
+
+    // Compute all buyer values
+    var buyerValues=BUYER_TYPES.map(function(b){
+      return{...b,value:b.calc(),appetite:b.appetite()};
+    }).sort(function(a,b2){return b2.value-a.value;});
+
+    var bestBuyer=buyerValues[0];
+    var bestValue=bestBuyer?bestBuyer.value:0;
+    var worstValue=buyerValues[buyerValues.length-1]?buyerValues[buyerValues.length-1].value:0;
+    var valueRange=bestValue-worstValue;
+
+    // Hold vs Sell analysis
+    var currentValue=rlvVal2>0?rlvVal2:(gdv*0.88);
+    var holdNOI=noi>0?noi:(units2*cityMkt.btr*12*0.72);
+    var holdYield=(cityMkt.yield||0.055);
+    var stabilisedValue=holdNOI/holdYield;
+    var holdGain=stabilisedValue-currentValue;
+    var holdGainPct=currentValue>0?holdGain/currentValue*100:0;
+    var holdCost=buildCostTotal*(1+finRate2);
+    var holdNetReturn=stabilisedValue-holdCost;
+    var refinanceValue=stabilisedValue*0.65; // 65% LTV refi
+    var annualIncome=holdNOI;
+
     return e("div",null,
-      e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Investment Exit"),
-      e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Exit strategy, institutional investor targeting, Heads of Terms and Investment Memorandum generator"),
+      // ── HEADER
+      e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:12}},
+        e("div",null,
+          e("div",{style:{fontSize:11,color:"#7278A0",textTransform:"uppercase",letterSpacing:".12em",fontWeight:700,marginBottom:4}},"Exit Strategy Intelligence"),
+          e("h2",{style:{fontSize:22,fontWeight:800,color:"#2E2F8A",margin:"0 0 4px"}},"What is this site worth?"),
+          e("p",{style:{fontSize:12,color:"#7278A0",lineHeight:1.7}},"The same site has a different value to every buyer type. Here is what each would pay - and why.")
+        ),
+        bestValue>0&&e("div",{style:{textAlign:"right"}},
+          e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:2}},"Best buyer value"),
+          e("div",{style:{fontSize:28,fontWeight:800,color:"#2D7A65"}},fmt(bestValue)),
+          e("div",{style:{fontSize:11,color:"#7278A0"}},"via "+bestBuyer.label)
+        )
+      ),
+
+      // ── MULTI-BUYER VALUATION COMPARISON ───────────────────────────────────
+      e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",marginBottom:14}},
+        e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:14}},"Multi-Buyer Valuation — Same Site, Different Values"),
+        buyerValues.map(function(b,bi){
+          var isOpen=ex["open_buyer_"+b.id];
+          var isBest=bi===0;
+          var barWidth=bestValue>0?Math.max(5,b.value/bestValue*100):50;
+          var metrics2=b.metrics(b.value);
+          return e("div",{key:b.id,style:{marginBottom:10,border:"1px solid "+(isBest?"#2D7A65":"#DDE0ED"),borderRadius:8,overflow:"hidden",opacity:b.appetite<25?0.5:1}},
+            e("div",{style:{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",cursor:"pointer",background:isBest?"rgba(45,122,101,0.04)":"#fff"},onClick:function(){up("exit","open_buyer_"+b.id,!isOpen);}},
+              e("span",{style:{fontSize:22,flexShrink:0}},b.icon),
+              e("div",{style:{flex:1}},
+                e("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:3}},
+                  e("span",{style:{fontSize:13,fontWeight:700,color:"#2E2F8A"}},b.label),
+                  isBest&&e("span",{style:{fontSize:9,padding:"2px 8px",background:"rgba(45,122,101,0.1)",color:"#2D7A65",borderRadius:10,fontWeight:800}},"HIGHEST VALUE"),
+                  e("span",{style:{fontSize:9,padding:"2px 8px",background:"rgba(74,75,174,0.07)",color:"#4A4BAE",borderRadius:10,fontWeight:700}},b.appetite+"% appetite")
+                ),
+                e("div",{style:{fontSize:10,color:"#7278A0",marginBottom:6}},b.buyers),
+                e("div",{style:{height:6,background:"#F0F1FA",borderRadius:3,overflow:"hidden"}},
+                  e("div",{style:{width:barWidth+"%",height:"100%",background:b.color,borderRadius:3,transition:"width .5s"}})
+                )
+              ),
+              e("div",{style:{textAlign:"right",flexShrink:0}},
+                e("div",{style:{fontSize:20,fontWeight:800,color:b.color}},b.value>0?fmt(b.value):"N/A"),
+                e("div",{style:{fontSize:9,color:"#7278A0",marginTop:2}},b.appetite>=70?"Strong appetite":b.appetite>=40?"Moderate":"Limited")
+              )
+            ),
+            isOpen&&e("div",{style:{padding:"12px 16px",borderTop:"1px solid #DDE0ED",background:"#F7F8FC"}},
+              e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:10}},
+                e("div",null,
+                  e("div",{style:{fontSize:10,fontWeight:800,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".08em",marginBottom:6}},"Valuation basis"),
+                  e("div",{style:{fontSize:11,color:"#3A3D6A",lineHeight:1.6,marginBottom:6}},b.valuationMethod),
+                  e("div",{style:{fontSize:10,fontWeight:800,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".08em",marginBottom:6,marginTop:8}},"Active buyers"),
+                  e("div",{style:{fontSize:11,color:"#3A3D6A",lineHeight:1.6}},b.description)
+                ),
+                e("div",null,
+                  e("div",{style:{fontSize:10,fontWeight:800,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".08em",marginBottom:6}},"Key metrics"),
+                  metrics2.map(function(m2,mi){
+                    return e("div",{key:mi,style:{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px dashed #E8E8F0",fontSize:11}},
+                      e("span",{style:{color:"#7278A0"}},m2.l),
+                      e("span",{style:{fontWeight:600,color:"#2E2F8A"}},m2.v)
+                    );
+                  })
+                )
+              )
+            )
+          );
+        }),
+
+        // Value range summary
+        e("div",{style:{marginTop:14,padding:"12px 16px",background:"rgba(74,75,174,0.05)",borderRadius:8,border:"1px solid rgba(74,75,174,0.15)"}},
+          e("div",{style:{fontSize:10,fontWeight:800,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".1em",marginBottom:6}},"Value range analysis"),
+          e("div",{style:{fontSize:12,color:"#3A3D6A",lineHeight:1.8}},
+            "This site has a potential value range of ",
+            e("strong",null,fmt(worstValue)+" to "+fmt(bestValue)),
+            " depending on buyer type - a difference of ",
+            e("strong",{style:{color:"#2D7A65"}},fmt(valueRange)),
+            ". Targeting ",
+            e("strong",null,bestBuyer.label),
+            " as the primary buyer could add ",
+            e("strong",{style:{color:"#2D7A65"}},fmt(valueRange)),
+            " vs a simple land sale."
+          )
+        )
+      ),
+
+      // ── HOLD VS SELL ANALYSIS ───────────────────────────────────────────────
+      e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",marginBottom:14}},
+        e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:14}},"Hold vs Sell Analysis"),
+        e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}},
+          [
+            {l:"Sell Now (land)",v:fmt(rlvVal2||currentValue),c:"#4A4BAE",s:"Immediate exit, no build risk",icon:"→"},
+            {l:"Build & Sell",v:fmt(gdv),c:"#2E2F8A",s:"GDV after build — less costs",icon:"🏗"},
+            {l:"Retain & Stabilise",v:fmt(stabilisedValue),c:"#2D7A65",s:"Full value, maximum return",icon:"🏦"},
+          ].map(function(item){
+            return e("div",{key:item.l,style:{background:"#F7F8FC",borderRadius:8,padding:"14px 16px",borderTop:"3px solid "+item.c,textAlign:"center"}},
+              e("div",{style:{fontSize:20,marginBottom:4}},item.icon),
+              e("div",{style:{fontSize:10,color:"#7278A0",textTransform:"uppercase",letterSpacing:".08em",marginBottom:3}},item.l),
+              e("div",{style:{fontSize:20,fontWeight:800,color:item.c}},item.v),
+              e("div",{style:{fontSize:10,color:"#7278A0",marginTop:4,lineHeight:1.5}},item.s)
+            );
+          })
+        ),
+
+        // Refinancing section
+        e("div",{style:{padding:"12px 16px",background:"rgba(45,122,101,0.04)",borderRadius:8,border:"1px solid rgba(45,122,101,0.2)",marginBottom:10}},
+          e("div",{style:{fontSize:10,fontWeight:800,color:"#2D7A65",textTransform:"uppercase",letterSpacing:".08em",marginBottom:8}},"Refinancing Potential — Retain & Refinance Strategy"),
+          e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}},
+            [{l:"Stabilised value",v:fmt(stabilisedValue)},{l:"65% LTV refinance",v:fmt(refinanceValue)},{l:"Annual income (NOI)",v:fmt(annualIncome)+" pa"}].map(function(item){
+              return e("div",{key:item.l,style:{textAlign:"center"}},
+                e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:2}},item.l),
+                e("div",{style:{fontSize:16,fontWeight:800,color:"#2D7A65"}},item.v)
+              );
+            })
+          ),
+          e("div",{style:{fontSize:11,color:"#7278A0",marginTop:8,lineHeight:1.6}},
+            "Refinancing at 65% LTV releases "+fmt(refinanceValue)+" of equity while retaining the asset. Annual income of "+fmt(annualIncome)+" then services the debt with surplus cash yield."
+          )
+        ),
+
+        // Yield benchmarks
+        e("div",{style:{padding:"12px 16px",background:"#F7F8FC",borderRadius:8,border:"1px solid #DDE0ED"}},
+          e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".08em",marginBottom:8}},"Yield Benchmarks — "+cityName(city||"")+" Market"),
+          e("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:6}},
+            [
+              {l:"BTR institutional",v:pct((cityMkt.yield||0.055)*100)},
+              {l:"PBSA",v:"5.5-6.5%"},
+              {l:"Pension / sovereign",v:"4.0-5.0%"},
+              {l:"Social rent (RP)",v:"3.5-4.5%"},
+              {l:"Market BTR rent",v:"£"+cityMkt.btr+"/month"},
+              {l:"PBSA rent/week",v:"£"+cityMkt.pbsa+"/week"},
+            ].map(function(item){
+              return e("div",{key:item.l,style:{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px dashed #E8E8F0",fontSize:11}},
+                e("span",{style:{color:"#7278A0"}},item.l),
+                e("span",{style:{fontWeight:700,color:"#2E2F8A"}},item.v)
+              );
+            })
+          )
+        )
+      ),
+
+      // ── AI EXIT STRATEGY RECOMMENDATION ────────────────────────────────────
+      e("div",{style:{marginBottom:14}},
+        e(AIPanel,{user:user,up:up,stage:"exit",data:data,persistKey:"exit_intelligence",
+          label:"🧠 AI Exit Strategy Recommendation",
+          system:"You are a senior UK real estate investment director advising on exit strategy for a residential development. Be specific, numerate and commercially direct.",
+          prompt:"Analyse the optimal exit strategy for this site. Site: "+(data.land&&data.land.address||"development site")+", "+cityName(city||"")+". GDV: "+fmt(gdv)+". Units: "+units2+". AH%: "+ahPct2+"%. Asset type: "+at+". Market rent: £"+cityMkt.btr+"/month BTR. Yield benchmark: "+pct((cityMkt.yield||0.055)*100)+". Stabilised value: "+fmt(stabilisedValue)+". Refinance potential (65% LTV): "+fmt(refinanceValue)+". Buyer valuations: "+buyerValues.slice(0,3).map(function(b){return b.label+": "+fmt(b.value)+" ("+b.appetite+"% appetite)";}).join(", ")+". Provide: 1) Recommended primary exit route with rationale, 2) Recommended buyer type and why, 3) Hold vs sell recommendation with numbers, 4) Refinancing potential assessment, 5) Critical negotiation points and red flags."
+        })
+      ),
+
+      // ── EXISTING EXIT PARAMS (kept from original) ───────────────────────────
+      e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:10,marginTop:4}},"Exit Parameters & Documents"),
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Exit Parameters"),
         e("div",{style:S.grid2},
@@ -7079,6 +8511,10 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
   // ── RENDER STAGE ───────────────────────────────────────────────────────────
   function renderStage(){
     if(stage==="portfolio")return renderPortfolio();
+    if(stage==="scorecard")return renderScorecard();
+    if(stage==="grants")return renderGrants();
+    if(stage==="teaser")return renderTeaser();
+    if(stage==="im")return renderIM();
     if(stage==="viability")return renderViability();
     if(stage==="meetings")return renderMeetings();
     if(stage==="monitor")return renderPlanningMonitor();
@@ -7337,4 +8773,15 @@ ReactDOM.render(e(Root,null),document.getElementById("root"));
 
 </script>
 </body>
-</html>
+</html|>(
+                "Subject: AH Opportunity - "+addr+"\n\n"+
+                "Dear [RP Housing Development Team],\n\n"+
+                "I am writing to introduce a residential development opportunity that may be of interest as part of your affordable housing pipeline.\n\n"+
+                "Site: "+addr+"\n"+
+                "Location: "+cityName(cityVal||"")+(lpa?" ("+lpa+")":"")+
+                "\nProposed units: "+units2+" total, "+ahUnits+" affordable ("+ahPct+"%)"+
+                "\nPlanning status: "+(p.status||l.planningStatus||"Pre-application")+
+                "\nGDV: "+fmt(gdvVal)+
+                "\nResidual land value: "+fmt(rlvVal)+
+                "\n\nWe believe this site may qualify for AHP funding and are seeking an RP partner to work with us through the application process. We have prepared a full viability appraisal and constraint assessment.\n\nWould you be available for a brief call this week to discuss whether this fits your acquisition criteria?\n\nI can share the full site pack including appraisal, constraint check and planning summary at your request.\n\nKind regards,\n"+((user&&user.name)||"[Your name]")+"\nCassidy Group"
+              )>
