@@ -433,6 +433,7 @@ function fmt(n){
   if(a>0&&a<1000)return(v<0?"-":"")+"£"+Math.round(Math.abs(v)).toLocaleString();
 }
 function pct(n){return n?n.toFixed(1)+"%":"—";}
+function fmtN(n,dp){if(n===null||n===undefined||isNaN(n))return"—";return Number(n).toLocaleString("en-GB",{maximumFractionDigits:dp||0});}
 function cityName(c){return c?c.charAt(0).toUpperCase()+c.replace(/_/g," ").slice(1):"—";}
 
 // Land value benchmarks £/sqft of PLOT AREA (separate from house £/sqft of floor area)
