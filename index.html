@@ -845,6 +845,25 @@ function AccessGate(props){
 function Tool(props){
   var user=props.user;
 
+  // ── STATE DECLARATIONS ────────────────────────────────────────────────────
+  var ds=useState(function(){
+    try{var s=localStorage.getItem("cassidy_deal");return s?JSON.parse(s):{};}catch(e){return {};}
+  }()); var data=ds[0]; var setData=ds[1];
+  var ss=useState("dashboard"); var stage=ss[0]; var setStage=ss[1];
+  var mob=useState(false); var mobileMenuOpen=mob[0]; var setMobileMenuOpen=mob[1];
+  var fup=useState(false); var showFileUpload=fup[0]; var setShowFileUpload=fup[1];
+  var fpr=useState(false); var fileProcessing=fpr[0]; var setFileProcessing=fpr[1];
+  var frs=useState([]); var fileResults=frs[0]; var setFileResults=frs[1];
+  var isMobile=typeof window!=="undefined"&&window.innerWidth<=768;
+  // Load custom cities from localStorage
+  (function(){
+    try{
+      var custom=JSON.parse(localStorage.getItem("cassidy_custom_cities")||"{}");
+      Object.keys(custom).forEach(function(k){if(!MKT[k])MKT[k]=custom[k];});
+      CITIES.length=0; Object.keys(MKT).forEach(function(c){CITIES.push(c);});
+    }catch(e){}
+  })();
+
 // ── STAGES ───────────────────────────────────────────────────────────────────
 var ALL_STAGES = [
   // ── 1. FIND ──────────────────────────────────────────────────────────────
