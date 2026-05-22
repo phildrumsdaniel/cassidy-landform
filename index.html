@@ -396,6 +396,26 @@ var BUYERS = [
 ];
 
 var CITIES = Object.keys(MKT);
+
+// Bedroom rent multipliers (relative to 1-bed base in MKT.btr)
+// Source: Rightmove/Savills market data 2025 averages
+var BED_MULT = {1:1.00, 2:1.38, 3:1.65, 4:1.92};
+
+// Capitalisation yields by buyer type (lower = higher price)
+var CAP_YIELDS = {
+  "Pension / Sovereign Fund": {min:0.038, base:0.045, max:0.055, label:"4.5% base (pension-grade)"},
+  "BTR Institutional Fund":   {min:0.048, base:0.055, max:0.065, label:"5.5% base (BTR fund)"},
+  "Family Office":            {min:0.050, base:0.060, max:0.070, label:"6.0% base (family office)"},
+  "Private Investor":         {min:0.055, base:0.065, max:0.075, label:"6.5% base (private)"},
+  "PBSA Fund":                {min:0.055, base:0.062, max:0.070, label:"6.2% base (PBSA)"},
+};
+
+// Void / management / maintenance deductions by buyer type
+var NOI_DEDUCTIONS = {
+  residential: {voids:0.05, management:0.10, maintenance:0.08, insurance:0.02},
+  pbsa:        {voids:0.08, management:0.15, maintenance:0.06, insurance:0.02},
+};
+
 var PROP_TYPES = ["Detached house","Semi-detached house","End of terrace house","Terraced house",
   "Bungalow (detached)","Bungalow (semi)","Flat / Apartment","Farmhouse / Rural",
   "Pub (traditional)","Pub (large / roadside)","Restaurant / Cafe","Hotel / Guest house",
@@ -821,72 +841,44 @@ function AccessGate(props){
 }
 
 
-// ── STAGES ───────────────────────────────────────────────────────────────────
-var ALL_STAGES = [
-  {id:"monitor",     label:"Planning Monitor",     icon:"📡", group:"1. Find",    journeys:["land","all"]},
-  {id:"constraint",  label:"Constraint Check",     icon:"⚠",  group:"1. Find",    journeys:["land","all"]},
-  {id:"scraper",     label:"Land Finder",          icon:"🔍", group:"1. Find",    journeys:["land","all"]},
-  {id:"rlv",         label:"Land Valuation",        icon:"◆",  group:"1. Find",    journeys:["land","all"]},
-  {id:"land",        label:"Land Appraisal",        icon:"⬟",  group:"1. Find",    journeys:["land","all"]},
-  {id:"landworkflow",label:"Land Dev Workflow",     icon:"→",  group:"1. Find",    journeys:["land","all"]},
-  {id:"epe",         label:"Property Evaluator",    icon:"🏠", group:"2. Evaluate",journeys:["property","all"]},
-  {id:"epeworkflow", label:"EPE Workflow",           icon:"→",  group:"2. Evaluate",journeys:["property","all"]},
-  {id:"sfh",         label:"SFH Appraisal",         icon:"🏡", group:"3. Scheme",  journeys:["land","property","sfh","all"]},
-  {id:"hra",         label:"BTR / PBSA Block",      icon:"🏢", group:"3. Scheme",  journeys:["land","btr","pbsa","all"]},
-  {id:"planning",    label:"Planning & Viability",  icon:"▲",  group:"4. Develop", journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
-  {id:"fin",         label:"Financial Modelling",   icon:"◉",  group:"4. Develop", journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
-  {id:"dd",          label:"Due Diligence",         icon:"◈",  group:"4. Develop", journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
-  {id:"risks",       label:"Risk Register",         icon:"⬡",  group:"4. Develop", journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
-  {id:"exit",        label:"Investment Exit",       icon:"◆",  group:"5. Exit",    journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
-  {id:"recovery",    label:"Planning Recovery",     icon:"⚖",  group:"5. Exit",    journeys:["recovery","all"]},
-  {id:"summary",     label:"Executive Summary",     icon:"📄", group:"6. Overview",journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
-  {id:"scorecard",   label:"Site Scorecard",         icon:"🏆", group:"5. Report",  journeys:["land","all"]},
-  {id:"teaser",      label:"Teaser PDF",              icon:"📬", group:"5. Report",  journeys:["land","all"]},
-  {id:"im",          label:"Investor Memorandum",     icon:"📑", group:"5. Report",  journeys:["land","all"]},
-  {id:"grants",      label:"Grant & Funding",         icon:"💷", group:"5. Report",  journeys:["land","all"]},
-  {id:"flowcharts",  label:"Process Flowcharts",     icon:"🗺", group:"6. Overview",journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
-  {id:"portfolio",     label:"Deal Portfolio",       icon:"📊", group:"6. Overview", journeys:["all"]},
-  {id:"viability",     label:"Detailed Appraisal",   icon:"📐", group:"4. Develop",  journeys:["land","sfh","all"]},
-  {id:"meetings",      label:"Meeting Transcripts",  icon:"📝", group:"7. Records",   journeys:["all"]},
-  {id:"dashboard",   label:"Deal Dashboard",        icon:"◈",  group:"6. Overview",journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
-];
-var STAGES = ALL_STAGES;
-
-var JOURNEYS = {
-  land:     {label:"Land Journey",      desc:"Find land and build new scheme",      color:"#4A4BAE"},
-  property: {label:"Property Journey",  desc:"Evaluate existing property",           color:"#2D7A65"},
-  sfh:      {label:"SFH",              desc:"Single Family Housing estate",          color:"#7B6CB0"},
-  btr:      {label:"BTR",              desc:"Build to Rent apartments",              color:"#9A7B3E"},
-  pbsa:     {label:"PBSA",             desc:"Student Accommodation",                 color:"#B05A35"},
-  recovery: {label:"Planning Recovery",desc:"Refused PIP — strategy to get consent",color:"#B05A35"},
-};
-
-// ── MAIN TOOL ─────────────────────────────────────────────────────────────────
+// ── TOOL COMPONENT ──────────────────────────────────────────────────────────
 function Tool(props){
   var user=props.user;
-  var st=useState("dashboard"); var stage=st[0]; var setStage=st[1];
-  var mob=useState(false); var mobileMenuOpen=mob[0]; var setMobileMenuOpen=mob[1];
-  var fup=useState(false); var showFileUpload=fup[0]; var setShowFileUpload=fup[1];
-  var fpr=useState(false); var fileProcessing=fpr[0]; var setFileProcessing=fpr[1];
-  var frs=useState([]); var fileResults=frs[0]; var setFileResults=frs[1];
-  var wmq=useState(typeof window!=="undefined"&&window.innerWidth<=768);
-  var isMobile=wmq[0]; var setIsMobile=wmq[1];
-  React.useEffect(function(){
-    function checkMobile(){setIsMobile(window.innerWidth<=768);}
-    window.addEventListener("resize",checkMobile);
-    checkMobile();
-    return function(){window.removeEventListener("resize",checkMobile);};
-  },[]);
-  // Load from localStorage on startup
-  var savedData=(function(){
-    try{
-      var s=localStorage.getItem("cassidy_deal");
-      return s?JSON.parse(s):{};
-    }catch(e){return {};}
-  })();
 
-  var dt=useState(Object.keys(savedData).length>0?savedData:{assetType:"btr",risks:RISK_DEFAULTS.map(function(r){return Object.assign({},r);})}); var data=dt[0]; var setData=dt[1];
-
+// ── STAGES ───────────────────────────────────────────────────────────────────
+var ALL_STAGES = [
+  // ── 1. FIND ──────────────────────────────────────────────────────────────
+  {id:"monitor",     label:"Planning Monitor",     icon:"📡", group:"1. Find",     journeys:["land","all"]},
+  {id:"constraint",  label:"Constraint Check",     icon:"⚠",  group:"1. Find",     journeys:["land","all"]},
+  {id:"scraper",     label:"Land Finder",          icon:"🔍", group:"1. Find",     journeys:["land","all"]},
+  {id:"land",        label:"Land Appraisal",       icon:"⬟",  group:"1. Find",     journeys:["land","all"]},
+  {id:"epe",         label:"Property Evaluator",   icon:"🏠", group:"1. Find",     journeys:["property","all"]},
+  // ── 2. VALUE ─────────────────────────────────────────────────────────────
+  {id:"rlv",         label:"Land Valuation (RLV)", icon:"◆",  group:"2. Value",    journeys:["land","all"]},
+  {id:"sfh",         label:"SFH House Mix",        icon:"🏡", group:"2. Value",    journeys:["land","property","sfh","all"]},
+  {id:"hra",         label:"BTR / PBSA Block",     icon:"🏢", group:"2. Value",    journeys:["land","btr","pbsa","all"]},
+  {id:"capitalise",  label:"Capitalisation",       icon:"£",  group:"2. Value",    journeys:["land","btr","pbsa","sfh","all"]},
+  // ── 3. DEVELOP ───────────────────────────────────────────────────────────
+  {id:"planning",    label:"Planning & Viability", icon:"▲",  group:"3. Develop",  journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
+  {id:"fin",         label:"Financial Modelling",  icon:"◉",  group:"3. Develop",  journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
+  {id:"viability",   label:"Detailed Appraisal",  icon:"📐", group:"3. Develop",  journeys:["land","sfh","all"]},
+  {id:"dd",          label:"Due Diligence",        icon:"◈",  group:"3. Develop",  journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
+  {id:"risks",       label:"Risk Register",        icon:"⬡",  group:"3. Develop",  journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
+  // ── 4. EXIT ──────────────────────────────────────────────────────────────
+  {id:"exit",        label:"Exit Strategy",        icon:"◆",  group:"4. Exit",     journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
+  {id:"recovery",    label:"Planning Recovery",    icon:"⚖",  group:"4. Exit",     journeys:["recovery","all"]},
+  // ── 5. REPORT ────────────────────────────────────────────────────────────
+  {id:"scorecard",   label:"Site Scorecard",       icon:"🏆", group:"5. Report",   journeys:["land","all"]},
+  {id:"teaser",      label:"Teaser PDF",           icon:"📬", group:"5. Report",   journeys:["land","all"]},
+  {id:"im",          label:"Investor Memorandum",  icon:"📑", group:"5. Report",   journeys:["land","all"]},
+  {id:"grants",      label:"Grant & Funding",      icon:"💷", group:"5. Report",   journeys:["land","all"]},
+  {id:"summary",     label:"Executive Summary",    icon:"📄", group:"5. Report",   journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
+  // ── 6. RECORDS ───────────────────────────────────────────────────────────
+  {id:"meetings",    label:"Meeting Transcripts",  icon:"📝", group:"6. Records",  journeys:["all"]},
+  {id:"portfolio",   label:"Deal Portfolio",       icon:"📊", group:"6. Records",  journeys:["all"]},
+  {id:"dashboard",   label:"Deal Dashboard",       icon:"◈",  group:"6. Records",  journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
+  {id:"flowcharts",  label:"Process Flowcharts",   icon:"🗺", group:"6. Records",  journeys:["all"]},
+];
   // Auto-save to localStorage whenever data changes
   React.useEffect(function(){
     try{localStorage.setItem("cassidy_deal",JSON.stringify(data));}catch(e){}
@@ -3700,7 +3692,7 @@ function Tool(props){
       return override!==undefined?{s:num(override),l:dim.score.l}:dim.score;
     }
 
-    var scores=dimensions.map(function(d){return{...d,final:getScore(d)};});
+    var scores=dimensions.map(function(d){return Object.assign({},d,{final:getScore(d)});});
     var totalScore=Math.round(scores.reduce(function(t,d){return t+d.final.s;},0)/scores.length*10)/10;
     var verdict=totalScore>=7.5?"STRONG BUY":totalScore>=6?"BUY":totalScore>=4.5?"CONDITIONAL":"PASS";
     var verdictColor=verdict==="STRONG BUY"?"#2D7A65":verdict==="BUY"?"#4A4BAE":verdict==="CONDITIONAL"?"#9A7B3E":"#B05A35";
@@ -4692,6 +4684,304 @@ function Tool(props){
     );
   }
 
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // CAPITALISATION — Rental Income & Investment Value Calculator
+  // ══════════════════════════════════════════════════════════════════════════
+  function renderCapitalise(){
+    var cap=data.capitalise||{};
+    var l=data.land||{}; var p=data.planning||{}; var f=data.fin||{};
+    var rlvD=data.rlv||{}; var s2=data.sfh||{};
+    var cityMkt=MKT[city]||MKT.manchester;
+    var addr=l.address||"Development Site";
+    var units2=num(p.units||rlvD.units||0)||50;
+
+    // ── Bedroom mix input (default from SFH mix if available) ─────────────
+    var sfhMix=s2.mix||[];
+    var defaultMix={1:0,2:0,3:0,4:0};
+    if(sfhMix.length>0){
+      sfhMix.forEach(function(row){
+        var t=row.type||"";
+        if(t.indexOf("1 bed")>=0||t.indexOf("1-bed")>=0||t.indexOf("Studio")>=0)defaultMix[1]+=num(row.count||0);
+        else if(t.indexOf("2 bed")>=0||t.indexOf("2-bed")>=0)defaultMix[2]+=num(row.count||0);
+        else if(t.indexOf("3 bed")>=0||t.indexOf("3-bed")>=0)defaultMix[3]+=num(row.count||0);
+        else if(t.indexOf("4 bed")>=0||t.indexOf("4 bed+")>=0)defaultMix[4]+=num(row.count||0);
+        else defaultMix[2]+=num(row.count||0); // default 2-bed
+      });
+    } else {
+      // Default mix: 10% 1bed, 40% 2bed, 35% 3bed, 15% 4bed
+      defaultMix[1]=Math.round(units2*0.10);
+      defaultMix[2]=Math.round(units2*0.40);
+      defaultMix[3]=Math.round(units2*0.35);
+      defaultMix[4]=Math.round(units2*0.15);
+    }
+
+    var beds1=num(cap.beds1!==undefined?cap.beds1:defaultMix[1]);
+    var beds2=num(cap.beds2!==undefined?cap.beds2:defaultMix[2]);
+    var beds3=num(cap.beds3!==undefined?cap.beds3:defaultMix[3]);
+    var beds4=num(cap.beds4!==undefined?cap.beds4:defaultMix[4]);
+    var totalUnitsCalc=beds1+beds2+beds3+beds4;
+
+    // ── Rent inputs (defaulting to market data) ────────────────────────────
+    var base1bed=num(cap.rent1||cityMkt.btr||1000);
+    var rent1=base1bed;
+    var rent2=num(cap.rent2||Math.round(base1bed*BED_MULT[2]));
+    var rent3=num(cap.rent3||Math.round(base1bed*BED_MULT[3]));
+    var rent4=num(cap.rent4||Math.round(base1bed*BED_MULT[4]));
+
+    // ── Gross annual rent ──────────────────────────────────────────────────
+    var grossMonthly=(beds1*rent1)+(beds2*rent2)+(beds3*rent3)+(beds4*rent4);
+    var grossAnnual=grossMonthly*12;
+
+    // ── NOI calculation ────────────────────────────────────────────────────
+    var ded=NOI_DEDUCTIONS.residential;
+    var voidRate=num(cap.voidRate!==undefined?cap.voidRate/100:ded.voids);
+    var mgmtRate=num(cap.mgmtRate!==undefined?cap.mgmtRate/100:ded.management);
+    var maintRate=num(cap.maintRate!==undefined?cap.maintRate/100:ded.maintenance);
+    var insRate=ded.insurance;
+    var totalDed=voidRate+mgmtRate+maintRate+insRate;
+    var nriMultiplier=1-totalDed;
+    var netAnnualIncome=grossAnnual*nriMultiplier;
+    var noiPerUnit=totalUnitsCalc>0?netAnnualIncome/totalUnitsCalc:0;
+
+    // ── Capitalised values at different yields ─────────────────────────────
+    var selYield=num(cap.targetYield||4.5)/100;
+    var capValue=selYield>0?netAnnualIncome/selYield:0;
+    var capValueMin=selYield>0?netAnnualIncome/(selYield+0.01):0;
+    var capValueMax=selYield>0?netAnnualIncome/(selYield-0.01):0;
+    var capPerUnit=totalUnitsCalc>0?capValue/totalUnitsCalc:0;
+
+    // Gross initial yield on cost
+    var buildCostEst=(num(rlvD.buildPsf||f.buildPsf||cityMkt.build||188))*units2*(num(rlvD.avgSqft||850));
+    var landCostEst=num(l.price||rlvD.rlv||0);
+    var totalCostEst=buildCostEst+landCostEst;
+    var giy=totalCostEst>0?netAnnualIncome/totalCostEst*100:0;
+    var profitOnCost=totalCostEst>0?(capValue-totalCostEst)/totalCostEst*100:0;
+
+    // ── Yield table across all buyer types ────────────────────────────────
+    var yieldTable=Object.keys(CAP_YIELDS).map(function(k){
+      var y=CAP_YIELDS[k];
+      return{
+        buyer:k,
+        minVal:netAnnualIncome/y.max,
+        baseVal:netAnnualIncome/y.base,
+        maxVal:netAnnualIncome/y.min,
+        label:y.label,
+        yield:y.base,
+      };
+    }).sort(function(a,b){return b.baseVal-a.baseVal;});
+
+    // Sensitivity: ±5% rent vs ±0.5% yield
+    function capAt(rentAdj, yAdj){
+      return (netAnnualIncome*(1+rentAdj/100))/(selYield+yAdj/100);
+    }
+    var sensitivity=[
+      [-10,-0.5],[-10,0],[-10,0.5],
+      [0,-0.5],[0,0],[0,0.5],
+      [10,-0.5],[10,0],[10,0.5],
+    ].map(function(pair){
+      return{rAdj:pair[0],yAdj:pair[1],val:capAt(pair[0],pair[1])};
+    });
+
+    return e("div",null,
+      // HEADER
+      e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:12}},
+        e("div",null,
+          e("div",{style:{fontSize:11,color:"#7278A0",textTransform:"uppercase",letterSpacing:".12em",fontWeight:700,marginBottom:4}},"Capitalisation Calculator"),
+          e("h2",{style:{fontSize:22,fontWeight:800,color:"#2E2F8A",margin:"0 0 4px"}},"£ Income & Investment Value"),
+          e("p",{style:{fontSize:12,color:"#7278A0",lineHeight:1.7}},"What is the maximum selling price to a pension fund, BTR investor or family office? Set your bedroom mix and rents, then see the capitalised value at every yield.")
+        ),
+        e("div",{style:{textAlign:"right"}},
+          e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:2}},"Capitalised value at "+pct(selYield*100)+" yield"),
+          e("div",{style:{fontSize:28,fontWeight:800,color:"#2D7A65"}},fmt(capValue)),
+          e("div",{style:{fontSize:11,color:"#7278A0"}},fmt(capPerUnit)+" per unit")
+        )
+      ),
+
+      // ── BEDROOM MIX & RENTS ────────────────────────────────────────────────
+      e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",marginBottom:14}},
+        e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:14}},"Bedroom Mix & Market Rents"),
+        e("div",{style:{fontSize:10,color:"#7278A0",marginBottom:12}},
+          "Rents auto-populated from "+cityName(city||"")+" market data. Adjust to match your scheme. Market benchmark: 1-bed £"+base1bed+"/month, 2-bed £"+Math.round(base1bed*BED_MULT[2])+", 3-bed £"+Math.round(base1bed*BED_MULT[3])+", 4-bed £"+Math.round(base1bed*BED_MULT[4])+"/month."
+        ),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}},
+          [{beds:1,k:"beds1",rk:"rent1",def:defaultMix[1],defR:rent1,col:"#4A4BAE"},
+           {beds:2,k:"beds2",rk:"rent2",def:defaultMix[2],defR:rent2,col:"#2D7A65"},
+           {beds:3,k:"beds3",rk:"rent3",def:defaultMix[3],defR:rent3,col:"#9A7B3E"},
+           {beds:4,k:"beds4",rk:"rent4",def:defaultMix[4],defR:rent4,col:"#B05A35"},
+          ].map(function(item){
+            var cnt=item.k==="beds1"?beds1:item.k==="beds2"?beds2:item.k==="beds3"?beds3:beds4;
+            var rnt=item.rk==="rent1"?rent1:item.rk==="rent2"?rent2:item.rk==="rent3"?rent3:rent4;
+            var annualIncome=cnt*rnt*12;
+            return e("div",{key:item.beds,style:{background:"#F7F8FC",borderRadius:8,padding:"14px",borderTop:"3px solid "+item.col}},
+              e("div",{style:{fontSize:11,fontWeight:800,color:item.col,marginBottom:8}},item.beds+" Bedroom"),
+              e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}},
+                e("div",null,
+                  e("label",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",display:"block",marginBottom:2}},"Units"),
+                  e("input",{type:"number",min:0,value:cnt,onChange:function(ev){up("capitalise",item.k,Number(ev.target.value));},
+                    style:{width:"100%",padding:"6px 8px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:12,fontFamily:"DM Mono,monospace",textAlign:"center"}})
+                ),
+                e("div",null,
+                  e("label",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",display:"block",marginBottom:2}},"Rent £/mo"),
+                  e("input",{type:"number",min:0,value:rnt,onChange:function(ev){up("capitalise",item.rk,Number(ev.target.value));},
+                    style:{width:"100%",padding:"6px 8px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:12,fontFamily:"DM Mono,monospace",textAlign:"center"}})
+                )
+              ),
+              e("div",{style:{fontSize:10,color:"#7278A0"}},fmt(annualIncome)+" pa gross"),
+              e("div",{style:{fontSize:11,fontWeight:700,color:item.col,marginTop:2}},"£"+rnt+"/month")
+            );
+          })
+        ),
+
+        // Totals bar
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,background:"rgba(74,75,174,0.05)",borderRadius:8,padding:"12px 14px"}},
+          [{l:"Total units",v:totalUnitsCalc},{l:"Gross monthly rent",v:"£"+Math.round(grossMonthly).toLocaleString()},{l:"Gross annual rent",v:fmt(grossAnnual)},{l:"Net annual income (NOI)",v:fmt(netAnnualIncome)}].map(function(item){
+            return e("div",{key:item.l,style:{textAlign:"center"}},
+              e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".08em",marginBottom:2}},item.l),
+              e("div",{style:{fontSize:14,fontWeight:800,color:"#2E2F8A"}},item.v)
+            );
+          })
+        )
+      ),
+
+      // ── NOI DEDUCTIONS ─────────────────────────────────────────────────────
+      e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",marginBottom:14}},
+        e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:12}},"Net Operating Income — Deductions"),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:12}},
+          [{k:"voidRate",l:"Void rate %",def:5,note:"Industry standard 4-6%"},
+           {k:"mgmtRate",l:"Management %",def:10,note:"Typically 8-12% of gross"},
+           {k:"maintRate",l:"Maintenance %",def:8,note:"Typically 6-10% of gross"},
+           {k:"insRate",l:"Insurance %",def:2,note:"Buildings insurance ~1-3%"},
+          ].map(function(row){
+            var val=row.k==="insRate"?2:num(cap[row.k]!==undefined?cap[row.k]:row.def);
+            return e("div",{key:row.k},
+              e("label",{style:{fontSize:10,color:"#7278A0",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",display:"block",marginBottom:3}},row.l),
+              row.k!=="insRate"?e("input",{type:"number",min:0,max:30,step:0.5,value:val,
+                onChange:function(ev){up("capitalise",row.k,Number(ev.target.value));},
+                style:{width:"100%",padding:"6px 8px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:12,fontFamily:"DM Mono,monospace"}
+              }):e("div",{style:{padding:"7px 8px",background:"#F7F8FC",borderRadius:5,fontSize:12,fontFamily:"DM Mono,monospace",color:"#7278A0"}},"2% (fixed)"),
+              e("div",{style:{fontSize:9,color:"#9A9AAE",marginTop:2}},row.note)
+            );
+          })
+        ),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,background:"rgba(45,122,101,0.05)",borderRadius:8,padding:"12px 14px"}},
+          [{l:"Total deductions",v:pct(totalDed*100)+"  ("+pct(totalDed*100)+" of gross)"},{l:"Net rental income (NRI)",v:pct(nriMultiplier*100)+" of gross"},{l:"NOI per annum",v:fmt(netAnnualIncome)}].map(function(item){
+            return e("div",{key:item.l,style:{textAlign:"center"}},
+              e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:2}},item.l),
+              e("div",{style:{fontSize:14,fontWeight:800,color:"#2D7A65"}},item.v)
+            );
+          })
+        )
+      ),
+
+      // ── TARGET YIELD SELECTOR + CAPITALISED VALUE ─────────────────────────
+      e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",marginBottom:14}},
+        e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}},
+          e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em"}},"Capitalised Value — Set Your Target Yield"),
+          e("div",{style:{fontSize:12,color:"#7278A0"}},"Lower yield = higher price. Pension funds buy at lowest yields.")
+        ),
+        e("div",{style:{marginBottom:16}},
+          e("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:6}},
+            e("span",{style:{fontSize:12,color:"#2E2F8A",fontWeight:600}},"Target yield: "+pct(selYield*100)),
+            e("span",{style:{fontSize:20,fontWeight:800,color:"#2D7A65"}},fmt(capValue))
+          ),
+          e("input",{type:"range",min:3,max:9,step:0.25,
+            value:num(cap.targetYield||4.5),
+            onChange:function(ev){up("capitalise","targetYield",Number(ev.target.value));},
+            style:{width:"100%",accentColor:"#2D7A65",cursor:"pointer"}
+          }),
+          e("div",{style:{display:"flex",justifyContent:"space-between",fontSize:10,color:"#9A9AAE",marginTop:2}},
+            e("span","3% (Pension grade)"),e("span","6% (Private)"),e("span","9% (Distressed)")
+          )
+        ),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:14}},
+          [{l:"Value (yield +1%)",v:fmt(capValueMin),c:"#B05A35"},{l:"Value at "+pct(selYield*100),v:fmt(capValue),c:"#2D7A65"},{l:"Value (yield -1%)",v:fmt(capValueMax),c:"#4A4BAE"}].map(function(item){
+            return e("div",{key:item.l,style:{background:"#F7F8FC",borderRadius:8,padding:"12px",textAlign:"center",borderTop:"3px solid "+item.c}},
+              e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:3}},item.l),
+              e("div",{style:{fontSize:16,fontWeight:800,color:item.c}},item.v)
+            );
+          })
+        ),
+        // Return on cost
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,background:"rgba(74,75,174,0.04)",borderRadius:8,padding:"12px 14px"}},
+          [{l:"Gross income yield on cost",v:giy>0?Math.round(giy*10)/10+"%":"—",c:"#4A4BAE"},
+           {l:"Profit on cost (retain & sell)",v:profitOnCost>0?Math.round(profitOnCost*10)/10+"%":"—",c:profitOnCost>15?"#2D7A65":"#9A7B3E"},
+           {l:"NOI per unit pa",v:fmt(noiPerUnit),c:"#2E2F8A"}
+          ].map(function(item){
+            return e("div",{key:item.l,style:{textAlign:"center"}},
+              e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:2}},item.l),
+              e("div",{style:{fontSize:14,fontWeight:800,color:item.c}},item.v)
+            );
+          })
+        )
+      ),
+
+      // ── BUYER TYPE YIELD TABLE ─────────────────────────────────────────────
+      e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",marginBottom:14}},
+        e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:14}},"Capitalised Value by Buyer Type — What Each Would Pay"),
+        yieldTable.map(function(row,ri){
+          var isBest=ri===0;
+          var barW=yieldTable[0].baseVal>0?row.baseVal/yieldTable[0].baseVal*100:50;
+          return e("div",{key:row.buyer,style:{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:"1px solid #F0F1FA"}},
+            e("div",{style:{width:180,flexShrink:0}},
+              e("div",{style:{fontSize:11,fontWeight:isBest?800:600,color:"#2E2F8A"}},row.buyer),
+              e("div",{style:{fontSize:9,color:"#7278A0",marginTop:1}},row.label)
+            ),
+            e("div",{style:{flex:1}},
+              e("div",{style:{height:8,background:"#F0F1FA",borderRadius:4,overflow:"hidden",marginBottom:3}},
+                e("div",{style:{width:barW+"%",height:"100%",background:isBest?"#2D7A65":"#4A4BAE",borderRadius:4}})
+              ),
+              e("div",{style:{fontSize:10,color:"#7278A0"}},fmt(row.minVal)+" — "+fmt(row.maxVal))
+            ),
+            e("div",{style:{textAlign:"right",flexShrink:0,minWidth:90}},
+              e("div",{style:{fontSize:16,fontWeight:800,color:isBest?"#2D7A65":"#2E2F8A"}},fmt(row.baseVal)),
+              isBest&&e("div",{style:{fontSize:9,color:"#2D7A65",fontWeight:700}},"★ HIGHEST")
+            )
+          );
+        }),
+        e("div",{style:{marginTop:12,padding:"10px 14px",background:"rgba(45,122,101,0.05)",borderRadius:6,fontSize:11,color:"#2D7A65",lineHeight:1.7}},
+          e("strong",null,"Key insight: "),
+          "Selling to a pension fund at "+pct(CAP_YIELDS["Pension / Sovereign Fund"].base*100)+" yield produces "+fmt(yieldTable.find(function(r){return r.buyer==="Pension / Sovereign Fund";})&&yieldTable.find(function(r){return r.buyer==="Pension / Sovereign Fund";}).baseVal||0)+" — vs "+fmt(yieldTable.find(function(r){return r.buyer==="BTR Institutional Fund";})&&yieldTable.find(function(r){return r.buyer==="BTR Institutional Fund";}).baseVal||0)+" to a BTR fund. The difference is yield compression: every 0.5% reduction in yield adds approximately "+fmt(netAnnualIncome/((selYield-0.005)*selYield))+" to the price."
+        )
+      ),
+
+      // ── SENSITIVITY TABLE ─────────────────────────────────────────────────
+      e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",marginBottom:14}},
+        e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:12}},"Sensitivity Analysis — Rent vs Yield"),
+        e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:10}},"Capitalised values at rent ±10% and yield ±0.5% from your current inputs ("+pct(selYield*100)+" target yield)"),
+        e("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:11}},
+          e("thead",null,
+            e("tr",null,
+              e("th",{style:{padding:"6px 8px",textAlign:"left",fontSize:9,color:"#7278A0",textTransform:"uppercase",background:"#F7F8FC",border:"1px solid #DDE0ED"}},"Rent / Yield"),
+              e("th",{style:{padding:"6px 8px",textAlign:"center",fontSize:9,color:"#7278A0",textTransform:"uppercase",background:"#F7F8FC",border:"1px solid #DDE0ED"}},pct((selYield-0.005)*100)+" yield"),
+              e("th",{style:{padding:"6px 8px",textAlign:"center",fontSize:9,color:"#4A4BAE",textTransform:"uppercase",background:"#EEF0FF",border:"1px solid #DDE0ED"}},pct(selYield*100)+" (base)"),
+              e("th",{style:{padding:"6px 8px",textAlign:"center",fontSize:9,color:"#7278A0",textTransform:"uppercase",background:"#F7F8FC",border:"1px solid #DDE0ED"}},pct((selYield+0.005)*100)+" yield")
+            )
+          ),
+          e("tbody",null,
+            [[-10,"Rent -10%"],[0,"Base rent"],[10,"Rent +10%"]].map(function(rRow){
+              return e("tr",{key:rRow[0]},
+                e("td",{style:{padding:"8px",fontWeight:600,color:"#2E2F8A",border:"1px solid #DDE0ED",background:"#F7F8FC"}},rRow[1]),
+                [-0.5,0,0.5].map(function(yAdj){
+                  var v=capAt(rRow[0],yAdj);
+                  var isBase=rRow[0]===0&&yAdj===0;
+                  var col=v>capValue*1.1?"#2D7A65":v<capValue*0.9?"#B05A35":"#2E2F8A";
+                  return e("td",{key:yAdj,style:{padding:"8px",textAlign:"center",fontWeight:isBase?800:500,color:col,border:"1px solid #DDE0ED",background:isBase?"#EEF0FF":"#fff"}},fmt(v));
+                })
+              );
+            })
+          )
+        )
+      ),
+
+      // AI capitalisation advice
+      e(AIPanel,{user:user,up:up,stage:"capitalise",data:data,persistKey:"cap_advice",
+        label:"🏛 AI Capitalisation Strategy",
+        system:"You are a senior UK real estate investment analyst advising on maximising exit value through yield compression and income optimisation.",
+        prompt:"Advise on capitalisation strategy for this scheme. Location: "+cityName(city||"")+". NOI: "+fmt(netAnnualIncome)+" pa from "+totalUnitsCalc+" units. Current cap value at "+pct(selYield*100)+": "+fmt(capValue)+". Pension fund value at 4.5%: "+fmt(yieldTable.find(function(r){return r.buyer==="Pension / Sovereign Fund";})?yieldTable.find(function(r){return r.buyer==="Pension / Sovereign Fund";}).baseVal:0)+". BTR fund at 5.5%: "+fmt(yieldTable.find(function(r){return r.buyer==="BTR Institutional Fund";})?yieldTable.find(function(r){return r.buyer==="BTR Institutional Fund";}).baseVal:0)+". Gross income yield on cost: "+Math.round(giy*10)/10+"%. Profit on cost: "+Math.round(profitOnCost*10)/10+"%. Advise: 1) Which buyer type maximises exit price and why, 2) What NOI improvements would most move the needle, 3) Whether a forward fund or stabilised sale is optimal, 4) Specific steps to qualify for pension-grade pricing, 5) Realistic yield compression achievable in this market."
+      })
+    );
+  }
 
   function renderPortfolio(){
     var deals=JSON.parse(localStorage.getItem("cassidy_deals")||"[]");
@@ -8186,7 +8476,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
 
     // Compute all buyer values
     var buyerValues=BUYER_TYPES.map(function(b){
-      return{...b,value:b.calc(),appetite:b.appetite()};
+      return Object.assign({},b,{value:b.calc(),appetite:b.appetite()});
     }).sort(function(a,b2){return b2.value-a.value;});
 
     var bestBuyer=buyerValues[0];
@@ -8512,6 +8802,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
   function renderStage(){
     if(stage==="portfolio")return renderPortfolio();
     if(stage==="scorecard")return renderScorecard();
+    if(stage==="capitalise")return renderCapitalise();
     if(stage==="grants")return renderGrants();
     if(stage==="teaser")return renderTeaser();
     if(stage==="im")return renderIM();
