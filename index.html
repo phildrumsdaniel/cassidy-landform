@@ -5171,7 +5171,25 @@ var ALL_STAGES = [
       if(ok(site.agent_contact))             up("land","agent",site.agent_contact);
       if(ok(site.county))                    up("land","county",site.county);
       if(ok(site.source_url))                up("land","sourceUrl",site.source_url);
-      if(ok(site.constraints_summary))       up("land","constraint",site.constraints_summary);
+      if(ok(site.constraints_summary))       up("land","constraintSummary",site.constraints_summary);
+
+      // ── Smart dropdown inference from constraints + planning status text ──
+      var allText = ((site.constraints_summary||"")+" "+(site.planning_status||"")+" "+(site.recommended_action||"")).toLowerCase();
+      // Planning Constraints dropdown (none/minor/moderate/major)
+      if(/green\s*belt|flood\s*zone\s*3|sssi|aonb|national\s*park/.test(allText))      up("land","constraint","major");
+      else if(/conservation|flood\s*zone\s*2|heritage/.test(allText))                    up("land","constraint","moderate");
+      else if(/tpo|tree\s*preservation|listed\s*(adjacent|nearby)/.test(allText))        up("land","constraint","minor");
+      else if(/allocated|outline\s*consent|no\s*constraint|local\s*plan\s*allocation/.test(allText)) up("land","constraint","none");
+      // Ground Contamination dropdown
+      if(/contaminat|brownfield|former\s*(industrial|factory|landfill)|remediation/.test(allText)) up("land","contamination","minor");
+      else if(/greenfield|agricultural|farmland|pasture/.test(allText))                  up("land","contamination","clean");
+      // Tenure default — most UK strategic land sales are freehold
+      up("land","tenure","freehold");
+      // Proximity heuristic — promoted/allocated sites are usually near settlements
+      if(/edge[\s-]*of[\s-]*settlement|sustainable\s*location|near\s*(town|village|station)/.test(allText)) up("land","proximity","good");
+      else if(/remote|rural|isolated/.test(allText))                                     up("land","proximity","poor");
+      // Transport heuristic
+      if(/station|rail|motorway|junction|a\d+\s*(corridor|access)/.test(allText))        up("land","transport","good");
 
       // ────────────────────────────────────────────────────────────────
       // 2. PLANNING & VIABILITY
@@ -5643,20 +5661,9 @@ var ALL_STAGES = [
               ),
               e("button",{
                 onClick:function(){
-                  if(site.address_or_location||site.site_name)up("land","address",site.address_or_location||site.site_name||"");
-                  if(site.postcode)up("land","postcode",(site.postcode||"").toUpperCase());
-                  if(site.site_area_acres)up("land","acres",site.site_area_acres);
-                  if(site.asking_price&&site.asking_price!=="Not found")up("land","price",site.asking_price);
-                  if(site.local_planning_authority)up("land","localAuthority",site.local_planning_authority||"");
-                  if(site.planning_status)up("land","planningStatus",site.planning_status||"");
-                  if(site.agent_contact&&site.agent_contact!=="Not found")up("land","agent",site.agent_contact||"");
-                  if(site.estimated_units&&site.estimated_units!=="Not found")up("planning","units",site.estimated_units||"");
-                  if(site.local_planning_authority)up("planning","lpa",site.local_planning_authority||"");
-                  if(site.postcode)up("rlv","postcode",(site.postcode||"").toUpperCase());
-                  if(site.constraints_summary&&site.constraints_summary!=="Not found")up("constraint","result",site.constraints_summary||"");
+                  loadSiteIntoDeal(site);
                   var newInbox=inbox.filter(function(_,idx2){return idx2!==si;});
                   up("placona","inbox",newInbox);
-                  navTo("land");
                 },
                 style:{padding:"6px 12px",background:"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}
               },"Load Deal")
@@ -8013,10 +8020,31 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
         e("button",{onClick:function(){navTo("landworkflow");},style:{padding:"9px 18px",background:"#2D7A65",border:"none",borderRadius:7,color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"→ Development Workflow")
       ),
       e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Site evaluation, location scoring and market benchmarking"),
+
+      // ── PLACONA INTEL BANNER (shows when data loaded from Placona) ───────────
+      (l.planningStatus||l.localAuthority||l.county||l.agent||l.constraintSummary||(data.scorecard&&data.scorecard.placonaScore))&&e("div",{style:{background:"linear-gradient(135deg,#F0F1FA 0%,#E8EAF6 100%)",border:"1px solid #C5C8E0",borderRadius:10,padding:16,marginBottom:16}},
+        e("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:10}},
+          e("span",{style:{fontSize:14}},"🤖"),
+          e("div",{style:{fontSize:10,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700}},"Placona Intel — site data loaded"),
+          (data.scorecard&&data.scorecard.placonaScore)&&e("div",{style:{marginLeft:"auto",padding:"3px 10px",background:"#4A4BAE",color:"#fff",borderRadius:12,fontSize:11,fontWeight:700}},"Score "+data.scorecard.placonaScore+(data.scorecard.placonaCategory?" · CAT "+data.scorecard.placonaCategory:""))
+        ),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:10,fontSize:11}},
+          l.county&&e("div",null,e("div",{style:{color:"#7278A0",fontSize:9,textTransform:"uppercase",letterSpacing:".08em",marginBottom:2}},"County"),e("div",{style:{color:"#2E2F8A",fontWeight:600}},l.county)),
+          l.localAuthority&&e("div",null,e("div",{style:{color:"#7278A0",fontSize:9,textTransform:"uppercase",letterSpacing:".08em",marginBottom:2}},"Planning Authority"),e("div",{style:{color:"#2E2F8A",fontWeight:600}},l.localAuthority)),
+          l.planningStatus&&e("div",null,e("div",{style:{color:"#7278A0",fontSize:9,textTransform:"uppercase",letterSpacing:".08em",marginBottom:2}},"Planning Status"),e("div",{style:{color:"#2E2F8A",fontWeight:600}},l.planningStatus)),
+          l.agent&&e("div",null,e("div",{style:{color:"#7278A0",fontSize:9,textTransform:"uppercase",letterSpacing:".08em",marginBottom:2}},"Agent / Contact"),e("div",{style:{color:"#2E2F8A",fontWeight:600}},l.agent))
+        ),
+        l.constraintSummary&&e("div",{style:{marginTop:10,paddingTop:10,borderTop:"1px solid #C5C8E0"}},
+          e("div",{style:{color:"#7278A0",fontSize:9,textTransform:"uppercase",letterSpacing:".08em",marginBottom:4}},"Constraints Summary"),
+          e("div",{style:{color:"#2E2F8A",fontSize:11,lineHeight:1.5}},l.constraintSummary)
+        )
+      ),
+
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Site Details"),
         e("div",{style:S.grid2},
           e(Inp,{label:"Site Address",value:l.address,onChange:function(v){up("land","address",v);},placeholder:"e.g. Former Factory, Birmingham B1",full:true}),
+          e(Inp,{label:"Postcode",value:l.postcode,onChange:function(v){up("land","postcode",v.toUpperCase());},placeholder:"e.g. CV35 0DB"}),
           e(CitySelect,{value:l.city,onChange:function(v){up("land","city",v);}}),
           e(Inp,{label:"Site Area (acres)",type:"number",value:l.acres,onChange:function(v){up("land","acres",v);},placeholder:"e.g. 2.5"}),
           e(Inp,{label:"Asking Price (£)",type:"number",value:l.price,onChange:function(v){up("land","price",v);},placeholder:"e.g. 4500000"}),
