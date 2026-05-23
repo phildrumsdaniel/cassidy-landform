@@ -850,7 +850,7 @@ function Tool(props){
   var ds=useState(function(){
     try{var s=localStorage.getItem("cassidy_deal");return s?JSON.parse(s):{};}catch(e){return {};}
   }()); var data=ds[0]; var setData=ds[1];
-  var ss=useState("scraper"); var stage=ss[0]; var setStage=ss[1];
+  var ss=useState("placona"); var stage=ss[0]; var setStage=ss[1];
   var mob=useState(false); var mobileMenuOpen=mob[0]; var setMobileMenuOpen=mob[1];
   var fup=useState(false); var showFileUpload=fup[0]; var setShowFileUpload=fup[1];
   var fpr=useState(false); var fileProcessing=fpr[0]; var setFileProcessing=fpr[1];
@@ -868,6 +868,7 @@ function Tool(props){
 // ── STAGES ───────────────────────────────────────────────────────────────────
 var ALL_STAGES = [
   // ── 1. FIND ──────────────────────────────────────────────────────────────
+  {id:"placona",     label:"Placona Agent",         icon:"🤖", group:"1. Find",     journeys:["land","all"]},
   {id:"monitor",     label:"Planning Monitor",     icon:"📡", group:"1. Find",     journeys:["land","all"]},
   {id:"constraint",  label:"Constraint Check",     icon:"⚠",  group:"1. Find",     journeys:["land","all"]},
   {id:"scraper",     label:"Land Finder",          icon:"🔍", group:"1. Find",     journeys:["land","all"]},
@@ -5003,6 +5004,438 @@ var ALL_STAGES = [
     );
   }
 
+
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // PLACONA AGENT — Land Discovery & Site Inbox
+  // ══════════════════════════════════════════════════════════════════════════
+  function renderPlacona(){
+    var pl=data.placona||{};
+    var inbox=(pl.inbox)||[];
+    var running=pl.running||false;
+    var lastRun=pl.lastRun||"";
+    var error=pl.error||"";
+    var loadingSheet=pl.loadingSheet||false;
+    var selectedSite=pl.selectedSite||null;
+    var view=pl.view||"search"; // "search" | "inbox" | "detail"
+
+    var COUNTIES=[
+      {id:"tyne_wear",        label:"Tyne & Wear"},
+      {id:"northumberland",   label:"Northumberland"},
+      {id:"county_durham",    label:"County Durham"},
+      {id:"tees_valley",      label:"Tees Valley"},
+      {id:"north_yorkshire",  label:"North Yorkshire"},
+      {id:"west_yorkshire",   label:"West Yorkshire"},
+      {id:"south_yorkshire",  label:"South Yorkshire"},
+      {id:"east_yorkshire",   label:"East Yorkshire"},
+      {id:"nottinghamshire",  label:"Nottinghamshire"},
+      {id:"derbyshire",       label:"Derbyshire"},
+      {id:"staffordshire",    label:"Staffordshire"},
+      {id:"warwickshire",     label:"Warwickshire"},
+      {id:"west_midlands",    label:"West Midlands"},
+      {id:"worcestershire",   label:"Worcestershire"},
+      {id:"gloucestershire",  label:"Gloucestershire"},
+      {id:"bristol",          label:"Bristol"},
+    ];
+
+    var PRESETS=[
+      {label:"North East",          ids:["tyne_wear","northumberland","county_durham","tees_valley"]},
+      {label:"Yorkshire",           ids:["north_yorkshire","west_yorkshire","south_yorkshire","east_yorkshire"]},
+      {label:"Midlands",            ids:["nottinghamshire","derbyshire","staffordshire","warwickshire","west_midlands","worcestershire"]},
+      {label:"South West",          ids:["gloucestershire","bristol"]},
+      {label:"All Corridors",       ids:["tyne_wear","northumberland","county_durham","tees_valley","north_yorkshire","west_yorkshire","south_yorkshire","east_yorkshire","nottinghamshire","derbyshire","staffordshire","warwickshire","west_midlands","worcestershire","gloucestershire","bristol"]},
+    ];
+
+    var selected=pl.selectedCounties||[];
+    var minHomes=pl.minHomes||100;
+    var siteTypes=pl.siteTypes||["strategic land","Local Plan allocations","SHELAA sites","edge-of-settlement","brownfield land"];
+    var searchDepth=pl.searchDepth||"standard search";
+
+    var selectedLabels=selected.map(function(id){
+      var c=COUNTIES.find(function(c2){return c2.id===id;});
+      return c?c.label:id;
+    });
+
+    function toggleCounty(id){
+      var n=selected.indexOf(id)>=0?selected.filter(function(c){return c!==id;}):selected.concat([id]);
+      up("placona","selectedCounties",n);
+    }
+    function applyPreset(p){up("placona","selectedCounties",p.ids);}
+
+    // Load from Google Sheet
+    function loadFromSheet(){
+      up("placona","loadingSheet",true);
+      fetch(WEBHOOK+"?action=placona_read")
+      .then(function(r){return r.json();})
+      .then(function(d){
+        up("placona","loadingSheet",false);
+        if(d.status==="ok"&&d.sites&&d.sites.length>0){
+          up("placona","inbox",d.sites);
+          up("placona","view","inbox");
+        } else {
+          up("placona","error","No sites in the Google Sheet inbox yet. Run a search first.");
+        }
+      })
+      .catch(function(err){
+        up("placona","loadingSheet",false);
+        up("placona","error","Could not read from sheet: "+err.message);
+      });
+    }
+
+    // Run Placona search
+    function runPlacona(){
+      if(selected.length===0){alert("Please select at least one county.");return;}
+      up("placona","running",true);
+      up("placona","error","");
+      var params=new URLSearchParams({
+        action:"placona_run",
+        counties:JSON.stringify(selectedLabels),
+        min_homes:minHomes,
+        site_types:JSON.stringify(siteTypes),
+        search_depth:searchDepth,
+        user:(user&&user.name)||"",
+        company:(user&&user.company)||""
+      });
+      fetch(WEBHOOK+"?"+params.toString())
+      .then(function(r){return r.json();})
+      .then(function(d){
+        up("placona","running",false);
+        up("placona","lastRun",new Date().toLocaleString("en-GB"));
+        if(d.status==="ok"&&d.sites&&d.sites.length>0){
+          var existing=inbox||[];
+          var merged=existing.concat(d.sites.filter(function(ns){
+            return !existing.some(function(es){return es.site_name===ns.site_name;});
+          }));
+          up("placona","inbox",merged);
+          up("placona","view","inbox");
+          up("placona","error","");
+        } else {
+          up("placona","error",d.message||"No sites returned. Try different counties or deeper search.");
+        }
+      })
+      .catch(function(err){
+        up("placona","running",false);
+        up("placona","error","Connection error: "+err.message);
+      });
+    }
+
+    // Load site into deal
+    function loadSiteIntoDeal(site){
+      if(site.address_or_location||site.site_name) up("land","address",site.address_or_location||site.site_name||"");
+      if(site.postcode)up("land","postcode",(site.postcode||"").toUpperCase().trim());
+      if(site.site_area_acres)up("land","acres",site.site_area_acres);
+      if(site.asking_price&&site.asking_price!=="Not found")up("land","price",site.asking_price);
+      if(site.local_planning_authority)up("land","localAuthority",site.local_planning_authority||"");
+      if(site.planning_status&&site.planning_status!=="Not found")up("land","planningStatus",site.planning_status||"");
+      if(site.agent_contact&&site.agent_contact!=="Not found")up("land","agent",site.agent_contact||"");
+      if(site.county)up("land","county",site.county||"");
+      if(site.source_url&&site.source_url!=="Not found")up("land","sourceUrl",site.source_url||"");
+      if(site.estimated_units&&site.estimated_units!=="Not found"){
+        var uNum=parseInt((site.estimated_units||"").toString().replace(/[^0-9]/g,""))||0;
+        if(uNum>0){up("planning","units",uNum);up("rlv","units",uNum);}
+      }
+      if(site.local_planning_authority)up("planning","lpa",site.local_planning_authority||"");
+      if(site.planning_status&&site.planning_status!=="Not found")up("planning","status",site.planning_status||"");
+      if(site.postcode)up("rlv","postcode",(site.postcode||"").toUpperCase().trim());
+      if(site.site_area_acres){up("rlv","acres",site.site_area_acres);}
+      if(site.constraints_summary&&site.constraints_summary!=="Not found")up("constraint","result",site.constraints_summary||"");
+      if(site.constraints_summary&&site.constraints_summary!=="Not found")up("constraint","constraints",site.constraints_summary||"");
+      // Store Placona score on scorecard
+      if(site.placona_score)up("scorecard","placonaScore",site.placona_score);
+      if(site.placona_category)up("scorecard","placonaCategory",site.placona_category);
+      navTo("land");
+    }
+
+    // Category colour
+    function catCol(cat){return cat==="A"?"#2D7A65":cat==="B"?"#4A4BAE":cat==="C"?"#9A7B3E":"#B05A35";}
+    function scoreBar(score){
+      var s=num(score)||0;
+      return e("div",{style:{height:4,background:"#F0F1FA",borderRadius:2,marginTop:4}},
+        e("div",{style:{width:Math.min(s,100)+"%",height:"100%",background:s>=80?"#2D7A65":s>=65?"#4A4BAE":s>=50?"#9A7B3E":"#B05A35",borderRadius:2}})
+      );
+    }
+
+    // ── TAB BAR ──────────────────────────────────────────────────────────────
+    var tabs=[
+      {id:"search",label:"Search",icon:"🔍"},
+      {id:"inbox", label:"Site Inbox "+(inbox.length>0?"("+inbox.length+")":""),icon:"📥"},
+    ];
+    if(selectedSite) tabs.push({id:"detail",label:"Site Detail",icon:"📋"});
+
+    return e("div",{style:{maxWidth:900}},
+
+      // HEADER
+      e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16,flexWrap:"wrap",gap:10}},
+        e("div",null,
+          e("div",{style:{fontSize:11,color:"#7278A0",textTransform:"uppercase",letterSpacing:".12em",fontWeight:700,marginBottom:2}},"Placona — AI Land Discovery"),
+          e("h2",{style:{fontSize:22,fontWeight:800,color:"#2E2F8A",margin:"0 0 2px"}},"🤖 Find Land Opportunities"),
+          e("div",{style:{fontSize:11,color:"#7278A0"}},"Search planning portals and agent listings. Results saved to Google Sheet and loaded here.")
+        ),
+        e("div",{style:{display:"flex",gap:8,alignItems:"center"}},
+          e("button",{onClick:loadFromSheet,disabled:loadingSheet,
+            style:{padding:"8px 14px",background:"#F0F1FA",border:"1px solid #DDE0ED",borderRadius:6,fontSize:11,fontWeight:700,color:"#4A4BAE",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+          },loadingSheet?"Loading...":"📥 Load from Sheet"),
+          inbox.length>0&&e("div",{style:{fontSize:12,color:"#2D7A65",fontWeight:700}},inbox.length+" site"+(inbox.length!==1?"s":"")+" in inbox")
+        )
+      ),
+
+      // TAB NAV
+      e("div",{style:{display:"flex",gap:2,marginBottom:16,borderBottom:"2px solid #F0F1FA"}},
+        tabs.map(function(tab){
+          var active=view===tab.id;
+          return e("button",{key:tab.id,onClick:function(){up("placona","view",tab.id);},
+            style:{padding:"8px 18px",background:"none",border:"none",borderBottom:active?"2px solid #4A4BAE":"2px solid transparent",marginBottom:-2,color:active?"#4A4BAE":"#7278A0",fontWeight:active?800:500,fontSize:12,cursor:"pointer",fontFamily:"DM Sans,sans-serif",transition:"all .15s"}
+          },tab.icon+" "+tab.label);
+        })
+      ),
+
+      // ── SEARCH TAB ─────────────────────────────────────────────────────────
+      view==="search"&&e("div",null,
+
+        // County selector
+        e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",marginBottom:12}},
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}},
+            e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em"}},"Select Counties"),
+            e("div",{style:{display:"flex",gap:6}},
+              e("button",{onClick:function(){up("placona","selectedCounties",COUNTIES.map(function(c){return c.id;}));},
+                style:{padding:"4px 10px",background:"#F0F1FA",border:"1px solid #DDE0ED",borderRadius:4,fontSize:10,fontWeight:700,color:"#4A4BAE",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"All"),
+              e("button",{onClick:function(){up("placona","selectedCounties",[]);},
+                style:{padding:"4px 10px",background:"#F0F1FA",border:"1px solid #DDE0ED",borderRadius:4,fontSize:10,fontWeight:700,color:"#B05A35",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Clear")
+            )
+          ),
+          // Preset pills
+          e("div",{style:{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}},
+            PRESETS.map(function(preset){
+              var isActive=preset.ids.length>0&&preset.ids.every(function(id){return selected.indexOf(id)>=0;});
+              return e("button",{key:preset.label,onClick:function(){applyPreset(preset);},
+                style:{padding:"5px 12px",background:isActive?"#4A4BAE":"#F0F1FA",border:"1px solid "+(isActive?"#4A4BAE":"#DDE0ED"),borderRadius:20,fontSize:11,fontWeight:700,color:isActive?"#fff":"#4A4BAE",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+              },preset.label);
+            })
+          ),
+          // County grid
+          e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}},
+            COUNTIES.map(function(county){
+              var checked=selected.indexOf(county.id)>=0;
+              return e("label",{key:county.id,
+                style:{display:"flex",alignItems:"center",gap:7,padding:"7px 10px",background:checked?"rgba(74,75,174,0.08)":"#F7F8FC",border:"1px solid "+(checked?"#4A4BAE":"#E8E9F5"),borderRadius:6,cursor:"pointer"}},
+                e("input",{type:"checkbox",checked:checked,onChange:function(){toggleCounty(county.id);},style:{accentColor:"#4A4BAE",width:13,height:13,flexShrink:0}}),
+                e("span",{style:{fontSize:11,fontWeight:checked?700:400,color:checked?"#2E2F8A":"#5A5C80"}},county.label)
+              );
+            })
+          ),
+          selected.length>0&&e("div",{style:{marginTop:10,fontSize:11,color:"#4A4BAE",fontWeight:600}},
+            selected.length+" counti"+(selected.length===1?"y":"es")+" selected: "+selectedLabels.join(", ")
+          )
+        ),
+
+        // Search settings row
+        e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}},
+          e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"14px 16px"}},
+            e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".08em",marginBottom:10}},"Search Settings"),
+            e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
+              e("div",null,
+                e("label",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",display:"block",marginBottom:3}},"Minimum homes"),
+                e("select",{value:minHomes,onChange:function(ev){up("placona","minHomes",Number(ev.target.value));},
+                  style:{width:"100%",padding:"7px 8px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:11,fontFamily:"DM Sans,sans-serif",color:"#2E2F8A"}},
+                  [50,100,150,200,300,500].map(function(n){return e("option",{key:n,value:n},n+"+");})
+                )
+              ),
+              e("div",null,
+                e("label",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",display:"block",marginBottom:3}},"Search depth"),
+                e("select",{value:searchDepth,onChange:function(ev){up("placona","searchDepth",ev.target.value);},
+                  style:{width:"100%",padding:"7px 8px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:11,fontFamily:"DM Sans,sans-serif",color:"#2E2F8A"}},
+                  ["quick scan","standard search","deep research"].map(function(d){return e("option",{key:d,value:d},d.charAt(0).toUpperCase()+d.slice(1));})
+                )
+              )
+            )
+          ),
+          e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"14px 16px"}},
+            e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".08em",marginBottom:8}},"Site Types"),
+            ["strategic land","Local Plan allocations","SHELAA sites","edge-of-settlement","brownfield land"].map(function(st){
+              var isOn=siteTypes.indexOf(st)>=0;
+              return e("label",{key:st,style:{display:"flex",alignItems:"center",gap:6,marginBottom:4,cursor:"pointer"}},
+                e("input",{type:"checkbox",checked:isOn,onChange:function(){
+                  var n=isOn?siteTypes.filter(function(t){return t!==st;}):siteTypes.concat([st]);
+                  up("placona","siteTypes",n);
+                },style:{accentColor:"#4A4BAE"}}),
+                e("span",{style:{fontSize:11,color:"#2E2F8A"}},st)
+              );
+            })
+          )
+        ),
+
+        // Run button + status
+        e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"16px 20px",display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}},
+          e("button",{onClick:runPlacona,disabled:running||selected.length===0,
+            style:{padding:"13px 28px",background:running?"#8889C8":selected.length===0?"#C8CDE0":"linear-gradient(135deg,#2D7A65,#4A4BAE)",border:"none",borderRadius:8,color:"#fff",fontSize:14,fontWeight:800,cursor:(running||selected.length===0)?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",boxShadow:running||selected.length===0?"none":"0 4px 12px rgba(74,75,174,0.3)",whiteSpace:"nowrap"}
+          },running?"⏳ Searching...":selected.length===0?"Select counties first":"🤖 Run Placona"),
+          e("div",{style:{flex:1}},
+            running&&e("div",{style:{fontSize:11,color:"#4A4BAE",lineHeight:1.8}},
+              "Searching "+selectedLabels.join(", ")+" for "+minHomes+"+ home sites.",e("br"),
+              "Takes 60-90 seconds. Results will appear in the Site Inbox tab and your Google Sheet."
+            ),
+            !running&&selected.length>0&&!error&&!lastRun&&e("div",{style:{fontSize:11,color:"#7278A0"}},"Ready to search "+selected.length+" counti"+(selected.length===1?"y":"es")+". Results go to Site Inbox."),
+            !running&&lastRun&&!error&&e("div",{style:{fontSize:11,color:"#2D7A65",fontWeight:600}},"Last search: "+lastRun+" — "+inbox.length+" sites in inbox"),
+            error&&e("div",{style:{fontSize:11,color:"#B05A35",background:"rgba(176,90,53,0.06)",padding:"8px 12px",borderRadius:6}},error)
+          )
+        )
+      ),
+
+      // ── INBOX TAB ──────────────────────────────────────────────────────────
+      view==="inbox"&&e("div",null,
+        inbox.length===0?e("div",{style:{textAlign:"center",padding:"60px 20px",color:"#7278A0"}},
+          e("div",{style:{fontSize:32,marginBottom:12}},"📥"),
+          e("div",{style:{fontSize:14,fontWeight:700,color:"#2E2F8A",marginBottom:8}},"Your inbox is empty"),
+          e("div",{style:{fontSize:12,marginBottom:16}},"Run a Placona search or click Load from Sheet to see saved results."),
+          e("button",{onClick:function(){up("placona","view","search");},
+            style:{padding:"10px 20px",background:"#4A4BAE",border:"none",borderRadius:6,color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+          },"Go to Search")
+        ):e("div",null,
+          // Inbox header
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}},
+            e("div",{style:{fontSize:12,fontWeight:700,color:"#2E2F8A"}},inbox.length+" site"+(inbox.length!==1?"s":"")+" found — click a site to view full details or load directly into Landform"),
+            e("button",{onClick:function(){up("placona","inbox",[]);},
+              style:{padding:"5px 12px",background:"none",border:"1px solid #DDE0ED",borderRadius:4,color:"#B05A35",fontSize:10,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Clear all")
+          ),
+          // Site cards
+          inbox.map(function(site,si){
+            var score=num(site.placona_score)||0;
+            var cat=site.placona_category||"";
+            var col=catCol(cat);
+            return e("div",{key:si,
+              style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,marginBottom:8,overflow:"hidden",transition:"box-shadow .15s",cursor:"pointer"},
+              onClick:function(){up("placona","selectedSite",site);up("placona","view","detail");}
+            },
+              e("div",{style:{display:"flex",alignItems:"stretch"}},
+                // Score column
+                e("div",{style:{width:64,background:col,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0,padding:"12px 0"}},
+                  e("div",{style:{fontSize:20,fontWeight:800,color:"#fff",lineHeight:1}},score||"—"),
+                  e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.85)",fontWeight:700,marginTop:2}},cat?"CAT "+cat:"—")
+                ),
+                // Main content
+                e("div",{style:{flex:1,padding:"12px 14px"}},
+                  e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}},
+                    e("div",{style:{fontSize:13,fontWeight:700,color:"#2E2F8A"}},site.site_name||site.address_or_location||"Unknown site"),
+                    e("div",{style:{fontSize:10,color:"#7278A0",whiteSpace:"nowrap",marginLeft:8}},
+                      site.site_area_acres&&site.site_area_acres!=="Not found"?site.site_area_acres+" acres":"",
+                      site.estimated_units&&site.estimated_units!=="Not found"?" · "+site.estimated_units+" units":""
+                    )
+                  ),
+                  e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:4}},
+                    [site.county,site.local_planning_authority,site.planning_status].filter(function(v){return v&&v!=="Not found";}).join(" · ")
+                  ),
+                  site.asking_price&&site.asking_price!=="Not found"&&e("div",{style:{fontSize:11,color:"#2D7A65",fontWeight:600}},"Ask: "+site.asking_price),
+                  scoreBar(score),
+                  e("div",{style:{fontSize:10,color:"#9A7B3E",marginTop:4}},site.recommended_action||"")
+                ),
+                // Actions
+                e("div",{style:{display:"flex",flexDirection:"column",justifyContent:"center",gap:6,padding:"12px 14px",flexShrink:0}},
+                  e("button",{
+                    onClick:function(ev){ev.stopPropagation();loadSiteIntoDeal(site);},
+                    style:{padding:"8px 14px",background:"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}
+                  },"Load Deal →"),
+                  e("button",{
+                    onClick:function(ev){ev.stopPropagation();up("placona","selectedSite",site);up("placona","view","detail");},
+                    style:{padding:"6px 14px",background:"#F0F1FA",border:"1px solid #DDE0ED",borderRadius:5,color:"#2E2F8A",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}
+                  },"Details"),
+                  e("button",{
+                    onClick:function(ev){
+                      ev.stopPropagation();
+                      var newInbox=inbox.filter(function(_,i2){return i2!==si;});
+                      up("placona","inbox",newInbox);
+                      // Also delete from sheet if has _row
+                      if(site._row){
+                        fetch(WEBHOOK+"?action=placona_delete&row="+site._row).catch(function(){});
+                      }
+                    },
+                    style:{padding:"4px 14px",background:"none",border:"1px solid #F0D0D0",borderRadius:5,color:"#B05A35",fontSize:10,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+                  },"Remove")
+                )
+              )
+            );
+          })
+        )
+      ),
+
+      // ── DETAIL TAB ──────────────────────────────────────────────────────────
+      view==="detail"&&selectedSite&&e("div",null,
+        e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}},
+          e("button",{onClick:function(){up("placona","view","inbox");},
+            style:{padding:"6px 12px",background:"#F0F1FA",border:"1px solid #DDE0ED",borderRadius:5,color:"#4A4BAE",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+          },"← Back to Inbox"),
+          e("button",{
+            onClick:function(){loadSiteIntoDeal(selectedSite);},
+            style:{padding:"10px 22px",background:"linear-gradient(135deg,#2D7A65,#4A4BAE)",border:"none",borderRadius:6,color:"#fff",fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",boxShadow:"0 4px 10px rgba(74,75,174,0.3)"}
+          },"🚀 Load into Landform — Pre-fill All Fields")
+        ),
+
+        // Score header
+        e("div",{style:{background:"linear-gradient(135deg,"+catCol(selectedSite.placona_category)+",rgba(30,31,92,0.8))",borderRadius:10,padding:"20px 24px",marginBottom:14,color:"#fff"}},
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}},
+            e("div",null,
+              e("div",{style:{fontSize:10,opacity:0.7,textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}},"Placona Site Report"),
+              e("div",{style:{fontSize:20,fontWeight:800,marginBottom:2}},selectedSite.site_name||selectedSite.address_or_location||"Unknown site"),
+              e("div",{style:{fontSize:13,opacity:0.8}},selectedSite.county+(selectedSite.local_planning_authority?" · "+selectedSite.local_planning_authority:""))
+            ),
+            e("div",{style:{textAlign:"right"}},
+              e("div",{style:{fontSize:40,fontWeight:800,lineHeight:1}},selectedSite.placona_score||"—"),
+              e("div",{style:{fontSize:12,opacity:0.8}},selectedSite.placona_category?"Category "+selectedSite.placona_category:"No category"),
+              e("div",{style:{width:100,height:6,background:"rgba(255,255,255,0.2)",borderRadius:3,marginTop:6}},
+                e("div",{style:{width:Math.min(num(selectedSite.placona_score),100)+"%",height:"100%",background:"#fff",borderRadius:3}})
+              )
+            )
+          )
+        ),
+
+        // Detail fields grid
+        e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}},
+          [
+            {l:"Address / Location",  v:selectedSite.address_or_location||selectedSite.site_name},
+            {l:"Postcode",             v:selectedSite.postcode},
+            {l:"County",              v:selectedSite.county},
+            {l:"Local Planning Auth", v:selectedSite.local_planning_authority},
+            {l:"Site area",           v:selectedSite.site_area_acres&&selectedSite.site_area_acres!=="Not found"?selectedSite.site_area_acres+" acres":"Not found"},
+            {l:"Estimated units",     v:selectedSite.estimated_units},
+            {l:"Planning status",     v:selectedSite.planning_status},
+            {l:"Asking price",        v:selectedSite.asking_price},
+            {l:"Agent / Contact",     v:selectedSite.agent_contact},
+            {l:"Recommended action",  v:selectedSite.recommended_action},
+          ].map(function(item){
+            var missing=!item.v||item.v==="Not found"||item.v==="";
+            return e("div",{key:item.l,style:{background:"#fff",border:"1px solid "+(missing?"#F0D0D0":"#DDE0ED"),borderRadius:8,padding:"12px 14px"}},
+              e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".08em",marginBottom:3}},item.l),
+              e("div",{style:{fontSize:12,fontWeight:600,color:missing?"#C0C4D8":"#2E2F8A"}},item.v||"Not found")
+            );
+          })
+        ),
+
+        // Constraints
+        e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,padding:"14px 16px",marginBottom:12}},
+          e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".08em",marginBottom:4}},"Constraints Summary"),
+          e("div",{style:{fontSize:12,color:"#2E2F8A",lineHeight:1.7}},selectedSite.constraints_summary||"Not assessed")
+        ),
+
+        // Source
+        selectedSite.source_url&&selectedSite.source_url!=="Not found"&&e("div",{style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,padding:"10px 14px",marginBottom:12,fontSize:11,color:"#7278A0"}},
+          e("span",{style:{fontWeight:700}},"Source: "),selectedSite.source_url
+        ),
+
+        // Fields that will be pre-filled notice
+        e("div",{style:{background:"rgba(45,122,101,0.05)",border:"1px solid rgba(45,122,101,0.2)",borderRadius:8,padding:"14px 16px"}},
+          e("div",{style:{fontSize:10,fontWeight:800,color:"#2D7A65",textTransform:"uppercase",letterSpacing:".08em",marginBottom:8}},"Fields that will be pre-filled when you click Load into Landform"),
+          e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}},
+            ["Land Appraisal — Address","Land Appraisal — Postcode","Land Appraisal — Acres","Land Appraisal — Asking price","Land Appraisal — Planning status","Land Appraisal — Agent contact","Planning — Units","Planning — LPA","RLV — Postcode","Constraint Check — Summary","Scorecard — Placona score"].map(function(f){
+              return e("div",{key:f,style:{fontSize:10,color:"#2D7A65",display:"flex",gap:4,alignItems:"center"}},
+                e("span",{style:{color:"#2D7A65",flexShrink:0}},"✓"),f
+              );
+            })
+          )
+        )
+      )
+    );
+  }
+
+
   function renderPortfolio(){
     var deals=JSON.parse(localStorage.getItem("cassidy_deals")||"[]");
     var current={ts:Date.now(),name:data.land&&data.land.address||"Current Deal",city:city?cityName(city):"—",at:at,gdv:gdv,tc:tc,profit:profit,margin:margin,units:effUnits||units,status:data.masterReport?(function(){try{return JSON.parse(data.masterReport).goNoGo||"—";}catch(e){return "—";}}()):"—"};
@@ -8870,6 +9303,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
   function renderStage(){
     if(stage==="portfolio")return renderPortfolio();
     if(stage==="scorecard")return renderScorecard();
+    if(stage==="placona")return renderPlacona();
     if(stage==="capitalise")return renderCapitalise();
     if(stage==="grants")return renderGrants();
     if(stage==="teaser")return renderTeaser();
