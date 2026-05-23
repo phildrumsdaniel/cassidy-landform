@@ -5087,19 +5087,14 @@ var ALL_STAGES = [
       if(selected.length===0){alert("Please select at least one county.");return;}
       up("placona","running",true);
       up("placona","error","");
-      fetch(WEBHOOK,{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          action:"placona_run",
-          counties:JSON.stringify(selectedLabels),
-          min_homes:minHomes,
-          site_types:JSON.stringify(siteTypes),
-          search_depth:searchDepth,
-          user:(user&&user.name)||"",
-          company:(user&&user.company)||""
-        })
-      })
+      var pUrl=WEBHOOK+"?action=placona_run"+
+        "&counties="+encodeURIComponent(selectedLabels.join(","))+
+        "&min_homes="+encodeURIComponent(minHomes)+
+        "&depth="+encodeURIComponent(searchDepth)+
+        "&types="+encodeURIComponent(siteTypes.slice(0,3).join(","))+
+        "&user="+encodeURIComponent((user&&user.name)||"")+
+        "&company="+encodeURIComponent((user&&user.company)||"");
+      fetch(pUrl)
       .then(function(r){return r.json();})
       .then(function(d){
         up("placona","running",false);
