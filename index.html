@@ -165,6 +165,14 @@ var MKT = {
   luton:{btr:850,pbsa:145,yield:0.049,land:1200000,build:192},
   stevenage:{btr:900,pbsa:0,yield:0.049,land:1400000,build:195},
   cambridge_rural:{btr:950,pbsa:0,yield:0.049,land:1600000,build:198},
+  stoke:{btr:680,pbsa:0,yield:0.050,land:700000,build:178},
+  tamworth:{btr:720,pbsa:0,yield:0.050,land:850000,build:182},
+  burton:{btr:700,pbsa:0,yield:0.050,land:780000,build:180},
+  cannock:{btr:700,pbsa:0,yield:0.050,land:750000,build:180},
+  walsall:{btr:680,pbsa:0,yield:0.050,land:700000,build:178},
+  wolverhampton:{btr:720,pbsa:0,yield:0.050,land:850000,build:182},
+  dudley:{btr:680,pbsa:0,yield:0.050,land:700000,build:178},
+  solihull:{btr:920,pbsa:0,yield:0.049,land:1700000,build:198},
 };
 
 var PC_CITY = {
@@ -205,7 +213,15 @@ var PC_CITY = {
   GL20:"tewkesbury",GL19:"tewkesbury",GL54:"tewkesbury",
   HR1:"hereford",HR2:"hereford",HR4:"hereford",
   SY1:"shrewsbury",SY2:"shrewsbury",SY3:"shrewsbury",
-  ST16:"stafford",ST17:"stafford",WS13:"lichfield",WS14:"lichfield",
+  ST16:"stafford",ST17:"stafford",ST18:"stafford",ST19:"stafford",ST20:"stafford",ST21:"stafford",
+  ST1:"stoke",ST2:"stoke",ST3:"stoke",ST4:"stoke",ST5:"stoke",ST6:"stoke",ST7:"stoke",ST8:"stoke",ST9:"stoke",ST10:"stoke",ST11:"stoke",ST12:"stoke",ST13:"stoke",ST14:"stoke",ST15:"stoke",
+  WS13:"lichfield",WS14:"lichfield",WS15:"lichfield",WS9:"lichfield",
+  WS1:"walsall",WS2:"walsall",WS3:"walsall",WS10:"walsall",WS11:"cannock",WS12:"cannock",
+  WV1:"wolverhampton",WV2:"wolverhampton",WV3:"wolverhampton",WV6:"wolverhampton",WV10:"wolverhampton",WV11:"wolverhampton",WV13:"wolverhampton",WV14:"wolverhampton",
+  DY1:"dudley",DY2:"dudley",DY3:"dudley",DY8:"dudley",DY10:"dudley",
+  B77:"tamworth",B78:"tamworth",B79:"tamworth",
+  DE13:"burton",DE14:"burton",DE15:"burton",
+  B90:"solihull",B91:"solihull",B92:"solihull",B93:"solihull",B94:"solihull",
   TF1:"telford",TF2:"telford",TF3:"telford",
   B97:"redditch",B98:"redditch",
   CV31:"leamington",CV32:"leamington",CV34:"warwick",
@@ -339,6 +355,21 @@ var PC_PSF = {
   ME1:260,ME4:255,ME14:265,ME15:260,ME19:295,
   CT1:265,CT5:290,CT9:260,CT14:280,CT20:285,
   TN1:370,TN2:365,TN9:340,TN13:420,TN34:260,TN40:270,
+  // Staffordshire (ST), Wolverhampton (WV), Walsall (WS), Telford/Shropshire (TF)
+  ST1:165,ST2:160,ST4:170,ST5:180,ST6:158,ST7:185,ST8:175,ST10:190,
+  ST11:200,ST12:215,ST13:185,ST14:195,ST15:215,ST16:215,ST17:225,
+  ST18:220,ST19:230,ST20:225,ST21:230,
+  WV1:175,WV3:200,WV6:240,WV7:230,WV8:220,WV10:170,WV11:185,WV13:175,
+  WS1:175,WS2:170,WS3:180,WS9:230,WS10:170,WS13:240,WS14:235,WS15:215,
+  TF1:175,TF2:180,TF3:175,TF7:185,TF10:215,TF11:210,TF12:225,TF13:230,
+  // Warwickshire (CV remainder, B for north Warwickshire) and Worcestershire (WR, B61-98)
+  CV9:235,CV10:215,CV11:215,CV12:210,CV21:215,CV22:220,CV23:240,CV31:280,CV32:295,CV33:285,CV34:295,CV35:280,CV36:265,CV37:285,CV47:255,
+  B49:255,B50:260,B76:245,B77:215,B78:200,B79:210,B80:265,B95:285,B96:265,B97:235,B98:225,
+  WR1:240,WR2:245,WR3:230,WR5:245,WR7:255,WR9:230,WR10:255,WR11:265,WR14:295,
+  // Derbyshire / Nottinghamshire / Leicestershire remainder
+  DE3:220,DE6:255,DE11:200,DE13:225,DE14:200,DE15:205,DE22:245,DE23:215,DE56:265,DE65:225,DE72:235,DE73:240,
+  NG6:195,NG10:215,NG12:255,NG14:245,NG15:215,NG16:215,NG22:225,NG24:225,NG25:280,NG31:230,NG34:240,
+  LE3:200,LE7:240,LE8:225,LE10:215,LE11:220,LE12:235,LE15:255,LE16:245,LE17:225,LE65:255,
 };
 
 var BUILD_TYPES = {
@@ -699,7 +730,7 @@ function AIPanel(props){
         "2. At the END of your response, ALWAYS output CORRECTIONS_START on its own line, then a JSON object {\"corrections\":[...]}, then CORRECTIONS_END on its own line.\n"+
         "3. The CORRECTIONS block is the MOST IMPORTANT output — populate it richly with every fact, figure, rating, or category you mentioned or deduced.\n\n"+
         "Each correction: {\"field\":\"<name>\",\"stage\":\"<name>\",\"value\":<value>,\"reason\":\"<short>\"}.\n"+
-        "Be aggressive — if your analysis discusses transport links, contamination risk, planning status, build cost, sale PSF, density, AH%, profit %, S106, fees, finance rate, storeys, BNG, rent levels, yield, programme, or ANY specific figure or category, INCLUDE IT in corrections. Default reasonable UK figures when not stated (e.g. UK SFH build cost £165-200/sqft, BTR £210-260/sqft, finance 7-8%, contingency 5%, fees 12%, profit 18-22%).\n"+
+        "Be aggressive — if your analysis discusses transport links, contamination risk, planning status, build cost, sale PSF, density, AH%, profit %, S106, fees, finance rate, storeys, BNG, rent levels, yield, programme, or ANY specific figure or category, INCLUDE IT in corrections. Default reasonable UK figures when not stated (e.g. UK SFH build cost £165-200/sqft, BTR £210-260/sqft, finance 7-8%, contingency 5%, fees 12%, profit 15-17.5% on GDV).\n"+
         "Allowed stages and fields:\n"+
         " land: address, postcode, city, acres, price, county, localAuthority, planningStatus, agent, ownerType, proximity[excellent|good|fair|poor], transport[excellent|good|fair|poor], contamination[clean|minor|unknown|major], tenure[freehold|long_leasehold|short_leasehold], constraint[none|minor|moderate|major]\n"+
         " planning: units, lpa, status, storeys, ahPct, bng, riskLevel[low|medium|high], gateway\n"+
@@ -962,6 +993,17 @@ var ALL_STAGES = [
   {id:"dashboard",   label:"Deal Dashboard",       icon:"◈",  group:"6. Records",  journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
   {id:"flowcharts",  label:"Process Flowcharts",   icon:"🗺", group:"6. Records",  journeys:["all"]},
 ];
+
+// Journey display labels (used by Deal Dashboard and elsewhere)
+var JOURNEYS = {
+  land:     {label:"Land & Development",       desc:"Strategic land → planning → development → exit"},
+  property: {label:"Property Evaluator",       desc:"Existing property analysis & value-add"},
+  sfh:      {label:"Single Family Housing",    desc:"Plot-by-plot housing estate"},
+  btr:      {label:"Build to Rent",            desc:"Multi-family rental block"},
+  pbsa:     {label:"PBSA / Student Housing",   desc:"Purpose-built student accommodation"},
+  recovery: {label:"Planning Recovery",        desc:"Reviving stalled / refused schemes"},
+  all:      {label:"All Stages",               desc:"Show every stage regardless of asset type"}
+};
   // Auto-save to localStorage whenever data changes
   React.useEffect(function(){
     try{localStorage.setItem("cassidy_deal",JSON.stringify(data));}catch(e){}
@@ -1058,6 +1100,25 @@ var ALL_STAGES = [
 
   var idx=ALL_STAGES.findIndex(function(s){return s.id===stage;});
   var curStage=ALL_STAGES[idx]||ALL_STAGES[0];
+
+  // Reusable "Live Market Data" banner — shown on any stage where PSF matters
+  function LiveMarketBanner(){
+    var mkt=data.market||{};
+    if(!num(mkt.lrPsf))return null;
+    var ago=mkt.lrUpdatedAt?Math.round((Date.now()-new Date(mkt.lrUpdatedAt).getTime())/60000):0;
+    var fresh=ago<60;
+    return e("div",{style:{background:"linear-gradient(135deg,#2D7A65 0%,#2E5F4E 100%)",color:"#fff",borderRadius:8,padding:"10px 14px",marginBottom:14,display:"flex",alignItems:"center",gap:10,fontSize:11,flexWrap:"wrap"}},
+      e("span",{style:{fontSize:13}},"📡"),
+      e("div",{style:{flex:1,minWidth:200}},
+        e("div",{style:{fontWeight:800,fontSize:12,marginBottom:2}},"Live Land Registry: £"+mkt.lrPsf+"/sqft"),
+        e("div",{style:{opacity:0.9,fontSize:10}},(mkt.lrTotalTx||0)+" sales · "+(mkt.lrSector||mkt.lrPostcode||"area")+" · "+(fresh?"fresh ("+ago+"m ago)":"refresh recommended"))
+      ),
+      e("button",{
+        onClick:function(){navTo("rlv");},
+        style:{background:"rgba(255,255,255,0.2)",color:"#fff",border:"1px solid rgba(255,255,255,0.3)",borderRadius:5,padding:"5px 10px",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+      },fresh?"View detail →":"Refresh data →")
+    );
+  }
 
   function navTo(id){
     // Log time spent on previous stage before moving
@@ -1676,7 +1737,7 @@ var ALL_STAGES = [
     '<div class="split-grid">'+
     (function(){
       var agriVal=num(l2.acres||0)*15000;
-      var rlvVal=Math.max(0,gdvVal-tcVal-gdvVal*0.20);
+      var rlvVal=Math.max(0,gdvVal-tcVal-gdvVal*0.175);
       var uplift=Math.max(0,rlvVal-agriVal);
       var scenarios3=[
         {label:"Pre-Planning Sale",lo:agriVal,cg:rlvVal-agriVal+profitVal,color:"#B05A35"},
@@ -1969,7 +2030,7 @@ var ALL_STAGES = [
       var ru=num(data.rlv.units); var rs=num(data.rlv.avgSqft)||850;
       var rp=num(data.rlv.salePsf)||lm.btr*8.5||280; var rb=num(data.rlv.buildPsf)||lm.build;
       var rg=ru*rs*rp; var rbc=ru*rs*rb;
-      return rg-rbc-rbc*0.12-rbc*0.05-(rbc+0)*0.075-ru*8000-rg*0.20;
+      return rg-rbc-rbc*0.12-rbc*0.05-(rbc+0)*0.075-ru*8000-rg*0.175;
     })():0);
 
     var uplift=residualLandValue-agriValue;
@@ -2020,7 +2081,7 @@ var ALL_STAGES = [
       var gdv=sc.units*sc.unitSqft*(num(data.rlv&&data.rlv.salePsf)||lm.btr*8.5||280);
       var bc=sc.units*sc.unitSqft*sc.buildPsf;
       var fees=bc*0.12; var cont=bc*0.05; var fin=(bc+fees)*0.075;
-      var s106=sc.units*8000; var profit=gdv*0.20;
+      var s106=sc.units*8000; var profit=gdv*0.175;
       var tc=bc+fees+cont+fin+s106;
       var rlv2=gdv-tc-profit;
       return Object.assign({},sc,{gdv:gdv,bc:bc,tc:tc,rlv:rlv2,profit:profit,
@@ -2556,7 +2617,7 @@ var ALL_STAGES = [
       var finance=(buildCost+fees)*0.075;
       var s106=sc.units*8000;
       var planning=sc.units*sc.buildPsf>200?12000:5000;
-      var profit=gdv*0.20;
+      var profit=gdv*0.175;
       var tc=buildCost+fees+contingency+finance+s106+demCost;
       var rlv=gdv-tc-profit;
       var margin=gdv>0?(profit/gdv)*100:0;
@@ -2663,7 +2724,7 @@ var ALL_STAGES = [
                   ["GDV",fmt(sc.gdv)],
                   ["Build cost",fmt(sc.buildCost)],
                   ["Total dev cost",fmt(sc.tc)],
-                  ["Dev profit (20%)",fmt(sc.gdv*0.20)],
+                  ["Dev profit (17.5%)",fmt(sc.gdv*0.175)],
                   ["Residual land value",fmt(sc.rlv)],
                 ].map(function(row){
                   return e("div",{key:row[0],style:{display:"flex",justifyContent:"space-between",fontSize:11,padding:"3px 0",borderBottom:"1px solid #F0F0F0"}},
@@ -3511,7 +3572,7 @@ var ALL_STAGES = [
         cil:Math.round(totalGdvV*0.04),s106:Math.round(s106V),
         salesMktgRate:0.03,affordableDisposal:100000,
         developmentFinanceRate:num(f2.finRate||f2.finRatePa||8)/100,
-        targetPrivateMargin:0.20,targetAffordableMargin:0.06,
+        targetPrivateMargin:0.175,targetAffordableMargin:0.06,
         durationMonths:num(f2.programmeMths||36),
         meanMonth:num(f2.programmeMths||36)/2,stdDev:num(f2.programmeMths||36)/4,
         autoPopulated:true
@@ -3538,7 +3599,7 @@ var ALL_STAGES = [
       var gp=tr-tdc-tlc-devFin;
       var sp=gp+disc;
       var mgdv=tr>0?gp/tr:0;var smgdv=tr>0?sp/tr:0;
-      var tbl=tr>0?((ap.privateRevenueTotal||0)*(ap.targetPrivateMargin||0.20)+((ap.affordableRevenueTotal||0)+(ap.firstHomesRevenueTotal||0))*(ap.targetAffordableMargin||0.06))/tr:0;
+      var tbl=tr>0?((ap.privateRevenueTotal||0)*(ap.targetPrivateMargin||0.175)+((ap.affordableRevenueTotal||0)+(ap.firstHomesRevenueTotal||0))*(ap.targetAffordableMargin||0.06))/tr:0;
       return{tr,ts,tlc,tb,ti,sm,tdc,disc,devFin,gp,sp,mgdv,smgdv,tbl,
         lpgdv:tr>0?(ap.residualLandPrice||0)/tr:0,lpna:(ap.netSiteArea||0)>0?(ap.residualLandPrice||0)/(ap.netSiteArea||1):0,
         pabpct:tb>0?(ap.plotAbnormals||0)/tb:0,ahpct:tr>0?((ap.affordableRevenueTotal||0)+(ap.firstHomesRevenueTotal||0))/tr:0,
@@ -3638,7 +3699,7 @@ var ALL_STAGES = [
               e(Inp,{label:"S106 (£)",type:"number",value:ap.s106||"",onChange:function(v){setApN("s106",v);}}),
               e(Inp,{label:"Sales & mktg rate",type:"number",step:"0.001",value:ap.salesMktgRate||0.03,onChange:function(v){setApN("salesMktgRate",v);}}),
               e(Inp,{label:"Finance rate (pa)",type:"number",step:"0.001",value:ap.developmentFinanceRate||0.08,onChange:function(v){setApN("developmentFinanceRate",v);}}),
-              e(Inp,{label:"Target private margin",type:"number",step:"0.001",value:ap.targetPrivateMargin||0.20,onChange:function(v){setApN("targetPrivateMargin",v);}}),
+              e(Inp,{label:"Target private margin",type:"number",step:"0.001",value:ap.targetPrivateMargin||0.175,onChange:function(v){setApN("targetPrivateMargin",v);}}),
               e(Inp,{label:"Target AH margin",type:"number",step:"0.001",value:ap.targetAffordableMargin||0.06,onChange:function(v){setApN("targetAffordableMargin",v);}}),
               e(Inp,{label:"Programme (months)",type:"number",value:ap.durationMonths||36,onChange:function(v){setApN("durationMonths",v);}}),
               e(Inp,{label:"Mean cashflow month",type:"number",step:"0.5",value:ap.meanMonth||18,onChange:function(v){setApN("meanMonth",v);}}),
@@ -4880,6 +4941,7 @@ var ALL_STAGES = [
           e("div",{style:{fontSize:11,color:"#7278A0"}},fmt(capPerUnit)+" per unit")
         )
       ),
+      LiveMarketBanner(),
 
       // ── BEDROOM MIX & RENTS ────────────────────────────────────────────────
       e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",marginBottom:14}},
@@ -5038,7 +5100,7 @@ var ALL_STAGES = [
         var ffFeesPct   = num(cap.ffFeesPct!==undefined?cap.ffFeesPct:12);     // professional fees
         var ffContPct   = num(cap.ffContPct!==undefined?cap.ffContPct:5);      // contingency
         var ffFinPct    = num(cap.ffFinPct!==undefined?cap.ffFinPct:7.5);      // finance cost % of (build+fees)
-        var ffProfitPct = num(cap.ffProfitPct!==undefined?cap.ffProfitPct:20); // developer profit % on cost
+        var ffProfitPct = num(cap.ffProfitPct!==undefined?cap.ffProfitPct:17.5); // developer profit % on cost
         var ffS106pu    = num(cap.ffS106pu!==undefined?cap.ffS106pu:8000);     // S106 per unit
         var ffFarmerAsk = num(cap.ffFarmerAsk||l.price||0);
         var ffAssetType = cap.ffAssetType||"BTR (multi-family)";
@@ -5484,6 +5546,14 @@ var ALL_STAGES = [
       if(inferredCity)   up("epe","city",inferredCity);
       if(fullAddr)       up("epe","streetAddress",fullAddr);
       if(inferredPsf)    up("epe","newPsf",inferredPsf);
+
+      // ────────────────────────────────────────────────────────────────
+      // 11. PRE-FILL RLV POSTCODE so Land Registry lookup is one click away
+      // ────────────────────────────────────────────────────────────────
+      if(pcClean){
+        up("rlv","postcode",pcClean);
+        up("rlv","lrAutoTrigger",true);  // tells RLV to fire LR lookup on next visit
+      }
 
       navTo("land");
     }
@@ -6176,7 +6246,7 @@ var ALL_STAGES = [
     var houseVal=Math.round(propSqft*salePsf*condMod);
     var currentVal=Math.round((houseVal+gVal)*parkMod);
     var newUnits=num(ep.newUnits); var newSqft=num(ep.newSqft)||900; var newPsf=num(ep.newPsf)||salePsf;
-    var newBuildPsf=num(ep.buildPsf)||195; var profitPct=num(ep.profitPct)||20;
+    var newBuildPsf=num(ep.buildPsf)||(m&&m.build)||195; var profitPct=num(ep.profitPct)||17.5;
     var newGdv=newUnits*newSqft*newPsf;
     var newBuild=newUnits*newSqft*newBuildPsf;
     var demolish=15000+(gardenSqft>5000?8000:0);
@@ -6191,6 +6261,7 @@ var ALL_STAGES = [
     return e("div",null,
       e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Property Evaluator"),
       e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Current value as standing vs development potential — bungalows, pubs, offices, large plots"),
+      LiveMarketBanner(),
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Step 1 — Existing Property"),
         e("div",{style:S.grid2},
@@ -6198,7 +6269,16 @@ var ALL_STAGES = [
             e("label",{style:S.label},"Postcode"),
             e("input",{value:ep.postcode||"",onChange:function(ev){up("epe","postcode",ev.target.value.toUpperCase());},
               placeholder:"e.g. CV6 2DL",style:Object.assign({},S.input,{textTransform:"uppercase"})}),
-            pcData&&e("div",{style:{fontSize:10,color:"#2D7A65",marginTop:2}},"✓ Area identified: "+cityName(pcData.city)+(pcData.salePsf?" · Benchmark: £"+pcData.salePsf+"/sqft":""))
+            pcData&&e("div",{style:{fontSize:10,color:"#2D7A65",marginTop:2}},"✓ Area identified: "+cityName(pcData.city)+(pcData.salePsf?" · Benchmark: £"+pcData.salePsf+"/sqft":"")),
+            ep.postcode&&ep.postcode.length>=5&&!num((data.market||{}).lrPsf)&&e("button",{
+              onClick:function(){
+                // Mirror EPE postcode into RLV and trigger LR fetch
+                up("rlv","postcode",ep.postcode);
+                up("rlv","lrAutoTrigger",true);
+                navTo("rlv");
+              },
+              style:{marginTop:6,padding:"6px 12px",background:"#2D7A65",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+            },"📡 Fetch Live Land Registry Data")
           ),
           e("div",{style:{display:"flex",flexDirection:"column",gap:4}},
             e("label",{style:S.label},"Street Address (type manually)"),
@@ -6239,7 +6319,7 @@ e("span",{style:{color:"#9A7B3E"}},
               {value:"4",label:"4 storeys"},
               {value:"5plus",label:"5+ storeys"},
             ]}),
-          e(Inp,{label:"Sale Price (£ per sqft of internal floor area)"+(pcData&&pcData.salePsf?" — postcode: £"+pcData.salePsf:""),type:"number",value:ep.salePsf,onChange:function(v){up("epe","salePsf",v);},placeholder:"£"+Math.round(salePsf)+" /sqft"}),
+          e(Inp,{label:"Sale £/sqft"+(pcData&&pcData.salePsf?" — auto from postcode: £"+pcData.salePsf:m?" — auto from "+cityName(city)+": £"+Math.round(m.btr*8.5):""),type:"number",value:ep.salePsf,onChange:function(v){up("epe","salePsf",v);},placeholder:"£"+Math.round(salePsf)+" /sqft"}),
 e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}},
             e("label",{style:S.label},"Parking & Garaging (tick ALL that apply — multiple selections allowed)"),
             e("div",{style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,padding:14}},
@@ -6506,7 +6586,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
               scenarios.map(function(sc){
                 var gdvEst=sc.units*sc.unitSqft*(salePsf||280);
                 var buildEst=sc.units*sc.unitSqft*200;
-                var profitEst=gdvEst*0.20;
+                var profitEst=gdvEst*0.175;
                 var rlvEst=gdvEst-buildEst-buildEst*0.12-buildEst*0.05-(buildEst+0)*0.075-profitEst;
                 return e("div",{key:sc.type,
                   style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,padding:14,cursor:"pointer",transition:"all .15s"},
@@ -6571,8 +6651,8 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           e(Inp,{label:"How many new units to build?",type:"number",value:ep.newUnits,onChange:function(v){up("epe","newUnits",v);},placeholder:"e.g. 4"}),
           e(Inp,{label:"Average new unit size (sqft)",type:"number",value:ep.newSqft,onChange:function(v){up("epe","newSqft",v);},placeholder:"900"}),
           e(Inp,{label:"New Sale Price (£ per sqft of floor area)",type:"number",value:ep.newPsf,onChange:function(v){up("epe","newPsf",v);},placeholder:"£"+Math.round(salePsf)+" /sqft"}),
-          e(Inp,{label:"Build Cost (£ per sqft — typical £180-250 for houses)",type:"number",value:ep.buildPsf,onChange:function(v){up("epe","buildPsf",v);},placeholder:"£195"}),
-          e(Inp,{label:"Developer Profit % of GDV",type:"number",value:ep.profitPct,onChange:function(v){up("epe","profitPct",v);},placeholder:"20"}),
+          e(Inp,{label:"Build £/sqft"+(m?" — auto from "+cityName(city)+": £"+m.build:" — typical £180-250"),type:"number",value:ep.buildPsf,onChange:function(v){up("epe","buildPsf",v);},placeholder:"£"+Math.round(newBuildPsf)}),
+          e(Inp,{label:"Developer Profit % of GDV — UK norm 15-18%",type:"number",value:ep.profitPct,onChange:function(v){up("epe","profitPct",v);},placeholder:"17.5"}),
           e(Inp,{label:"Finance Rate % — lender's interest rate (typically 6-9%)",type:"number",value:ep.finRate,onChange:function(v){up("epe","finRate",v);},placeholder:"7.5"})
         ),
         e("div",{style:{gridColumn:"span 2",paddingTop:4}},
@@ -6635,9 +6715,9 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     var rm=MKT[rCity]||MKT.manchester;
     var bt=BUILD_TYPES[r.schType]||BUILD_TYPES["Residential houses"];
     var rUnits=num(r.units); var rSqft=num(r.avgSqft)||850;
-    var rSalePsf=num(r.salePsf)||(pcData&&pcData.salePsf)||(rm.btr*8.5)||280;
-    var rBuild=num(r.buildPsf)||bt.mid;
-    var rProfit=num(r.profitPct)||20; var rFin=num(r.finRate)||7.5;
+    var rSalePsf=num(r.salePsf)||(pcData&&pcData.salePsf)||(rm.btr*8.5)||(m&&m.btr*8.5)||260;
+    var rBuild=num(r.buildPsf)||(m&&m.build)||bt.mid;
+    var rProfit=num(r.profitPct)||17.5; var rFin=num(r.finRate)||7.5;
     var rCont=num(r.contingency)||5;
     var rGdv=rUnits*rSqft*rSalePsf;
     var rBc=rUnits*rSqft*rBuild;
@@ -6776,6 +6856,27 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
         if(weightedPsf>0){
           up("rlv","salePsf",String(weightedPsf)); up("rlv","avgPsf",String(weightedPsf));
           up("rlv","lrError","");
+
+          // ── PLUMB LIVE PSF TO SHARED MARKET NAMESPACE & ALL DOWNSTREAM STAGES ──
+          up("market","lrPsf",weightedPsf);
+          up("market","lrPostcode",r.postcode);
+          up("market","lrSector",r.lrSectorUsed||sector||"");
+          up("market","lrTotalTx",rows.length);
+          up("market","lrUpdatedAt",new Date().toISOString());
+
+          // Cascade to every downstream stage that has its own PSF field —
+          // ONLY overwrites if user hasn't set a manual value already.
+          var sfhData=(data.sfh)||{};
+          if(!num(sfhData.basePsf)) up("sfh","basePsf",String(weightedPsf));
+          var epeData=(data.epe)||{};
+          if(!num(epeData.salePsf)) up("epe","salePsf",String(weightedPsf));
+          // BTR/PBSA blended PSF — typically 90-105% of SFH PSF for apartments
+          var hraData=(data.hra)||{};
+          if(!num(hraData.oPsf))  up("hra","oPsf",String(Math.round(weightedPsf*0.98)));
+          if(!num(hraData.sPsf))  up("hra","sPsf",String(Math.round(weightedPsf*1.05)));  // studios cmd premium
+          if(!num(hraData.tPsf))  up("hra","tPsf",String(Math.round(weightedPsf*0.92)));  // 2-beds slight discount
+          // EPE new-build PSF
+          if(!num(epeData.newPsf)) up("epe","newPsf",String(Math.round(weightedPsf*1.05))); // new build cmd premium
         } else {
           up("rlv","lrError","No transactions found for "+district+". The Land Registry SPARQL endpoint has partial coverage. Try entering the sale price manually using local agent data — Rightmove or Zoopla sold prices for the area.");
         }
@@ -6852,12 +6953,23 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
             options:[{value:"",label:"Select..."}].concat(Object.keys(BUILD_TYPES).map(function(t){return{value:t,label:t};}))}),
           e(Inp,{label:"Number of Units / Beds",type:"number",value:r.units,onChange:function(v){up("rlv","units",v);},placeholder:"e.g. 45"}),
           e(Inp,{label:"Avg Unit Size (sqft)",type:"number",value:r.avgSqft,onChange:function(v){up("rlv","avgSqft",v);},placeholder:"850"}),
-          e(Inp,{label:"Sale Price (£ per sqft of internal floor area)"+(pcData&&pcData.salePsf?" — benchmark: £"+pcData.salePsf:""),type:"number",value:r.salePsf,onChange:function(v){up("rlv","salePsf",v);},placeholder:"£"+Math.round(rSalePsf)}),
-          e(Inp,{label:"Build Cost psf (£) — BCIS: £"+bt.lo+"–£"+bt.hi,type:"number",value:r.buildPsf,onChange:function(v){up("rlv","buildPsf",v);},placeholder:"Mid: £"+bt.mid}),
-          e(Inp,{label:"Developer Profit % GDV",type:"number",value:r.profitPct,onChange:function(v){up("rlv","profitPct",v);},placeholder:"20"}),
+          e(Inp,{label:"Sale £/sqft"+(m?" — auto from "+cityName(city)+": £"+Math.round((pcData&&pcData.salePsf)||(m.btr*8.5)||260):""),type:"number",value:r.salePsf,onChange:function(v){up("rlv","salePsf",v);},placeholder:"£"+Math.round(rSalePsf)}),
+          e(Inp,{label:"Build £/sqft"+(m?" — auto from "+cityName(city)+": £"+m.build+" · BCIS £"+bt.lo+"–£"+bt.hi:" — BCIS £"+bt.lo+"–£"+bt.hi),type:"number",value:r.buildPsf,onChange:function(v){up("rlv","buildPsf",v);},placeholder:"£"+Math.round(rBuild)}),
+          e(Inp,{label:"Developer Profit % GDV — UK norm 15-18%",type:"number",value:r.profitPct,onChange:function(v){up("rlv","profitPct",v);},placeholder:"17.5"}),
           e(Inp,{label:"Finance Rate %",type:"number",value:r.finRate,onChange:function(v){up("rlv","finRate",v);},placeholder:"7.5"}),
           e(Inp,{label:"S106/CIL per Unit (£)",type:"number",value:r.s106pu,onChange:function(v){up("rlv","s106pu",v);},placeholder:"8000"})
         ),
+
+        // ── Build:Sale ratio diagnostic ─────────────────────────────────────
+        rSalePsf>0&&rBuild>0&&(function(){
+          var ratio=rBuild/rSalePsf*100;
+          var verdict=ratio<=60?{c:"#2D7A65",msg:"Strong margin — build is "+Math.round(ratio)+"% of sale PSF (institutional sweet spot 55-65%)"}:
+                      ratio<=75?{c:"#9A7B3E",msg:"Tight margin — build is "+Math.round(ratio)+"% of sale PSF (above 70% squeezes profit)"}:
+                      {c:"#B05A35",msg:"Structurally unviable — build is "+Math.round(ratio)+"% of sale PSF. Either sale values are too low for this market or build cost is over-specified. Even at 0% land, fees + finance + profit will not fit."};
+          return e("div",{style:{margin:"10px 0",padding:"10px 14px",background:verdict.c+"14",borderLeft:"3px solid "+verdict.c,borderRadius:6,fontSize:12,color:verdict.c,fontWeight:600}},
+            "Build : Sale ratio — "+verdict.msg
+          );
+        })(),
         rUnits>0&&rGdv>0&&e("div",null,
           e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginTop:12,marginBottom:12}},
             e("div",{style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,padding:14}},
@@ -7134,15 +7246,33 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     // Sale price psf: look up from market data, NOT from rent * multiplier
     // sm.btr is monthly rent - using as psf multiplier gives wrong results
     var mktPsf=(function(){
+      // 1. HIGHEST PRIORITY: live Land Registry data (if user ran RLV lookup)
+      var mkt=data.market||{};
+      if(num(mkt.lrPsf)>0)return num(mkt.lrPsf);
       var sc=sfhCity||city||"";
+      // 2. Try PC_PSF direct postcode lookup
       var pcPsfVal=PC_PSF&&sc?(PC_PSF[sc.toUpperCase()]||PC_PSF[(sc.substring(0,3)).toUpperCase()]||0):0;
       if(pcPsfVal>0)return pcPsfVal;
-      var cityPsf={taunton:260,bristol:340,bath:400,exeter:285,worcester:265,birmingham:240,manchester:295,london:650,oxford:480,cambridge:460,coventry:230,guildford:400,brighton:380};
-      return cityPsf[sc]||265;
+      // 3. Derive from MKT city data
+      if(sm&&sm.btr){
+        var derived=Math.round(sm.btr*8.5/12);
+        return Math.max(150,Math.min(650,derived));
+      }
+      // 4. Last-resort hardcoded
+      var cityPsf={taunton:260,bristol:340,bath:400,exeter:285,worcester:265,birmingham:240,manchester:295,london:650,oxford:480,cambridge:460,coventry:230,guildford:400,brighton:380,stoke:175,stafford:215,lichfield:240,telford:185,tamworth:200,wolverhampton:185,walsall:180};
+      return cityPsf[sc]||220;
+    })();
+    var psfSource=(function(){
+      var mkt=data.market||{};
+      if(num(mkt.lrPsf)>0)return {src:"Land Registry live ("+(mkt.lrTotalTx||"?")+" sales, "+(mkt.lrSector||mkt.lrPostcode||"area")+")",col:"#2D7A65"};
+      var sc=sfhCity||city||"";
+      var pcPsfVal=PC_PSF&&sc?(PC_PSF[sc.toUpperCase()]||PC_PSF[(sc.substring(0,3)).toUpperCase()]||0):0;
+      if(pcPsfVal>0)return {src:"postcode lookup "+sc.toUpperCase(),col:"#4A4BAE"};
+      return {src:"city average "+cityName(sfhCity),col:"#9A7B3E"};
     })();
     var basePsf=num(s.basePsf)||mktPsf;
-    var sBuild=num(s.buildPsf)||195;
-    var sProfit=num(s.profitPct)||20;
+    var sBuild=num(s.buildPsf)||(sm&&sm.build)||195;
+    var sProfit=num(s.profitPct)||17.5;
     var sFin=num(s.finRate)||7.5;
     var sCont=num(s.contingency)||5;
     var s106Pu=num(s.s106pu)||8000;
@@ -7209,6 +7339,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     return e("div",null,
       e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Single Family Housing"),
       e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Plot-by-plot residential appraisal with house type mix, roads adoption and SuDS"),
+      LiveMarketBanner(),
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Site Details"),
         e("div",{style:S.grid2},
@@ -7216,9 +7347,9 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           e(Inp,{label:"Site Area (acres)",type:"number",value:s.acres,onChange:function(v){up("sfh","acres",v);},placeholder:"e.g. 5.0"}),
           e(Inp,{label:"Density (dph)",type:"number",value:s.dph,onChange:function(v){up("sfh","dph",v);},placeholder:"30"}),
           e(Inp,{label:"Affordable Housing %",type:"number",value:s.ahPct,onChange:function(v){up("sfh","ahPct",v);},placeholder:"e.g. 25"}),
-          e(Inp,{label:"Base Sale Price psf (£)",type:"number",value:s.basePsf,onChange:function(v){up("sfh","basePsf",v);},placeholder:"£"+Math.round(basePsf)}),
-          e(Inp,{label:"Build Cost (£ per sqft — typical £180-250 for houses)",type:"number",value:s.buildPsf,onChange:function(v){up("sfh","buildPsf",v);},placeholder:"£195"}),
-          e(Inp,{label:"Developer Profit %",type:"number",value:s.profitPct,onChange:function(v){up("sfh","profitPct",v);},placeholder:"20"}),
+          e(Inp,{label:"Base Sale £/sqft — "+psfSource.src+": £"+Math.round(mktPsf),type:"number",value:s.basePsf,onChange:function(v){up("sfh","basePsf",v);},placeholder:"£"+Math.round(basePsf)}),
+          e(Inp,{label:"Build £/sqft"+(sm?" — auto from "+cityName(sfhCity)+": £"+sm.build:" — typical £180-250 for houses"),type:"number",value:s.buildPsf,onChange:function(v){up("sfh","buildPsf",v);},placeholder:"£"+Math.round(sBuild)}),
+          e(Inp,{label:"Developer Profit % — UK SFH norm 15-17.5%",type:"number",value:s.profitPct,onChange:function(v){up("sfh","profitPct",v);},placeholder:"17.5"}),
           e(Inp,{label:"S106 per Plot (£)",type:"number",value:s.s106pu,onChange:function(v){up("sfh","s106pu",v);},placeholder:"8000"}),
           e(Inp,{label:"Roads/Sewers per Plot (£)",type:"number",value:s.roads,onChange:function(v){up("sfh","roads",v);},placeholder:"12000 (S38/S104)"}),
           e(Inp,{label:"Finance Rate %",type:"number",value:s.finRate,onChange:function(v){up("sfh","finRate",v);},placeholder:"7.5"}),
@@ -7226,7 +7357,18 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           sAcres>0?e("div",{style:{background:"#EEEEF8",borderRadius:8,padding:12,fontSize:12,color:"#3A3D6A",gridColumn:"span 1"}},
             sAcres+" acres / "+sHa.toFixed(2)+" ha · ~"+sMaxUnits+" units at "+sDph+" dph"
           ):e("div",null)
-        )
+        ),
+
+        // ── Build:Sale ratio diagnostic ─────────────────────────────────────
+        basePsf>0&&sBuild>0&&(function(){
+          var ratio=sBuild/basePsf*100;
+          var verdict=ratio<=60?{c:"#2D7A65",msg:"Strong margin — build is "+Math.round(ratio)+"% of sale PSF (SFH sweet spot 55-65%)"}:
+                      ratio<=75?{c:"#9A7B3E",msg:"Tight margin — build is "+Math.round(ratio)+"% of sale PSF. Above 70% squeezes housebuilder profit toward red"}:
+                      {c:"#B05A35",msg:"Structurally unviable — build is "+Math.round(ratio)+"% of sale PSF. Likely outcome: negative RLV. Check whether sale values reflect this market or build spec is too high."};
+          return e("div",{style:{margin:"12px 0 0",padding:"10px 14px",background:verdict.c+"14",borderLeft:"3px solid "+verdict.c,borderRadius:6,fontSize:12,color:verdict.c,fontWeight:600}},
+            "Build : Sale ratio — "+verdict.msg
+          );
+        })()
       ),
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"House Type Mix"),
@@ -7501,7 +7643,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     var hFees=hBc*0.13; var hCont=hBc*(num(h.contingency)||6)/100;
     var hFin=(hBc+hFees)*(num(h.finRate)||8)/100;
     var hS106=total*(num(h.s106pu)||10000); var hPlan=total*12000;
-    var hDevProfit=hGdv*(num(h.profitPct)||20)/100;
+    var hDevProfit=hGdv*(num(h.profitPct)||17.5)/100;
     var hrCosts=liftCost+sprCost+ewsCost+g2Cost+structP+amenity;
     var hTc=hBc+hFees+hCont+hFin+hS106+hPlan+hrCosts;
     var hRlv=hGdv-hTc-hDevProfit;
@@ -7521,6 +7663,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     return e("div",null,
       e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"High-Rise Apartments"),
       e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Multi-storey flatted development — BSA Gateway 2/3, EWS1, fire strategy, lift provision, GIA efficiency"),
+      LiveMarketBanner(),
       storeys>0&&e("div",{style:{border:"1px solid "+(bsa?"#B05A35":"#4A4BAE"),borderRadius:10,padding:"16px 20px",background:bsa?"rgba(176,90,53,0.06)":"rgba(74,75,174,0.04)",marginBottom:16}},
         e("div",{style:{fontWeight:700,fontSize:13,color:bsa?"#B05A35":"#4A4BAE",marginBottom:12}},bsa?"🔴 Higher Risk Building — Building Safety Act 2022 applies":"🟡 Medium-rise — Fire Safety (England) Regulations apply"),
         compliance.map(function(fc){
@@ -7564,7 +7707,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           e(Inp,{label:"2-bed sale £/sqft",type:"number",value:h.tPsf,onChange:function(v){up("hra","tPsf",v);},placeholder:"£"+Math.round(tPsf)}),
           e(Inp,{label:"Floor level premium % per floor",type:"number",value:h.fl,onChange:function(v){up("hra","fl",v);},placeholder:"0.5"}),
           e(Inp,{label:"Build cost psf GIA (£) — auto: £"+bcp,type:"number",value:h.bcp,onChange:function(v){up("hra","bcp",v);},placeholder:"£"+bcp}),
-          e(Inp,{label:"Developer Profit % GDV",type:"number",value:h.profitPct,onChange:function(v){up("hra","profitPct",v);},placeholder:"20"}),
+          e(Inp,{label:"Developer Profit % GDV — BTR/PBSA norm 15-18%",type:"number",value:h.profitPct,onChange:function(v){up("hra","profitPct",v);},placeholder:"17.5"}),
           e(Inp,{label:"Finance Rate %",type:"number",value:h.finRate,onChange:function(v){up("hra","finRate",v);},placeholder:"8.0"}),
           e(Inp,{label:"S106/CIL per unit (£)",type:"number",value:h.s106pu,onChange:function(v){up("hra","s106pu",v);},placeholder:"10000"})
         ),
@@ -7599,7 +7742,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           ),
           e("div",null,
             e("div",{style:{fontSize:9,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,marginBottom:10}},"COSTS"),
-            [["Build ("+gia2.toLocaleString()+" sqft @ £"+bcp+"/sqft)",hBc],["Prof Fees (13%)",hFees],["Contingency ("+((num(h.contingency)||6))+"%)",hCont],["Finance ("+((num(h.finRate)||8))+"%)",hFin],["Planning fees",hPlan],["S106/CIL",hS106],["Lifts ("+cores+" cores × "+storeys+" floors)",liftCost],["Sprinklers ("+(ews?"mandatory":"rec.")+")",sprCost],["Structural premium",structP],["Resident amenity",amenity]].concat(ewsCost>0?[["EWS1 assessment",ewsCost]]:[]).concat(g2Cost>0?[["BSA Gateway 2 & 3",g2Cost]]:[]).concat([["Dev Profit ("+(num(h.profitPct)||20)+"%)",hDevProfit]]).map(function(row){
+            [["Build ("+gia2.toLocaleString()+" sqft @ £"+bcp+"/sqft)",hBc],["Prof Fees (13%)",hFees],["Contingency ("+((num(h.contingency)||6))+"%)",hCont],["Finance ("+((num(h.finRate)||8))+"%)",hFin],["Planning fees",hPlan],["S106/CIL",hS106],["Lifts ("+cores+" cores × "+storeys+" floors)",liftCost],["Sprinklers ("+(ews?"mandatory":"rec.")+")",sprCost],["Structural premium",structP],["Resident amenity",amenity]].concat(ewsCost>0?[["EWS1 assessment",ewsCost]]:[]).concat(g2Cost>0?[["BSA Gateway 2 & 3",g2Cost]]:[]).concat([["Dev Profit ("+(num(h.profitPct)||17.5)+"%)",hDevProfit]]).map(function(row){
               return e("div",{key:row[0],style:{display:"flex",justifyContent:"space-between",fontSize:11,color:"#7278A0",padding:"3px 0",borderBottom:"1px solid #F0F0F0"}},
                 e("span",null,row[0]),e("span",null,"("+fmt(row[1])+")")
               );
@@ -8251,6 +8394,8 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
       ),
       e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Site evaluation, location scoring and market benchmarking"),
 
+      LiveMarketBanner(),
+
       // ── PLACONA INTEL BANNER (shows when data loaded from Placona) ───────────
       (l.planningStatus||l.localAuthority||l.county||l.agent||l.constraintSummary||(data.scorecard&&data.scorecard.placonaScore))&&e("div",{style:{background:"linear-gradient(135deg,#F0F1FA 0%,#E8EAF6 100%)",border:"1px solid #C5C8E0",borderRadius:10,padding:16,marginBottom:16}},
         e("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:10}},
@@ -8275,6 +8420,16 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
         e("div",{style:S.grid2},
           e(Inp,{label:"Site Address",value:l.address,onChange:function(v){up("land","address",v);},placeholder:"e.g. Former Factory, Birmingham B1",full:true}),
           e(Inp,{label:"Postcode",value:l.postcode,onChange:function(v){up("land","postcode",v.toUpperCase());},placeholder:"e.g. CV35 0DB"}),
+          l.postcode&&l.postcode.length>=5&&!num((data.market||{}).lrPsf)&&e("div",{style:{gridColumn:"span 1"}},
+            e("button",{
+              onClick:function(){
+                up("rlv","postcode",l.postcode);
+                up("rlv","lrAutoTrigger",true);
+                navTo("rlv");
+              },
+              style:{width:"100%",padding:"8px 12px",background:"#2D7A65",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+            },"📡 Fetch Live Land Registry → All Stages")
+          ),
           e(CitySelect,{value:l.city,onChange:function(v){up("land","city",v);}}),
           e(Inp,{label:"Site Area (acres)",type:"number",value:l.acres,onChange:function(v){up("land","acres",v);},placeholder:"e.g. 2.5"}),
           e(Inp,{label:"Asking Price (£)",type:"number",value:l.price,onChange:function(v){up("land","price",v);},placeholder:"e.g. 4500000"}),
@@ -8499,7 +8654,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     var rlvFees=rlvBc*0.12; var rlvCont=rlvBc*0.05;
     var rlvFin=(rlvBc+rlvFees)*(num(f.finRate||f.finRatePa||8))/100;
     var rlvS106=rlvUnits*num(f.s106pu||8000);
-    var rlv=gdv2>0?(gdv2-tc4-gdv2*0.20):rlvGdv-rlvBc-rlvFees-rlvCont-rlvFin-rlvS106-rlvGdv*0.20;
+    var rlv=gdv2>0?(gdv2-tc4-gdv2*0.175):rlvGdv-rlvBc-rlvFees-rlvCont-rlvFin-rlvS106-rlvGdv*0.175;
     var totalBuild=rlvBc>0?rlvBc:tc4*0.65;
     // ── ASSET-TYPE AWARE GDV CALCULATION ──────────────────────────────────────
     // SFH: GDV = sum of house sales (not yield-based)
@@ -8572,6 +8727,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     return e("div",null,
       e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Financial Modelling"),
       e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Full development appraisal, returns analysis and scenario sensitivity"),
+      LiveMarketBanner(),
       e("div",{style:S.card},
         e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:10,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,paddingBottom:12,borderBottom:"1px solid #DDE0ED",marginBottom:14}},
           e("span",null,"Assumptions"),
@@ -8931,7 +9087,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
           var lo40=agriVal2+uplift2*0.40;
           var lo50=agriVal2+uplift2*0.50;
           var lo60=agriVal2+uplift2*0.60;
-          var devProfit=profit2>0?profit2:(gdv2>0?gdv2*0.20:0);
+          var devProfit=profit2>0?profit2:(gdv2>0?gdv2*0.175:0);
           var totalPie2=rlvVal2+devProfit;
           var scenarios3=[
             {label:"Pre-Planning Sale",color:"#B05A35",lo:agriVal2,cg:rlvVal2-agriVal2+devProfit,note:"Landowner sells at agricultural value. All planning risk sits with Cassidy."},
@@ -9002,7 +9158,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
         })()
       ),
       e(AIPanel,{user:user,up:up,stage:"fin",data:data,persistKey:"fin_ai__landowner_vs_cas",label:"AI: Landowner vs Cassidy Commercial Analysis",
-        prompt:"Analyse the commercial split on this "+at.toUpperCase()+" deal.\nSite: "+(l.address||"Unknown")+", "+cityName(city)+" | Acres: "+(l.acres||"?")+" | GDV: "+fmt(gdv2)+" | RLV: "+fmt(Math.max(0,rlv))+" | Dev Profit: "+fmt(profit2>0?profit2:gdv2*0.20)+" | Owner: "+(l.ownerType||"not set")+"\n\nProvide: 1) What is a fair deal for this landowner given the planning risk Cassidy takes? 2) What acquisition structure — unconditional, conditional, option or promotion? 3) What % of planning uplift should the landowner receive and why? 4) How does this compare to what Persimmon/Barratt/Taylor Wimpey pay for strategic land in this location type? 5) Cassidy negotiation tactics to agree land price?"})
+        prompt:"Analyse the commercial split on this "+at.toUpperCase()+" deal.\nSite: "+(l.address||"Unknown")+", "+cityName(city)+" | Acres: "+(l.acres||"?")+" | GDV: "+fmt(gdv2)+" | RLV: "+fmt(Math.max(0,rlv))+" | Dev Profit: "+fmt(profit2>0?profit2:gdv2*0.175)+" | Owner: "+(l.ownerType||"not set")+"\n\nProvide: 1) What is a fair deal for this landowner given the planning risk Cassidy takes? 2) What acquisition structure — unconditional, conditional, option or promotion? 3) What % of planning uplift should the landowner receive and why? 4) How does this compare to what Persimmon/Barratt/Taylor Wimpey pay for strategic land in this location type? 5) Cassidy negotiation tactics to agree land price?"})
       )
     );
   }
@@ -9162,7 +9318,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
           var hbGdv=gdv>0?gdv:(units2*(num(data.rlv&&data.rlv.avgSqft||850))*(num(data.rlv&&data.rlv.salePsf||cityMkt.btr*8.5||280)));
           var hbBuild=buildCostTotal*1.08; // with fees
           var hbFinance=hbBuild*finRate2;
-          var hbProfit=hbGdv*0.20; // 20% target
+          var hbProfit=hbGdv*0.175; // 20% target
           return Math.max(0,hbGdv-hbBuild-hbFinance-hbProfit);
         },
         metrics:function(val){return[
