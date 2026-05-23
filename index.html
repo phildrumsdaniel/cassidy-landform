@@ -5119,28 +5119,124 @@ var ALL_STAGES = [
 
     // Load site into deal
     function loadSiteIntoDeal(site){
-      if(site.address_or_location||site.site_name) up("land","address",site.address_or_location||site.site_name||"");
-      if(site.postcode)up("land","postcode",(site.postcode||"").toUpperCase().trim());
-      if(site.site_area_acres)up("land","acres",site.site_area_acres);
-      if(site.asking_price&&site.asking_price!=="Not found")up("land","price",site.asking_price);
-      if(site.local_planning_authority)up("land","localAuthority",site.local_planning_authority||"");
-      if(site.planning_status&&site.planning_status!=="Not found")up("land","planningStatus",site.planning_status||"");
-      if(site.agent_contact&&site.agent_contact!=="Not found")up("land","agent",site.agent_contact||"");
-      if(site.county)up("land","county",site.county||"");
-      if(site.source_url&&site.source_url!=="Not found")up("land","sourceUrl",site.source_url||"");
-      if(site.estimated_units&&site.estimated_units!=="Not found"){
-        var uNum=parseInt((site.estimated_units||"").toString().replace(/[^0-9]/g,""))||0;
-        if(uNum>0){up("planning","units",uNum);up("rlv","units",uNum);}
+      // ── Helper: skip junk values that shouldn't overwrite real defaults ──
+      function ok(v){return v&&v!=="Not found"&&v!=="N/A"&&v!=="Unknown"&&v!=="—";}
+
+      // ── Parse numeric fields out of messy AI strings ──
+      // "95 acres" / "95ac" / "95.5" → 95.5
+      var acresNum = 0;
+      if(ok(site.site_area_acres)){
+        var aStr=String(site.site_area_acres).replace(/,/g,"");
+        acresNum=parseFloat(aStr.match(/[\d.]+/)?aStr.match(/[\d.]+/)[0]:"0")||0;
       }
-      if(site.local_planning_authority)up("planning","lpa",site.local_planning_authority||"");
-      if(site.planning_status&&site.planning_status!=="Not found")up("planning","status",site.planning_status||"");
-      if(site.postcode)up("rlv","postcode",(site.postcode||"").toUpperCase().trim());
-      if(site.site_area_acres){up("rlv","acres",site.site_area_acres);}
-      if(site.constraints_summary&&site.constraints_summary!=="Not found")up("constraint","result",site.constraints_summary||"");
-      if(site.constraints_summary&&site.constraints_summary!=="Not found")up("constraint","constraints",site.constraints_summary||"");
-      // Store Placona score on scorecard
-      if(site.placona_score)up("scorecard","placonaScore",site.placona_score);
-      if(site.placona_category)up("scorecard","placonaCategory",site.placona_category);
+      // "1,200 units" / "1200" → 1200
+      var unitsNum = 0;
+      if(ok(site.estimated_units)){
+        unitsNum=parseInt(String(site.estimated_units).replace(/[^0-9]/g,""))||0;
+      }
+      // "£4.5m" / "£4,500,000" / "POA" → numeric
+      var priceNum = 0;
+      var priceStr = ok(site.asking_price)?String(site.asking_price):"";
+      if(priceStr){
+        var lower=priceStr.toLowerCase();
+        var raw=lower.replace(/[£$,\s]/g,"");
+        var m=raw.match(/([\d.]+)\s*(m|million|k|thousand)?/);
+        if(m){
+          var n=parseFloat(m[1])||0;
+          var suffix=m[2]||"";
+          if(suffix.indexOf("m")===0||suffix.indexOf("million")===0)n*=1000000;
+          else if(suffix.indexOf("k")===0||suffix.indexOf("thousand")===0)n*=1000;
+          priceNum=n;
+        }
+      }
+      // Postcode → city + sale PSF inference
+      var pcClean = ok(site.postcode)?String(site.postcode).toUpperCase().trim():"";
+      var pcLookup = pcClean?lookupPostcode(pcClean):null;
+      var inferredCity = pcLookup?pcLookup.city:"";
+      var inferredPsf  = pcLookup?pcLookup.salePsf:null;
+
+      // Composite address for display
+      var fullAddr = site.address_or_location||site.site_name||"";
+
+      // ────────────────────────────────────────────────────────────────
+      // 1. LAND APPRAISAL
+      // ────────────────────────────────────────────────────────────────
+      if(fullAddr)       up("land","address",fullAddr);
+      if(pcClean)        up("land","postcode",pcClean);
+      if(acresNum>0)     up("land","acres",acresNum);
+      if(priceNum>0)     up("land","price",priceNum);
+      if(inferredCity)   up("land","city",inferredCity);
+      if(ok(site.local_planning_authority))  up("land","localAuthority",site.local_planning_authority);
+      if(ok(site.planning_status))           up("land","planningStatus",site.planning_status);
+      if(ok(site.agent_contact))             up("land","agent",site.agent_contact);
+      if(ok(site.county))                    up("land","county",site.county);
+      if(ok(site.source_url))                up("land","sourceUrl",site.source_url);
+      if(ok(site.constraints_summary))       up("land","constraint",site.constraints_summary);
+
+      // ────────────────────────────────────────────────────────────────
+      // 2. PLANNING & VIABILITY
+      // ────────────────────────────────────────────────────────────────
+      if(unitsNum>0)                         up("planning","units",unitsNum);
+      if(ok(site.local_planning_authority))  up("planning","lpa",site.local_planning_authority);
+      if(ok(site.planning_status))           up("planning","status",site.planning_status);
+
+      // ────────────────────────────────────────────────────────────────
+      // 3. LAND VALUATION (RLV)
+      // ────────────────────────────────────────────────────────────────
+      if(pcClean)        up("rlv","postcode",pcClean);
+      if(acresNum>0)     up("rlv","acres",acresNum);
+      if(unitsNum>0)     up("rlv","units",unitsNum);
+      if(inferredPsf)    up("rlv","salePsf",inferredPsf);
+
+      // ────────────────────────────────────────────────────────────────
+      // 4. SFH HOUSE MIX
+      // ────────────────────────────────────────────────────────────────
+      if(acresNum>0)     up("sfh","acres",acresNum);
+      if(inferredCity)   up("sfh","city",inferredCity);
+      if(inferredPsf)    up("sfh","basePsf",inferredPsf);
+
+      // ────────────────────────────────────────────────────────────────
+      // 5. BTR / PBSA BLOCK (HRA)
+      // ────────────────────────────────────────────────────────────────
+      if(inferredCity)   up("hra","city",inferredCity);
+      if(inferredPsf){
+        up("hra","sPsf",inferredPsf);                   // studio
+        up("hra","oPsf",Math.round(inferredPsf*0.95));  // 1-bed
+        up("hra","tPsf",Math.round(inferredPsf*0.92));  // 2-bed
+      }
+
+      // ────────────────────────────────────────────────────────────────
+      // 6. FINANCIAL MODELLING
+      // ────────────────────────────────────────────────────────────────
+      // (fin uses its own defaults; salePsf flows in via rlv linkage)
+
+      // ────────────────────────────────────────────────────────────────
+      // 7. CONSTRAINT CHECK
+      // ────────────────────────────────────────────────────────────────
+      if(ok(site.constraints_summary)){
+        up("constraint","result",site.constraints_summary);
+        up("constraint","constraints",site.constraints_summary);
+      }
+
+      // ────────────────────────────────────────────────────────────────
+      // 8. EXIT STRATEGY
+      // ────────────────────────────────────────────────────────────────
+      if(ok(site.agent_contact))             up("exit","agent",site.agent_contact);
+
+      // ────────────────────────────────────────────────────────────────
+      // 9. SCORECARD (Placona's own score)
+      // ────────────────────────────────────────────────────────────────
+      if(site.placona_score)     up("scorecard","placonaScore",site.placona_score);
+      if(site.placona_category)  up("scorecard","placonaCategory",site.placona_category);
+
+      // ────────────────────────────────────────────────────────────────
+      // 10. PROPERTY EVALUATOR (only if postcode + city resolved)
+      // ────────────────────────────────────────────────────────────────
+      if(pcClean)        up("epe","postcode",pcClean);
+      if(inferredCity)   up("epe","city",inferredCity);
+      if(fullAddr)       up("epe","streetAddress",fullAddr);
+      if(inferredPsf)    up("epe","newPsf",inferredPsf);
+
       navTo("land");
     }
 
