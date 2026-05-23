@@ -850,7 +850,7 @@ function Tool(props){
   var ds=useState(function(){
     try{var s=localStorage.getItem("cassidy_deal");return s?JSON.parse(s):{};}catch(e){return {};}
   }()); var data=ds[0]; var setData=ds[1];
-  var ss=useState("dashboard"); var stage=ss[0]; var setStage=ss[1];
+  var ss=useState("scraper"); var stage=ss[0]; var setStage=ss[1];
   var mob=useState(false); var mobileMenuOpen=mob[0]; var setMobileMenuOpen=mob[1];
   var fup=useState(false); var showFileUpload=fup[0]; var setShowFileUpload=fup[1];
   var fpr=useState(false); var fileProcessing=fpr[0]; var setFileProcessing=fpr[1];
@@ -5043,6 +5043,7 @@ var ALL_STAGES = [
   }
 
   function renderDashboard(){
+    try{
     var cards=[
       {l:"GDV",v:gdv>0?fmt(gdv):"—"},{l:"Total Dev Cost",v:tc>0&&gdv>0?fmt(tc):"—"},
       {l:"Profit",v:gdv>0&&tc>0?fmt(profit):"—",c:profit>0?scM:"#C0C4D8"},{l:"Margin",v:gdv>0&&tc>0?pct(margin):"—",c:margin>0?scM:"#C0C4D8"},
@@ -5094,6 +5095,47 @@ var ALL_STAGES = [
             ai2.recommendedBid&&e("div",{style:{fontSize:11,color:goColor,fontWeight:700}},"Bid: £"+Math.round(ai2.recommendedBid).toLocaleString()),
             ai2.planningRisk&&e("div",{style:{fontSize:10,color:"#7278A0"}},"Planning risk: "+ai2.planningRisk)
           )
+        );
+      })(),
+      (function(){
+        var inbox=(data.placona&&data.placona.inbox)||[];
+        if(!inbox||inbox.length===0)return null;
+        return e("div",{style:{background:"linear-gradient(135deg,rgba(74,75,174,0.08),rgba(45,122,101,0.05))",border:"1px solid #4A4BAE",borderRadius:10,padding:"14px 18px",marginBottom:16}},
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}},
+            e("div",null,
+              e("div",{style:{fontSize:10,fontWeight:800,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".12em",marginBottom:2}},"Placona Inbox"),
+              e("div",{style:{fontSize:12,color:"#7278A0"}},inbox.length+" site"+(inbox.length!==1?"s":"")+" from Placona agent")
+            ),
+            e("button",{onClick:function(){up("placona","inbox",[]);},style:{padding:"4px 10px",background:"none",border:"1px solid #DDE0ED",borderRadius:4,color:"#B05A35",fontSize:10,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Clear all")
+          ),
+          inbox.slice(0,5).map(function(site,si){
+            return e("div",{key:si,style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",background:"#fff",borderRadius:6,marginBottom:6,border:"1px solid #DDE0ED"}},
+              e("div",{style:{flex:1}},
+                e("div",{style:{fontSize:12,fontWeight:700,color:"#2E2F8A"}},site.site_name||site.address_or_location||"Unknown site"),
+                e("div",{style:{fontSize:10,color:"#7278A0"}},(site.county||"")+(site.local_planning_authority?" - "+site.local_planning_authority:"")+" - Score: "+(site.placona_score||"—")+" "+(site.placona_category?"("+site.placona_category+")":""))
+              ),
+              e("button",{
+                onClick:function(){
+                  if(site.address_or_location||site.site_name)up("land","address",site.address_or_location||site.site_name||"");
+                  if(site.postcode)up("land","postcode",(site.postcode||"").toUpperCase());
+                  if(site.site_area_acres)up("land","acres",site.site_area_acres);
+                  if(site.asking_price&&site.asking_price!=="Not found")up("land","price",site.asking_price);
+                  if(site.local_planning_authority)up("land","localAuthority",site.local_planning_authority||"");
+                  if(site.planning_status)up("land","planningStatus",site.planning_status||"");
+                  if(site.agent_contact&&site.agent_contact!=="Not found")up("land","agent",site.agent_contact||"");
+                  if(site.estimated_units&&site.estimated_units!=="Not found")up("planning","units",site.estimated_units||"");
+                  if(site.local_planning_authority)up("planning","lpa",site.local_planning_authority||"");
+                  if(site.postcode)up("rlv","postcode",(site.postcode||"").toUpperCase());
+                  if(site.constraints_summary&&site.constraints_summary!=="Not found")up("constraint","result",site.constraints_summary||"");
+                  var newInbox=inbox.filter(function(_,idx2){return idx2!==si;});
+                  up("placona","inbox",newInbox);
+                  navTo("land");
+                },
+                style:{padding:"6px 12px",background:"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}
+              },"Load Deal")
+            );
+          }),
+          inbox.length>5&&e("div",{style:{fontSize:11,color:"#7278A0",textAlign:"center",marginTop:4}},inbox.length-5+" more sites in inbox")
         );
       })(),
       e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}},
@@ -5326,6 +5368,12 @@ var ALL_STAGES = [
         })()
       )
     );
+    }catch(dashErr){
+      return e("div",{style:{padding:32,color:"#B05A35"}},
+        e("div",{style:{fontSize:18,fontWeight:700,marginBottom:8}},"Dashboard error"),
+        e("div",{style:{fontSize:12,fontFamily:"DM Mono,monospace"}},dashErr.message||String(dashErr))
+      );
+    }
   }
 
   // ── PROPERTY EVALUATOR ─────────────────────────────────────────────────────
