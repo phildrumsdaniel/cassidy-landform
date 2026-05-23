@@ -694,9 +694,12 @@ function AIPanel(props){
     setAiLoad(true); setAiRes(""); setAiJson(null);
     try{
       var corrInstr=
-        "INSTRUCTION: End your response with CORRECTIONS_START on its own line, then a JSON object {\"corrections\":[...]}, then CORRECTIONS_END on its own line.\n"+
-        "Each correction is {\"field\":\"<name>\",\"stage\":\"<name>\",\"value\":<value>,\"reason\":\"<short>\"}.\n"+
-        "Extract EVERY fact you can deduce from the analysis. Be generous — if you mention a build cost, transport rating, planning risk, sale PSF, or any specific figure or category in your prose, ALSO include it as a correction. Use UK conventions.\n"+
+        "CRITICAL OUTPUT RULES:\n"+
+        "1. Keep prose analysis CONCISE — max ~800 words total. Use short bullets, not long paragraphs. Save your tokens for the CORRECTIONS block.\n"+
+        "2. At the END of your response, ALWAYS output CORRECTIONS_START on its own line, then a JSON object {\"corrections\":[...]}, then CORRECTIONS_END on its own line.\n"+
+        "3. The CORRECTIONS block is the MOST IMPORTANT output — populate it richly with every fact, figure, rating, or category you mentioned or deduced.\n\n"+
+        "Each correction: {\"field\":\"<name>\",\"stage\":\"<name>\",\"value\":<value>,\"reason\":\"<short>\"}.\n"+
+        "Be aggressive — if your analysis discusses transport links, contamination risk, planning status, build cost, sale PSF, density, AH%, profit %, S106, fees, finance rate, storeys, BNG, rent levels, yield, programme, or ANY specific figure or category, INCLUDE IT in corrections. Default reasonable UK figures when not stated (e.g. UK SFH build cost £165-200/sqft, BTR £210-260/sqft, finance 7-8%, contingency 5%, fees 12%, profit 18-22%).\n"+
         "Allowed stages and fields:\n"+
         " land: address, postcode, city, acres, price, county, localAuthority, planningStatus, agent, ownerType, proximity[excellent|good|fair|poor], transport[excellent|good|fair|poor], contamination[clean|minor|unknown|major], tenure[freehold|long_leasehold|short_leasehold], constraint[none|minor|moderate|major]\n"+
         " planning: units, lpa, status, storeys, ahPct, bng, riskLevel[low|medium|high], gateway\n"+
@@ -705,10 +708,11 @@ function AIPanel(props){
         " hra: city, sPsf, oPsf, tPsf, ssqft, osqft, tsqft, storeys, cores, eff, finRate, profitPct\n"+
         " fin: buildPsf, finRate, finRatePa, contingency, programmeMths, salesRateWeek, rent, exitYield\n"+
         " exit: strategy, investorType, exitYield, agent\n"+
-        " capitalise: targetYield\n"+
+        " capitalise: targetYield, ffBuildPsf, ffSqftPerUnit, ffFeesPct, ffContPct, ffFinPct, ffProfitPct, ffS106pu\n"+
         " epe: city, postcode, propType, bedrooms, condition, propSqft, newPsf, salePsf, buildPsf, finRate, profitPct, storeys\n"+
-        "Numeric fields: numbers only (no £ or %). Dropdown fields: use ONLY the exact listed values. Skip fields you have no basis for. IMPORTANT: All yields (exitYield, targetYield) MUST be 5.0 or below — institutional pension/BTR buyers do not transact above 5%.";
-      var enhPrompt=corrInstr+"\n\n"+props.prompt;
+        "Numeric fields: numbers only (no £ or %). Dropdown fields: ONLY exact listed values. ALL yields MUST be ≤5.0 (institutional pension/BTR ceiling).\n"+
+        "TARGET: minimum 10 corrections, ideally 20+. Skip a field ONLY if you genuinely have no basis for any value (not even a UK-typical default).";
+      var enhPrompt=props.prompt+"\n\n"+corrInstr+"\n\nREMEMBER: end with CORRECTIONS_START / CORRECTIONS_END block. The corrections matter more than long prose.";
       var result=await callAI(props.user,props.stage,"You are a senior UK development finance director. Give analysis then ALWAYS end with CORRECTIONS_START...CORRECTIONS_END block populated with every fact you can extract.",enhPrompt);
       // Extract corrections block
       var ci=result.indexOf("CORRECTIONS_START");
