@@ -21,28 +21,40 @@
 .lf-sidebar{transition:transform .25s cubic-bezier(.4,0,.2,1);}
 
 @media(max-width:768px){
+  body{overflow-x:hidden!important;}
+
   /* ── SIDEBAR ── */
   .lf-sidebar{
     transform:translateX(-100%);
     z-index:1000!important;
-    width:280px!important;
+    width:min(86vw,320px)!important;
     box-shadow:4px 0 24px rgba(0,0,0,0.4);
   }
   .lf-sidebar.open{transform:translateX(0)!important;}
+  aside{width:min(86vw,320px)!important;}
 
   /* ── OVERLAY ── */
   .lf-overlay{display:block!important;}
 
   /* ── MAIN AREA ── */
-  .lf-main{margin-left:0!important;width:100vw!important;max-width:100vw!important;overflow-x:hidden!important;}
+  .lf-main{margin-left:0!important;width:100%!important;max-width:100vw!important;overflow-x:hidden!important;}
 
   /* ── TOPBAR ── */
-  .lf-topbar{padding:10px 12px!important;gap:8px!important;}
-  /* lf-topbar-btns no longer used - buttons controlled by React */
+  .lf-topbar{
+    padding:10px 12px!important;
+    gap:8px!important;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
   .lf-hamburger{display:flex!important;align-items:center!important;}
 
   /* ── CONTENT AREA ── */
-  .lf-stage-content{padding:14px 12px!important;overflow-x:hidden!important;}
+  .lf-stage-content,
+  main > div[style]{
+    padding:14px 12px!important;
+    max-width:100%!important;
+    overflow-x:hidden!important;
+  }
 
   /* ── FORMS ── */
   input,select,textarea{
@@ -52,21 +64,36 @@
     width:100%!important;
     box-sizing:border-box!important;
   }
-  button{min-height:42px!important;padding:10px 14px!important;}
+  button{
+    min-height:42px!important;
+    padding:10px 14px!important;
+    max-width:100%;
+    white-space:normal!important;
+  }
 
-  /* ── GRIDS → SINGLE COLUMN ── */
-  [style*="grid-template-columns:1fr 1fr"],[style*="gridTemplateColumns:"1fr 1fr""],
-  [style*="repeat(2,1fr)"],[style*="repeat(3,1fr)"],[style*="repeat(4,1fr)"]{
+  /* ── GRIDS → SINGLE COLUMN (broad rules — match React inline styles however serialised) ── */
+  div[style*="grid-template-columns"],
+  div[style*="gridTemplateColumns"]{
     grid-template-columns:1fr!important;
   }
   .lf-grid2{grid-template-columns:1fr!important;}
-  .lf-metrics-grid{grid-template-columns:1fr 1fr!important;}
+  /* Metrics-style 2-column grids stay 2-up on mobile for readability */
+  .lf-metrics-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
 
   /* ── CARDS ── */
-  .lf-card,[style*="S.card"]{padding:14px 12px!important;margin-bottom:12px!important;}
+  .lf-card,
+  div[style*="S.card"]{
+    padding:14px!important;
+    margin-bottom:12px!important;
+    border-radius:8px!important;
+  }
 
-  /* ── TABLES → SCROLLABLE ── */
-  [style*="gridTemplateColumns"]{overflow-x:auto!important;}
+  /* ── TABLES & WIDE GRIDS → SCROLLABLE WRAPPER ── */
+  table{
+    max-width:100%;
+    overflow-x:auto;
+    display:block;
+  }
 
   /* ── TYPOGRAPHY ── */
   h2{font-size:20px!important;}
@@ -451,14 +478,16 @@ var PROP_TYPES = ["Detached house","Semi-detached house","End of terrace house",
 
 function num(v){return parseFloat(v)||0;}
 function fmt(n){
-  if(n===null||n===undefined||isNaN(n)||n===""||n===0&&n!==0)return"—";
-  var v=Number(n); if(isNaN(v))return"—";
-  var a=Math.abs(v);
-  if(a>=1000000)return(v<0?"-":"")+"£"+(Math.abs(v)/1000000).toFixed(2)+"m";
-  if(a>=1000)return(v<0?"-":"")+"£"+Math.round(Math.abs(v)/1000)+"k";
-  if(a>0&&a<1000)return(v<0?"-":"")+"£"+Math.round(Math.abs(v)).toLocaleString();
+  if(n===null||n===undefined||n===""||isNaN(Number(n)))return"—";
+  var v=Number(n), a=Math.abs(v);
+  if(a>=1000000)return(v<0?"-":"")+"£"+(a/1000000).toFixed(2)+"m";
+  if(a>=1000)return(v<0?"-":"")+"£"+Math.round(a/1000)+"k";
+  return(v<0?"-":"")+"£"+Math.round(a).toLocaleString();
 }
-function pct(n){return n?n.toFixed(1)+"%":"—";}
+function pct(n){
+  if(n===null||n===undefined||n===""||isNaN(Number(n)))return"—";
+  return Number(n).toFixed(1)+"%";
+}
 function fmtN(n,dp){if(n===null||n===undefined||isNaN(n))return"—";return Number(n).toLocaleString("en-GB",{maximumFractionDigits:dp||0});}
 function cityName(c){return c?c.charAt(0).toUpperCase()+c.replace(/_/g," ").slice(1):"—";}
 
@@ -536,6 +565,189 @@ function lookupLandPsf(pc) {
     if(LAND_PSF[key])return LAND_PSF[key];
   }
   return LAND_PSF.DEFAULT;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// calcDealMetrics(data) — SINGLE SOURCE OF TRUTH for deal-level financial metrics
+// Used by Dashboard, Summary, Fin, Exit, Reports, Data Room.
+// Returns a normalised object regardless of scheme type (SFH vs BTR vs PBSA vs Mixed).
+// Never returns undefined — always returns a number (0 if unknown).
+// ═══════════════════════════════════════════════════════════════════════════
+function calcDealMetrics(data){
+  data = data || {};
+  var l = data.land || {};
+  var p = data.planning || {};
+  var f = data.fin || {};
+  var rlvD = data.rlv || {};
+  var sfh = data.sfh || {};
+  var hra = data.hra || {};
+  var cap = data.capitalise || {};
+  var at = data.assetType || "btr";
+
+  // ── INPUTS (resolve to numbers safely) ────────────────────────────────
+  var acres = num(l.acres);
+  var landPrice = num(l.price);
+  var units = num(p.units || rlvD.units || sfh.totalUnits || 0);
+
+  // City for market lookups
+  var cityKey = (l.city || sfh.city || rlvD.city || "").toLowerCase();
+  var m = MKT[cityKey] || MKT.manchester;
+
+  // Sale PSF: prefer live LR > postcode lookup > city derived > field defaults
+  var mkt = data.market || {};
+  var salePsf = num(rlvD.salePsf) || num(sfh.basePsf) || num(mkt.lrPsf);
+  if (!salePsf && l.postcode) {
+    var pcData = lookupPostcode(l.postcode);
+    if (pcData) salePsf = pcData.salePsf;
+  }
+  if (!salePsf && m.btr) salePsf = Math.max(150, Math.min(650, Math.round(m.btr * 8.5 / 12)));
+  salePsf = salePsf || 260;
+
+  // Build PSF: scheme-aware
+  var buildPsf = num(rlvD.buildPsf) || num(f.buildPsf) || num(sfh.buildPsf) || (m && m.build) || 195;
+
+  // Average sqft per unit (used for area calcs)
+  var avgSqft = num(rlvD.avgSqft) || num(sfh.avgSqft) || 850;
+
+  // ── SCHEME-AWARE GDV ──────────────────────────────────────────────────
+  // SFH GDV: sum house-mix sales if populated
+  var sfhGdv = 0;
+  if (sfh.mix && sfh.mix.length) {
+    sfh.mix.forEach(function(r){
+      sfhGdv += num(r.count) * num(r.salePrice);
+    });
+  }
+
+  // BTR/PBSA GDV: capitalised value if rents + yield given
+  var btrGdv = 0;
+  if (cap.targetYield && cap.netAnnualIncome) {
+    btrGdv = num(cap.netAnnualIncome) / num(cap.targetYield);
+  } else if (hra.gdv) {
+    btrGdv = num(hra.gdv);
+  }
+
+  // Manual override on Financial Modelling
+  var manualGdv = num(f.gdv);
+
+  // Choose the right GDV based on asset type / scheme
+  var gdv = 0;
+  if (manualGdv > 0) gdv = manualGdv;
+  else if (at === "sfh" && sfhGdv > 0) gdv = sfhGdv;
+  else if ((at === "btr" || at === "pbsa") && btrGdv > 0) gdv = btrGdv;
+  else if (sfhGdv > 0) gdv = sfhGdv;
+  else if (btrGdv > 0) gdv = btrGdv;
+  else if (units > 0 && salePsf > 0 && avgSqft > 0) gdv = units * avgSqft * salePsf;
+
+  // ── COSTS ──────────────────────────────────────────────────────────────
+  var buildCost = num(f.buildCost);
+  if (!buildCost && units > 0 && avgSqft > 0 && buildPsf > 0) {
+    buildCost = units * avgSqft * buildPsf;
+  }
+
+  var feesPct = num(f.feesPct || 12);
+  var fees = buildCost * (feesPct / 100);
+
+  var contPct = num(f.contingencyPct || f.contingency || 5);
+  var contingency = buildCost * (contPct / 100);
+
+  var s106pu = num(f.s106pu || p.s106pu || 8000);
+  var s106 = num(p.s106) || (units * s106pu);
+
+  var finRate = num(f.finRate || 7.5);
+  // Simple finance: % of (build + fees) — flagged as 'screening estimate' in UI
+  var finance = (buildCost + fees) * (finRate / 100);
+
+  var profitPctTarget = num(f.profitPct || f.marginPct || 17.5);
+  var profit = gdv * (profitPctTarget / 100);
+
+  // ── ACQUISITION COSTS (toggle in RLV stage) ─────────────────────────
+  // SDLT (5% banded approximation for commercial/non-residential land)
+  // Agent fees: 1.5% of land price standard
+  // Legal fees: ~£15k or 0.5% (whichever higher)
+  // Land finance: 18 months at finRate on land + acq costs
+  var includeAcq = !!(rlvD.includeAcqCosts);
+  var sdlt = 0, agentFees = 0, legalFees = 0, landFinance = 0;
+  if (includeAcq && landPrice > 0) {
+    // SDLT non-residential bands (simplified):
+    // 0-150k: 0%, 150k-250k: 2%, 250k+: 5%
+    if (landPrice > 250000) sdlt = (landPrice - 250000) * 0.05 + (250000 - 150000) * 0.02;
+    else if (landPrice > 150000) sdlt = (landPrice - 150000) * 0.02;
+    agentFees = landPrice * 0.015;
+    legalFees = Math.max(15000, landPrice * 0.005);
+    // Land finance: assume 18 months on land + costs at finRate
+    landFinance = (landPrice + sdlt + agentFees + legalFees) * (finRate / 100) * 1.5;
+  }
+  var totalAcqCosts = sdlt + agentFees + legalFees + landFinance;
+
+  // ── TOTAL COST ────────────────────────────────────────────────────────
+  var totalCost = buildCost + fees + contingency + s106 + finance + totalAcqCosts;
+
+  // ── RLV / RESIDUAL ────────────────────────────────────────────────────
+  // RLV = GDV − all costs − developer profit
+  var rlv = 0;
+  if (gdv > 0) {
+    rlv = gdv - totalCost - profit;
+  }
+
+  // Actual profit (if user has explicit costs)
+  var actualProfit = gdv - totalCost - landPrice;
+  var marginPct = gdv > 0 ? (actualProfit / gdv) * 100 : 0;
+  var roc = (totalCost + landPrice) > 0 ? (actualProfit / (totalCost + landPrice)) * 100 : 0;
+
+  // ── Headroom: difference between RLV and asking price ────────────────
+  var headroom = rlv > 0 && landPrice > 0 ? rlv - landPrice : 0;
+  var headroomPct = landPrice > 0 && rlv > 0 ? (headroom / landPrice) * 100 : 0;
+
+  // ── Build:Sale ratio diagnostic ──────────────────────────────────────
+  var buildSaleRatio = salePsf > 0 ? (buildPsf / salePsf) * 100 : 0;
+  var buildSaleVerdict = "unknown";
+  if (buildSaleRatio > 0) {
+    if (buildSaleRatio <= 60) buildSaleVerdict = "strong";
+    else if (buildSaleRatio <= 75) buildSaleVerdict = "tight";
+    else buildSaleVerdict = "unviable";
+  }
+
+  return {
+    // Inputs
+    acres: acres,
+    units: units,
+    avgSqft: avgSqft,
+    landPrice: landPrice,
+    salePsf: salePsf,
+    buildPsf: buildPsf,
+    // GDV components
+    gdv: gdv,
+    sfhGdv: sfhGdv,
+    btrGdv: btrGdv,
+    gdvSource: manualGdv > 0 ? "manual" : (at === "sfh" && sfhGdv > 0) ? "sfh" : ((at === "btr" || at === "pbsa") && btrGdv > 0) ? "btr" : sfhGdv > 0 ? "sfh-fallback" : btrGdv > 0 ? "btr-fallback" : "derived",
+    // Costs
+    buildCost: buildCost,
+    fees: fees, feesPct: feesPct,
+    contingency: contingency, contingencyPct: contPct,
+    s106: s106, s106pu: s106pu,
+    finance: finance, finRate: finRate,
+    // Acquisition (only populated if toggle on)
+    includeAcqCosts: includeAcq,
+    sdlt: sdlt, agentFees: agentFees, legalFees: legalFees, landFinance: landFinance,
+    totalAcqCosts: totalAcqCosts,
+    // Profit / margin
+    profit: profit, profitPctTarget: profitPctTarget,
+    actualProfit: actualProfit,
+    marginPct: marginPct,
+    roc: roc,
+    // Outputs
+    totalCost: totalCost,
+    rlv: rlv,
+    headroom: headroom,
+    headroomPct: headroomPct,
+    // Diagnostic
+    buildSaleRatio: buildSaleRatio,
+    buildSaleVerdict: buildSaleVerdict,
+    // Health indicators
+    isViable: rlv > 0 && marginPct >= 15,
+    isAtRisk: rlv > 0 && marginPct < 15,
+    isUnviable: rlv <= 0 || buildSaleRatio > 75
+  };
 }
 
 function lookupPostcode(pc){
@@ -1152,20 +1364,22 @@ var JOURNEYS = {
   var ey=data.fin&&data.fin.exitYield?num(data.fin.exitYield)/100:0;
   var btrGdvDash=ey>0&&gr>0?noi/ey:0;
 
-  // Final GDV — manual > SFH sales > BTR yield > 0
-  var gdv=manGdv>0?manGdv:(isSFHdash&&sfhDashGdv>0?sfhDashGdv:(btrGdvDash>0?btrGdvDash:0));
-
   // Build cost — manual > SFH > GIA estimate
   var effBc=manBuild>0?manBuild:(isSFHdash&&sfhDashBuild>0?sfhDashBuild:bc);
   var effUnits=isSFHdash&&sfhDashUnits>0?sfhDashUnits:units;
 
-  // Total dev cost
-  var s106dash=isSFHdash?effUnits*num(data.fin&&data.fin.s106pu||0):
-    (data.planning&&data.planning.s106?num(data.planning.s106):effUnits*num(data.fin&&data.fin.s106pu||0));
-  var tc=effBc+lc+s106dash+effBc*0.12+effBc*0.05+(effBc+lc)*0.075;
+  // ── CENTRALISED METRICS (single source of truth across all stages) ──
+  var DM = calcDealMetrics(data);
 
-  var profit=gdv>0&&tc>0?gdv-tc:0;
-  var margin=gdv>0&&profit!==0?(profit/gdv)*100:0;
+  // Shim: keep existing variable names referenced elsewhere in Dashboard
+  // but back them with calcDealMetrics output so they stay aligned with Fin/Summary/Reports
+  var gdv = DM.gdv > 0 ? DM.gdv : (manGdv>0?manGdv:(isSFHdash&&sfhDashGdv>0?sfhDashGdv:(btrGdvDash>0?btrGdvDash:0)));
+  var s106dash = DM.s106 || (isSFHdash?effUnits*num(data.fin&&data.fin.s106pu||0):
+    (data.planning&&data.planning.s106?num(data.planning.s106):effUnits*num(data.fin&&data.fin.s106pu||0)));
+  var tc = DM.totalCost > 0 ? DM.totalCost + lc : effBc+lc+s106dash+effBc*0.12+effBc*0.05+(effBc+lc)*0.075;
+
+  var profit = DM.actualProfit !== 0 ? DM.actualProfit : (gdv>0&&tc>0?gdv-tc:0);
+  var margin = DM.marginPct !== 0 ? DM.marginPct : (gdv>0&&profit!==0?(profit/gdv)*100:0);
   var scM=margin>=15?"#2D7A65":"#B05A35";
 
   var idx=ALL_STAGES.findIndex(function(s){return s.id===stage;});
@@ -1732,7 +1946,7 @@ var JOURNEYS = {
 
     // COVER PAGE
     '<div class="cover">'+
-    '<img class="cover-logo" src="data:image/webp;base64,'+logo+'" alt="Cassidy Group"/>'+
+    '<img class="cover-logo" src="data:image/webp;base64,'+LOGO+'" alt="Cassidy Group"/>'+
     '<h1>Development Appraisal</h1>'+
     '<h2>'+addr+'</h2>'+
     '<div class="cover-bar"></div>'+
@@ -7664,6 +7878,11 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     var rPlan=rUnits*bt.plan;
     var rDevProfit=rGdv*(rProfit/100);
     var rRlv=rGdv-rBc-rFees-rContCost-rFinCost-rS106-rPlan-rDevProfit;
+    // If acquisition costs toggle is on, the RLV is the NET land bid (after SDLT/legals/agent/land finance)
+    if(r.includeAcqCosts){
+      var DM_acq=calcDealMetrics(data);
+      rRlv = rRlv - DM_acq.totalAcqCosts;
+    }
     var rlvPu=rUnits>0?rRlv/rUnits:0;
     var rlvPctGdv=rGdv>0?(rRlv/rGdv)*100:0;
     var sc=rRlv>0?"#2D7A65":"#B05A35";
@@ -7907,6 +8126,36 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
             "Build : Sale ratio — "+verdict.msg
           );
         })(),
+
+        // ── ACQUISITION COSTS TOGGLE ────────────────────────────────────────
+        e("div",{style:{margin:"12px 0",padding:"12px 14px",background:"#F8F8FE",border:"1px solid #DDE0ED",borderRadius:8}},
+          e("div",{style:{display:"flex",alignItems:"center",gap:10,justifyContent:"space-between",flexWrap:"wrap"}},
+            e("div",null,
+              e("label",{style:{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,fontWeight:700,color:"#2E2F8A"}},
+                e("input",{type:"checkbox",checked:!!r.includeAcqCosts,onChange:function(ev){up("rlv","includeAcqCosts",ev.target.checked);},style:{width:16,height:16,cursor:"pointer"}}),
+                "Include land acquisition costs in RLV (SDLT · agent fees · legal fees · land finance)"
+              ),
+              e("div",{style:{fontSize:10,color:"#7278A0",marginTop:4,marginLeft:24,lineHeight:1.5}},
+                r.includeAcqCosts?"RLV now reflects what you can actually pay the vendor after costs. Reduces headline by ~5-7%.":"Default RLV is the maximum land bid before acquisition costs. Toggle on to see net-to-vendor."
+              )
+            ),
+            r.includeAcqCosts&&num(l&&l.price)>0&&(function(){
+              var DM2=calcDealMetrics(data);
+              return e("div",{style:{textAlign:"right",fontSize:11}},
+                e("div",{style:{color:"#7278A0",fontSize:9,letterSpacing:".08em",textTransform:"uppercase"}},"Acquisition costs"),
+                e("div",{style:{color:"#B05A35",fontWeight:800,fontSize:14}},fmt(DM2.totalAcqCosts)),
+                e("div",{style:{fontSize:9,color:"#7278A0",marginTop:2}},
+                  "SDLT "+fmt(DM2.sdlt)+" · Legals "+fmt(DM2.legalFees)+" · Agent "+fmt(DM2.agentFees)+" · Finance "+fmt(DM2.landFinance)
+                )
+              );
+            })()
+          )
+        ),
+
+        // ── SCREENING ESTIMATE NOTICE ─────────────────────────────────────
+        e("div",{style:{margin:"10px 0",padding:"8px 12px",background:"rgba(74,75,174,0.06)",border:"1px solid rgba(74,75,174,0.18)",borderRadius:5,fontSize:10,color:"#4A4BAE",lineHeight:1.6}},
+          "ℹ ",e("strong",null,"Screening estimate. "),"Finance cost shown is a simple % of build+fees (not phased S-curve). For institutional-grade output use ",e("strong",{style:{cursor:"pointer",textDecoration:"underline"},onClick:function(){navTo("viability");}},"Detailed Appraisal")," — full RICS-format residual with phased finance modelling."
+        ),
         rUnits>0&&rGdv>0&&e("div",null,
           e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginTop:12,marginBottom:12}},
             e("div",{style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,padding:14}},
@@ -9668,18 +9917,22 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     var ey2 = ey||m.yield;
     var btrGdv = ey2>0&&gr>0?noi2/ey2:0;
 
-    // Final GDV: manual override > SFH sales > BTR yield
-    var gdv2 = manualGdv>0?manualGdv:(isSFH&&sfhTotalGdv>0?sfhTotalGdv:(btrGdv>0?btrGdv:0));
+    // ── CENTRALISED METRICS ─────────────────────────────────────────────
+    var DM = calcDealMetrics(data);
 
-    // Build cost: manual override > SFH appraisal > bc from outer scope
-    var effBuildCost = manualBuildCost>0?manualBuildCost:(isSFH&&sfhTotalBuildCost>0?sfhTotalBuildCost:bc);
+    // Final GDV: prefer centralised value (which itself respects manual override > SFH > BTR yield)
+    var gdv2 = DM.gdv > 0 ? DM.gdv : (manualGdv>0?manualGdv:(isSFH&&sfhTotalGdv>0?sfhTotalGdv:(btrGdv>0?btrGdv:0)));
 
-    // Total Development Cost
-    var s106fin = isSFH?sfhTotalUnits*num(f.s106pu||8000):(data.planning&&data.planning.s106?num(data.planning.s106):units*num(f.s106pu||8000));
+    // Build cost: keep existing fallback logic but prefer centralised when available
+    var effBuildCost = DM.buildCost > 0 ? DM.buildCost : (manualBuildCost>0?manualBuildCost:(isSFH&&sfhTotalBuildCost>0?sfhTotalBuildCost:bc));
+
+    // Total Development Cost (still locally compute land-inclusive for legacy display)
+    var s106fin = DM.s106 || (isSFH?sfhTotalUnits*num(f.s106pu||8000):(data.planning&&data.planning.s106?num(data.planning.s106):units*num(f.s106pu||8000)));
     var tc4 = effBuildCost + lc + s106fin + effBuildCost*0.12 + effBuildCost*(num(f.contingency)||5)/100 + (effBuildCost+lc)*(num(f.finRate)||7.5)/100 + lc*0.05;
 
-    var profit2=gdv2-tc4; var margin2=gdv2>0?(profit2/gdv2)*100:0;
-    var roc=tc4>0?(profit2/tc4)*100:0;
+    var profit2 = DM.actualProfit !== 0 ? DM.actualProfit : (gdv2-tc4);
+    var margin2 = DM.marginPct !== 0 ? DM.marginPct : (gdv2>0?(profit2/gdv2)*100:0);
+    var roc = DM.roc !== 0 ? DM.roc : (tc4>0?(profit2/tc4)*100:0);
     var scV=margin2>=15?"#2D7A65":"#B05A35";
 
     var scens=[{l:"Bear",sm:-0.10,bm:+0.15},{l:"Base",sm:0,bm:0},{l:"Bull",sm:+0.08,bm:-0.05}].map(function(sc3){
@@ -9691,6 +9944,11 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     return e("div",null,
       e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Financial Modelling"),
       e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Full development appraisal, returns analysis and scenario sensitivity"),
+      e("div",{style:{padding:"10px 14px",background:"rgba(74,75,174,0.06)",border:"1px solid rgba(74,75,174,0.18)",borderRadius:6,marginBottom:14,fontSize:11,color:"#4A4BAE",lineHeight:1.6}},
+        "ℹ ",e("strong",null,"Screening estimate. "),"Finance costs use simple % of build+fees. For institutional output (RICS-format, phased S-curve finance, full sensitivity), see ",
+        e("strong",{style:{cursor:"pointer",textDecoration:"underline"},onClick:function(){navTo("viability");}},"Detailed Appraisal"),
+        ". Figures here are aligned with Dashboard, Summary, RLV and Exit via central engine."
+      ),
       LiveMarketBanner(),
       e("div",{style:S.card},
         e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:10,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,paddingBottom:12,borderBottom:"1px solid #DDE0ED",marginBottom:14}},
