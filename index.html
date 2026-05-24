@@ -961,36 +961,36 @@ function Tool(props){
 // ── STAGES ───────────────────────────────────────────────────────────────────
 var ALL_STAGES = [
   // ── 1. FIND ──────────────────────────────────────────────────────────────
-  {id:"placona",     label:"Placona Agent",         icon:"🤖", group:"1. Find",     journeys:["land","all"]},
-  {id:"monitor",     label:"Planning Monitor",     icon:"📡", group:"1. Find",     journeys:["land","all"]},
-  {id:"constraint",  label:"Constraint Check",     icon:"⚠",  group:"1. Find",     journeys:["land","all"]},
-  {id:"scraper",     label:"Land Finder",          icon:"🔍", group:"1. Find",     journeys:["land","all"]},
-  {id:"land",        label:"Land Appraisal",       icon:"⬟",  group:"1. Find",     journeys:["land","all"]},
+  {id:"placona",     label:"Placona Agent",         icon:"🤖", group:"1. Find",     journeys:["land","sfh","btr","pbsa","all"]},
+  {id:"monitor",     label:"Planning Monitor",     icon:"📡", group:"1. Find",     journeys:["land","sfh","btr","pbsa","all"]},
+  {id:"constraint",  label:"Constraint Check",     icon:"⚠",  group:"1. Find",     journeys:["land","sfh","btr","pbsa","all"]},
+  {id:"scraper",     label:"Land Finder",          icon:"🔍", group:"1. Find",     journeys:["land","sfh","btr","pbsa","all"]},
+  {id:"land",        label:"Land Appraisal",       icon:"⬟",  group:"1. Find",     journeys:["land","sfh","btr","pbsa","all"]},
   {id:"epe",         label:"Property Evaluator",   icon:"🏠", group:"1. Find",     journeys:["property","all"]},
-  // ── 2. VALUE ─────────────────────────────────────────────────────────────
-  {id:"rlv",         label:"Land Valuation (RLV)", icon:"◆",  group:"2. Value",    journeys:["land","all"]},
-  {id:"sfh",         label:"SFH House Mix",        icon:"🏡", group:"2. Value",    journeys:["land","property","sfh","all"]},
-  {id:"hra",         label:"BTR / PBSA Block",     icon:"🏢", group:"2. Value",    journeys:["land","btr","pbsa","all"]},
+  // ── 2. VALUE ────────────────────────────────────────────────────────────
+  {id:"rlv",         label:"Land Valuation (RLV)", icon:"◆",  group:"2. Value",    journeys:["land","sfh","btr","pbsa","property","all"]},
+  {id:"sfh",         label:"SFH House Mix",        icon:"🏡", group:"2. Value",    journeys:["sfh","property","all"]},
+  {id:"hra",         label:"BTR / PBSA Block",     icon:"🏢", group:"2. Value",    journeys:["btr","pbsa","all"]},
   {id:"capitalise",  label:"Capitalisation",       icon:"£",  group:"2. Value",    journeys:["land","btr","pbsa","sfh","all"]},
-  // ── 3. DEVELOP ───────────────────────────────────────────────────────────
-  {id:"planning",    label:"Planning & Viability", icon:"▲",  group:"3. Develop",  journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
-  {id:"fin",         label:"Financial Modelling",  icon:"◉",  group:"3. Develop",  journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
-  {id:"viability",   label:"Detailed Appraisal",  icon:"📐", group:"3. Develop",  journeys:["land","sfh","all"]},
-  {id:"dd",          label:"Due Diligence",        icon:"◈",  group:"3. Develop",  journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
-  {id:"risks",       label:"Risk Register",        icon:"⬡",  group:"3. Develop",  journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
+  // ── 3. DEVELOP ──────────────────────────────────────────────────────────
+  {id:"planning",    label:"Planning & Viability", icon:"▲",  group:"3. Develop",  journeys:["land","sfh","btr","pbsa","property","recovery","all"]},
+  {id:"fin",         label:"Financial Modelling",  icon:"◉",  group:"3. Develop",  journeys:["sfh","btr","pbsa","property","recovery","all"]},
+  {id:"viability",   label:"Detailed Appraisal",  icon:"📐", group:"3. Develop",  journeys:["sfh","btr","pbsa","all"]},
+  {id:"dd",          label:"Due Diligence",        icon:"◈",  group:"3. Develop",  journeys:["land","sfh","btr","pbsa","property","recovery","all"]},
+  {id:"risks",       label:"Risk Register",        icon:"⬡",  group:"3. Develop",  journeys:["land","sfh","btr","pbsa","property","recovery","all"]},
   // ── 4. EXIT ──────────────────────────────────────────────────────────────
-  {id:"exit",        label:"Exit Strategy",        icon:"◆",  group:"4. Exit",     journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
+  {id:"exit",        label:"Exit Strategy",        icon:"◆",  group:"4. Exit",     journeys:["land","sfh","btr","pbsa","property","recovery","all"]},
   {id:"recovery",    label:"Planning Recovery",    icon:"⚖",  group:"4. Exit",     journeys:["recovery","all"]},
   // ── 5. REPORT ────────────────────────────────────────────────────────────
-  {id:"scorecard",   label:"Site Scorecard",       icon:"🏆", group:"5. Report",   journeys:["land","all"]},
-  {id:"teaser",      label:"Teaser PDF",           icon:"📬", group:"5. Report",   journeys:["land","all"]},
-  {id:"im",          label:"Investor Memorandum",  icon:"📑", group:"5. Report",   journeys:["land","all"]},
-  {id:"grants",      label:"Grant & Funding",      icon:"💷", group:"5. Report",   journeys:["land","all"]},
-  {id:"summary",     label:"Executive Summary",    icon:"📄", group:"5. Report",   journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
+  {id:"scorecard",   label:"Site Scorecard",       icon:"🏆", group:"5. Report",   journeys:["land","sfh","btr","pbsa","all"]},
+  {id:"teaser",      label:"Teaser PDF",           icon:"📬", group:"5. Report",   journeys:["land","sfh","btr","pbsa","all"]},
+  {id:"im",          label:"Investor Memorandum",  icon:"📑", group:"5. Report",   journeys:["land","sfh","btr","pbsa","all"]},
+  {id:"grants",      label:"Grant & Funding",      icon:"💷", group:"5. Report",   journeys:["sfh","btr","pbsa","all"]},
+  {id:"summary",     label:"Executive Summary",    icon:"📄", group:"5. Report",   journeys:["land","sfh","btr","pbsa","property","recovery","all"]},
   // ── 6. RECORDS ───────────────────────────────────────────────────────────
   {id:"meetings",    label:"Meeting Transcripts",  icon:"📝", group:"6. Records",  journeys:["all"]},
   {id:"portfolio",   label:"Deal Portfolio",       icon:"📊", group:"6. Records",  journeys:["all"]},
-  {id:"dashboard",   label:"Deal Dashboard",       icon:"◈",  group:"6. Records",  journeys:["land","property","sfh","btr","pbsa","recovery","all"]},
+  {id:"dashboard",   label:"Deal Dashboard",       icon:"◈",  group:"6. Records",  journeys:["land","sfh","btr","pbsa","property","recovery","all"]},
   {id:"flowcharts",  label:"Process Flowcharts",   icon:"🗺", group:"6. Records",  journeys:["all"]},
 ];
 
@@ -1018,7 +1018,76 @@ var JOURNEYS = {
     try{var s=localStorage.getItem("cassidy_history");return s?JSON.parse(s):[];}catch(e){return [];}
   })()); var history=histS[0]; var setHistory=histS[1];
   var showHistS=useState(false); var showHist=showHistS[0]; var setShowHist=showHistS[1];
-  var journeyS=useState("all"); var journey=journeyS[0]; var setJourney=journeyS[1];
+  // Selected scheme types — multi-select array. Empty = show all stages/fields.
+  var schemesS=useState(function(){
+    try{var s=localStorage.getItem("cassidy_schemes");return s?JSON.parse(s):[];}catch(e){return [];}
+  }()); var schemes=schemesS[0]; var setSchemes=schemesS[1];
+  // Selected exit routes — multi-select array. Empty = show all exit-related fields.
+  var exitsS=useState(function(){
+    try{var s=localStorage.getItem("cassidy_exits");return s?JSON.parse(s):[];}catch(e){return [];}
+  }()); var exits=exitsS[0]; var setExits=exitsS[1];
+  // Persist filters to localStorage
+  React.useEffect(function(){
+    try{localStorage.setItem("cassidy_schemes",JSON.stringify(schemes));}catch(e){}
+  },[schemes]);
+  React.useEffect(function(){
+    try{localStorage.setItem("cassidy_exits",JSON.stringify(exits));}catch(e){}
+  },[exits]);
+  // Legacy 'journey' single-string kept for backwards compatibility with existing code paths.
+  // It reflects the FIRST selected scheme, or "all" if none/multiple.
+  var journey = schemes.length===1 ? schemes[0] : "all";
+  function setJourney(j){
+    // Shim — preserves the old setJourney() API while updating schemes array.
+    if(j==="all")setSchemes([]);
+    else setSchemes([j]);
+  }
+  function toggleScheme(j){
+    setSchemes(function(arr){
+      if(arr.indexOf(j)>=0)return arr.filter(function(x){return x!==j;});
+      return arr.concat([j]);
+    });
+  }
+  function toggleExit(j){
+    setExits(function(arr){
+      if(arr.indexOf(j)>=0)return arr.filter(function(x){return x!==j;});
+      return arr.concat([j]);
+    });
+  }
+  function isSchemeOn(j){ return schemes.indexOf(j)>=0; }
+  function isExitOn(j){ return exits.indexOf(j)>=0; }
+
+  // ── Smart filter map: exit routes that unlock specific stages ──
+  // (e.g. picking 'Pension Fund' auto-shows Capitalisation even without BTR scheme)
+  var EXIT_UNLOCKS = {
+    pension:    ["capitalise","im","teaser"],         // pension fund needs investor materials
+    btr_op:     ["capitalise","hra","im"],            // BTR operator buys operating asset
+    family:     ["capitalise","im","teaser"],         // family office wants IM
+    ha_rp:      ["grants","capitalise"],              // HA/RP bulk = grant funding + bulk valuation
+    homes_eng:  ["grants","im"],                      // Homes England = grant funding
+    sovereign:  ["capitalise","im","teaser"],         // SWF = institutional
+    bank_takeout:["capitalise","fin"],                // refinance = needs cashflow + capitalised NOI
+    land_sale:  [],                                   // sell land with planning = no extra stages
+    open_mkt:   ["fin","viability"]                   // open market sale = sales cashflow
+  };
+  // Which exit routes have ANY exit ticked?
+  function exitUnlocksStage(stageId){
+    if(exits.length===0)return false;
+    for(var i=0;i<exits.length;i++){
+      var arr=EXIT_UNLOCKS[exits[i]]||[];
+      if(arr.indexOf(stageId)>=0)return true;
+    }
+    return false;
+  }
+
+  // showFor(...schemeNames) — true if NO filters set (show everything) OR any scheme/exit matches
+  function showFor(){
+    if(schemes.length===0&&exits.length===0)return true;
+    for(var i=0;i<arguments.length;i++){
+      if(schemes.indexOf(arguments[i])>=0)return true;
+      if(exits.indexOf(arguments[i])>=0)return true;
+    }
+    return false;
+  }
 
   function up(section,key,val){
     setData(function(d){
@@ -1132,11 +1201,11 @@ var JOURNEYS = {
     setStage(id);
     logEvent(user,"PAGE_VIEW",{stage:id,journey:journey,assetType:at});
 
-    // Auto-switch journey based on stage navigated to
+    // Auto-add scheme based on stage navigated to (ONLY if user hasn't manually picked any)
     var stageInfo=ALL_STAGES.find(function(s){return s.id===id;});
-    if(stageInfo&&journey==="all"){
-      if(id==="scraper"||id==="rlv"||id==="land"||id==="landworkflow"){setJourney("land");}
-      else if(id==="epe"||id==="epeworkflow"){setJourney("property");}
+    if(stageInfo&&schemes.length===0){
+      if(id==="scraper"||id==="rlv"||id==="land"||id==="landworkflow"){setSchemes(["land"]);}
+      else if(id==="epe"||id==="epeworkflow"){setSchemes(["property"]);}
     }
   }
 
@@ -1178,6 +1247,7 @@ var JOURNEYS = {
   function clearDeal(){
     if(!window.confirm("Clear all fields and start a new deal?"))return;
     setData({assetType:"btr",risks:RISK_DEFAULTS.map(function(r){return Object.assign({},r);})});
+    setSchemes([]); setExits([]);
     setHot("");setMemo("");setStage("dashboard");
   }
 
@@ -9850,36 +9920,71 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
       ),
       e("div",{style:{padding:"8px 0",flex:1}},
         (function(){
-          // Filter stages by selected journey
-          var activeStages=journey==="all"?ALL_STAGES:ALL_STAGES.filter(function(s){
-            return s.journeys.indexOf(journey)>=0||s.journeys.indexOf("all")>=0;
+          // Filter stages by selected scheme types (multi-select) AND exit routes (which can unlock additional stages)
+          var activeStages=(schemes.length===0&&exits.length===0)?ALL_STAGES:ALL_STAGES.filter(function(s){
+            if(!s.journeys||s.journeys.indexOf("all")>=0)return true;
+            // Scheme-based match
+            for(var sj=0;sj<schemes.length;sj++){
+              if(s.journeys.indexOf(schemes[sj])>=0)return true;
+            }
+            // Exit-based unlock (e.g. Pension Fund unlocks Capitalisation regardless of scheme)
+            if(exitUnlocksStage(s.id))return true;
+            return false;
           });
 
           var groups=[]; var seen={};
           activeStages.forEach(function(s){if(!seen[s.group]){groups.push(s.group);seen[s.group]=true;}});
 
           return [
-            // Journey selector at top of sidebar
+            // Multi-select scheme + exit selectors at top of sidebar
             e("div",{key:"journey-selector",style:{padding:"10px 12px",borderBottom:"1px solid rgba(255,255,255,0.1)"}},
-              e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:".12em",fontWeight:700,marginBottom:8}},"Workflow Type"),
-              e("div",{style:{display:"flex",flexWrap:"wrap",gap:5}},
+
+              // ── SCHEME TYPE ROW ────────────────────────────────────────────
+              e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}},
+                e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:".12em",fontWeight:700}},"Scheme"+(schemes.length>0?" — "+schemes.length:"")),
+                schemes.length>0&&e("div",{onClick:function(){setSchemes([]);},style:{fontSize:9,color:"rgba(237,232,74,0.7)",cursor:"pointer",fontWeight:700}},"Clear")
+              ),
+              e("div",{style:{display:"flex",flexWrap:"wrap",gap:4,marginBottom:10}},
                 [
                   {key:"land",label:"🔍 Land"},
                   {key:"property",label:"🏠 Property"},
                   {key:"sfh",label:"🏡 SFH"},
                   {key:"btr",label:"🏢 BTR"},
                   {key:"pbsa",label:"🎓 PBSA"},
-                  {key:"recovery",label:"⚖ Recovery"},
+                  {key:"recovery",label:"⚖ Recovery"}
                 ].map(function(j){
-                  var active=journey===j.key;
-                  return e("div",{key:j.key,onClick:function(){setJourney(j.key);},
-                    style:{padding:"4px 8px",background:active?"rgba(237,232,74,0.2)":"rgba(255,255,255,0.06)",border:"1px solid "+(active?"#EDE84A":"rgba(255,255,255,0.1)"),borderRadius:4,fontSize:9,fontWeight:active?700:400,color:active?"#EDE84A":"rgba(255,255,255,0.4)",cursor:"pointer",whiteSpace:"nowrap"}
-                  },j.label);
-                }).concat(
-                  e("div",{key:"all",onClick:function(){setJourney("all");},
-                    style:{padding:"4px 8px",background:journey==="all"?"rgba(237,232,74,0.2)":"rgba(255,255,255,0.06)",border:"1px solid "+(journey==="all"?"#EDE84A":"rgba(255,255,255,0.1)"),borderRadius:4,fontSize:9,fontWeight:journey==="all"?700:400,color:journey==="all"?"#EDE84A":"rgba(255,255,255,0.4)",cursor:"pointer"}
-                  },"All Stages")
-                )
+                  var on=isSchemeOn(j.key);
+                  return e("div",{key:j.key,onClick:function(){toggleScheme(j.key);},
+                    style:{padding:"4px 7px",background:on?"#EDE84A":"rgba(255,255,255,0.06)",border:"1px solid "+(on?"#EDE84A":"rgba(255,255,255,0.15)"),borderRadius:4,fontSize:10,fontWeight:on?800:500,color:on?"#1A1B5C":"rgba(255,255,255,0.7)",cursor:"pointer",whiteSpace:"nowrap",transition:"all .12s"}
+                  },(on?"✓ ":"")+j.label);
+                })
+              ),
+
+              // ── EXIT ROUTE ROW ─────────────────────────────────────────────
+              e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,paddingTop:8,borderTop:"1px solid rgba(255,255,255,0.07)"}},
+                e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:".12em",fontWeight:700}},"Exit Route"+(exits.length>0?" — "+exits.length:"")),
+                exits.length>0&&e("div",{onClick:function(){setExits([]);},style:{fontSize:9,color:"rgba(45,122,101,0.9)",cursor:"pointer",fontWeight:700}},"Clear")
+              ),
+              e("div",{style:{display:"flex",flexWrap:"wrap",gap:4,marginBottom:6}},
+                [
+                  {key:"pension",label:"💼 Pension Fund"},
+                  {key:"sovereign",label:"🌐 Sovereign WF"},
+                  {key:"btr_op",label:"🏢 BTR Operator"},
+                  {key:"family",label:"👑 Family Office"},
+                  {key:"ha_rp",label:"🏛 HA / RP Bulk"},
+                  {key:"homes_eng",label:"🇬🇧 Homes England"},
+                  {key:"open_mkt",label:"🏠 Open Market"},
+                  {key:"bank_takeout",label:"🏦 Bank Take-out"},
+                  {key:"land_sale",label:"📜 Land + Planning"}
+                ].map(function(j){
+                  var on=isExitOn(j.key);
+                  return e("div",{key:j.key,onClick:function(){toggleExit(j.key);},
+                    style:{padding:"4px 7px",background:on?"#2D7A65":"rgba(255,255,255,0.06)",border:"1px solid "+(on?"#2D7A65":"rgba(255,255,255,0.15)"),borderRadius:4,fontSize:10,fontWeight:on?800:500,color:on?"#fff":"rgba(255,255,255,0.7)",cursor:"pointer",whiteSpace:"nowrap",transition:"all .12s"}
+                  },(on?"✓ ":"")+j.label);
+                })
+              ),
+              (schemes.length===0&&exits.length===0)&&e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.35)",marginTop:6,lineHeight:1.5}},
+                "Pick scheme type(s) and exit route(s) above to filter stages. Leave both empty to see everything."
               )
             )
           ].concat(
