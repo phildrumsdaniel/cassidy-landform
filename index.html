@@ -986,6 +986,7 @@ var ALL_STAGES = [
   {id:"teaser",      label:"Teaser PDF",           icon:"📬", group:"5. Report",   journeys:["land","sfh","btr","pbsa","all"]},
   {id:"im",          label:"Investor Memorandum",  icon:"📑", group:"5. Report",   journeys:["land","sfh","btr","pbsa","all"]},
   {id:"grants",      label:"Grant & Funding",      icon:"💷", group:"5. Report",   journeys:["sfh","btr","pbsa","all"]},
+  {id:"dataroom",    label:"Data Room",            icon:"📁", group:"5. Report",   journeys:["sfh","btr","pbsa","land","property","all"]},
   {id:"summary",     label:"Executive Summary",    icon:"📄", group:"5. Report",   journeys:["land","sfh","btr","pbsa","property","recovery","all"]},
   // ── 6. RECORDS ───────────────────────────────────────────────────────────
   {id:"meetings",    label:"Meeting Transcripts",  icon:"📝", group:"6. Records",  journeys:["all"]},
@@ -1059,15 +1060,15 @@ var JOURNEYS = {
   // ── Smart filter map: exit routes that unlock specific stages ──
   // (e.g. picking 'Pension Fund' auto-shows Capitalisation even without BTR scheme)
   var EXIT_UNLOCKS = {
-    pension:    ["capitalise","im","teaser"],         // pension fund needs investor materials
-    btr_op:     ["capitalise","hra","im"],            // BTR operator buys operating asset
-    family:     ["capitalise","im","teaser"],         // family office wants IM
-    ha_rp:      ["grants","capitalise"],              // HA/RP bulk = grant funding + bulk valuation
-    homes_eng:  ["grants","im"],                      // Homes England = grant funding
-    sovereign:  ["capitalise","im","teaser"],         // SWF = institutional
-    bank_takeout:["capitalise","fin"],                // refinance = needs cashflow + capitalised NOI
-    land_sale:  [],                                   // sell land with planning = no extra stages
-    open_mkt:   ["fin","viability"]                   // open market sale = sales cashflow
+    pension:    ["capitalise","im","teaser","dataroom"],         // pension fund needs investor materials
+    btr_op:     ["capitalise","hra","im","dataroom"],            // BTR operator buys operating asset
+    family:     ["capitalise","im","teaser","dataroom"],         // family office wants IM
+    ha_rp:      ["grants","capitalise","dataroom"],              // HA/RP bulk = grant funding + bulk valuation
+    homes_eng:  ["grants","im","dataroom"],                      // Homes England = grant funding
+    sovereign:  ["capitalise","im","teaser","dataroom"],         // SWF = institutional
+    bank_takeout:["capitalise","fin","dataroom"],                // refinance = needs cashflow + capitalised NOI
+    land_sale:  ["dataroom"],                                    // sell land with planning = also needs data room
+    open_mkt:   ["fin","viability"]                              // open market sale = sales cashflow
   };
   // Which exit routes have ANY exit ticked?
   function exitUnlocksStage(stageId){
@@ -4305,6 +4306,580 @@ var JOURNEYS = {
 
       completedSections===0&&e("div",{style:{background:"rgba(74,75,174,0.05)",border:"1px solid rgba(74,75,174,0.2)",borderRadius:8,padding:"16px 20px",marginTop:8,fontSize:11,color:"#4A4BAE",lineHeight:1.8}},
         "ℹ Complete Land Appraisal, RLV, Planning & Viability and Financial Modelling stages first for accurate IM figures. Then click Generate All Sections — all 7 sections are written simultaneously."
+      )
+    );
+  }
+
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // DATA ROOM — Institutional virtual data room (Phase 1: structure + auto-content)
+  // Phases 2-4: file uploads (Google Drive backend), redaction, shareable link
+  // ══════════════════════════════════════════════════════════════════════════
+  function renderDataRoom(){
+    var l=data.land||{}; var p=data.planning||{}; var f=data.fin||{};
+    var rlvD=data.rlv||{}; var dd=data.dd||{}; var cc=data.constraint||{};
+    var risks=data.risks||[]; var mkt=data.market||{};
+    var dr=data.dataroom||{};
+    var sfh=data.sfh||{}; var hra=data.hra||{}; var cap=data.capitalise||{};
+
+    // ── Audience toggle (Internal vs External) ──────────────────────────
+    var audience=dr.audience||"internal";    // "internal" | "external"
+    var viewMode=dr.viewMode||"screen";       // "screen" | "print"
+
+    // ── Determine which scheme types are active ─────────────────────────
+    var isLand    = schemes.indexOf("land")>=0;
+    var isSfh     = schemes.indexOf("sfh")>=0;
+    var isBtr     = schemes.indexOf("btr")>=0;
+    var isPbsa    = schemes.indexOf("pbsa")>=0;
+    var isProp    = schemes.indexOf("property")>=0;
+    var anyBuild  = isSfh||isBtr||isPbsa||isProp;
+    var anyInstitutional = isExitOn("pension")||isExitOn("sovereign")||isExitOn("btr_op")||isExitOn("family")||isExitOn("ha_rp")||isExitOn("homes_eng")||isExitOn("bank_takeout");
+
+    // ── Compute headline figures (single source of truth) ───────────────
+    var addr=l.address||"Unnamed site";
+    var pcCity=cityName(city||l.city||"");
+    var acres=num(l.acres||0);
+    var units=num(p.units||rlvD.units||0);
+    var planStatus=p.status||l.planningStatus||"Unallocated";
+    var lpa=p.lpa||l.localAuthority||"TBC";
+    var ask=num(l.price||0);
+    var gdvVal=num(f.gdv||0);
+    var rlvVal=num(rlvD.rlv||f.rlv||0);
+    var profitPct=num(f.marginPct||17.5);
+    var s106=num(p.s106||(units*8000)||0);
+
+    // ── Status helpers ──────────────────────────────────────────────────
+    function statusOf(criteria){
+      // criteria: { req: [data points], optional: [data points] }
+      var reqMet=0, reqTotal=criteria.req?criteria.req.length:0;
+      (criteria.req||[]).forEach(function(v){ if(v&&v!==""&&v!=="0"&&v!==0)reqMet++; });
+      if(reqTotal===0)return {pill:"empty",label:"NEW",col:"#7278A0",bg:"#F0F1FA",pct:0};
+      var pct=Math.round(reqMet/reqTotal*100);
+      if(pct===100)return {pill:"complete",label:"✓ COMPLETE",col:"#2D7A65",bg:"rgba(45,122,101,0.1)",pct:100};
+      if(pct>=50) return {pill:"partial",label:"⚠ PARTIAL "+pct+"%",col:"#9A7B3E",bg:"rgba(154,123,62,0.1)",pct:pct};
+      return {pill:"missing",label:"✗ MISSING",col:"#B05A35",bg:"rgba(176,90,53,0.1)",pct:pct};
+    }
+
+    // ── Build the section schema (adaptive by scheme type) ──────────────
+    // Each section: { idx, code, title, group, status, autoContent, uploads, schemes:[scheme filter] }
+    var sections=[];
+
+    // ─────────── 01. LAND & OWNERSHIP ────────────────────────────────────
+    sections.push({code:"01.1", title:"Site Identification", group:"Land & Ownership",
+      status: statusOf({req:[addr,l.postcode,acres,pcCity]}),
+      auto: [
+        ["Address", addr],
+        ["Postcode", l.postcode||"—"],
+        ["City / Market", pcCity||"—"],
+        ["County", l.county||"—"],
+        ["Site Area", acres>0?acres+" acres ("+(acres*0.404686).toFixed(2)+" ha)":"—"],
+        ["Local Authority", lpa],
+        ["Site description", l.description||l.streetAddress||"—"]
+      ],
+      uploads:["Site plan (Title Plan)","HM Land Registry title extract","Site location map","OS National Grid coordinates"]
+    });
+
+    sections.push({code:"01.2", title:"Tenure & Title", group:"Land & Ownership",
+      status: statusOf({req:[l.tenure]}),
+      auto: [
+        ["Tenure", l.tenure==="freehold"?"Freehold":l.tenure==="long_leasehold"?"Long Leasehold":l.tenure==="short_leasehold"?"Short Leasehold":"To confirm"],
+        ["Owner type", l.ownerType||"To confirm"],
+        ["Restrictions / Easements", "To confirm from title"],
+        ["Ransom strips", "To confirm during DD"],
+        ["Overage arrangements", l.overage||"To confirm"]
+      ],
+      uploads:["Title deeds (HMLR)","Office copies","Land charges search","Local authority search"]
+    });
+
+    sections.push({code:"01.3", title:"Acquisition Structure", group:"Land & Ownership",
+      status: statusOf({req:[ask]}),
+      auto: [
+        ["Asking price", ask>0?fmt(ask):"To confirm"],
+        ["Acquisition route", l.dealType||"To negotiate"],
+        ["Agent / Vendor contact", l.agent||"—"],
+        ["Source URL", l.sourceUrl||"—"]
+      ],
+      uploads:["Heads of Terms","Option agreement (if applicable)","Promotion agreement (if applicable)","Conditional contract (if applicable)"]
+    });
+
+    // ─────────── 02. PLANNING ───────────────────────────────────────────
+    sections.push({code:"02.1", title:"Planning Status", group:"Planning",
+      status: statusOf({req:[planStatus,lpa,units]}),
+      auto: [
+        ["Planning status", planStatus],
+        ["Local Planning Authority", lpa],
+        ["Proposed units", units>0?units+" homes":"—"],
+        ["Storeys", p.storeys||"—"],
+        ["Density (DPH)", acres>0&&units>0?Math.round(units/(acres*0.404686))+" dph":"—"],
+        ["Planning risk", p.riskLevel||"To assess"],
+        ["5YHLS position", lpa?"Check LPA's current 5YHLS — tilted balance applies if &lt;5yrs":"—"]
+      ],
+      uploads:["Pre-app advice letter","Planning permissions (decision notices)","Officer reports","Committee minutes","Refusal reasons (if any)"]
+    });
+
+    sections.push({code:"02.2", title:"S106 / CIL Obligations", group:"Planning",
+      status: statusOf({req:[p.ahPct,p.s106]}),
+      auto: [
+        ["Affordable Housing %", p.ahPct?p.ahPct+"%":"To negotiate (LPA policy typically 25-40%)"],
+        ["S106 estimate (total)", fmt(s106)],
+        ["S106 per unit", units>0?fmt(s106/units):"—"],
+        ["CIL liability", "To confirm with LPA"],
+        ["Education contribution", "To assess"],
+        ["Highways contribution", "To assess"],
+        ["Open space contribution", "To assess"]
+      ],
+      uploads:["Draft Section 106 Agreement","S106 viability assessment","CIL liability notice","Planning conditions schedule"]
+    });
+
+    sections.push({code:"02.3", title:"Planning Policy Compliance", group:"Planning",
+      status: statusOf({req:[p.bng]}),
+      auto: [
+        ["NPPF 2024", "Compliance to confirm"],
+        ["Local Plan allocation", planStatus.toLowerCase().indexOf("allocat")>=0?"Allocated ✓":"To assess"],
+        ["BNG (10% mandatory)", p.bng||"To assess"],
+        ["Fire Safety Gateway 2/3", p.gateway||(num(p.storeys)>=7?"Required (≥7 storeys)":"Not applicable")],
+        ["Neighbourhood Plan", "To assess"],
+        ["Conservation areas", cc.result?cc.result.indexOf("conservation")>=0?"Affected":"Clear":"To assess"]
+      ],
+      uploads:["Design & Access Statement","Planning Statement","BNG metric calculations","Sustainability Statement"]
+    });
+
+    sections.push({code:"02.4", title:"Constraint Check", group:"Planning",
+      status: statusOf({req:[cc.result||l.constraintSummary]}),
+      auto: [
+        ["Planning constraints", l.constraint==="major"?"Major":l.constraint==="moderate"?"Moderate":l.constraint==="minor"?"Minor":l.constraint==="none"?"None identified":"To assess"],
+        ["Ground contamination", l.contamination==="major"?"Major":l.contamination==="minor"?"Minor":l.contamination==="clean"?"Clean":"To investigate"],
+        ["Transport connectivity", l.transport==="excellent"?"Excellent":l.transport==="good"?"Good":l.transport==="fair"?"Fair":l.transport==="poor"?"Poor":"—"],
+        ["AI constraint summary", l.constraintSummary||cc.result||"Run Constraint Check stage for detail"]
+      ],
+      uploads:["Constraint mapping report","Heritage assessment","Conservation area appraisal","Tree survey"]
+    });
+
+    // ─────────── 03. TECHNICAL ──────────────────────────────────────────
+    sections.push({code:"03.1", title:"Ground & Contamination", group:"Technical",
+      status: statusOf({req:[l.contamination]}),
+      auto: [
+        ["Phase 1 Desk Study", "To commission"],
+        ["Phase 2 Intrusive Investigation", "To commission post-Phase 1"],
+        ["Contamination level", l.contamination||"Unknown"],
+        ["Remediation estimate", "TBC — typically £50k-£5m depending on history"],
+        ["Previous land use", "To research"]
+      ],
+      uploads:["Phase 1 Geo-environmental report","Phase 2 GIR (BS5930)","Coal Authority report","Mining search","Remediation strategy"]
+    });
+
+    sections.push({code:"03.2", title:"Ecology & Environment", group:"Technical",
+      status: statusOf({req:[]}),
+      auto: [
+        ["Ecological survey required", "Yes — pre-application standard"],
+        ["BNG baseline measurement", "Required — 10% net gain mandatory"],
+        ["Protected species", "To survey (bats, GCN, badgers, dormice)"],
+        ["Designated sites", "To assess SSSI/AONB/Ramsar within 2km"],
+        ["TPOs / Ancient woodland", "To check"]
+      ],
+      uploads:["Preliminary Ecological Appraisal","BNG metric calculation","Protected species surveys","Arboricultural Impact Assessment"]
+    });
+
+    sections.push({code:"03.3", title:"Utilities & Infrastructure", group:"Technical",
+      status: statusOf({req:[]}),
+      auto: [
+        ["Water supply", "Capacity check required"],
+        ["Foul drainage", "Capacity check + connection design"],
+        ["Surface water", "SuDS strategy required (NPPF Para 167)"],
+        ["Electricity", "Substation assessment — kVA demand vs grid capacity"],
+        ["Gas", "Check network availability or all-electric strategy"],
+        ["Telecoms (fibre)", "Openreach FTTP standard"]
+      ],
+      uploads:["Utility capacity studies","Substation proposal","Drainage strategy","SuDS Maintenance Plan","Highways design"]
+    });
+
+    sections.push({code:"03.4", title:"Flood Risk & Drainage", group:"Technical",
+      status: statusOf({req:[]}),
+      auto: [
+        ["Flood zone", "Check EA flood map by postcode"],
+        ["FRA required", "Yes if Zone 2/3 or >1ha"],
+        ["Surface water drainage", "SuDS required — discharge rates restricted"],
+        ["Sequential test", "Required if Zone 2 or 3"]
+      ],
+      uploads:["Flood Risk Assessment","Drainage Strategy","Sequential Test","Exception Test (if Zone 3)"]
+    });
+
+    sections.push({code:"03.5", title:"Transport & Highways", group:"Technical",
+      status: statusOf({req:[]}),
+      auto: [
+        ["Site access", "Design required"],
+        ["Trip generation", units>0?"Modelling required — ~6 trips/dwelling/day standard":"—"],
+        ["Walking distance to amenities", l.proximity==="excellent"?"Excellent (<400m)":l.proximity==="good"?"Good (400-800m)":l.proximity==="fair"?"Fair (800-1.6km)":l.proximity==="poor"?"Poor (>1.6km)":"—"],
+        ["Public transport", l.transport||"—"],
+        ["Parking strategy", "LPA policy compliance check"]
+      ],
+      uploads:["Transport Assessment","Transport Statement","Travel Plan","Highways visibility splays","Stage 1 Road Safety Audit"]
+    });
+
+    // ─────────── 04. FINANCIAL ──────────────────────────────────────────
+    sections.push({code:"04.1", title:"Development Appraisal Summary", group:"Financial",
+      status: statusOf({req:[gdvVal,rlvVal,profitPct]}),
+      auto: [
+        ["GDV", fmt(gdvVal)],
+        ["Build cost", num(f.totalCost||0)>0?fmt(f.totalCost):"—"],
+        ["Total cost (incl. fees, finance, profit)", "Run Financial Modelling for detail"],
+        ["Residual Land Value (RLV)", fmt(rlvVal)],
+        ["Profit on GDV", pct(profitPct)],
+        ["Return on Cost", num(f.roc||0)>0?pct(num(f.roc)):"—"],
+        ["Land at "+(ask>0?fmt(ask):"asking")+(rlvVal>0&&ask>0?" → headroom of "+fmt(rlvVal-ask):"")]
+      ],
+      uploads:["RICS Red Book valuation","Cost plan (QS)","Bank pre-funding pack","Audited financial model (Excel)"]
+    });
+
+    sections.push({code:"04.2", title:"Cashflow & Programme", group:"Financial",
+      status: statusOf({req:[f.programmeMths]}),
+      auto: [
+        ["Programme length", f.programmeMths?f.programmeMths+" months":"—"],
+        ["Start on site (from today)", "TBC — planning + pre-commencement dependent"],
+        ["Build rate", units>0&&f.programmeMths?Math.round(units/num(f.programmeMths))+" units/month":"—"],
+        ["Sales rate", f.salesRateWeek?f.salesRateWeek+" plots/week":"—"],
+        ["Stabilisation (BTR/PBSA)", isBtr||isPbsa?"~12 months post-PC":"N/A"]
+      ],
+      uploads:["Phased cashflow (Excel)","Construction programme (P6 or MS Project)","Sales velocity model","Drawdown schedule"]
+    });
+
+    sections.push({code:"04.3", title:"Sensitivity & Scenarios", group:"Financial",
+      status: statusOf({req:[]}),
+      auto: [
+        ["Bear case", "Run Financial Modelling — typically GDV -10% / costs +15%"],
+        ["Base case", "Current appraisal assumptions"],
+        ["Bull case", "Typically GDV +8% / costs -5%"],
+        ["Sensitivity to sale £/sqft", "±5% test"],
+        ["Sensitivity to build £/sqft", "±10% test"],
+        ["Sensitivity to exit yield", "±25 bps test"]
+      ],
+      uploads:["Sensitivity matrix (Excel)","Monte Carlo simulation (if commissioned)"]
+    });
+
+    // Capitalisation appears for institutional exits or BTR/PBSA schemes
+    if(anyInstitutional||isBtr||isPbsa){
+      sections.push({code:"04.4", title:"Capitalisation & Investment Value", group:"Financial",
+        status: statusOf({req:[cap.targetYield]}),
+        auto: [
+          ["Target exit yield", cap.targetYield?pct(num(cap.targetYield)):"4.5% (institutional benchmark)"],
+          ["Capitalised value", "Run Capitalisation stage for detail"],
+          ["NOI (year 1)", "Run Capitalisation"],
+          ["Forward funding stack", "See Capitalisation → Forward Funding"],
+          ["Buyer types modelled", "Pension Fund, Sovereign WF, BTR Operator, Family Office, Private"]
+        ],
+        uploads:["Capitalisation model (Excel)","Operating budget","OpEx schedule","Letting strategy"]
+      });
+    }
+
+    // ─────────── 05. LEGAL ──────────────────────────────────────────────
+    sections.push({code:"05.1", title:"Legal Title & Searches", group:"Legal",
+      status: statusOf({req:[]}),
+      auto: [
+        ["Title number", "From HMLR"],
+        ["Title plan", "To request"],
+        ["Local authority search", "To order at offer"],
+        ["Drainage & water search", "To order at offer"],
+        ["Environmental search", "To order at offer"],
+        ["Mining search", "Where applicable"]
+      ],
+      uploads:["Office copies (HMLR)","Title plan","Local authority search results","CON29 Drainage & Water","Envirosearch"]
+    });
+
+    sections.push({code:"05.2", title:"Insurance & Warranties", group:"Legal",
+      status: statusOf({req:[]}),
+      auto: [
+        ["Title indemnity", "If required"],
+        ["Environmental insurance", "Recommend for brownfield"],
+        ["Construction All-Risks", "Required during build"],
+        ["10-year structural warranty", "NHBC / Premier Guarantee / LABC"],
+        ["Professional Indemnity", "Required from consultants"]
+      ],
+      uploads:["Insurance schedules","Warranty certificates","PI insurance certificates","Collateral warranties"]
+    });
+
+    // ─────────── 06. CONSTRUCTION ───────────────────────────────────────
+    if(anyBuild){
+      sections.push({code:"06.1", title:"Construction Procurement", group:"Construction",
+        status: statusOf({req:[]}),
+        auto: [
+          ["Procurement route", "JCT D&B / Construction Mgmt / Traditional — to decide"],
+          ["Form of contract", "JCT Design & Build 2016 (typical)"],
+          ["Main contractor", "Tender pack stage"],
+          ["Programme", "Pre-tender programme to issue"],
+          ["Contingency", "5% on build cost minimum"]
+        ],
+        uploads:["Tender document pack","Bills of Quantities","Contractor PQQ responses","JCT contract draft","Collateral warranties"]
+      });
+
+      sections.push({code:"06.2", title:"Design Team Appointments", group:"Construction",
+        status: statusOf({req:[]}),
+        auto: [
+          ["Architect", "Appointment letter required"],
+          ["Structural Engineer", "Required pre-tender"],
+          ["MEP Engineer", "Required pre-tender"],
+          ["Quantity Surveyor", "Required"],
+          ["Project Manager", "Internal or external"],
+          ["Principal Designer (CDM)", "Required by CDM Regs 2015"]
+        ],
+        uploads:["Architect appointment","SE appointment","MEP appointment","QS appointment","PM appointment","CDM PD appointment"]
+      });
+
+      // Building Safety Act for HRA schemes
+      if(isBtr||isPbsa||(p.storeys&&num(p.storeys)>=7)){
+        sections.push({code:"06.3", title:"Building Safety Act 2022 Compliance", group:"Construction",
+          status: statusOf({req:[p.gateway]}),
+          auto: [
+            ["Higher Risk Building?", num(p.storeys)>=7?"Yes (≥7 storeys / ≥18m)":"To confirm"],
+            ["Gateway 2 (BSR approval)", "Required pre-construction"],
+            ["Gateway 3 (BSR completion)", "Required pre-occupation"],
+            ["Golden Thread (info management)", "Required throughout"],
+            ["EWS1 form (external wall)", "Required at handover"],
+            ["Sprinklers", num(p.storeys)>=4?"Required (≥11m in Eng.)":"Not mandatory"]
+          ],
+          uploads:["Gateway 2 application","Fire Strategy","Structural design statement","Materials specification","Compartmentation strategy"]
+        });
+      }
+    }
+
+    // ─────────── 07. SALES / LEASING ────────────────────────────────────
+    if(isSfh||isProp){
+      sections.push({code:"07.1", title:"Sales Strategy (SFH)", group:"Sales & Leasing",
+        status: statusOf({req:[sfh.basePsf]}),
+        auto: [
+          ["Sale £/sqft", sfh.basePsf?"£"+sfh.basePsf+"/sqft":"—"],
+          ["Land Registry comparable PSF", mkt.lrPsf?"£"+mkt.lrPsf+"/sqft ("+(mkt.lrTotalTx||0)+" sales)":"Run Live LR query"],
+          ["Sales rate", f.salesRateWeek?f.salesRateWeek+" plots/week":"0.5-1.0 typical"],
+          ["Show home strategy", "Required — allow £150-300k"],
+          ["Help to Buy / shared equity", "To configure"],
+          ["Agent appointment", "1.0-1.5% fee standard"]
+        ],
+        uploads:["Selling agent appointment","Comparable evidence pack","Show home spec","Marketing materials","Price list"]
+      });
+    }
+
+    if(isBtr||isPbsa){
+      sections.push({code:"07.1", title:"Operating Strategy (BTR/PBSA)", group:"Sales & Leasing",
+        status: statusOf({req:[hra.oPsf||hra.sPsf]}),
+        auto: [
+          ["Operator", "To appoint"],
+          ["Studio rent £/sqft", hra.sPsf?"£"+hra.sPsf+"/sqft":"—"],
+          ["1-bed rent £/sqft", hra.oPsf?"£"+hra.oPsf+"/sqft":"—"],
+          ["2-bed rent £/sqft", hra.tPsf?"£"+hra.tPsf+"/sqft":"—"],
+          ["Target occupancy", "97% stabilised (institutional std)"],
+          ["Stabilisation period", "12 months post-PC"],
+          ["OpEx", "~25-30% of gross rent"]
+        ],
+        uploads:["Operator appointment","Market rental evidence","OpEx budget","Leasing strategy","ESG / sustainability strategy"]
+      });
+    }
+
+    sections.push({code:"07.2", title:"Market Analysis & Comparables", group:"Sales & Leasing",
+      status: statusOf({req:[]}),
+      auto: [
+        ["Market position", pcCity+" — see Market Benchmarks"],
+        ["Recent transactions", mkt.lrPsf?"Land Registry: "+(mkt.lrTotalTx||0)+" sales in "+(mkt.lrSector||"area"):"Run Live LR query"],
+        ["Demand drivers", isSfh?"Owner-occupiers, FTBs":isBtr?"Young professionals, key workers":isPbsa?"University students":"To assess"],
+        ["Competitor schemes", "To research — typically 3-5km radius"],
+        ["Demographic trend", "ONS data + LPA Housing Needs"]
+      ],
+      uploads:["Savills/Knight Frank market report","Local agent reports","Demographic analysis","Competitor scheme analysis"]
+    });
+
+    // ─────────── 08. ESG / SUSTAINABILITY ───────────────────────────────
+    sections.push({code:"08.1", title:"ESG & Sustainability", group:"ESG",
+      status: statusOf({req:[]}),
+      auto: [
+        ["EPC target", "B (lettings) or A (new build BTR/PBSA)"],
+        ["Operational energy", "Future Homes Std 2025 — Part L 2021"],
+        ["Embodied carbon", "RIBA 2030 target: 500 kgCO₂e/m²"],
+        ["BNG delivery", "10% mandatory — on-site, off-site or credits"],
+        ["Social value", "Local labour, training, community amenity"],
+        ["GRESB rating potential", isBtr||isPbsa?"Target 3-4 stars":"N/A"]
+      ],
+      uploads:["Sustainability Statement","Energy Strategy","Embodied carbon assessment","BNG delivery plan","Social Value plan"]
+    });
+
+    // ─────────── 09. RISK & Q&A ─────────────────────────────────────────
+    sections.push({code:"09.1", title:"Risk Register", group:"Risk & Q&A",
+      status: statusOf({req:[risks.length>0?"y":""]}),
+      auto: [
+        ["Planning risk", p.riskLevel||"Run Planning & Viability"],
+        ["Build cost inflation", "Mitigate via fixed price D&B + 5% contingency"],
+        ["Sales market risk", "Sensitivity tested"],
+        ["Contamination risk", l.contamination||"To assess"],
+        ["S106 negotiation risk", "Active management required"],
+        ["Open risks logged", risks.length+" items"]
+      ],
+      uploads:["Full risk register (live document)","Risk treatment plans","Insurance summary"]
+    });
+
+    sections.push({code:"09.2", title:"Q&A Log", group:"Risk & Q&A",
+      status: statusOf({req:[]}),
+      auto: [
+        ["Investor questions raised", (dr.qaLog||[]).length+" items"],
+        ["Outstanding responses", (dr.qaLog||[]).filter(function(q){return !q.answered;}).length+" items"]
+      ],
+      uploads:[]
+    });
+
+    // ── Group sections for rendering ────────────────────────────────────
+    var groupOrder=["Land & Ownership","Planning","Technical","Financial","Legal","Construction","Sales & Leasing","ESG","Risk & Q&A"];
+    var groupColors={"Land & Ownership":"#2D7A65","Planning":"#4A4BAE","Technical":"#9A7B3E","Financial":"#1E1F5C","Legal":"#7278A0","Construction":"#B05A35","Sales & Leasing":"#2D7A65","ESG":"#2D7A65","Risk & Q&A":"#9A7B3E"};
+
+    // Overall completion %
+    var totalPct=Math.round(sections.reduce(function(s,sec){return s+sec.status.pct;},0)/sections.length);
+    var completeCount=sections.filter(function(s){return s.status.pct===100;}).length;
+    var partialCount=sections.filter(function(s){return s.status.pct>0&&s.status.pct<100;}).length;
+    var missingCount=sections.filter(function(s){return s.status.pct===0;}).length;
+
+    return e("div",{style:viewMode==="print"?{background:"#fff",padding:"40px 0"}:{}},
+
+      // ── HEADER ────────────────────────────────────────────────────────
+      viewMode==="screen"&&e("div",{style:{marginBottom:14}},
+        e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Data Room"),
+        e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:0}},"Institutional virtual data room — auto-populated from your scheme data + structured for investor due diligence")
+      ),
+
+      // ── COVER PAGE (print only) ───────────────────────────────────────
+      viewMode==="print"&&e("div",{style:{padding:"60px 60px 40px",borderBottom:"3px solid #2E2F8A",marginBottom:30}},
+        e("div",{style:{fontSize:11,letterSpacing:".25em",textTransform:"uppercase",color:"#7278A0",marginBottom:30,fontWeight:800}},"Confidential · Virtual Data Room"),
+        e("div",{style:{fontSize:36,fontWeight:800,color:"#1E1F5C",lineHeight:1.1,marginBottom:14}},addr),
+        e("div",{style:{fontSize:14,color:"#4A4BAE",marginBottom:30}},pcCity+(lpa?" · "+lpa:"")+(acres>0?" · "+acres+" acres":"")),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:24,padding:"24px 0",borderTop:"1px solid #DDE0ED",borderBottom:"1px solid #DDE0ED"}},
+          [
+            ["Scheme type",schemes.length>0?schemes.map(function(s){return s.toUpperCase();}).join(" + "):"To confirm"],
+            ["Exit route",exits.length>0?exits.map(function(x){return ({pension:"Pension Fund",sovereign:"Sovereign WF",btr_op:"BTR Operator",family:"Family Office",ha_rp:"HA / RP Bulk",homes_eng:"Homes England",bank_takeout:"Bank Take-out",land_sale:"Land + Planning",open_mkt:"Open Market"})[x]||x;}).join(", "):"Multiple"],
+            ["Indicative GDV",gdvVal>0?fmt(gdvVal):"To finalise"],
+            ["Indicative RLV",rlvVal>0?fmt(rlvVal):"To finalise"],
+            ["Audience",audience==="external"?"External investors":"Internal (Cassidy IC)"],
+            ["Date prepared",new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})]
+          ].map(function(row,i){
+            return e("div",{key:i},
+              e("div",{style:{fontSize:9,color:"#7278A0",letterSpacing:".1em",textTransform:"uppercase",fontWeight:700,marginBottom:4}},row[0]),
+              e("div",{style:{fontSize:15,color:"#1E1F5C",fontWeight:600}},row[1])
+            );
+          })
+        ),
+        e("div",{style:{marginTop:40,paddingTop:14,fontSize:9,color:"#7278A0",letterSpacing:".05em",lineHeight:1.6}},
+          "This document and the data room it accompanies contains commercially sensitive information. Distribution is restricted to invited parties. ",
+          "All figures are indicative and subject to detailed due diligence, planning consent, and final commercial terms. ",
+          "Issued by Cassidy Group. © "+new Date().getFullYear()+"."
+        )
+      ),
+
+      // ── CONTROL BAR (screen only) ─────────────────────────────────────
+      viewMode==="screen"&&e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"14px 16px",marginBottom:14,display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}},
+        // Audience toggle
+        e("div",{style:{display:"flex",alignItems:"center",gap:8}},
+          e("div",{style:{fontSize:10,fontWeight:700,color:"#7278A0",textTransform:"uppercase",letterSpacing:".08em"}},"Audience"),
+          ["internal","external"].map(function(a){
+            var on=audience===a;
+            return e("button",{key:a,onClick:function(){up("dataroom","audience",a);},
+              style:{padding:"5px 12px",background:on?(a==="internal"?"#4A4BAE":"#9A7B3E"):"#F4F5FB",color:on?"#fff":"#3A3D6A",border:"1px solid "+(on?(a==="internal"?"#4A4BAE":"#9A7B3E"):"#DDE0ED"),borderRadius:5,fontSize:11,fontWeight:on?700:500,cursor:"pointer",fontFamily:"DM Sans,sans-serif",textTransform:"capitalize"}
+            },a);
+          })
+        ),
+        // View mode toggle
+        e("div",{style:{display:"flex",alignItems:"center",gap:8}},
+          e("div",{style:{fontSize:10,fontWeight:700,color:"#7278A0",textTransform:"uppercase",letterSpacing:".08em"}},"View"),
+          [["screen","💻 Screen"],["print","📄 Print"]].map(function(v){
+            var on=viewMode===v[0];
+            return e("button",{key:v[0],onClick:function(){up("dataroom","viewMode",v[0]);},
+              style:{padding:"5px 12px",background:on?"#2D7A65":"#F4F5FB",color:on?"#fff":"#3A3D6A",border:"1px solid "+(on?"#2D7A65":"#DDE0ED"),borderRadius:5,fontSize:11,fontWeight:on?700:500,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+            },v[1]);
+          })
+        ),
+        e("div",{style:{marginLeft:"auto",display:"flex",gap:8}},
+          e("button",{onClick:function(){up("dataroom","viewMode","print");setTimeout(function(){window.print();},300);},
+            style:{padding:"7px 14px",background:"#2D7A65",color:"#fff",border:"none",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+          },"📄 Generate PDF"),
+          e("button",{onClick:function(){alert("Phase 2: file uploads via Google Drive — coming soon.\nPhase 3: redaction for external sharing.\nPhase 4: shareable investor link.");},
+            style:{padding:"7px 14px",background:"#F4F5FB",color:"#7278A0",border:"1px dashed #B5BAD6",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+          },"📎 Uploads (Phase 2)")
+        )
+      ),
+
+      // ── COMPLETION DASHBOARD (screen only) ────────────────────────────
+      viewMode==="screen"&&e("div",{style:{background:"linear-gradient(135deg,#1E1F5C 0%,#2E2F8A 100%)",color:"#fff",borderRadius:10,padding:"18px 22px",marginBottom:14}},
+        e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:14}},
+          e("div",null,
+            e("div",{style:{fontSize:10,letterSpacing:".15em",textTransform:"uppercase",color:"rgba(255,255,255,0.5)",marginBottom:4,fontWeight:700}},"Data Room readiness"),
+            e("div",{style:{fontSize:32,fontWeight:800,color:"#fff",lineHeight:1}},totalPct+"%"),
+            e("div",{style:{fontSize:11,color:"rgba(255,255,255,0.7)",marginTop:4}},sections.length+" sections · "+completeCount+" complete · "+partialCount+" partial · "+missingCount+" missing")
+          ),
+          e("div",{style:{flex:1,minWidth:240,maxWidth:600}},
+            e("div",{style:{height:10,background:"rgba(255,255,255,0.1)",borderRadius:5,overflow:"hidden",marginBottom:6}},
+              e("div",{style:{width:totalPct+"%",height:"100%",background:"linear-gradient(90deg,#EDE84A 0%,#2D7A65 100%)",borderRadius:5,transition:"width .4s"}})
+            ),
+            e("div",{style:{fontSize:10,color:"rgba(255,255,255,0.5)"}},
+              totalPct<40?"Early stage — fill core stages (Land Appraisal, RLV, Planning) to populate":
+              totalPct<70?"In progress — complete missing sections before approaching institutional investors":
+              totalPct<90?"Near complete — review partial sections + commission outstanding documents":
+              "Investor-ready — proceed to print/PDF and Phase 2 uploads"
+            )
+          )
+        )
+      ),
+
+      // ── SECTIONS BY GROUP ─────────────────────────────────────────────
+      groupOrder.map(function(grp){
+        var grpSecs=sections.filter(function(s){return s.group===grp;});
+        if(grpSecs.length===0)return null;
+        return e("div",{key:grp,style:{marginBottom:viewMode==="print"?20:18,pageBreakInside:"avoid"}},
+          // Group header
+          e("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:8,paddingLeft:viewMode==="print"?60:0}},
+            e("div",{style:{width:4,height:24,background:groupColors[grp]||"#4A4BAE",borderRadius:2}}),
+            e("div",{style:{fontSize:11,fontWeight:800,color:groupColors[grp]||"#4A4BAE",textTransform:"uppercase",letterSpacing:".12em"}},grp),
+            e("div",{style:{fontSize:10,color:"#7278A0"}},"("+grpSecs.length+" "+(grpSecs.length===1?"section":"sections")+")")
+          ),
+          // Section cards
+          e("div",{style:{display:"flex",flexDirection:"column",gap:8,marginLeft:viewMode==="print"?60:0,marginRight:viewMode==="print"?60:0}},
+            grpSecs.map(function(sec){
+              return e("div",{key:sec.code,style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,padding:"14px 18px",pageBreakInside:"avoid"}},
+                // Section header row
+                e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10,paddingBottom:8,borderBottom:"1px solid #F0F1FA",gap:8,flexWrap:"wrap"}},
+                  e("div",{style:{display:"flex",alignItems:"center",gap:10,flex:1,minWidth:0}},
+                    e("div",{style:{fontFamily:"DM Mono,monospace",fontSize:11,color:"#7278A0",fontWeight:700,minWidth:36}},sec.code),
+                    e("div",{style:{fontSize:13,fontWeight:700,color:"#1E1F5C"}},sec.title)
+                  ),
+                  e("div",{style:{fontSize:9,fontWeight:800,letterSpacing:".05em",padding:"3px 8px",background:sec.status.bg,color:sec.status.col,borderRadius:3}},sec.status.label)
+                ),
+                // Auto-populated fields
+                e("div",{style:{display:"grid",gridTemplateColumns:viewMode==="print"?"1fr 2fr":"180px 1fr",gap:"6px 14px",fontSize:11}},
+                  sec.auto.map(function(row,i){
+                    return [
+                      e("div",{key:"l"+i,style:{color:"#7278A0",fontWeight:600}},row[0]),
+                      e("div",{key:"v"+i,style:{color:"#1E1F5C",fontWeight:row[1]&&row[1]!=="—"&&row[1].toString().indexOf("To ")!==0&&row[1].toString().indexOf("Required")!==0?700:400}},row[1]||"—")
+                    ];
+                  })
+                ),
+                // Upload placeholders
+                sec.uploads&&sec.uploads.length>0&&e("div",{style:{marginTop:12,paddingTop:10,borderTop:"1px dashed #DDE0ED"}},
+                  e("div",{style:{fontSize:9,color:"#7278A0",letterSpacing:".08em",textTransform:"uppercase",fontWeight:700,marginBottom:6}},"Required uploads (Phase 2)"),
+                  e("div",{style:{display:"flex",flexWrap:"wrap",gap:5}},
+                    sec.uploads.map(function(u,i){
+                      return e("div",{key:i,style:{fontSize:10,color:"#9A7B3E",background:"rgba(154,123,62,0.08)",border:"1px dashed #C5B294",borderRadius:4,padding:"3px 8px"}},"📎 "+u);
+                    })
+                  )
+                )
+              );
+            })
+          )
+        );
+      }),
+
+      // ── FOOTER NOTE ───────────────────────────────────────────────────
+      viewMode==="screen"&&e("div",{style:{marginTop:18,padding:"14px 16px",background:"#F8F8FE",borderLeft:"3px solid #4A4BAE",borderRadius:6,fontSize:11,color:"#3A3D6A",lineHeight:1.7}},
+        e("strong",{style:{color:"#1E1F5C"}},"Phase 1 of 4 — Auto-content active. "),
+        "This data room auto-populates from the data you've entered across Landform stages. Sections marked ⚠ partial or ✗ missing show where to focus next.",
+        e("br"),e("br"),
+        e("strong",null,"Coming next: "),
+        e("strong",{style:{color:"#9A7B3E"}},"Phase 2"),
+        " — file uploads via Google Drive (titles, surveys, photos, legal docs). ",
+        e("strong",{style:{color:"#9A7B3E"}},"Phase 3"),
+        " — redaction tools for external sharing. ",
+        e("strong",{style:{color:"#9A7B3E"}},"Phase 4"),
+        " — shareable investor links with permissions and audit trail."
       )
     );
   }
@@ -9913,6 +10488,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
     if(stage==="grants")return renderGrants();
     if(stage==="teaser")return renderTeaser();
     if(stage==="im")return renderIM();
+    if(stage==="dataroom")return renderDataRoom();
     if(stage==="viability")return renderViability();
     if(stage==="meetings")return renderMeetings();
     if(stage==="monitor")return renderPlanningMonitor();
@@ -9949,13 +10525,16 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
         (function(){
           // Filter stages by selected scheme types (multi-select) AND exit routes (which can unlock additional stages)
           var activeStages=(schemes.length===0&&exits.length===0)?ALL_STAGES:ALL_STAGES.filter(function(s){
-            if(!s.journeys||s.journeys.indexOf("all")>=0)return true;
-            // Scheme-based match
+            if(!s.journeys)return true; // safety — stages with no journeys array always show
+            // Scheme-based match — does the stage's journeys array contain ANY ticked scheme?
             for(var sj=0;sj<schemes.length;sj++){
               if(s.journeys.indexOf(schemes[sj])>=0)return true;
             }
             // Exit-based unlock (e.g. Pension Fund unlocks Capitalisation regardless of scheme)
             if(exitUnlocksStage(s.id))return true;
+            // Stages flagged as universal (e.g. Records / Atlas) — these have ONLY "all"
+            // i.e. they're not specific to any scheme and should always show
+            if(s.journeys.length===1&&s.journeys[0]==="all")return true;
             return false;
           });
 
