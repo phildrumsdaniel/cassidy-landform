@@ -1115,7 +1115,7 @@ var JOURNEYS = {
   // SFH GDV: sum house sales from SFH appraisal mix
   var sfhDashGdv=(function(){
     var mix=(data.sfh&&data.sfh.mix)||[];
-    var bPsf=num(data.sfh&&data.sfh.basePsf)||num(m.btr*8.5)||260;
+    var bPsf=num(data.sfh&&data.sfh.basePsf)||num(m.btr*8.5/12)||260;
     var t=0;
     for(var mi=0;mi<mix.length;mi++){
       var row=mix[mi]; var cnt=num(row.count||0);
@@ -2098,7 +2098,7 @@ var JOURNEYS = {
     var agriValue=acres*15000; // £15k/acre typical agricultural
     var residualLandValue=num(data.rlv&&data.rlv.units?(function(){
       var ru=num(data.rlv.units); var rs=num(data.rlv.avgSqft)||850;
-      var rp=num(data.rlv.salePsf)||lm.btr*8.5||280; var rb=num(data.rlv.buildPsf)||lm.build;
+      var rp=num(data.rlv.salePsf)||lm.btr*8.5/12||280; var rb=num(data.rlv.buildPsf)||lm.build;
       var rg=ru*rs*rp; var rbc=ru*rs*rb;
       return rg-rbc-rbc*0.12-rbc*0.05-(rbc+0)*0.075-ru*8000-rg*0.175;
     })():0);
@@ -2148,7 +2148,7 @@ var JOURNEYS = {
         pros:["AH often exempt","Planning sympathy","Growing demographic"],
         cons:["Specialist operator needed","Slower sales","Service charge complexity"]},
     ].map(function(sc){
-      var gdv=sc.units*sc.unitSqft*(num(data.rlv&&data.rlv.salePsf)||lm.btr*8.5||280);
+      var gdv=sc.units*sc.unitSqft*(num(data.rlv&&data.rlv.salePsf)||lm.btr*8.5/12||280);
       var bc=sc.units*sc.unitSqft*sc.buildPsf;
       var fees=bc*0.12; var cont=bc*0.05; var fin=(bc+fees)*0.075;
       var s106=sc.units*8000; var profit=gdv*0.175;
@@ -2311,7 +2311,7 @@ var JOURNEYS = {
                   setData(function(d){
                     var updates={assetType:sc.assetType};
                     if(sc.type==="SFH"){
-                      updates.sfh=Object.assign({},d.sfh||{},{acres:acres+"",city:lCity,dph:sc.dph+"",basePsf:Math.round(lm.btr*8.5)+"",buildPsf:sc.buildPsf+""});
+                      updates.sfh=Object.assign({},d.sfh||{},{acres:acres+"",city:lCity,dph:sc.dph+"",basePsf:Math.round(lm.btr*8.5/12)+"",buildPsf:sc.buildPsf+""});
                     } else {
                       updates.hra=Object.assign({},d.hra||{},{city:lCity});
                     }
@@ -2340,7 +2340,7 @@ var JOURNEYS = {
                   setData(function(d){
                     var updates={assetType:sc.assetType};
                     if(sc.type==="SFH"){
-                      updates.sfh=Object.assign({},d.sfh||{},{acres:acres+"",city:lCity,dph:sc.dph+"",basePsf:Math.round(lm.btr*8.5)+"",buildPsf:sc.buildPsf+""});
+                      updates.sfh=Object.assign({},d.sfh||{},{acres:acres+"",city:lCity,dph:sc.dph+"",basePsf:Math.round(lm.btr*8.5/12)+"",buildPsf:sc.buildPsf+""});
                     }
                     updates.planning=Object.assign({},d.planning||{},{units:sc.units+"",lpa:lpa});
                     updates.exit=Object.assign({},d.exit||{},{strategy:"stabilised"});
@@ -6389,7 +6389,7 @@ e("span",{style:{color:"#9A7B3E"}},
               {value:"4",label:"4 storeys"},
               {value:"5plus",label:"5+ storeys"},
             ]}),
-          e(Inp,{label:"Sale £/sqft"+(pcData&&pcData.salePsf?" — auto from postcode: £"+pcData.salePsf:m?" — auto from "+cityName(city)+": £"+Math.round(m.btr*8.5):""),type:"number",value:ep.salePsf,onChange:function(v){up("epe","salePsf",v);},placeholder:"£"+Math.round(salePsf)+" /sqft"}),
+          e(Inp,{label:"Sale £/sqft"+(pcData&&pcData.salePsf?" — auto from postcode: £"+pcData.salePsf:m?" — auto from "+cityName(city)+": £"+Math.round(m.btr*8.5/12):""),type:"number",value:ep.salePsf,onChange:function(v){up("epe","salePsf",v);},placeholder:"£"+Math.round(salePsf)+" /sqft"}),
 e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}},
             e("label",{style:S.label},"Parking & Garaging (tick ALL that apply — multiple selections allowed)"),
             e("div",{style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,padding:14}},
@@ -6785,7 +6785,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     var rm=MKT[rCity]||MKT.manchester;
     var bt=BUILD_TYPES[r.schType]||BUILD_TYPES["Residential houses"];
     var rUnits=num(r.units); var rSqft=num(r.avgSqft)||850;
-    var rSalePsf=num(r.salePsf)||(pcData&&pcData.salePsf)||(rm.btr*8.5)||(m&&m.btr*8.5)||260;
+    var rSalePsf=num(r.salePsf)||(pcData&&pcData.salePsf)||(rm.btr*8.5/12)||(m&&m.btr*8.5/12)||260;
     var rBuild=num(r.buildPsf)||(m&&m.build)||bt.mid;
     var rProfit=num(r.profitPct)||17.5; var rFin=num(r.finRate)||7.5;
     var rCont=num(r.contingency)||5;
@@ -7023,7 +7023,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
             options:[{value:"",label:"Select..."}].concat(Object.keys(BUILD_TYPES).map(function(t){return{value:t,label:t};}))}),
           e(Inp,{label:"Number of Units / Beds",type:"number",value:r.units,onChange:function(v){up("rlv","units",v);},placeholder:"e.g. 45"}),
           e(Inp,{label:"Avg Unit Size (sqft)",type:"number",value:r.avgSqft,onChange:function(v){up("rlv","avgSqft",v);},placeholder:"850"}),
-          e(Inp,{label:"Sale £/sqft"+(m?" — auto from "+cityName(city)+": £"+Math.round((pcData&&pcData.salePsf)||(m.btr*8.5)||260):""),type:"number",value:r.salePsf,onChange:function(v){up("rlv","salePsf",v);},placeholder:"£"+Math.round(rSalePsf)}),
+          e(Inp,{label:"Sale £/sqft"+(m?" — auto from "+cityName(city)+": £"+Math.round((pcData&&pcData.salePsf)||(m.btr*8.5/12)||260):""),type:"number",value:r.salePsf,onChange:function(v){up("rlv","salePsf",v);},placeholder:"£"+Math.round(rSalePsf)}),
           e(Inp,{label:"Build £/sqft"+(m?" — auto from "+cityName(city)+": £"+m.build+" · BCIS £"+bt.lo+"–£"+bt.hi:" — BCIS £"+bt.lo+"–£"+bt.hi),type:"number",value:r.buildPsf,onChange:function(v){up("rlv","buildPsf",v);},placeholder:"£"+Math.round(rBuild)}),
           e(Inp,{label:"Developer Profit % GDV — UK norm 15-18%",type:"number",value:r.profitPct,onChange:function(v){up("rlv","profitPct",v);},placeholder:"17.5"}),
           e(Inp,{label:"Finance Rate %",type:"number",value:r.finRate,onChange:function(v){up("rlv","finRate",v);},placeholder:"7.5"}),
@@ -7269,7 +7269,17 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           (function(){
             var warnings=[];
             var m3=MKT[rCity]||MKT.manchester;
-            var benchmarkSale=(pcData&&pcData.salePsf)||(m3.btr*8.5)||280;
+            // Benchmark sale PSF: Land Registry live data > postcode lookup > city-derived > fallback
+            var mkt=data.market||{};
+            var benchmarkSale;
+            if(num(mkt.lrPsf)>0) benchmarkSale=num(mkt.lrPsf);
+            else if(pcData&&pcData.salePsf) benchmarkSale=pcData.salePsf;
+            else if(m3&&m3.btr){
+              // Convert monthly rent to a sensible sale PSF estimate, clamped to realistic UK range
+              var derived=Math.round(m3.btr*8.5/12);
+              benchmarkSale=Math.max(150,Math.min(650,derived));
+            } else benchmarkSale=220;
+
             var saleDev=benchmarkSale>0?Math.abs(rSalePsf-benchmarkSale)/benchmarkSale*100:0;
             if(rSalePsf>0&&saleDev>25)warnings.push({sev:"warn",msg:"Sale price of £"+rSalePsf+"/sqft is "+Math.round(saleDev)+"% "+(rSalePsf>benchmarkSale?"above":"below")+" the "+cityName(rCity)+" benchmark of £"+Math.round(benchmarkSale)+"/sqft — verify with agent"});
             if(rBuild>0&&rBuild<120)warnings.push({sev:"error",msg:"Build cost of £"+rBuild+"/sqft is very low — BCIS minimum for residential is £130–£150/sqft. Check your inputs"});
@@ -7282,8 +7292,25 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
             }
             if(rProfit>0&&rProfit<15)warnings.push({sev:"error",msg:"Developer profit of "+rProfit+"% is below the viability threshold — most lenders require minimum 15–18% on GDV"});
             if(rProfit>30)warnings.push({sev:"info",msg:"Developer profit of "+rProfit+"% is above typical — majors target 18–22%. A lower target would increase the land value you can offer"});
-            if(rRlv>0&&data.land&&data.land.price>0&&rRlv<num(data.land.price)*0.7)warnings.push({sev:"error",msg:"RLV of "+fmt(rRlv)+" is "+Math.round((1-rRlv/num(data.land.price))*100)+"% below the asking price of "+fmt(num(data.land.price))+" — deal is likely unviable at current assumptions"});
-            if(rRlv>0&&data.land&&data.land.price>0&&rRlv>num(data.land.price)*1.3)warnings.push({sev:"info",msg:"RLV of "+fmt(rRlv)+" is "+Math.round((rRlv/num(data.land.price)-1)*100)+"% above asking price — strong position. Consider whether assumptions are conservative enough"});
+            // RLV vs asking price — require asking price >= £10k to avoid divide-by-zero nonsense
+            var askingPrice=num(data.land&&data.land.price);
+            if(rRlv>0&&askingPrice>=10000&&rRlv<askingPrice*0.7){
+              var shortPct=Math.round((1-rRlv/askingPrice)*100);
+              warnings.push({sev:"error",msg:"RLV of "+fmt(rRlv)+" is "+shortPct+"% below the asking price of "+fmt(askingPrice)+" — deal is likely unviable at current assumptions"});
+            }
+            if(rRlv>0&&askingPrice>=10000&&rRlv>askingPrice*1.3){
+              var overPct=Math.round((rRlv/askingPrice-1)*100);
+              // Cap absurd percentages (very low asking prices produce silly numbers)
+              if(overPct>500){
+                warnings.push({sev:"info",msg:"RLV of "+fmt(rRlv)+" is well above the asking price of "+fmt(askingPrice)+" — very strong position. Verify the asking price is correct (entered value: £"+askingPrice.toLocaleString()+")."});
+              } else {
+                warnings.push({sev:"info",msg:"RLV of "+fmt(rRlv)+" is "+overPct+"% above asking price — strong position. Consider whether assumptions are conservative enough"});
+              }
+            }
+            // Flag missing/zero asking price separately
+            if(rRlv>0&&askingPrice<10000){
+              warnings.push({sev:"info",msg:"No asking price entered yet — return to Land Appraisal to add it for an RLV-vs-ask comparison"});
+            }
 
             if(warnings.length===0)return null;
             var sevColors={error:{bg:"rgba(176,90,53,0.08)",border:"#B05A35",icon:"⚠",col:"#B05A35"},warn:{bg:"rgba(154,123,62,0.08)",border:"#9A7B3E",icon:"⚡",col:"#9A7B3E"},info:{bg:"rgba(74,75,174,0.06)",border:"#4A4BAE",icon:"ℹ",col:"#4A4BAE"}};
@@ -8718,7 +8745,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     var rlvAcres=num(l.acres||sf.acres||0);
     var rlvUnits=num(data.planning&&data.planning.units||f.units||0);
     var rlvBuild=num(f.buildPsf||m.build);
-    var rlvSalePsf=num(f.salePsf||m.btr*8.5||280);
+    var rlvSalePsf=num(f.salePsf||m.btr*8.5/12||280);
     var rlvGdv=rlvUnits*900*rlvSalePsf;
     var rlvBc=rlvUnits*900*rlvBuild;
     var rlvFees=rlvBc*0.12; var rlvCont=rlvBc*0.05;
@@ -8735,7 +8762,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     var sfhTotalGdv = (function(){
       var mix = (data.sfh&&data.sfh.mix)||[];
       var lm2 = MKT[city]||MKT.manchester;
-      var bPsf = num(data.sfh&&data.sfh.basePsf)||num(lm2.btr*8.5)||280;
+      var bPsf = num(data.sfh&&data.sfh.basePsf)||num(lm2.btr*8.5/12)||280;
       var bBuild = num(data.sfh&&data.sfh.buildPsf)||num(lm2.build)||185;
       var total = 0;
       for(var mi=0;mi<mix.length;mi++){
@@ -8814,7 +8841,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
               var updates={};
               if(!f.units&&u2>0)updates.units=String(u2);
               if(!f.buildPsf)updates.buildPsf=String(num(data.sfh&&data.sfh.buildPsf)||Math.round(lm2.build));
-              if(!f.salePsf)updates.salePsf=String(num(data.rlv&&data.rlv.salePsf)||Math.round((MKT[city]&&MKT[city].btr*8.5)||260));
+              if(!f.salePsf)updates.salePsf=String(num(data.rlv&&data.rlv.salePsf)||Math.round((MKT[city]&&MKT[city].btr*8.5/12)||260));
               if(!f.exitYield)updates.exitYield=String(Math.round(lm2.yield*1000)/10);
               if(!f.finRate)updates.finRate="7.5";
               if(!f.contingency)updates.contingency="5";
@@ -9385,7 +9412,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
         valuationMethod:"Residual — GDV minus build, fees, finance, profit margin (18-22%)",
         calc:function(){
           // Housebuilder pays residual after their margin
-          var hbGdv=gdv>0?gdv:(units2*(num(data.rlv&&data.rlv.avgSqft||850))*(num(data.rlv&&data.rlv.salePsf||cityMkt.btr*8.5||280)));
+          var hbGdv=gdv>0?gdv:(units2*(num(data.rlv&&data.rlv.avgSqft||850))*(num(data.rlv&&data.rlv.salePsf||cityMkt.btr*8.5/12||280)));
           var hbBuild=buildCostTotal*1.08; // with fees
           var hbFinance=hbBuild*finRate2;
           var hbProfit=hbGdv*0.175; // 20% target
