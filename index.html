@@ -10042,6 +10042,11 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
         e("button",{onClick:function(){setShowHist(function(s){return !s;});},style:{padding:"6px 12px",background:showHist?"#4A4BAE":"#F7F8FC",border:"1px solid "+(showHist?"#4A4BAE":"#DDE0ED"),color:showHist?"#fff":"#3A3D6A",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},
           isMobile?("📋"+(history.length>0?" "+history.length:"")):"📋 History"+(history.length>0?" ("+history.length+")":"")
         ),
+        e("button",{
+          onClick:function(){window.open("flowchart.html","landform_atlas","width=1600,height=1000,scrollbars=yes,resizable=yes");},
+          title:"Open Workflow Atlas on a second screen",
+          style:{padding:"6px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#2D7A65",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36}
+        },isMobile?"🗺":"🗺 Atlas"),
         e("button",{onClick:generateReport,title:"Print / PDF Report",style:{padding:"6px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#B05A35",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36}},
           isMobile?"🖨":"🖨 Report"
         ),
