@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Landform — Workflow Atlas</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;color:#1A1B5C;background:#F4F5FB}
+  /* ── HEADER ─────────────────────────────────────────────────────── */
+  .header{position:fixed;top:0;left:0;right:0;height:60px;background:#1E1F5C;color:#fff;display:flex;align-items:center;padding:0 20px;gap:24px;z-index:100;box-shadow:0 2px 10px rgba(0,0,0,0.1)}
+  .logo{font-weight:800;font-size:16px;letter-spacing:-0.02em}
+  .logo span{color:#EDE84A}
+  .subtitle{font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:.08em;text-transform:uppercase}
+  .controls{margin-left:auto;display:flex;gap:8px;align-items:center}
+  .control-btn{background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:5px;padding:6px 12px;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
+  .control-btn:hover{background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.3)}
+  .control-btn.on{background:#EDE84A;color:#1A1B5C;border-color:#EDE84A}
+  /* ── LEGEND BAR ─────────────────────────────────────────────────── */
+  .legend{position:fixed;top:60px;left:0;right:0;height:34px;background:#fff;border-bottom:1px solid #DDE0ED;display:flex;align-items:center;padding:0 20px;gap:18px;z-index:99;font-size:10px;color:#7278A0;letter-spacing:.04em}
+  .legend-item{display:flex;align-items:center;gap:6px}
+  .legend-dot{width:10px;height:10px;border-radius:2px}
+  .legend-dot.start{background:#1A1B5C}
+  .legend-dot.scheme{background:#4A4BAE}
+  .legend-dot.stage{background:#2D7A65}
+  .legend-dot.exit{background:#9A7B3E}
+  .legend-dot.decision{background:#B05A35}
+  .legend-dot.endpoint{background:#1A1B5C;border:2px solid #EDE84A}
+  /* ── CANVAS ─────────────────────────────────────────────────────── */
+  .canvas-wrap{position:fixed;top:94px;left:0;right:0;bottom:0;overflow:auto;background:#F4F5FB;background-image:radial-gradient(#DDE0ED 1px,transparent 1px);background-size:20px 20px}
+  .canvas{position:relative;width:5400px;height:3800px;transform-origin:top left;transition:transform .25s ease}
+  /* ── NODES ──────────────────────────────────────────────────────── */
+  .node{position:absolute;background:#fff;border-radius:8px;box-shadow:0 2px 6px rgba(30,31,92,0.08);border:1px solid #DDE0ED;cursor:pointer;transition:all .15s;user-select:none}
+  .node:hover{box-shadow:0 6px 20px rgba(30,31,92,0.18);transform:translateY(-2px);z-index:10}
+  .node.expanded{box-shadow:0 8px 30px rgba(30,31,92,0.25);z-index:20}
+  .node-header{padding:8px 12px;border-bottom:1px solid transparent;display:flex;align-items:center;gap:8px}
+  .node-title{font-size:11px;font-weight:800;line-height:1.3}
+  .node-sub{font-size:9px;color:#7278A0;line-height:1.4;margin-top:2px;letter-spacing:.02em;text-transform:uppercase}
+  .node-icon{font-size:14px}
+  /* Node types */
+  .node.start{background:#1A1B5C;color:#fff;border:none;width:180px}
+  .node.start .node-title{color:#fff}
+  .node.start .node-sub{color:#EDE84A}
+  .node.scheme{border-left:4px solid #4A4BAE;width:180px}
+  .node.scheme .node-title{color:#4A4BAE}
+  .node.stage{border-left:4px solid #2D7A65;width:200px}
+  .node.stage .node-title{color:#2D7A65}
+  .node.exit{border-left:4px solid #9A7B3E;width:200px}
+  .node.exit .node-title{color:#9A7B3E}
+  .node.decision{background:#FFF8E5;border:2px dashed #B05A35;width:180px}
+  .node.decision .node-title{color:#B05A35}
+  .node.endpoint{background:#1A1B5C;color:#fff;border:2px solid #EDE84A;width:200px}
+  .node.endpoint .node-title{color:#EDE84A}
+  .node.endpoint .node-sub{color:rgba(255,255,255,0.7)}
+  /* Expanded details */
+  .node-detail{display:none;padding:12px 14px;font-size:10px;color:#3A3D6A;line-height:1.7;background:#F8F8FE;border-top:1px solid #DDE0ED;max-width:320px;border-radius:0 0 8px 8px}
+  .node.expanded{width:340px}
+  .node.expanded .node-detail{display:block}
+  .node-detail h4{font-size:9px;color:#7278A0;letter-spacing:.1em;text-transform:uppercase;font-weight:800;margin:8px 0 4px}
+  .node-detail h4:first-child{margin-top:0}
+  .node-detail ul{margin-left:14px}
+  .node-detail li{margin-bottom:3px}
+  .node-detail .key-metric{display:inline-block;background:#fff;border:1px solid #DDE0ED;border-radius:3px;padding:2px 6px;font-family:'DM Mono',monospace;font-size:9px;font-weight:700;color:#2D7A65;margin:2px 4px 2px 0}
+  .node-detail .red-flag{display:inline-block;background:#FFEEE5;border:1px solid #B05A35;border-radius:3px;padding:2px 6px;font-size:9px;font-weight:700;color:#B05A35;margin:2px 4px 2px 0}
+  /* ── EDGES (SVG) ────────────────────────────────────────────────── */
+  .edges{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+  .edge{fill:none;stroke:#B5BAD6;stroke-width:1.5;stroke-dasharray:none}
+  .edge.decision{stroke:#B05A35;stroke-dasharray:4,3}
+  .edge.required{stroke:#2D7A65;stroke-width:2}
+  /* ── COLUMN LABELS ──────────────────────────────────────────────── */
+  .col-label{position:absolute;top:20px;font-size:10px;font-weight:800;color:#7278A0;text-transform:uppercase;letter-spacing:.15em;writing-mode:horizontal-tb}
+  /* ── INSTRUCTIONS PANEL ─────────────────────────────────────────── */
+  .instructions{position:fixed;bottom:20px;right:20px;background:#fff;border-radius:8px;padding:14px 16px;max-width:280px;box-shadow:0 4px 20px rgba(30,31,92,0.15);font-size:10px;color:#7278A0;line-height:1.7;z-index:50;border-left:3px solid #EDE84A}
+  .instructions strong{color:#1A1B5C}
+  .instructions kbd{display:inline-block;background:#F4F5FB;border:1px solid #DDE0ED;border-radius:3px;padding:1px 5px;font-family:'DM Mono',monospace;font-size:9px;color:#2E2F8A;font-weight:700}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">CASSIDY <span>LANDFORM</span></div>
+  <div class="subtitle">Workflow Atlas · Decision Tree & Stage Playbook</div>
+  <div class="controls">
+    <button class="control-btn" onclick="zoomOut()">−</button>
+    <button class="control-btn" id="zoomLabel" onclick="resetZoom()">100%</button>
+    <button class="control-btn" onclick="zoomIn()">+</button>
+    <button class="control-btn" onclick="collapseAll()">Collapse all</button>
+    <button class="control-btn" onclick="expandAll()">Expand all</button>
+  </div>
+</header>
+
+<div class="legend">
+  <div class="legend-item"><span class="legend-dot start"></span>Start</div>
+  <div class="legend-item"><span class="legend-dot scheme"></span>Scheme type</div>
+  <div class="legend-item"><span class="legend-dot stage"></span>Landform stage</div>
+  <div class="legend-item"><span class="legend-dot decision"></span>Decision point</div>
+  <div class="legend-item"><span class="legend-dot exit"></span>Exit route</div>
+  <div class="legend-item"><span class="legend-dot endpoint"></span>Endpoint</div>
+  <div style="margin-left:auto;font-size:10px;color:#7278A0;">Click any node to expand · scroll to pan</div>
+</div>
+
+<div class="canvas-wrap" id="canvasWrap">
+  <div class="canvas" id="canvas">
+    <!-- Column labels -->
+    <div class="col-label" style="left:60px">0 · Start</div>
+    <div class="col-label" style="left:340px">1 · Scheme</div>
+    <div class="col-label" style="left:680px">2 · Find & Value</div>
+    <div class="col-label" style="left:1080px">3 · Decision</div>
+    <div class="col-label" style="left:1380px">4 · Develop</div>
+    <div class="col-label" style="left:1780px">5 · Exit Route</div>
+    <div class="col-label" style="left:2180px">6 · Report</div>
+    <div class="col-label" style="left:2580px">7 · Endpoint</div>
+
+    <!-- Edges layer -->
+    <svg class="edges" id="edges" width="5400" height="3800"></svg>
+
+    <!-- Nodes inserted by JS -->
+  </div>
+</div>
+
+<div class="instructions">
+  <strong>How to use:</strong> Pan with scroll or trackpad. Click any node to expand its detailed playbook — fields to fill, metrics to watch, red flags. Open this tab on your second monitor while working in Landform on your main screen.
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// WORKFLOW ATLAS — Landform decision tree & stage playbook
+// ═══════════════════════════════════════════════════════════════════════
+// Format: {id, x, y, type, icon, title, sub, detail (html), connectsTo:[ids]}
+
+const NODES = [
+  // ─── 0 · START ─────────────────────────────────────────────────────
+  {id:"start", x:60, y:80, type:"start", icon:"⚡", title:"New Deal", sub:"Begin appraisal",
+   detail:`<h4>Before you start</h4>
+   <ul><li>Decide your role in the deal: buyer, promoter, or developer</li>
+   <li>Get the postcode and acreage at minimum — drives everything else</li>
+   <li>If you have an asking price, even a range, capture it</li></ul>
+   <h4>First questions to answer</h4>
+   <ul><li>Is this a strategic land play (sell with planning)?</li>
+   <li>Or are you actually going to build it out?</li>
+   <li>Who is the most likely exit buyer?</li></ul>`,
+   connectsTo:["scheme-land","scheme-sfh","scheme-btr","scheme-pbsa","scheme-property","scheme-recovery"]},
+
+  // ─── 1 · SCHEME TYPES (column 1) ────────────────────────────────────
+  {id:"scheme-land", x:340, y:80, type:"scheme", icon:"🔍", title:"Land Strategy", sub:"Promote → sell with planning",
+   detail:`<h4>What this means</h4>
+   <ul><li>Buy or option land with no planning</li>
+   <li>Promote it through Local Plan / Reg 18-19 / SHELAA</li>
+   <li>Secure planning, sell to a housebuilder or developer</li>
+   <li>You don't build anything yourself</li></ul>
+   <h4>Critical fields</h4>
+   <ul><li>Acres, postcode, LPA, planning status</li>
+   <li>Option vs unconditional purchase terms</li>
+   <li>Promotion agreement % split</li></ul>
+   <h4>Typical timeline</h4>
+   <span class="key-metric">3–8 years</span> to monetise`,
+   connectsTo:["stage-placona","stage-land","stage-planning","stage-rlv"]},
+
+  {id:"scheme-sfh", x:340, y:240, type:"scheme", icon:"🏡", title:"SFH Development", sub:"Houses for sale or rent",
+   detail:`<h4>What this means</h4>
+   <ul><li>Estate of houses — terraced, semis, detached</li>
+   <li>You build them, then sell or rent at scale</li>
+   <li>Exit is open market, HA bulk, or pension fund (single-family BTR)</li></ul>
+   <h4>Critical fields</h4>
+   <ul><li>Acres × DPH (density) = unit count</li>
+   <li>House type mix (3-bed semi, 4-bed detached etc)</li>
+   <li>Sale £/sqft for each house type</li>
+   <li>Build cost £/sqft (typically £180–250)</li></ul>`,
+   connectsTo:["stage-placona","stage-land","stage-sfh","stage-rlv"]},
+
+  {id:"scheme-btr", x:340, y:400, type:"scheme", icon:"🏢", title:"Build to Rent", sub:"Apartment block, institutional",
+   detail:`<h4>What this means</h4>
+   <ul><li>Single block of flats owned by one institutional landlord</li>
+   <li>Designed for renting from day one — gym, concierge, amenity space</li>
+   <li>Forward-funded by pension fund, or built then sold</li></ul>
+   <h4>Critical fields</h4>
+   <ul><li>Studio / 1-bed / 2-bed mix and £/sqft each</li>
+   <li>GIA efficiency (typically 78–82%)</li>
+   <li>Storeys, cores, lift count</li>
+   <li>Exit yield (institutional max 5.0%)</li></ul>`,
+   connectsTo:["stage-placona","stage-land","stage-hra","stage-rlv","stage-capitalise"]},
+
+  {id:"scheme-pbsa", x:340, y:560, type:"scheme", icon:"🎓", title:"PBSA / Student", sub:"Purpose-built student",
+   detail:`<h4>What this means</h4>
+   <ul><li>Student accommodation, usually near a Russell Group / RG-tier university</li>
+   <li>Weekly rents, term-time occupancy</li>
+   <li>Operator-led or direct-let</li></ul>
+   <h4>Critical fields</h4>
+   <ul><li>Walking distance to campus (15 min max)</li>
+   <li>Weekly rent per bed (£140–£380 depending on city)</li>
+   <li>Occupancy assumption (97% institutional standard)</li></ul>`,
+   connectsTo:["stage-placona","stage-land","stage-hra","stage-rlv","stage-capitalise"]},
+
+  {id:"scheme-property", x:340, y:720, type:"scheme", icon:"🏠", title:"Property Eval", sub:"Existing buildings + plots",
+   detail:`<h4>What this means</h4>
+   <ul><li>You're buying an existing property — pub, office, large house, bungalow</li>
+   <li>Either refurbish + sell, or demolish + redevelop</li>
+   <li>Different appraisal — current value AS-IS plus value after change of use</li></ul>
+   <h4>Critical fields</h4>
+   <ul><li>Property sqft and current condition</li>
+   <li>Plot size (for redevelopment potential)</li>
+   <li>Current use class vs proposed use class</li></ul>`,
+   connectsTo:["stage-epe","stage-rlv"]},
+
+  {id:"scheme-recovery", x:340, y:880, type:"scheme", icon:"⚖", title:"Planning Recovery", sub:"Stalled / refused schemes",
+   detail:`<h4>What this means</h4>
+   <ul><li>Existing scheme has been refused, withdrawn, or stalled</li>
+   <li>You're buying with intent to fix the planning</li>
+   <li>Strategy: appeal, redesign, or pre-app rescue</li></ul>
+   <h4>Critical fields</h4>
+   <ul><li>Reason for refusal / stall</li>
+   <li>LPA's housing land supply position (5YHLS test)</li>
+   <li>Appeal grounds + timeline</li></ul>`,
+   connectsTo:["stage-recovery","stage-land","stage-planning"]},
+
+  // ─── 2 · FIND & VALUE STAGES (column 2) ─────────────────────────────
+  {id:"stage-placona", x:680, y:140, type:"stage", icon:"🤖", title:"Placona Agent", sub:"AI land discovery",
+   detail:`<h4>Purpose</h4> Find live land opportunities by county, scored 0–100 for deliverability.
+   <h4>Inputs</h4>
+   <ul><li>Pick counties (multi-select)</li>
+   <li>Minimum homes (e.g. 100+)</li>
+   <li>Site types: allocated / SHELAA / promoted</li></ul>
+   <h4>Output</h4> 10–15 sites with Placona score + category A/B/C/D + asking price ranges + agent contacts.
+   <h4>Key metric</h4> <span class="key-metric">Category A (80+)</span> = highest priority
+   <h4>Red flag</h4> <span class="red-flag">Category D (below 50)</span> = walk away unless very cheap`,
+   connectsTo:["stage-land"]},
+
+  {id:"stage-land", x:680, y:340, type:"stage", icon:"⬟", title:"Land Appraisal", sub:"Score + benchmark",
+   detail:`<h4>Purpose</h4> Score the site 0–100 across location, planning, ground, tenure.
+   <h4>Critical fields</h4>
+   <ul><li>Site address + postcode (drives PSF lookup)</li>
+   <li>Acres + asking price</li>
+   <li>Planning constraints, transport, contamination (dropdowns)</li></ul>
+   <h4>Key metrics</h4>
+   <span class="key-metric">Score ≥ 65</span> proceed
+   <span class="key-metric">Score 50-64</span> caution
+   <h4>Red flag</h4> <span class="red-flag">Score &lt; 50</span> = structurally weak site, only proceed if heavily discounted`,
+   connectsTo:["stage-planning","stage-constraint","stage-rlv"]},
+
+  {id:"stage-epe", x:680, y:760, type:"stage", icon:"🏠", title:"Property Evaluator", sub:"Existing-property appraisal",
+   detail:`<h4>Purpose</h4> Value the property AS-IS and post-development.
+   <h4>Two PSF rates used</h4>
+   <ul><li>Current condition £/sqft (sale of existing)</li>
+   <li>New-build £/sqft (after redevelopment)</li></ul>
+   <h4>Key check</h4> Click <strong>"Fetch Live Land Registry"</strong> to pull real sold prices for the postcode.`,
+   connectsTo:["stage-rlv","stage-sfh"]},
+
+  {id:"stage-constraint", x:680, y:520, type:"stage", icon:"⚠", title:"Constraint Check", sub:"Planning, ecology, ground",
+   detail:`<h4>Purpose</h4> AI scan of site for planning constraints.
+   <h4>Watch for</h4>
+   <ul><li>Green Belt boundary (very hard)</li>
+   <li>Flood Zone 2 or 3 (requires SFRA)</li>
+   <li>SSSI, AONB, National Park edges</li>
+   <li>TPOs / ancient trees</li>
+   <li>Listed buildings adjacent</li></ul>
+   <h4>Red flag</h4> <span class="red-flag">Multiple major constraints</span> = planning Cat C/D`,
+   connectsTo:["stage-planning"]},
+
+  // ─── 2b · SFH & HRA development stages ──────────────────────────────
+  {id:"stage-sfh", x:680, y:140, type:"stage", icon:"🏡", title:"SFH House Mix", sub:"Plot-by-plot appraisal",
+   x:1080, y:240,
+   detail:`<h4>Purpose</h4> Build the house type table — 3-bed semi, 4-bed detached etc.
+   <h4>For each row</h4>
+   <ul><li>Beds, sqft, count, sale price</li>
+   <li>Tool calculates £/sqft automatically</li></ul>
+   <h4>Key metrics</h4>
+   <span class="key-metric">DPH 30-40</span> typical UK SFH density
+   <span class="key-metric">£/sqft</span> must match local Land Registry — check the Live Market Banner.
+   <h4>Red flag</h4> <span class="red-flag">Build:Sale ratio &gt; 75%</span> = structurally unviable, even at zero land cost`,
+   connectsTo:["stage-rlv","decision-rlv","stage-planning"]},
+
+  {id:"stage-hra", x:1080, y:400, type:"stage", icon:"🏢", title:"BTR / PBSA Block", sub:"Apartment appraisal",
+   detail:`<h4>Purpose</h4> Multi-storey appraisal with fire/building safety overlay.
+   <h4>Building Safety Act check</h4>
+   <ul><li>≥7 storeys / ≥18m → Higher Risk Building → Gateway 2 & 3</li>
+   <li>EWS1 form required</li>
+   <li>Sprinklers mandatory in Eng. ≥11m</li></ul>
+   <h4>Key metrics</h4>
+   <span class="key-metric">GIA eff. 78-82%</span> realistic
+   <span class="key-metric">Lifts: 1 per 60-75 beds</span>
+   <h4>Red flag</h4> <span class="red-flag">Eff &lt; 75%</span> = badly designed building`,
+   connectsTo:["stage-rlv","stage-capitalise"]},
+
+  {id:"stage-rlv", x:1080, y:80, type:"stage", icon:"◆", title:"Land Valuation (RLV)", sub:"Live LR + residual",
+   detail:`<h4>Purpose</h4> Fetch live Land Registry data and run residual.
+   <h4>Workflow</h4>
+   <ol><li>Enter full postcode</li>
+   <li>Click <strong>"Fetch Live Data"</strong></li>
+   <li>Tool queries Land Registry for last 24 months of sales</li>
+   <li>Weighted PSF is calculated, cascades to ALL other stages</li></ol>
+   <h4>Build:Sale Ratio diagnostic</h4>
+   <span class="key-metric">≤ 60%</span> strong margin (green)
+   <span class="key-metric">60-75%</span> tight (amber)
+   <span class="red-flag">&gt; 75%</span> structurally unviable
+   <h4>Output</h4> Residual Land Value — what you can pay for the land.`,
+   connectsTo:["decision-rlv","stage-capitalise","stage-fin"]},
+
+  // ─── 3 · DECISION POINT (column 3) ──────────────────────────────────
+  {id:"decision-rlv", x:1380, y:80, type:"decision", icon:"❓", title:"Does the deal stack?", sub:"Hard go/no-go",
+   detail:`<h4>The test</h4>
+   <ul><li>Is RLV positive AND ≥ farmer's asking price?</li>
+   <li>Is Build:Sale ratio &lt; 75%?</li>
+   <li>Is Land Appraisal score ≥ 50?</li></ul>
+   <h4>If ALL yes</h4>
+   <span class="key-metric">✓ PROCEED</span> to Planning + Develop
+   <h4>If RLV negative or close</h4>
+   <ul><li>Negotiate farmer down</li>
+   <li>Increase density / unit count</li>
+   <li>Reduce build spec</li>
+   <li>Switch exit (e.g. open mkt → institutional with higher yield)</li>
+   <li>Or <span class="red-flag">walk away</span></li></ul>`,
+   connectsTo:["stage-planning","stage-capitalise","stage-fin"]},
+
+  // ─── 4 · DEVELOP STAGES (column 4) ──────────────────────────────────
+  {id:"stage-planning", x:1380, y:340, type:"stage", icon:"▲", title:"Planning & Viability", sub:"Policy + S106",
+   detail:`<h4>Purpose</h4> Test policy compliance.
+   <h4>Critical fields</h4>
+   <ul><li>LPA (Local Planning Authority)</li>
+   <li>Units, storeys, density</li>
+   <li>AH % (typically 25-40% in policy)</li>
+   <li>BNG 10% (mandatory since Feb 2024)</li>
+   <li>Fire Safety Gateway 2/3 (≥7 storeys)</li></ul>
+   <h4>Key metrics</h4>
+   <span class="key-metric">NPPF 2024</span> compliance check
+   <span class="key-metric">5YHLS</span> (LPA's 5-year housing land supply) — if &lt; 5 yrs, tilted balance applies`,
+   connectsTo:["stage-fin","stage-viability","exit-flow"]},
+
+  {id:"stage-fin", x:1380, y:520, type:"stage", icon:"◉", title:"Financial Modelling", sub:"Full appraisal + cashflow",
+   detail:`<h4>Purpose</h4> Full development appraisal with phased cashflow.
+   <h4>Critical fields</h4>
+   <ul><li>Build £/sqft, finance rate (7-8%), contingency (5%)</li>
+   <li>Programme months (typically 24-48)</li>
+   <li>Exit yield (5% max for institutional)</li></ul>
+   <h4>Key metrics</h4>
+   <span class="key-metric">Margin on GDV ≥ 17.5%</span> standard hurdle
+   <span class="key-metric">Return on Cost &gt; 20%</span> healthy
+   <h4>Bear/Base/Bull</h4> Always check the bear case — if it shows &lt; 10% margin, scheme is fragile.`,
+   connectsTo:["exit-flow","stage-viability"]},
+
+  {id:"stage-viability", x:1380, y:700, type:"stage", icon:"📐", title:"Detailed Appraisal", sub:"Institutional residual",
+   detail:`<h4>Purpose</h4> Institutional-grade RICS-format residual.
+   <h4>Use when</h4>
+   <ul><li>Pitching to lenders</li>
+   <li>Investor memorandum production</li>
+   <li>Section 106 viability challenge</li></ul>
+   <h4>Output</h4> 8-page formal appraisal with all assumptions, sensitivities, and conclusions.`,
+   connectsTo:["exit-flow","stage-im"]},
+
+  {id:"stage-dd", x:1380, y:880, type:"stage", icon:"◈", title:"Due Diligence", sub:"Pre-acquisition checklist",
+   detail:`<h4>Purpose</h4> Track DD items before completion.
+   <h4>Standard list</h4>
+   <ul><li>Phase 1 + Phase 2 contamination</li>
+   <li>Ecology survey + BNG baseline</li>
+   <li>Title check (ransom strips, overage, restrictions)</li>
+   <li>Utilities capacity</li>
+   <li>Highways access</li>
+   <li>Pre-app planning meeting</li></ul>
+   <h4>Risk Register</h4> Each open DD item should appear here with a £ value of risk.`,
+   connectsTo:["stage-risks"]},
+
+  {id:"stage-risks", x:1380, y:1060, type:"stage", icon:"⬡", title:"Risk Register", sub:"Quantified risk log",
+   detail:`<h4>Purpose</h4> Quantify every known risk in £.
+   <h4>Default risks</h4>
+   <ul><li>Planning refusal / appeal</li>
+   <li>Build cost inflation</li>
+   <li>Sales market softening</li>
+   <li>Contamination remediation</li>
+   <li>S106 negotiations</li></ul>
+   <h4>Treatment</h4> Mitigate, transfer (insurance), accept, or avoid (walk away).`,
+   connectsTo:["exit-flow"]},
+
+  {id:"stage-capitalise", x:1380, y:140, type:"stage", icon:"£", title:"Capitalisation", sub:"NOI → capital value",
+   detail:`<h4>Purpose</h4> Income approach valuation + forward funding stack.
+   <h4>Use for</h4>
+   <ul><li>Selling BTR/PBSA to institutions</li>
+   <li>SFH portfolio sale (single-family BTR)</li>
+   <li>Refinance onto investment debt</li></ul>
+   <h4>Forward funding stack</h4>
+   <ol><li>Net rent ÷ buyer yield = capital value</li>
+   <li>− build cost − fees − finance − profit</li>
+   <li>= residual land value</li></ol>
+   <h4>Buyer types compared</h4> 4 buyers (pension 4.2% → private 5.0%) shown side by side with verdict.`,
+   connectsTo:["exit-pension","exit-sovereign","exit-btr_op","exit-family","exit-bank"]},
+
+  // ─── 5 · EXIT ROUTE HUB ─────────────────────────────────────────────
+  {id:"exit-flow", x:1780, y:80, type:"exit", icon:"🚪", title:"Exit Route Selection", sub:"Pick your buyer",
+   detail:`<h4>Exit choices</h4>
+   <ul><li>Sell completed asset to institution (BTR, PBSA, SFH-as-rented portfolio)</li>
+   <li>Sell into open market (housebuilder retail)</li>
+   <li>Bulk sale to Housing Association / Homes England</li>
+   <li>Refinance and hold</li>
+   <li>Sell land WITH planning (you never built it)</li></ul>
+   <h4>Decision driver</h4> Each exit demands different yields and different IM packaging.`,
+   connectsTo:["exit-pension","exit-sovereign","exit-btr_op","exit-family","exit-ha_rp","exit-homes_eng","exit-open_mkt","exit-bank","exit-land_sale"]},
+
+  // ─── 5b · EXIT ROUTE DETAILS (column 5) ─────────────────────────────
+  {id:"exit-pension", x:1780, y:240, type:"exit", icon:"💼", title:"Pension Fund", sub:"Long-term hold institutional",
+   detail:`<h4>Buyer profile</h4>
+   <ul><li>Domestic UK pension scheme (LGPS, USS, RPMI etc)</li>
+   <li>Buys for 10-25 year hold</li>
+   <li>Wants AAA-rated assets, long lease covenants</li></ul>
+   <h4>Yield expectations</h4>
+   <span class="key-metric">4.0–4.5%</span> prime BTR/PBSA
+   <span class="key-metric">4.5%</span> SFH portfolio
+   <h4>Required pack</h4> Investor Memorandum + Teaser PDF + 30-yr cashflow + ESG report`,
+   connectsTo:["report-im","report-teaser","report-summary"]},
+
+  {id:"exit-sovereign", x:1780, y:400, type:"exit", icon:"🌐", title:"Sovereign WF", sub:"State-backed mega-fund",
+   detail:`<h4>Buyer profile</h4>
+   <ul><li>QIA (Qatar), GIC (Singapore), ADIA (UAE), CIC (China)</li>
+   <li>Minimum cheque size £50-100m</li>
+   <li>Will go down-yield for trophy assets</li></ul>
+   <h4>Yield expectations</h4>
+   <span class="key-metric">3.8–4.5%</span> prime London / RG cities
+   <h4>Required pack</h4> Full IM + sustainability credentials + UK politicial risk note`,
+   connectsTo:["report-im","report-teaser","report-summary"]},
+
+  {id:"exit-btr_op", x:1780, y:560, type:"exit", icon:"🏢", title:"BTR Operator", sub:"Grainger / Packaged / L&G",
+   detail:`<h4>Buyer profile</h4>
+   <ul><li>Grainger, Packaged Living, L&G Affordable, Quintain</li>
+   <li>Operating expertise, will take on mgmt</li>
+   <li>Often forward fund — pay during build</li></ul>
+   <h4>Yield expectations</h4>
+   <span class="key-metric">4.5–4.75%</span> stabilised
+   <span class="key-metric">+25-50bps</span> for forward fund risk
+   <h4>Critical</h4> They will scrutinise operating model — get the rents and OpEx right.`,
+   connectsTo:["report-im","report-summary"]},
+
+  {id:"exit-family", x:1780, y:720, type:"exit", icon:"👑", title:"Family Office", sub:"HNW private capital",
+   detail:`<h4>Buyer profile</h4>
+   <ul><li>Single-family or multi-family office</li>
+   <li>£5-50m typical ticket</li>
+   <li>More flexible than institutions, less yield-disciplined</li></ul>
+   <h4>Yield expectations</h4>
+   <span class="key-metric">4.5–5.0%</span>
+   <h4>Why it works</h4> Often want a 'story' (heritage, ESG, local impact) more than maximum yield.`,
+   connectsTo:["report-im","report-teaser"]},
+
+  {id:"exit-ha_rp", x:1780, y:880, type:"exit", icon:"🏛", title:"HA / RP Bulk Sale", sub:"Housing Association",
+   detail:`<h4>Buyer profile</h4>
+   <ul><li>Registered Provider (Clarion, Sanctuary, L&Q, Places for People)</li>
+   <li>Buys at discount — open market value minus 20-30%</li>
+   <li>Section 106 obligation often forces this</li></ul>
+   <h4>Pricing</h4>
+   <ul><li>Affordable Rent: 60-70% of open market value</li>
+   <li>Shared Ownership: 50-65% of OMV</li>
+   <li>Social Rent: 35-45% of OMV</li></ul>
+   <h4>Critical</h4> Get the Section 106 viability assessment right — over-providing affordable kills the deal.`,
+   connectsTo:["report-grants","report-summary"]},
+
+  {id:"exit-homes_eng", x:1780, y:1040, type:"exit", icon:"🇬🇧", title:"Homes England", sub:"Government agency buyer",
+   detail:`<h4>Buyer profile</h4>
+   <ul><li>Government's housing delivery body</li>
+   <li>Affordable Homes Programme £11.5bn (2021-26, extended)</li>
+   <li>Will fund grant + buy on completion</li></ul>
+   <h4>Grants available</h4>
+   <ul><li>Affordable Homes Programme</li>
+   <li>Help to Build (SME developers)</li>
+   <li>Brownfield Land Release Fund</li>
+   <li>Levelling Up Home Building Fund</li></ul>
+   <h4>Apply via</h4> Stage: <strong>Grants & Funding</strong>`,
+   connectsTo:["report-grants","report-im"]},
+
+  {id:"exit-open_mkt", x:1780, y:1200, type:"exit", icon:"🏠", title:"Open Market Sale", sub:"Housebuilder retail",
+   detail:`<h4>Buyer profile</h4>
+   <ul><li>Individual home-buyers, retail</li>
+   <li>Or sale to PLC housebuilder (Persimmon, Barratt, Taylor Wimpey, Bellway)</li></ul>
+   <h4>Sales velocity</h4>
+   <span class="key-metric">0.5–1.0 plots/wk</span> typical for SFH
+   <h4>Marketing requirement</h4>
+   <ul><li>Show home (allow £150-300k)</li>
+   <li>Marketing suite</li>
+   <li>Agent fee 1-1.5%</li>
+   <li>Help to Buy / shared equity scheme</li></ul>`,
+   connectsTo:["report-summary"]},
+
+  {id:"exit-bank", x:1780, y:1360, type:"exit", icon:"🏦", title:"Bank Take-out", sub:"Hold + refinance",
+   detail:`<h4>What this is</h4>
+   <ul><li>Developer keeps the asset</li>
+   <li>Refinance construction debt onto investment debt</li>
+   <li>Income from rents pays the new debt</li></ul>
+   <h4>LTV expectations</h4>
+   <span class="key-metric">55-65% LTV</span> on stabilised NOI
+   <h4>Lenders</h4> Aviva, Cheyne, Pension Insurance Corp, M&G, Legal & General</li></ul>
+   <h4>Use case</h4> Excellent for developers building portfolio rather than trading.`,
+   connectsTo:["report-summary"]},
+
+  {id:"exit-land_sale", x:1780, y:1520, type:"exit", icon:"📜", title:"Sell Land + Planning", sub:"Strategic land exit",
+   detail:`<h4>What this is</h4>
+   <ul><li>Land with full or outline planning permission</li>
+   <li>Sold to a housebuilder/developer who'll build it out</li>
+   <li>You never build anything yourself</li></ul>
+   <h4>Buyers</h4>
+   <ul><li>National PLCs: Persimmon, Barratt, TW, Bellway, Vistry</li>
+   <li>Regional housebuilders</li>
+   <li>SME developers</li></ul>
+   <h4>Pricing</h4> Use Capitalisation forward-funding stack — but exit at residual land value, not capital value.`,
+   connectsTo:["report-teaser","report-summary"]},
+
+  // ─── 6 · REPORT STAGES (column 6) ───────────────────────────────────
+  {id:"report-im", x:2180, y:240, type:"stage", icon:"📑", title:"Investor Memorandum", sub:"Full investment pack",
+   detail:`<h4>What it produces</h4>
+   <ul><li>20-40 page institutional-grade IM</li>
+   <li>Executive summary, market analysis, scheme description, financial model summary, ESG, exit strategy</li></ul>
+   <h4>Use for</h4> Pension fund / SWF / family office pitches.`,
+   connectsTo:["endpoint-deal"]},
+
+  {id:"report-teaser", x:2180, y:400, type:"stage", icon:"📬", title:"Teaser PDF", sub:"1-page summary",
+   detail:`<h4>What it produces</h4> 1-2 page anonymous-by-default teaser.
+   <h4>Use for</h4> First-touch with buyers, broker mailshots, initial gauge of interest before full IM.`,
+   connectsTo:["endpoint-deal"]},
+
+  {id:"report-grants", x:2180, y:560, type:"stage", icon:"💷", title:"Grants & Funding", sub:"AHP / Homes England",
+   detail:`<h4>What it produces</h4> Application templates for:
+   <ul><li>Affordable Homes Programme</li>
+   <li>Brownfield Land Release Fund</li>
+   <li>Help to Build</li>
+   <li>Local Authority grant streams</li></ul>`,
+   connectsTo:["endpoint-deal"]},
+
+  {id:"report-summary", x:2180, y:720, type:"stage", icon:"📄", title:"Executive Summary", sub:"Internal briefing",
+   detail:`<h4>What it produces</h4>
+   <ul><li>3-page internal briefing for board / investment committee</li>
+   <li>Includes all key metrics, risks, go/no-go recommendation</li></ul>`,
+   connectsTo:["endpoint-deal"]},
+
+  {id:"report-scorecard", x:2180, y:880, type:"stage", icon:"🏆", title:"Site Scorecard", sub:"100-point grade",
+   detail:`<h4>What it produces</h4> One-page A4 graphical scorecard.
+   <h4>Output</h4>
+   <ul><li>Overall site score 0-100</li>
+   <li>Sub-scores: location, planning, ground, market</li>
+   <li>Category A/B/C/D</li></ul>
+   <h4>Use for</h4> Quick share with prospective JV partners.`,
+   connectsTo:["endpoint-deal"]},
+
+  // ─── 7 · ENDPOINT ──────────────────────────────────────────────────
+  {id:"endpoint-deal", x:2580, y:480, type:"endpoint", icon:"🎯", title:"Deal Executed", sub:"Acquired · Promoted · Sold",
+   detail:`<h4>You've reached the endpoint</h4>
+   <ul><li>Land acquired or under option/promotion</li>
+   <li>Planning secured (if applicable)</li>
+   <li>Buyer identified and pack delivered</li>
+   <li>Deal closed</li></ul>
+   <h4>Next</h4>
+   <ul><li>Move to Dashboard for monitoring</li>
+   <li>Start next deal — back to top of tree</li>
+   <li>Or work on portfolio-level optimisation</li></ul>`,
+   connectsTo:[]},
+
+  // ─── PARALLEL: Recovery branch ──────────────────────────────────────
+  {id:"stage-recovery", x:680, y:920, type:"stage", icon:"⚖", title:"Planning Recovery", sub:"Stalled scheme tools",
+   detail:`<h4>Tools provided</h4>
+   <ul><li>Pre-App Meeting Request letter</li>
+   <li>Grounds of Appeal template</li>
+   <li>Ward Councillor engagement letter</li>
+   <li>Viability Challenge letter</li>
+   <li>Community Consultation letter</li>
+   <li>5YHLS Challenge letter</li></ul>
+   <h4>Strategy</h4>
+   <ol><li>Identify why scheme failed</li>
+   <li>Pick recovery route: appeal, re-design, or pre-app rescue</li>
+   <li>Generate letters from the toolkit</li></ol>`,
+   connectsTo:["stage-planning","stage-fin"]},
+];
+
+// ═══════════════════════════════════════════════════════════════════════
+// RENDERING
+// ═══════════════════════════════════════════════════════════════════════
+const canvas = document.getElementById('canvas');
+const edges = document.getElementById('edges');
+
+// Sort nodes so endpoints render last (always on top)
+NODES.sort((a,b) => {
+  const order = {start:1, scheme:2, stage:3, decision:4, exit:5, endpoint:6};
+  return (order[a.type]||0) - (order[b.type]||0);
+});
+
+// Render nodes
+NODES.forEach(n => {
+  const el = document.createElement('div');
+  el.className = 'node ' + n.type;
+  el.id = 'node-' + n.id;
+  el.style.left = n.x + 'px';
+  el.style.top = n.y + 'px';
+  el.innerHTML = `
+    <div class="node-header">
+      <span class="node-icon">${n.icon}</span>
+      <div>
+        <div class="node-title">${n.title}</div>
+        <div class="node-sub">${n.sub}</div>
+      </div>
+    </div>
+    <div class="node-detail">${n.detail}</div>
+  `;
+  el.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    document.querySelectorAll('.node.expanded').forEach(o => {
+      if (o !== el) o.classList.remove('expanded');
+    });
+    el.classList.toggle('expanded');
+  });
+  canvas.appendChild(el);
+});
+
+// Render edges
+function drawEdges() {
+  edges.innerHTML = '';
+  NODES.forEach(n => {
+    if (!n.connectsTo || !n.connectsTo.length) return;
+    const fromEl = document.getElementById('node-' + n.id);
+    if (!fromEl) return;
+    const fromRect = {x: n.x + fromEl.offsetWidth, y: n.y + 30};
+    n.connectsTo.forEach(toId => {
+      const target = NODES.find(x => x.id === toId);
+      if (!target) return;
+      const toRect = {x: target.x, y: target.y + 30};
+      // Curved bezier
+      const dx = (toRect.x - fromRect.x) * 0.5;
+      const path = `M ${fromRect.x} ${fromRect.y} C ${fromRect.x + dx} ${fromRect.y}, ${toRect.x - dx} ${toRect.y}, ${toRect.x} ${toRect.y}`;
+      const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      p.setAttribute('d', path);
+      let cls = 'edge';
+      if (n.type === 'decision') cls += ' decision';
+      if (n.id === 'start' || n.id === 'stage-rlv') cls += ' required';
+      p.setAttribute('class', cls);
+      edges.appendChild(p);
+    });
+  });
+}
+drawEdges();
+
+// Close any expanded node when clicking blank canvas
+document.getElementById('canvasWrap').addEventListener('click', () => {
+  document.querySelectorAll('.node.expanded').forEach(o => o.classList.remove('expanded'));
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// ZOOM CONTROLS
+// ═══════════════════════════════════════════════════════════════════════
+let zoom = 1;
+function applyZoom() {
+  canvas.style.transform = `scale(${zoom})`;
+  document.getElementById('zoomLabel').textContent = Math.round(zoom * 100) + '%';
+}
+function zoomIn() { zoom = Math.min(1.5, zoom + 0.1); applyZoom(); }
+function zoomOut() { zoom = Math.max(0.4, zoom - 0.1); applyZoom(); }
+function resetZoom() { zoom = 1; applyZoom(); }
+function collapseAll() { document.querySelectorAll('.node.expanded').forEach(o => o.classList.remove('expanded')); }
+function expandAll() { document.querySelectorAll('.node').forEach(o => o.classList.add('expanded')); }
+window.zoomIn = zoomIn; window.zoomOut = zoomOut; window.resetZoom = resetZoom;
+window.collapseAll = collapseAll; window.expandAll = expandAll;
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === '+' || ev.key === '=') zoomIn();
+  if (ev.key === '-' || ev.key === '_') zoomOut();
+  if (ev.key === '0') resetZoom();
+  if (ev.key === 'Escape') collapseAll();
+});
+</script>
+</body>
+</html>
