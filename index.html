@@ -74,8 +74,8 @@
   }
   /* Selects: tighter padding so values aren't clipped on narrow screens */
   select{
-    font-size:14px!important;
-    padding:8px 28px 8px 10px!important;
+    font-size:13px!important;
+    padding:7px 26px 7px 8px!important;
     border-radius:6px!important;
     width:100%!important;
     box-sizing:border-box!important;
@@ -84,8 +84,9 @@
     appearance:none;
     background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path fill='%237278A0' d='M6 8L0 0h12z'/></svg>");
     background-repeat:no-repeat;
-    background-position:right 10px center;
-    background-size:10px 7px;
+    background-position:right 8px center;
+    background-size:9px 6px;
+    text-overflow:ellipsis;
   }
   /* Don't stretch checkboxes / radios */
   input[type="checkbox"],input[type="radio"]{
@@ -107,10 +108,14 @@
 
   /* ── GRIDS — collapse to 1 col by default, with class-based exceptions ── */
   div[style*="grid-template-columns:1fr 1fr"],
+  div[style*="grid-template-columns: 1fr 1fr"],
   div[style*="grid-template-columns:1fr 1fr 1fr"],
+  div[style*="grid-template-columns: 1fr 1fr 1fr"],
   div[style*="gridTemplateColumns:1fr 1fr"],
   div[style*="repeat(3,1fr)"],
-  div[style*="repeat(4,1fr)"]{
+  div[style*="repeat(3, 1fr)"],
+  div[style*="repeat(4,1fr)"],
+  div[style*="repeat(4, 1fr)"]{
     grid-template-columns:1fr!important;
   }
   /* EXCEPTIONS — these keep multi-column on mobile: */
@@ -6831,7 +6836,7 @@ var JOURNEYS = {
             })
           ),
           selected.length>0&&e("div",{style:{marginTop:10,fontSize:11,color:"#4A4BAE",fontWeight:600}},
-            selected.length+" counti"+(selected.length===1?"y":"es")+" selected: "+selectedLabels.join(", ")
+            selected.length+" "+(selected.length===1?"county":"counties")+" selected: "+selectedLabels.join(", ")
           )
         ),
 
@@ -6839,7 +6844,7 @@ var JOURNEYS = {
         e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}},
           e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"14px 16px"}},
             e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".08em",marginBottom:10}},"Search Settings"),
-            e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
+            e("div",{className:"lf-grid2",style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
               e("div",null,
                 e("label",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",display:"block",marginBottom:3}},"Minimum homes"),
                 e("select",{value:minHomes,onChange:function(ev){up("placona","minHomes",Number(ev.target.value));},
