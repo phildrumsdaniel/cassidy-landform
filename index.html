@@ -52,42 +52,47 @@
   /* ── MAIN AREA ── */
   .lf-main{margin-left:0!important;width:100%!important;max-width:100vw!important;overflow-x:hidden!important;}
 
-  /* ── TOPBAR — the ONLY horizontal scroll container ──
-     Reviewer's clean spec: every child flex:0 0 auto, touch-action:pan-x.
-     No mask-image (interferes with touch on some mobile browsers).
-     No double rules — single source of truth. */
+  /* ── TOPBAR — TWO ZONES: fixed left + scrollable right ──
+     Reviewer's spec: only the actions area scrolls horizontally.
+     Hamburger/title/version stay locked in place on the left. */
   .lf-topbar{
     width:100vw!important;
     max-width:100vw!important;
+    overflow:hidden!important;
+    display:flex!important;
+    flex-wrap:nowrap!important;
+    gap:8px!important;
+    padding:8px 10px!important;
+  }
+  .lf-topbar-left{
+    flex:0 0 auto!important;
+    display:flex!important;
+    align-items:center!important;
+    gap:8px!important;
+    min-width:0!important;
+  }
+  .lf-topbar-actions{
+    flex:1 1 auto!important;
     min-width:0!important;
     overflow-x:auto!important;
     overflow-y:hidden!important;
     display:flex!important;
-    flex-wrap:nowrap!important;
-    justify-content:flex-start!important;
     align-items:center!important;
     gap:8px!important;
-    padding:8px 12px!important;
+    flex-wrap:nowrap!important;
     -webkit-overflow-scrolling:touch!important;
-    touch-action:pan-x!important;
     scrollbar-width:none!important;
-    -ms-overflow-style:none!important;
-    mask-image:none!important;
-    -webkit-mask-image:none!important;
+    touch-action:pan-x!important;
   }
-  .lf-topbar::-webkit-scrollbar{display:none!important;}
-  .lf-topbar > *{
-    flex:0 0 auto!important;
-    max-width:none!important;
-  }
-  .lf-topbar button,
-  .lf-topbar label{
+  .lf-topbar-actions::-webkit-scrollbar{display:none!important;}
+  .lf-topbar-actions > *{
     flex:0 0 auto!important;
     white-space:nowrap!important;
-    min-width:40px!important;
   }
-  .lf-topbar > div{
-    flex:0 0 auto!important;
+  .lf-stage-mobile-title{
+    max-width:105px!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
     white-space:nowrap!important;
   }
   .lf-hamburger{display:flex!important;align-items:center!important;flex-shrink:0!important;}
@@ -11290,72 +11295,71 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
       )
     ),
     e("main",{style:{marginLeft:isMobile?0:240,flex:1,display:"flex",flexDirection:"column",minHeight:"100vh",transition:"margin .25s ease",minWidth:0}},
-      // Topbar — own scroll container, mobile-friendly horizontal scroll
-      // CSS class .lf-topbar handles the mobile scrolling rules (see <style> block)
-      e("div",{className:"lf-topbar",style:Object.assign({
+      // Topbar — TWO ZONES per reviewer spec
+      //   .lf-topbar-left:    hamburger + title + version (fixed in place)
+      //   .lf-topbar-actions: all action buttons (horizontally scrollable on mobile)
+      e("div",{className:"lf-topbar",style:{
         height:58,background:"#fff",borderBottom:"1px solid #DDE0ED",
         display:"flex",alignItems:"center",gap:10,
         position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 3px rgba(46,47,138,0.08)",
         padding:"0 16px"
-      },isMobile?{
-        // Mobile inline styles handed off to CSS class .lf-topbar — kept minimal here
-        overflowX:"auto",
-        overflowY:"hidden",
-        WebkitOverflowScrolling:"touch",
-        flexWrap:"nowrap",
-        whiteSpace:"nowrap"
-      }:{})},
-        isMobile&&e("button",{
-          onClick:function(){setMobileMenuOpen(function(o){return !o;});},
-          style:{display:"flex",flexDirection:"column",justifyContent:"center",gap:5,padding:"8px 10px",background:"#F0F1FA",border:"1px solid #DDE0ED",borderRadius:7,cursor:"pointer",flexShrink:0,width:40,height:40,marginRight:6}
-        },
-          e("span",{style:{width:18,height:2,background:"#2E2F8A",display:"block",borderRadius:2}}),
-          e("span",{style:{width:18,height:2,background:"#2E2F8A",display:"block",borderRadius:2}}),
-          e("span",{style:{width:18,height:2,background:"#2E2F8A",display:"block",borderRadius:2}})
+      }},
+        // ── LEFT ZONE — locked in place ─────────────────────────────────────
+        e("div",{className:"lf-topbar-left"},
+          isMobile&&e("button",{
+            onClick:function(){setMobileMenuOpen(function(o){return !o;});},
+            style:{display:"flex",flexDirection:"column",justifyContent:"center",gap:5,padding:"8px 10px",background:"#F0F1FA",border:"1px solid #DDE0ED",borderRadius:7,cursor:"pointer",flexShrink:0,width:40,height:40}
+          },
+            e("span",{style:{width:18,height:2,background:"#2E2F8A",display:"block",borderRadius:2}}),
+            e("span",{style:{width:18,height:2,background:"#2E2F8A",display:"block",borderRadius:2}}),
+            e("span",{style:{width:18,height:2,background:"#2E2F8A",display:"block",borderRadius:2}})
+          ),
+          e("div",{className:"lf-stage-mobile-title",style:{fontSize:isMobile?14:15,fontWeight:700,color:"#2E2F8A",whiteSpace:"nowrap"}},curStage.label),
+          e("div",{title:"Build v7.9",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v7.9"),
+          !isMobile&&e("div",{style:{fontSize:11,color:"#7278A0",marginLeft:6}},at.toUpperCase()+" · "+cityName(city))
         ),
-        e("div",{style:Object.assign({fontSize:isMobile?14:15,fontWeight:700,color:"#2E2F8A",whiteSpace:"nowrap"},isMobile?{flexShrink:0}:{flex:1})},curStage.label),
-        e("div",{title:"Build v7.8",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v7.8"),
-        !isMobile&&e("div",{style:{fontSize:11,color:"#7278A0",marginRight:8}},at.toUpperCase()+" · "+cityName(city)),
-        // Always visible - critical actions
-        e("label",{
-          title:"Upload Relevant Files — Excel, CSV, PDF or text files are analysed and extracted into your deal",
-          style:{padding:isMobile?"8px 10px":"6px 14px",background:"#F0F1FA",border:"1px solid #DDE0ED",color:"#2E2F8A",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,display:"inline-flex",alignItems:"center",gap:5,flexShrink:0}
-        },
-          isMobile?"📎":"📎 Upload Files",
-          e("input",{type:"file",accept:".xlsx,.xls,.csv,.txt,.pdf,.doc,.docx,.json",multiple:true,onChange:function(ev){handleFileUpload(ev);},style:{display:"none"}})
-        ),
-        e("button",{
-          onClick:doMasterAnalyse,
-          disabled:data.masterLoading,
-          title:"Analyse Deal — populate all stages with AI",
-          style:{padding:isMobile?"8px 10px":"6px 14px",background:data.masterLoading?"#8889C8":"linear-gradient(135deg,#2D7A65,#4A4BAE)",border:"none",color:"#fff",borderRadius:5,fontSize:isMobile?16:11,fontWeight:800,cursor:data.masterLoading?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(74,75,174,0.3)",minHeight:36,flexShrink:0}},
-          data.masterLoading?"⏳":(isMobile?"🧠":"🧠 Analyse Deal")
-        ),
-        // Mobile + Desktop: all secondary buttons — on mobile, scroll horizontally to reach them
-        e("button",{key:"flow",onClick:function(){window.open("https://phildrumsdaniel.github.io/cassidy-landform/flowcharts.html","cassidy-flowcharts");},title:"Flowcharts",
-          style:{padding:isMobile?"8px 10px":"6px 12px",background:"#4A4BAE",border:"1px solid #4A4BAE",color:"#fff",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
-          isMobile?"🗺":"🗺 Flowcharts ↗"
-        ),
-        e("button",{key:"hist",onClick:function(){setShowHist(function(s){return !s;});},title:"History",
-          style:{padding:isMobile?"8px 10px":"6px 12px",background:showHist?"#4A4BAE":"#F7F8FC",border:"1px solid "+(showHist?"#4A4BAE":"#DDE0ED"),color:showHist?"#fff":"#3A3D6A",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
-          isMobile?("📋"+(history.length>0?" "+history.length:"")):"📋 History"+(history.length>0?" ("+history.length+")":"")
-        ),
-        e("button",{key:"atlas",
-          onClick:function(){window.open("flowchart.html","landform_atlas","width=1600,height=1000,scrollbars=yes,resizable=yes");},
-          title:"Open Workflow Atlas on a second screen",
-          style:{padding:isMobile?"8px 10px":"6px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#2D7A65",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}
-        },isMobile?"🗺":"🗺 Atlas"),
-        e("button",{key:"rep",onClick:generateReport,title:"Print / PDF Report",
-          style:{padding:isMobile?"8px 10px":"6px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#B05A35",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
-          isMobile?"🖨":"🖨 Report"
-        ),
-        e("button",{key:"save",onClick:saveDeal,title:"Save Deal",
-          style:{padding:isMobile?"8px 10px":"6px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#3A3D6A",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
-          isMobile?"💾":"💾 Save Deal"
-        ),
-        e("button",{key:"new",onClick:clearDeal,title:"New Deal — clears current data",
-          style:{padding:isMobile?"8px 10px":"6px 12px",background:"#FFF5F0",border:"1px solid #E8C4B0",color:"#B05A35",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
-          isMobile?"✕":"✕ New Deal"
+
+        // ── ACTIONS ZONE — horizontally scrollable on mobile ────────────────
+        e("div",{className:"lf-topbar-actions"},
+          e("label",{
+            title:"Upload Relevant Files — Excel, CSV, PDF or text files are analysed and extracted into your deal",
+            style:{padding:isMobile?"8px 10px":"6px 14px",background:"#F0F1FA",border:"1px solid #DDE0ED",color:"#2E2F8A",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,display:"inline-flex",alignItems:"center",gap:5,flexShrink:0}
+          },
+            isMobile?"📎":"📎 Upload Files",
+            e("input",{type:"file",accept:".xlsx,.xls,.csv,.txt,.pdf,.doc,.docx,.json",multiple:true,onChange:function(ev){handleFileUpload(ev);},style:{display:"none"}})
+          ),
+          e("button",{
+            onClick:doMasterAnalyse,
+            disabled:data.masterLoading,
+            title:"Analyse Deal — populate all stages with AI",
+            style:{padding:isMobile?"8px 10px":"6px 14px",background:data.masterLoading?"#8889C8":"linear-gradient(135deg,#2D7A65,#4A4BAE)",border:"none",color:"#fff",borderRadius:5,fontSize:isMobile?16:11,fontWeight:800,cursor:data.masterLoading?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(74,75,174,0.3)",minHeight:36,flexShrink:0}},
+            data.masterLoading?"⏳":(isMobile?"🧠":"🧠 Analyse Deal")
+          ),
+          e("button",{key:"flow",onClick:function(){window.open("https://phildrumsdaniel.github.io/cassidy-landform/flowcharts.html","cassidy-flowcharts");},title:"Flowcharts",
+            style:{padding:isMobile?"8px 10px":"6px 12px",background:"#4A4BAE",border:"1px solid #4A4BAE",color:"#fff",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
+            isMobile?"🗺":"🗺 Flowcharts ↗"
+          ),
+          e("button",{key:"hist",onClick:function(){setShowHist(function(s){return !s;});},title:"History",
+            style:{padding:isMobile?"8px 10px":"6px 12px",background:showHist?"#4A4BAE":"#F7F8FC",border:"1px solid "+(showHist?"#4A4BAE":"#DDE0ED"),color:showHist?"#fff":"#3A3D6A",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
+            isMobile?("📋"+(history.length>0?" "+history.length:"")):"📋 History"+(history.length>0?" ("+history.length+")":"")
+          ),
+          e("button",{key:"atlas",
+            onClick:function(){window.open("flowchart.html","landform_atlas","width=1600,height=1000,scrollbars=yes,resizable=yes");},
+            title:"Open Workflow Atlas on a second screen",
+            style:{padding:isMobile?"8px 10px":"6px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#2D7A65",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}
+          },isMobile?"🗺":"🗺 Atlas"),
+          e("button",{key:"rep",onClick:generateReport,title:"Print / PDF Report",
+            style:{padding:isMobile?"8px 10px":"6px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#B05A35",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
+            isMobile?"🖨":"🖨 Report"
+          ),
+          e("button",{key:"save",onClick:saveDeal,title:"Save Deal",
+            style:{padding:isMobile?"8px 10px":"6px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#3A3D6A",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
+            isMobile?"💾":"💾 Save Deal"
+          ),
+          e("button",{key:"new",onClick:clearDeal,title:"New Deal — clears current data",
+            style:{padding:isMobile?"8px 10px":"6px 12px",background:"#FFF5F0",border:"1px solid #E8C4B0",color:"#B05A35",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
+            isMobile?"✕":"✕ New Deal"
+          )
         )
       ),
       e("div",{style:{height:3,background:"#DDE0ED"}},
