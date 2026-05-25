@@ -1208,7 +1208,38 @@ function Tool(props){
   var fup=useState(false); var showFileUpload=fup[0]; var setShowFileUpload=fup[1];
   var fpr=useState(false); var fileProcessing=fpr[0]; var setFileProcessing=fpr[1];
   var frs=useState([]); var fileResults=frs[0]; var setFileResults=frs[1];
-  var isMobile=typeof window!=="undefined"&&window.innerWidth<=768;
+  // Reactive mobile detection — updates on resize/rotation
+  var isMobileS=useState(typeof window!=="undefined"&&window.innerWidth<=768);
+  var isMobile=isMobileS[0]; var setIsMobile=isMobileS[1];
+  React.useEffect(function(){
+    function check(){ setIsMobile(window.innerWidth<=768); }
+    window.addEventListener("resize",check);
+    window.addEventListener("orientationchange",check);
+    return function(){
+      window.removeEventListener("resize",check);
+      window.removeEventListener("orientationchange",check);
+    };
+  },[]);
+
+  // Auto-clear stale "running" / loading states on app start
+  // (these can be left true if a previous search was interrupted)
+  React.useEffect(function(){
+    var staleKeys=["placona","scraper","monitor","constraint"];
+    var needsReset=staleKeys.some(function(k){
+      return data[k]&&data[k].running===true;
+    });
+    if(needsReset){
+      setData(function(d){
+        var next=Object.assign({},d);
+        staleKeys.forEach(function(k){
+          if(next[k]&&next[k].running===true){
+            next[k]=Object.assign({},next[k],{running:false});
+          }
+        });
+        return next;
+      });
+    }
+  },[]);  // Run once on mount
   // Load custom cities from localStorage
   (function(){
     try{
@@ -6878,9 +6909,11 @@ var JOURNEYS = {
 
         // Run button + status
         e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"16px 20px",display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}},
-          e("button",{onClick:runPlacona,disabled:running||selected.length===0,
-            style:{padding:"13px 28px",background:running?"#8889C8":selected.length===0?"#C8CDE0":"linear-gradient(135deg,#2D7A65,#4A4BAE)",border:"none",borderRadius:8,color:"#fff",fontSize:14,fontWeight:800,cursor:(running||selected.length===0)?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",boxShadow:running||selected.length===0?"none":"0 4px 12px rgba(74,75,174,0.3)",whiteSpace:"nowrap"}
-          },running?"⏳ Searching...":selected.length===0?"Select counties first":"🤖 Run Placona"),
+          e("button",{onClick:running?function(){
+              if(window.confirm("Cancel current search?"))up("placona","running",false);
+            }:runPlacona,disabled:!running&&selected.length===0,
+            style:{padding:"13px 28px",background:running?"#B05A35":selected.length===0?"#C8CDE0":"linear-gradient(135deg,#2D7A65,#4A4BAE)",border:"none",borderRadius:8,color:"#fff",fontSize:14,fontWeight:800,cursor:(!running&&selected.length===0)?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",boxShadow:running||selected.length===0?"none":"0 4px 12px rgba(74,75,174,0.3)",whiteSpace:"nowrap"}
+          },running?"✕ Cancel search":selected.length===0?"Select counties first":"🤖 Run Placona"),
           e("div",{style:{flex:1}},
             running&&e("div",{style:{fontSize:11,color:"#4A4BAE",lineHeight:1.8}},
               "Searching "+selectedLabels.join(", ")+" for "+minHomes+"+ home sites.",e("br"),
