@@ -6865,14 +6865,26 @@ var JOURNEYS = {
       if(priceNum>0)     up("fin","landCost",priceNum);
 
       // ────────────────────────────────────────────────────────────────
-      // 7. CONSTRAINT CHECK
+      // 7. CONSTRAINT CHECK — uses constraintCheck object (not constraint)
       // ────────────────────────────────────────────────────────────────
+      if(pcClean)                            up("constraintCheck","postcode",pcClean);
+      if(fullAddr)                           up("constraintCheck","address",fullAddr);
+      if(ok(site.local_planning_authority))  up("constraintCheck","lpa",site.local_planning_authority);
+      if(ok(site.constraints_summary)){
+        up("constraintCheck","preNotes",site.constraints_summary);
+      }
+      // Also populate the legacy land.constraint field for the Land Appraisal dropdown
       if(ok(site.constraints_summary)){
         up("constraint","result",site.constraints_summary);
         up("constraint","constraints",site.constraints_summary);
       }
-      if(pcClean)                            up("constraint","postcode",pcClean);
-      if(ok(site.local_planning_authority))  up("constraint","lpa",site.local_planning_authority);
+
+      // ────────────────────────────────────────────────────────────────
+      // 7b. PLANNING MONITOR — uses planMonitor object
+      // ────────────────────────────────────────────────────────────────
+      if(pcClean)                            up("planMonitor","postcode",pcClean);
+      if(ok(site.local_planning_authority))  up("planMonitor","lpa",site.local_planning_authority);
+      if(ok(site.county))                    up("planMonitor","county",site.county);
 
       // ────────────────────────────────────────────────────────────────
       // 8. EXIT STRATEGY
@@ -7489,17 +7501,77 @@ var JOURNEYS = {
       });
       var groupOrder = ["1. Find","2. Value","3. Develop","4. Exit","5. Report","6. Records"];
 
-      // Helper — has this stage been "started"? (any data populated)
-      function stageDone(stageId){
+      // Helper — return stage status: "not_started" / "in_progress" / "completed"
+      // Each stage has its own "required fields" map — stage is completed
+      // only when ALL required fields are populated for that stage type
+      var STAGE_REQUIRED_FIELDS = {
+        placona:      ["selectedCounties"],  // Placona is "complete" if you've at least selected counties
+        monitor:      ["postcode","lpa"],
+        constraint:   ["constraints","result"],
+        scraper:      ["lastSearch"],
+        land:         ["address","postcode","acres","city","constraint","tenure"],
+        epe:          ["address","postcode","city","newPsf","salePsf"],
+        rlv:          ["postcode","acres","units","salePsf","buildPsf"],
+        sfh:          ["city","totalUnits","basePsf","avgSqft","mix"],
+        hra:          ["city","units","sPsf","oPsf","tPsf"],
+        capitalise:   ["targetYield","netAnnualIncome"],
+        planning:     ["units","lpa","status","s106pu","afhPct"],
+        fin:          ["units","buildPsf","feesPct","contingency","finRate","profitPct"],
+        viability:    ["gdv","totalCost","landCost","profit"],
+        dd:           ["title","planning","environmental","utilities"],
+        risks:        ["riskRegister"],
+        exit:         ["agent","units","targetYield","route"],
+        recovery:     ["status","appealReason"],
+        scorecard:    ["address","postcode","acres","units","askingPrice"],
+        teaser:       ["headline","investmentHighlights"],
+        im:           ["executiveSummary","investmentRationale"],
+        grants:       ["scheme","unitsAffordable"],
+        dataroom:     ["audience"],
+        summary:      [],  // summary is auto-generated, no required fields
+        meetings:     ["meetings"],
+        portfolio:    ["deals"],
+        dashboard:    []
+      };
+
+      function stageStatus(stageId){
         var d = data[stageId];
-        if(!d) return false;
-        // Heuristic: stage is "started" if any field in its data is non-empty
+        if(!d) return "not_started";
+
+        // Count how many fields are populated
+        var populatedCount = 0;
         for(var k in d){
-          if(d[k] && d[k]!=="" && d[k]!==0 && d[k]!==false){
-            return true;
-          }
+          var v = d[k];
+          if(v===null || v===undefined || v==="" || v===false) continue;
+          if(typeof v === "object" && Array.isArray(v) && v.length===0) continue;
+          if(typeof v === "object" && !Array.isArray(v) && Object.keys(v).length===0) continue;
+          if(v === 0) continue;  // numeric zero doesn't count
+          populatedCount++;
         }
-        return false;
+
+        if(populatedCount === 0) return "not_started";
+
+        // Check required fields — if all present, completed
+        var requiredFields = STAGE_REQUIRED_FIELDS[stageId] || [];
+        if(requiredFields.length === 0){
+          // No required fields defined — any data means "in progress"
+          return "in_progress";
+        }
+
+        var requiredPopulated = requiredFields.filter(function(f){
+          var v = d[f];
+          if(v===null || v===undefined || v==="" || v===false || v===0) return false;
+          if(typeof v === "object" && Array.isArray(v) && v.length===0) return false;
+          if(typeof v === "object" && !Array.isArray(v) && Object.keys(v).length===0) return false;
+          return true;
+        }).length;
+
+        if(requiredPopulated === requiredFields.length) return "completed";
+        return "in_progress";
+      }
+
+      // Backwards-compat helper (still used in some places below)
+      function stageDone(stageId){
+        return stageStatus(stageId) !== "not_started";
       }
 
       // Decision diamonds that appear at key checkpoints
@@ -7522,7 +7594,8 @@ var JOURNEYS = {
       };
 
       var totalStages = workflowStages.length;
-      var completedStages = workflowStages.filter(function(s){return stageDone(s.id);}).length;
+      var completedStages = workflowStages.filter(function(s){return stageStatus(s.id)==="completed";}).length;
+      var inProgressStages = workflowStages.filter(function(s){return stageStatus(s.id)==="in_progress";}).length;
       var completionPct = totalStages>0 ? Math.round(completedStages/totalStages*100) : 0;
 
       // Group colours (matches sidebar groups)
@@ -7566,15 +7639,32 @@ var JOURNEYS = {
 
         // Progress bar
         e("div",{style:{background:"linear-gradient(135deg,#1E1F5C 0%,#2E2F8A 100%)",color:"#fff",borderRadius:10,padding:"14px 18px",marginBottom:20}},
-          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}},
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:10}},
             e("div",null,
               e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:".12em",textTransform:"uppercase",fontWeight:700}},"Workflow Progress"),
-              e("div",{style:{fontSize:18,fontWeight:800}},completedStages+" of "+totalStages+" stages started")
+              e("div",{style:{fontSize:16,fontWeight:800,marginTop:2}},completedStages+" of "+totalStages+" stages completed")
             ),
             e("div",{style:{fontSize:24,fontWeight:800,color:"#EDE84A"}},completionPct+"%")
           ),
-          e("div",{style:{height:8,background:"rgba(255,255,255,0.1)",borderRadius:4,overflow:"hidden"}},
-            e("div",{style:{width:completionPct+"%",height:"100%",background:"linear-gradient(90deg,#EDE84A,#2D7A65)",borderRadius:4,transition:"width .4s"}})
+          // Multi-segment progress bar: green (completed) + amber (in-progress) + grey (not started)
+          e("div",{style:{height:8,background:"rgba(255,255,255,0.1)",borderRadius:4,overflow:"hidden",display:"flex"}},
+            completedStages>0 && e("div",{style:{width:(completedStages/totalStages*100)+"%",height:"100%",background:"#2D7A65"}}),
+            inProgressStages>0 && e("div",{style:{width:(inProgressStages/totalStages*100)+"%",height:"100%",background:"#9A7B3E"}})
+          ),
+          // Mini-legend
+          e("div",{style:{display:"flex",gap:14,marginTop:10,fontSize:9,color:"rgba(255,255,255,0.7)",letterSpacing:".05em"}},
+            e("div",{style:{display:"flex",alignItems:"center",gap:5}},
+              e("div",{style:{width:9,height:9,background:"#2D7A65",borderRadius:2}}),
+              e("span",null,completedStages+" Completed")
+            ),
+            e("div",{style:{display:"flex",alignItems:"center",gap:5}},
+              e("div",{style:{width:9,height:9,background:"#9A7B3E",borderRadius:2}}),
+              e("span",null,inProgressStages+" In Progress")
+            ),
+            e("div",{style:{display:"flex",alignItems:"center",gap:5}},
+              e("div",{style:{width:9,height:9,background:"rgba(255,255,255,0.2)",borderRadius:2}}),
+              e("span",null,(totalStages-completedStages-inProgressStages)+" Not Started")
+            )
           )
         ),
 
@@ -7593,15 +7683,24 @@ var JOURNEYS = {
             // Stage boxes
             grpStages.map(function(s,idx){
               stageCounter++;
-              var done = stageDone(s.id);
+              var status = stageStatus(s.id);
               var diamond = DIAMONDS[s.id];
+
+              // Visual config per status
+              var statusConfig = {
+                "not_started":  { bubbleColor: grpColor,    bubbleText: stageCounter,           borderColor: "#DDE0ED",  background: "#fff",                                                                          labelColor: "#7278A0",  labelText: "Click to open this stage →",         labelIcon: "" },
+                "in_progress":  { bubbleColor: "#9A7B3E",   bubbleText: stageCounter,           borderColor: "#9A7B3E",  background: "linear-gradient(135deg,rgba(154,123,62,0.05),rgba(237,232,74,0.05))",            labelColor: "#9A7B3E",  labelText: "In progress — click to continue",    labelIcon: "◐" },
+                "completed":    { bubbleColor: "#2D7A65",   bubbleText: "✓",                    borderColor: "#2D7A65",  background: "linear-gradient(135deg,rgba(45,122,101,0.08),rgba(74,75,174,0.05))",             labelColor: "#2D7A65",  labelText: "Completed — click to review",        labelIcon: "✓" }
+              };
+              var cfg = statusConfig[status];
+
               return e("div",{key:s.id},
                 // The stage box
                 e("div",{
                   onClick:function(){jumpToStage(s.id);},
                   style:{
-                    background:done?"linear-gradient(135deg,rgba(45,122,101,0.05),rgba(74,75,174,0.05))":"#fff",
-                    border:"2px solid "+(done?"#2D7A65":"#DDE0ED"),
+                    background: cfg.background,
+                    border:"2px solid "+cfg.borderColor,
                     borderLeft:"6px solid "+grpColor,
                     borderRadius:10,
                     padding:"14px 18px",
@@ -7609,21 +7708,26 @@ var JOURNEYS = {
                     transition:"all .15s",
                     display:"flex",
                     alignItems:"center",
-                    gap:14
+                    gap:14,
+                    position:"relative"
                   }
                 },
                   // Step number bubble
-                  e("div",{style:{width:36,height:36,borderRadius:"50%",background:done?"#2D7A65":grpColor,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:14,flexShrink:0}},
-                    done?"✓":stageCounter
+                  e("div",{style:{width:36,height:36,borderRadius:"50%",background:cfg.bubbleColor,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:14,flexShrink:0}},
+                    cfg.bubbleText
                   ),
                   // Stage icon
                   e("div",{style:{fontSize:24,flexShrink:0}},s.icon),
                   // Label + meta
                   e("div",{style:{flex:1,minWidth:0}},
                     e("div",{style:{fontSize:14,fontWeight:800,color:"#1E1F5C",marginBottom:2}},s.label),
-                    e("div",{style:{fontSize:10,color:done?"#2D7A65":"#7278A0",letterSpacing:".05em",fontWeight:600}},
-                      done?"✓ Started — click to continue":"Click to open this stage →"
+                    e("div",{style:{fontSize:10,color:cfg.labelColor,letterSpacing:".05em",fontWeight:600}},
+                      (cfg.labelIcon?cfg.labelIcon+" ":"")+cfg.labelText
                     )
+                  ),
+                  // Status pill (top-right)
+                  status!=="not_started" && e("div",{style:{position:"absolute",top:8,right:50,fontSize:8,fontWeight:800,letterSpacing:".1em",textTransform:"uppercase",padding:"3px 7px",background:status==="completed"?"rgba(45,122,101,0.12)":"rgba(154,123,62,0.12)",color:status==="completed"?"#2D7A65":"#9A7B3E",borderRadius:3}},
+                    status==="completed"?"✓ Stage Complete":"In Progress"
                   ),
                   // Arrow
                   e("div",{style:{fontSize:18,color:"#B5BAD6",flexShrink:0}},"→")
@@ -11832,7 +11936,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
             e("span",{style:{width:18,height:2,background:"#2E2F8A",display:"block",borderRadius:2}})
           ),
           e("div",{className:"lf-stage-mobile-title",style:{fontSize:isMobile?14:15,fontWeight:700,color:"#2E2F8A",whiteSpace:"nowrap"}},curStage.label),
-          e("div",{title:"Build v8.2",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v8.2"),
+          e("div",{title:"Build v8.3",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v8.3"),
           !isMobile&&e("div",{style:{fontSize:11,color:"#7278A0",marginLeft:6}},at.toUpperCase()+" · "+cityName(city))
         ),
 
