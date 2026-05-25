@@ -1511,8 +1511,23 @@ var JOURNEYS = {
   var margin = DM.marginPct !== 0 ? DM.marginPct : (gdv>0&&profit!==0?(profit/gdv)*100:0);
   var scM=margin>=15?"#2D7A65":"#B05A35";
 
+  // ── NAVIGATION INDEX — calc both full index (idx) and filtered index (filteredIdx)
+  // Next/Previous buttons use filteredIdx so they only walk through stages that
+  // are visible in the sidebar for the current scheme + exit combination.
   var idx=ALL_STAGES.findIndex(function(s){return s.id===stage;});
   var curStage=ALL_STAGES[idx]||ALL_STAGES[0];
+
+  // Build the same filtered list the sidebar uses
+  var navFilteredStages = (schemes.length===0&&exits.length===0) ? ALL_STAGES : ALL_STAGES.filter(function(s){
+    if(!s.journeys)return true;
+    for(var sj=0;sj<schemes.length;sj++){
+      if(s.journeys.indexOf(schemes[sj])>=0)return true;
+    }
+    if(exitUnlocksStage(s.id))return true;
+    if(s.journeys.length===1&&s.journeys[0]==="all")return true;
+    return false;
+  });
+  var filteredIdx = navFilteredStages.findIndex(function(s){return s.id===stage;});
 
   // Reusable "Live Market Data" banner — shown on any stage where PSF matters
   function LiveMarketBanner(){
@@ -5900,36 +5915,52 @@ var JOURNEYS = {
           );
         }),
 
-        e("div",{style:{display:"flex",gap:8,marginTop:10}},
+        e("div",{style:{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}},
           e("button",{
             onClick:function(){
-              var secs=["gs_site","gs_housing","gs_viability","gs_abnormal","gs_programme","gs_economic","gs_infra","gs_ask","gs_roi","gs_strategy"];
-              var prompts2={
-                gs_site:"Site summary for grant application. Site: "+addr+", "+cityName(cityVal)+", "+acres2+" acres, "+units2+" units, "+ahPct+"% affordable. Brownfield: "+isBrownfield+". LPA: "+lpa+". Public benefit and housing need. 120 words formal tone.",
-                gs_housing:"Housing outputs section. "+units2+" total, "+ahUnits+" affordable ("+ahPct+"%). GDV "+fmt(gdvVal)+". Housing need context and AHP criteria. 120 words.",
-                gs_viability:"Viability gap explanation. Margin "+Math.round(margin)+"%, target 18-20%, abnormals "+fmt(abnormalTotal)+", gap "+fmt(fundingGap)+". RICS Red Book residual method. 140 words.",
-                gs_abnormal:"Abnormal costs: enabling £"+num(g.enablingCost||0).toLocaleString()+", remediation £"+num(g.remediationCost||0).toLocaleString()+", drainage £"+num(g.drainageCost||0).toLocaleString()+", highways £"+num(g.highwayCost||0).toLocaleString()+". Total "+fmt(abnormalTotal)+". 120 words.",
-                gs_programme:"Delivery programme: "+units2+" units, "+(p.status||"unallocated")+" planning, "+(f.programmeMths||36)+" months build. Milestones and grant enabling earlier delivery. 120 words.",
-                gs_economic:"Economic benefits: construction jobs, council tax "+fmt(units2*1800)+"pa, local spend, supply chain. "+units2+" homes in "+cityName(cityVal)+". 120 words.",
-                gs_infra:"Infrastructure need: drainage "+fmt(num(g.drainageCost||0))+", highways "+fmt(num(g.highwayCost||0))+", utilities "+fmt(num(g.utilityCost||0))+". Why necessary. 120 words.",
-                gs_ask:"Funding ask: "+fmt(grantsClaimed||totalPotential)+" total. Breakdown and minimum necessary for viability. 120 words.",
-                gs_roi:"Return on public investment: "+units2+" homes, "+ahUnits+" affordable, council tax "+fmt(units2*1800)+"pa, cost per home "+fmt((grantsClaimed||totalPotential)/Math.max(units2,1))+". 120 words.",
-                gs_strategy:"Grant structuring strategy: enhance viability not replace it, layering sources, margin "+Math.round(margin)+"% to "+Math.round(grantedViabilityMargin)+"% with grants. 120 words."
-              };
-              secs.forEach(function(k,i){
-                setTimeout(function(){
+              try {
+                var secs=["gs_site","gs_housing","gs_viability","gs_abnormal","gs_programme","gs_economic","gs_infra","gs_ask","gs_roi","gs_strategy"];
+                var prompts2={
+                  gs_site:"Site summary for grant application. Site: "+addr+", "+cityName(cityVal)+", "+acres2+" acres, "+units2+" units, "+ahPct+"% affordable. Brownfield: "+isBrownfield+". LPA: "+lpa+". Public benefit and housing need. 120 words formal tone.",
+                  gs_housing:"Housing outputs section. "+units2+" total, "+ahUnits+" affordable ("+ahPct+"%). GDV "+fmt(gdvVal)+". Housing need context and AHP criteria. 120 words.",
+                  gs_viability:"Viability gap explanation. Margin "+Math.round(margin)+"%, target 18-20%, abnormals "+fmt(abnormalTotal)+", gap "+fmt(fundingGap)+". RICS Red Book residual method. 140 words.",
+                  gs_abnormal:"Abnormal costs: enabling £"+num(g.enablingCost||0).toLocaleString()+", remediation £"+num(g.remediationCost||0).toLocaleString()+", drainage £"+num(g.drainageCost||0).toLocaleString()+", highways £"+num(g.highwayCost||0).toLocaleString()+". Total "+fmt(abnormalTotal)+". 120 words.",
+                  gs_programme:"Delivery programme: "+units2+" units, "+(p.status||"unallocated")+" planning, "+(f.programmeMths||36)+" months build. Milestones and grant enabling earlier delivery. 120 words.",
+                  gs_economic:"Economic benefits: construction jobs, council tax "+fmt(units2*1800)+"pa, local spend, supply chain. "+units2+" homes in "+cityName(cityVal)+". 120 words.",
+                  gs_infra:"Infrastructure need: drainage "+fmt(num(g.drainageCost||0))+", highways "+fmt(num(g.highwayCost||0))+", utilities "+fmt(num(g.utilityCost||0))+". Why necessary. 120 words.",
+                  gs_ask:"Funding ask: "+fmt(grantsClaimed||totalPotential)+" total. Breakdown and minimum necessary for viability. 120 words.",
+                  gs_roi:"Return on public investment: "+units2+" homes, "+ahUnits+" affordable, council tax "+fmt(units2*1800)+"pa, cost per home "+fmt((grantsClaimed||totalPotential)/Math.max(units2,1))+". 120 words.",
+                  gs_strategy:"Grant structuring strategy: enhance viability not replace it, layering sources, margin "+Math.round(margin)+"% to "+Math.round(grantedViabilityMargin)+"% with grants. 120 words."
+                };
+                // Mark all 10 as loading immediately for visual feedback
+                secs.forEach(function(k,i){
                   up("grants","loading_grant_"+i,true);
-                  var params=new URLSearchParams({action:"ai",stage:"grants",
-                    user:(user&&user.name)||"",company:(user&&user.company)||"",
-                    system:"You are a senior UK development finance director writing a formal grant application. Be specific and professional.",
-                    prompt:prompts2[k]||k
-                  });
-                  fetch(WEBHOOK+"?"+params.toString())
-                  .then(function(r2){return r2.json();})
-                  .then(function(d){up("grants",k,d.result||"");up("grants","loading_grant_"+i,false);})
-                  .catch(function(){up("grants","loading_grant_"+i,false);});
-                },i*700);
-              });
+                });
+                // Stagger calls to avoid rate limits
+                secs.forEach(function(k,i){
+                  setTimeout(function(){
+                    var params=new URLSearchParams({action:"ai",stage:"grants",
+                      user:(user&&user.name)||"",company:(user&&user.company)||"",
+                      system:"You are a senior UK development finance director writing a formal grant application. Be specific and professional.",
+                      prompt:prompts2[k]||k
+                    });
+                    fetch(WEBHOOK+"?"+params.toString())
+                    .then(function(r2){return r2.json();})
+                    .then(function(d){
+                      up("grants",k,(d&&d.result)||"");
+                      up("grants","loading_grant_"+i,false);
+                    })
+                    .catch(function(err){
+                      console.error("Grant generation failed for "+k,err);
+                      up("grants","loading_grant_"+i,false);
+                      up("grants",k+"_error","Network error — try again");
+                    });
+                  },i*700);
+                });
+              } catch(err) {
+                console.error("Grant Strategy Pack generation error:",err);
+                alert("Grant Strategy Pack generation failed. Please ensure deal data is populated and try again.");
+              }
             },
             style:{padding:"10px 20px",background:"linear-gradient(135deg,#2D7A65,#4A4BAE)",border:"none",borderRadius:7,color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
           },"🧠 Generate Full Grant Strategy Pack"),
@@ -8889,7 +8920,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
                 r.includeAcqCosts?"RLV now reflects what you can actually pay the vendor after costs. Reduces headline by ~5-7%.":"Default RLV is the maximum land bid before acquisition costs. Toggle on to see net-to-vendor."
               )
             ),
-            r.includeAcqCosts&&num(l&&l.price)>0&&(function(){
+            r.includeAcqCosts&&num(data.land&&data.land.price)>0&&(function(){
               var DM2=calcDealMetrics(data);
               return e("div",{style:{textAlign:"right",fontSize:11}},
                 e("div",{style:{color:"#7278A0",fontSize:9,letterSpacing:".08em",textTransform:"uppercase"}},"Acquisition costs"),
@@ -8976,18 +9007,40 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
             var planSt=(data.planning&&data.planning.status)||"none";
             var units2=rUnits||num(data.planning&&data.planning.units)||50;
             var schType2=r.schType||"Residential houses";
+            var isApart=schType2.indexOf("apart")>=0||schType2.indexOf("BTR")>=0||schType2.indexOf("PBSA")>=0;
 
-            // Planning phase estimate
+            // Planning phase estimate (years)
             var planPhase=planSt==="full"?0:planSt==="outline"?0.5:planSt==="allocated"?1.0:1.5;
             // Reserved matters / discharge conditions
             var rmPhase=planSt==="full"?0:0.5;
             // Pre-commencement (roads, drainage, utilities)
             var preComm=0.5;
-            // Build phase: ~50 units/year for SFH, faster for apartments
-            var buildRate=schType2.indexOf("apart")>=0||schType2.indexOf("BTR")>=0||schType2.indexOf("PBSA")>=0?120:50;
-            var buildPhase=Math.max(0.5,units2/buildRate);
-            // Sales/handover (runs concurrent with last year of build for SFH)
-            var salesPhase=schType2.indexOf("apart")>=0||schType2.indexOf("BTR")>=0?0:Math.min(1,units2/100);
+
+            // ── BUILD RATE — scales with scheme size (real housebuilder programmes) ──
+            // SFH (houses): single trader builds ~50/yr, but larger schemes are PHASED
+            // with multiple plots / outlets running concurrently.
+            //   • <50 units    → single outlet, 30-40 units/yr
+            //   • 50-150       → 2 outlets, 60-80 units/yr
+            //   • 150-300      → 3 outlets, 100-130 units/yr
+            //   • 300-600      → 4 outlets, 150-200 units/yr
+            //   • 600+         → strategic scheme, 200-250+ units/yr (multiple developers/phases)
+            // Apartments: BTR/PBSA single block built faster (concurrent floors), 200-300 units/yr.
+            //             Large multi-block schemes split into phases of ~250 units each.
+            var buildRate;
+            if(isApart){
+              buildRate = units2>=300 ? 250 : units2>=150 ? 200 : 150;
+            } else {
+              // SFH — phased delivery scales with size
+              if(units2>=600)      buildRate = 220;  // strategic / multi-phase
+              else if(units2>=300) buildRate = 175;  // 4 outlets
+              else if(units2>=150) buildRate = 115;  // 3 outlets
+              else if(units2>=50)  buildRate = 70;   // 2 outlets
+              else                 buildRate = 40;   // single outlet
+            }
+
+            // Build phase years — but cap at 8 years for max practical scheme
+            var buildPhase=Math.max(0.5,Math.min(8,units2/buildRate));
+            // Sales runs concurrent with build (esp. for SFH multi-outlet), so don't double-count
 
             var totalYears=planPhase+rmPhase+preComm+buildPhase;
             var totalRounded=Math.round(totalYears*2)/2; // round to nearest 0.5
@@ -8997,7 +9050,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
               planSt!=="full"&&planSt!=="outline"&&{l:"Planning application",yrs:planPhase,color:"#B05A35"},
               planSt!=="full"&&{l:"Reserved matters / conditions",yrs:rmPhase,color:"#9A7B3E"},
               {l:"Pre-commencement (infrastructure)",yrs:preComm,color:"#4A4BAE"},
-              {l:"Construction",yrs:Math.round(buildPhase*10)/10,color:"#2D7A65"},
+              {l:"Construction"+(units2>=150?" (phased / multi-outlet)":""),yrs:Math.round(buildPhase*10)/10,color:"#2D7A65"},
             ].filter(Boolean);
 
             var maxYrs=Math.max(totalRounded,1);
@@ -9042,7 +9095,8 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
               ),
               e("div",{style:{marginTop:8,fontSize:10,color:"#7278A0",lineHeight:1.7}},
                 "Based on "+units2+" units, planning status: "+(planSt||"unknown")+", scheme type: "+schType2+". ",
-                "Adjust in Planning & Viability stage to update. Assumes sequential phases; pre-app work and S106 negotiation may run concurrently."
+                units2>=150?"Large schemes assume phased delivery with multiple outlets/plots running concurrently (industry standard for housebuilders). ":"",
+                "Adjust in Planning & Viability stage to update. Assumes sequential planning phases; pre-app work and S106 negotiation may run concurrently."
               )
             );
           })(),
@@ -11192,18 +11246,31 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
 
   // ── RISK REGISTER ──────────────────────────────────────────────────────────
   function renderRisks(){
-    var risks=data.risks||RISK_DEFAULTS.map(function(r){return Object.assign({},r);});
+    // Defensive: ensure risks is always an array (data corruption protection)
+    var risks = data.risks;
+    if(!Array.isArray(risks) || risks.length===0){
+      risks = RISK_DEFAULTS.map(function(r){return Object.assign({},r);});
+    }
     var RC={red:"#B05A35",amber:"#9A7B3E",green:"#2D7A65"};
     var counts={red:0,amber:0,green:0};
-    risks.forEach(function(r){if(counts[r.rag]!==undefined)counts[r.rag]++;});
+    risks.forEach(function(r){if(r && counts[r.rag]!==undefined)counts[r.rag]++;});
 
     function updateRisk(id,key,val){
-      var updated=risks.map(function(r){return r.id===id?Object.assign({},r,Object.fromEntries([[key,val]])):r;});
+      // Build replacement object without Object.fromEntries (iOS Safari compat)
+      var updated=risks.map(function(r){
+        if(r.id!==id) return r;
+        var next=Object.assign({},r);
+        next[key]=val;
+        return next;
+      });
       setData(function(d){return Object.assign({},d,{risks:updated});});
     }
     function addRisk(){
       var newRisk={id:Date.now(),cat:"Other",desc:"New risk",rag:"amber",mit:"Mitigation TBC"};
-      setData(function(d){return Object.assign({},d,{risks:(d.risks||[]).concat([newRisk])});});
+      setData(function(d){
+        var current = Array.isArray(d.risks) ? d.risks : [];
+        return Object.assign({},d,{risks:current.concat([newRisk])});
+      });
     }
 
     return e("div",null,
@@ -11936,7 +12003,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
             e("span",{style:{width:18,height:2,background:"#2E2F8A",display:"block",borderRadius:2}})
           ),
           e("div",{className:"lf-stage-mobile-title",style:{fontSize:isMobile?14:15,fontWeight:700,color:"#2E2F8A",whiteSpace:"nowrap"}},curStage.label),
-          e("div",{title:"Build v8.3",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v8.3"),
+          e("div",{title:"Build v8.6",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v8.6"),
           !isMobile&&e("div",{style:{fontSize:11,color:"#7278A0",marginLeft:6}},at.toUpperCase()+" · "+cityName(city))
         ),
 
@@ -12023,9 +12090,15 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
       ),
       e("div",{style:{flex:1,padding:"28px 32px",maxWidth:1000,width:"100%"}},renderStage()),
       e("div",{style:{padding:"16px 32px",borderTop:"1px solid #DDE0ED",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff"}},
-        e("button",{disabled:idx===0,onClick:function(){navTo(ALL_STAGES[idx-1].id);},style:{padding:"8px 18px",border:"1px solid #DDE0ED",background:"transparent",color:"#7278A0",borderRadius:6,fontSize:12,fontWeight:700,cursor:idx===0?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",opacity:idx===0?0.3:1}},"← Previous"),
-        e("span",{style:{fontSize:11,color:"#7278A0"}},(idx+1)+" of "+ALL_STAGES.length),
-        e("button",{disabled:idx===ALL_STAGES.length-1,onClick:function(){navTo(ALL_STAGES[idx+1].id);},style:{padding:"8px 18px",background:"#4A4BAE",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:700,cursor:idx===ALL_STAGES.length-1?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",opacity:idx===ALL_STAGES.length-1?0.3:1}},"Next →")
+        e("button",{disabled:filteredIdx<=0,onClick:function(){
+          if(filteredIdx>0) navTo(navFilteredStages[filteredIdx-1].id);
+        },style:{padding:"8px 18px",border:"1px solid #DDE0ED",background:"transparent",color:"#7278A0",borderRadius:6,fontSize:12,fontWeight:700,cursor:filteredIdx<=0?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",opacity:filteredIdx<=0?0.3:1}},"← Previous"),
+        e("span",{style:{fontSize:11,color:"#7278A0"}},
+          filteredIdx>=0 ? ((filteredIdx+1)+" of "+navFilteredStages.length) : "—"
+        ),
+        e("button",{disabled:filteredIdx<0||filteredIdx>=navFilteredStages.length-1,onClick:function(){
+          if(filteredIdx>=0 && filteredIdx<navFilteredStages.length-1) navTo(navFilteredStages[filteredIdx+1].id);
+        },style:{padding:"8px 18px",background:"#4A4BAE",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:700,cursor:(filteredIdx<0||filteredIdx>=navFilteredStages.length-1)?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",opacity:(filteredIdx<0||filteredIdx>=navFilteredStages.length-1)?0.3:1}},"Next →")
       )
     )
     ,
