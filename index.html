@@ -1333,7 +1333,6 @@ var ALL_STAGES = [
   {id:"meetings",    label:"Meeting Transcripts",  icon:"📝", group:"6. Records",  journeys:["all"]},
   {id:"portfolio",   label:"Deal Portfolio",       icon:"📊", group:"6. Records",  journeys:["all"]},
   {id:"dashboard",   label:"Deal Dashboard",       icon:"◈",  group:"6. Records",  journeys:["land","sfh","btr","pbsa","property","recovery","all"]},
-  {id:"flowcharts",  label:"Process Flowcharts",   icon:"🗺", group:"6. Records",  journeys:["all"]},
 ];
 
 // Journey display labels (used by Deal Dashboard and elsewhere)
@@ -7558,7 +7557,13 @@ var JOURNEYS = {
           e("br"),e("br"),
           e("strong",null,"Need a master overview? "),
           "Open the ",
-          e("strong",{style:{cursor:"pointer",color:"#2D7A65",textDecoration:"underline"},onClick:function(){window.open("flowchart.html","landform_atlas","width=1600,height=1000");}},"🗺 Workflow Atlas")
+          e("strong",{style:{cursor:"pointer",color:"#2D7A65",textDecoration:"underline"},onClick:function(){
+            var params = [];
+            if(schemes.length>0) params.push("schemes="+schemes.join(","));
+            if(exits.length>0) params.push("exits="+exits.join(","));
+            var url = "flowchart.html" + (params.length>0 ? "?"+params.join("&") : "");
+            window.open(url,"landform_atlas","width=1600,height=1000,scrollbars=yes,resizable=yes");
+          }},"🗺 Workflow Atlas")
           ," for the complete decision tree across every scheme + exit combination."
         )
       );
@@ -11717,7 +11722,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
             e("span",{style:{width:18,height:2,background:"#2E2F8A",display:"block",borderRadius:2}})
           ),
           e("div",{className:"lf-stage-mobile-title",style:{fontSize:isMobile?14:15,fontWeight:700,color:"#2E2F8A",whiteSpace:"nowrap"}},curStage.label),
-          e("div",{title:"Build v8.0",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v8.0"),
+          e("div",{title:"Build v8.1",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v8.1"),
           !isMobile&&e("div",{style:{fontSize:11,color:"#7278A0",marginLeft:6}},at.toUpperCase()+" · "+cityName(city))
         ),
 
@@ -11737,19 +11742,21 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
             style:{padding:isMobile?"8px 10px":"6px 14px",background:data.masterLoading?"#8889C8":"linear-gradient(135deg,#2D7A65,#4A4BAE)",border:"none",color:"#fff",borderRadius:5,fontSize:isMobile?16:11,fontWeight:800,cursor:data.masterLoading?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(74,75,174,0.3)",minHeight:36,flexShrink:0}},
             data.masterLoading?"⏳":(isMobile?"🧠":"🧠 Analyse Deal")
           ),
-          e("button",{key:"flow",onClick:function(){window.open("https://phildrumsdaniel.github.io/cassidy-landform/flowcharts.html","cassidy-flowcharts");},title:"Flowcharts",
+          e("button",{key:"flow",onClick:function(){
+              // Open the Workflow Atlas in a new window, pre-filtered to current scheme + exit
+              var params = [];
+              if(schemes.length>0) params.push("schemes="+schemes.join(","));
+              if(exits.length>0) params.push("exits="+exits.join(","));
+              var url = "flowchart.html" + (params.length>0 ? "?"+params.join("&") : "");
+              window.open(url,"landform_atlas","width=1600,height=1000,scrollbars=yes,resizable=yes");
+            },title:"Open Workflow Atlas in new window — move to a second monitor",
             style:{padding:isMobile?"8px 10px":"6px 12px",background:"#4A4BAE",border:"1px solid #4A4BAE",color:"#fff",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
-            isMobile?"🗺":"🗺 Flowcharts ↗"
+            isMobile?"🗺":"🗺 Flowchart ↗"
           ),
           e("button",{key:"hist",onClick:function(){setShowHist(function(s){return !s;});},title:"History",
             style:{padding:isMobile?"8px 10px":"6px 12px",background:showHist?"#4A4BAE":"#F7F8FC",border:"1px solid "+(showHist?"#4A4BAE":"#DDE0ED"),color:showHist?"#fff":"#3A3D6A",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
             isMobile?("📋"+(history.length>0?" "+history.length:"")):"📋 History"+(history.length>0?" ("+history.length+")":"")
           ),
-          e("button",{key:"atlas",
-            onClick:function(){window.open("flowchart.html","landform_atlas","width=1600,height=1000,scrollbars=yes,resizable=yes");},
-            title:"Open Workflow Atlas on a second screen",
-            style:{padding:isMobile?"8px 10px":"6px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#2D7A65",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}
-          },isMobile?"🗺":"🗺 Atlas"),
           e("button",{key:"rep",onClick:generateReport,title:"Print / PDF Report",
             style:{padding:isMobile?"8px 10px":"6px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#B05A35",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
             isMobile?"🖨":"🖨 Report"

@@ -657,6 +657,103 @@ document.addEventListener('keydown', (ev) => {
   if (ev.key === '0') resetZoom();
   if (ev.key === 'Escape') collapseAll();
 });
+
+// ═══════════════════════════════════════════════════════════════════════
+// URL CONTEXT — read scheme/exit from Landform and highlight the path
+// e.g. flowchart.html?schemes=sfh&exits=pension → highlights SFH branch
+// ═══════════════════════════════════════════════════════════════════════
+(function highlightFromURL(){
+  const urlParams = new URLSearchParams(window.location.search);
+  const schemes = (urlParams.get('schemes')||'').split(',').filter(Boolean);
+  const exits = (urlParams.get('exits')||'').split(',').filter(Boolean);
+
+  if(schemes.length === 0 && exits.length === 0) return; // no context — show all
+
+  // Map scheme IDs to their node IDs in the flowchart
+  const schemeNodeMap = {
+    'sfh':      'scheme-sfh',
+    'btr':      'scheme-btr',
+    'pbsa':     'scheme-pbsa',
+    'land':     'scheme-land',
+    'property': 'scheme-property',
+    'recovery': 'scheme-recovery'
+  };
+  const exitNodeMap = {
+    'pension':      'exit-pension',
+    'sovereign':    'exit-sovereign',
+    'btr_op':       'exit-btr_op',
+    'family':       'exit-family',
+    'ha_rp':        'exit-ha_rp',
+    'homes_eng':    'exit-homes_eng',
+    'open_mkt':     'exit-open_mkt',
+    'bank_takeout': 'exit-bank',
+    'land_sale':    'exit-land_sale'
+  };
+
+  // Find chosen node IDs
+  const activeSchemeIds = schemes.map(s => schemeNodeMap[s]).filter(Boolean);
+  const activeExitIds = exits.map(x => exitNodeMap[x]).filter(Boolean);
+
+  // Walk the graph from chosen scheme node + reach to chosen exits — mark all nodes/edges in the path
+  const activePathNodes = new Set();
+  function walkForward(nodeId, depth){
+    if(depth > 8 || activePathNodes.has(nodeId)) return;
+    activePathNodes.add(nodeId);
+    const n = NODES.find(x => x.id === nodeId);
+    if(!n || !n.connectsTo) return;
+    n.connectsTo.forEach(nextId => {
+      // If we hit an exit not in the chosen set, skip that branch
+      const isExitNode = nextId.startsWith('exit-');
+      if(isExitNode && activeExitIds.length > 0 && !activeExitIds.includes(nextId)) return;
+      walkForward(nextId, depth + 1);
+    });
+  }
+
+  // Always walk from start
+  walkForward('start', 0);
+
+  // Apply visual fade to non-path nodes
+  document.querySelectorAll('.node').forEach(el => {
+    const id = el.id.replace('node-','');
+    const isStart = id === 'start';
+    const isInPath = activePathNodes.has(id);
+    const isActiveScheme = activeSchemeIds.includes(id);
+    const isActiveExit = activeExitIds.includes(id);
+
+    if(isActiveScheme || isActiveExit){
+      // Highlight chosen scheme + exit specifically
+      el.style.outline = '3px solid #EDE84A';
+      el.style.outlineOffset = '2px';
+      el.style.boxShadow = '0 4px 24px rgba(237,232,74,0.4)';
+      el.style.zIndex = '5';
+    } else if(isInPath){
+      // Path stays normal
+      el.style.opacity = '1';
+    } else {
+      // Dim everything else
+      el.style.opacity = '0.25';
+    }
+  });
+
+  // Fade non-path edges
+  document.querySelectorAll('.edge').forEach(p => {
+    p.style.opacity = '0.15';
+  });
+
+  // Show a context banner at top
+  const banner = document.createElement('div');
+  banner.style.cssText = 'position:fixed;top:96px;left:50%;transform:translateX(-50%);background:#1A1B5C;color:#fff;padding:10px 20px;border-radius:8px;font-size:11px;font-weight:600;z-index:60;box-shadow:0 4px 16px rgba(0,0,0,0.2);display:flex;align-items:center;gap:10px;';
+
+  const schemeLabels = {sfh:'🏡 SFH', btr:'🏢 BTR', pbsa:'🎓 PBSA', land:'🔍 Land', property:'🏠 Property', recovery:'⚖ Recovery'};
+  const exitLabels = {pension:'💼 Pension Fund', sovereign:'🌐 Sovereign WF', btr_op:'🏢 BTR Op', family:'👑 Family Office', ha_rp:'🏛 HA/RP', homes_eng:'🇬🇧 Homes Eng', open_mkt:'🏠 Open Market', bank_takeout:'🏦 Bank Take-out', land_sale:'📜 Land Sale'};
+
+  let bannerText = 'Highlighting your path: ';
+  bannerText += schemes.map(s => schemeLabels[s] || s).join(' + ');
+  if(exits.length > 0) bannerText += ' → ' + exits.map(x => exitLabels[x] || x).join(', ');
+
+  banner.innerHTML = '<span style="background:#EDE84A;color:#1A1B5C;padding:2px 8px;border-radius:3px;font-weight:800;letter-spacing:.05em;">FROM LANDFORM</span><span>' + bannerText + '</span><span onclick="window.location.search=\'\'" style="cursor:pointer;color:rgba(255,255,255,0.5);margin-left:8px;text-decoration:underline;">show all</span>';
+  document.body.appendChild(banner);
+})();
 </script>
 </body>
 </html>
