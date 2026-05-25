@@ -42,6 +42,20 @@
   /* Hide horizontal scrollbar on topbar — content still scrolls via touch */
   .lf-topbar::-webkit-scrollbar{display:none;}
 
+  /* ── TOPBAR HORIZONTAL SCROLL — MUST WORK ON MOBILE ──
+     Higher specificity overrides ancestor overflow-x:hidden.
+     The topbar is the scroll container; ancestors don't affect inner scroll. */
+  .lf-topbar{
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    -webkit-overflow-scrolling:touch!important;
+    scrollbar-width:none!important;
+    -ms-overflow-style:none!important;
+  }
+  .lf-topbar > *{
+    flex-shrink:0!important;
+  }
+
   /* ── TOPBAR — horizontal scroll, nowrap so all buttons reachable ── */
   .lf-topbar{
     padding:8px 12px!important;
@@ -11246,7 +11260,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
         e("div",{style:{marginTop:6,fontSize:9,color:"rgba(255,255,255,0.2)",letterSpacing:".06em"}},"Built by Phil Daniel")
       )
     ),
-    e("main",{style:{marginLeft:isMobile?0:240,flex:1,display:"flex",flexDirection:"column",minHeight:"100vh",transition:"margin .25s ease",overflowX:"hidden",minWidth:0}},
+    e("main",{style:{marginLeft:isMobile?0:240,flex:1,display:"flex",flexDirection:"column",minHeight:"100vh",transition:"margin .25s ease",minWidth:0}},
       // Topbar — own scroll container, mobile-friendly horizontal scroll
       e("div",{className:"lf-topbar",style:Object.assign({
         height:58,background:"#fff",borderBottom:"1px solid #DDE0ED",
@@ -11271,7 +11285,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
           e("span",{style:{width:18,height:2,background:"#2E2F8A",display:"block",borderRadius:2}})
         ),
         e("div",{style:Object.assign({fontSize:isMobile?14:15,fontWeight:700,color:"#2E2F8A",whiteSpace:"nowrap"},isMobile?{flexShrink:0}:{flex:1})},curStage.label),
-        e("div",{title:"Build v7.4",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v7.4"),
+        e("div",{title:"Build v7.5",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v7.5"),
         !isMobile&&e("div",{style:{fontSize:11,color:"#7278A0",marginRight:8}},at.toUpperCase()+" · "+cityName(city)),
         // Always visible - critical actions
         e("label",{
