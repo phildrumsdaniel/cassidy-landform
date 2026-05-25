@@ -24,7 +24,17 @@
 .lf-sidebar{transition:transform .25s cubic-bezier(.4,0,.2,1);}
 
 @media(max-width:768px){
-  body{overflow-x:hidden!important;}
+  /* ── ANCESTORS — make absolutely sure nothing clips the topbar's scroll ── */
+  html,body,#root{
+    width:100%!important;
+    max-width:100%!important;
+    overflow-x:hidden!important;
+  }
+  main{
+    min-width:0!important;
+    max-width:100vw!important;
+    overflow-x:hidden!important;
+  }
 
   /* ── SIDEBAR ── */
   .lf-sidebar{
@@ -42,45 +52,44 @@
   /* ── MAIN AREA ── */
   .lf-main{margin-left:0!important;width:100%!important;max-width:100vw!important;overflow-x:hidden!important;}
 
-  /* Hide horizontal scrollbar on topbar — content still scrolls via touch */
-  .lf-topbar::-webkit-scrollbar{display:none;}
-
-  /* ── TOPBAR HORIZONTAL SCROLL — MUST WORK ON MOBILE ──
-     Higher specificity overrides ancestor overflow-x:hidden.
-     The topbar is the scroll container; ancestors don't affect inner scroll. */
+  /* ── TOPBAR — the ONLY horizontal scroll container ──
+     Reviewer's clean spec: every child flex:0 0 auto, touch-action:pan-x.
+     No mask-image (interferes with touch on some mobile browsers).
+     No double rules — single source of truth. */
   .lf-topbar{
-    overflow-x:scroll!important;
-    overflow-y:hidden!important;
-    -webkit-overflow-scrolling:touch!important;
-    scrollbar-width:none!important;
-    -ms-overflow-style:none!important;
-    /* Constrain to viewport so children must overflow */
+    width:100vw!important;
     max-width:100vw!important;
-    width:100%!important;
-  }
-  /* Force children to keep their natural size so the topbar overflows */
-  .lf-topbar > *{
-    flex-shrink:0!important;
-    flex-grow:0!important;
-    flex-basis:auto!important;
-  }
-  /* Pseudo-spacer to ensure last button is reachable */
-  .lf-topbar::after{
-    content:"";
-    flex:0 0 8px;
-  }
-
-  /* ── TOPBAR — horizontal scroll, nowrap so all buttons reachable ── */
-  .lf-topbar{
-    padding:8px 12px!important;
-    gap:6px!important;
+    min-width:0!important;
     overflow-x:auto!important;
     overflow-y:hidden!important;
-    -webkit-overflow-scrolling:touch;
+    display:flex!important;
     flex-wrap:nowrap!important;
-    white-space:nowrap;
+    justify-content:flex-start!important;
+    align-items:center!important;
+    gap:8px!important;
+    padding:8px 12px!important;
+    -webkit-overflow-scrolling:touch!important;
+    touch-action:pan-x!important;
+    scrollbar-width:none!important;
+    -ms-overflow-style:none!important;
+    mask-image:none!important;
+    -webkit-mask-image:none!important;
   }
-  .lf-topbar > *{flex-shrink:0!important;}
+  .lf-topbar::-webkit-scrollbar{display:none!important;}
+  .lf-topbar > *{
+    flex:0 0 auto!important;
+    max-width:none!important;
+  }
+  .lf-topbar button,
+  .lf-topbar label{
+    flex:0 0 auto!important;
+    white-space:nowrap!important;
+    min-width:40px!important;
+  }
+  .lf-topbar > div{
+    flex:0 0 auto!important;
+    white-space:nowrap!important;
+  }
   .lf-hamburger{display:flex!important;align-items:center!important;flex-shrink:0!important;}
 
   /* ── CONTENT AREA ── */
@@ -11282,23 +11291,19 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
     ),
     e("main",{style:{marginLeft:isMobile?0:240,flex:1,display:"flex",flexDirection:"column",minHeight:"100vh",transition:"margin .25s ease",minWidth:0}},
       // Topbar — own scroll container, mobile-friendly horizontal scroll
-      // On mobile: a fading edge on the right hints "swipe to see more"
+      // CSS class .lf-topbar handles the mobile scrolling rules (see <style> block)
       e("div",{className:"lf-topbar",style:Object.assign({
         height:58,background:"#fff",borderBottom:"1px solid #DDE0ED",
         display:"flex",alignItems:"center",gap:10,
         position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 3px rgba(46,47,138,0.08)",
         padding:"0 16px"
       },isMobile?{
-        overflowX:"scroll",
+        // Mobile inline styles handed off to CSS class .lf-topbar — kept minimal here
+        overflowX:"auto",
         overflowY:"hidden",
         WebkitOverflowScrolling:"touch",
         flexWrap:"nowrap",
-        whiteSpace:"nowrap",
-        scrollbarWidth:"none",
-        msOverflowStyle:"none",
-        // Visual fade hint on the right edge so user knows there's more to swipe to
-        maskImage:"linear-gradient(to right,#000 calc(100% - 30px),transparent 100%)",
-        WebkitMaskImage:"linear-gradient(to right,#000 calc(100% - 30px),transparent 100%)"
+        whiteSpace:"nowrap"
       }:{})},
         isMobile&&e("button",{
           onClick:function(){setMobileMenuOpen(function(o){return !o;});},
@@ -11309,7 +11314,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
           e("span",{style:{width:18,height:2,background:"#2E2F8A",display:"block",borderRadius:2}})
         ),
         e("div",{style:Object.assign({fontSize:isMobile?14:15,fontWeight:700,color:"#2E2F8A",whiteSpace:"nowrap"},isMobile?{flexShrink:0}:{flex:1})},curStage.label),
-        e("div",{title:"Build v7.7",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v7.7"),
+        e("div",{title:"Build v7.8",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v7.8"),
         !isMobile&&e("div",{style:{fontSize:11,color:"#7278A0",marginRight:8}},at.toUpperCase()+" · "+cityName(city)),
         // Always visible - critical actions
         e("label",{
