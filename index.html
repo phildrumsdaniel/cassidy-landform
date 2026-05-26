@@ -664,6 +664,85 @@ function lookupLandPsf(pc) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ASSET EXIT OPTIMISER — Reference Data
+// Used by the Asset Exit Optimiser stage to compare exit routes for existing
+// owned assets (PBSA, BTR, SFH, pub, industrial, hotel, office, retail, etc).
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Asset types the Optimiser supports
+var ASSET_TYPES = [
+  {key:"pbsa",         label:"PBSA (Student Accommodation)", icon:"🎓", incomeUnit:"per bed pw", typicalSize:"100-500 beds"},
+  {key:"btr",          label:"BTR (Build-to-Rent)",          icon:"🏢", incomeUnit:"per unit pcm",typicalSize:"50-400 units"},
+  {key:"sfh_portfolio",label:"SFH Estate / Portfolio",       icon:"🏡", incomeUnit:"GDV per house",typicalSize:"10-200 units"},
+  {key:"hotel",        label:"Hotel",                        icon:"🏨", incomeUnit:"ADR + occupancy",typicalSize:"40-300 keys"},
+  {key:"pub",          label:"Pub / Public House",           icon:"🍺", incomeUnit:"FMT (annual)", typicalSize:"single asset"},
+  {key:"industrial",   label:"Industrial / Logistics",       icon:"🏭", incomeUnit:"£/sqft pa",   typicalSize:"5k-500k sqft"},
+  {key:"office",       label:"Office",                       icon:"🏢", incomeUnit:"£/sqft pa",   typicalSize:"5k-200k sqft"},
+  {key:"retail",       label:"Retail (high street / park)",  icon:"🛍", incomeUnit:"£/sqft pa Zone A",typicalSize:"varies"},
+  {key:"residential",  label:"Single Residential (house/flat)",icon:"🏠",incomeUnit:"capital value", typicalSize:"individual"},
+  {key:"mixed",        label:"Mixed-use",                    icon:"◈",  incomeUnit:"blended NOI",  typicalSize:"varies"},
+  {key:"care",         label:"Care Home / Retirement",       icon:"🏥", incomeUnit:"per bed pw",   typicalSize:"40-120 beds"},
+  {key:"data_centre",  label:"Data Centre",                  icon:"💾", incomeUnit:"£/MW or sqft", typicalSize:"varies"},
+  {key:"other",        label:"Other / Special",              icon:"◆",  incomeUnit:"manual NOI",   typicalSize:"varies"}
+];
+
+// Sector yield benchmarks (Knight Frank / Savills / CBRE composite, mid-2026)
+// Format: [prime_low, prime_high, regional_low, regional_high] in %
+var SECTOR_YIELDS = {
+  pbsa:          { prime:[4.75,5.25], regional:[5.50,6.50], note:"Prime = London/RG cities. Regional = secondary uni towns." },
+  btr:           { prime:[4.00,4.50], regional:[4.50,5.50], note:"Stabilised single-block assets to institutions." },
+  sfh_portfolio: { prime:[4.50,5.00], regional:[4.75,5.50], note:"AST-let portfolios to PRS investors." },
+  hotel:         { prime:[5.50,7.00], regional:[7.00,9.00], note:"Branded > independent. Operator lease vs vacant possession." },
+  pub:           { prime:[7.00,9.00], regional:[8.00,11.00],note:"Managed pubs > tenanted. Wet-led > food-led typically tighter." },
+  industrial:    { prime:[5.00,6.00], regional:[5.50,7.50], note:"Big-box logistics tightest. Multi-let estates wider." },
+  office:        { prime:[5.50,7.00], regional:[7.50,10.00],note:"Post-2024 repricing — regional/secondary offices 9%+." },
+  retail:        { prime:[5.50,7.50], regional:[7.50,11.00],note:"Retail parks tighter than high street. Convenience tightest." },
+  residential:   { prime:[3.50,4.50], regional:[4.00,5.00], note:"Single AST gross yield — not used for capital value; use comparable." },
+  mixed:         { prime:[5.00,6.50], regional:[5.50,7.50], note:"Blended — calculate by weighted component yields." },
+  care:          { prime:[5.50,7.00], regional:[6.50,8.50], note:"Operator-let elderly care. Triple-net leases tightest." },
+  data_centre:   { prime:[4.50,5.50], regional:[5.50,7.00], note:"Hyperscale-let prime. Wholesale/colo wider." },
+  other:         { prime:[6.00,8.00], regional:[7.50,10.00],note:"Default range — depends entirely on covenant + lease." }
+};
+
+// Exit routes — universal taxonomy
+var EXIT_ROUTES = [
+  {key:"pension",      label:"Pension Fund / Long-Income",   icon:"💼", desc:"Domestic UK schemes (LGPS / USS / RPMI). 10-25yr hold. Wants stabilised income with covenant.", yieldBias:0,    timeMonths:"6-9"},
+  {key:"sovereign",    label:"Sovereign Wealth Fund",        icon:"🌐", desc:"QIA / GIC / ADIA. £50m+ cheques. Trophy assets only.",                                  yieldBias:-0.25,timeMonths:"4-8"},
+  {key:"family",       label:"Family Office",                icon:"👑", desc:"HNW capital. £5-50m typical. Often story-driven over yield-driven.",                   yieldBias:+0.25,timeMonths:"2-4"},
+  {key:"reit",         label:"Listed REIT",                  icon:"📈", desc:"Sector-specialist REITs (Big Yellow, Tritax, Unite, Grainger, Empiric).",              yieldBias:0,    timeMonths:"3-6"},
+  {key:"btr_op",       label:"BTR / PBSA Operator",          icon:"🏢", desc:"Grainger / Quintain / Packaged Living / Unite / iQ.",                                  yieldBias:+0.10,timeMonths:"3-6"},
+  {key:"ha_rp",        label:"Housing Association / RP",     icon:"🏛", desc:"Clarion / Sanctuary / L&Q. Affordable conversion / S106 transfer / bulk sale.",         yieldBias:+0.50,timeMonths:"4-8"},
+  {key:"homes_eng",    label:"Homes England",                icon:"🇬🇧", desc:"Government delivery body. AHP grants + completion buy. Resi only.",                    yieldBias:+0.50,timeMonths:"6-12"},
+  {key:"open_mkt",     label:"Open Market / Individual Sale",icon:"🏠", desc:"Sell to individual buyers (mainly SFH / residential).",                                yieldBias:-0.50,timeMonths:"3-12"},
+  {key:"pubco",        label:"Pubco / Operator Buyer",       icon:"🍺", desc:"Greene King / Marston's / Wetherspoons / regional operators.",                         yieldBias:0,    timeMonths:"3-6"},
+  {key:"hotel_op",     label:"Hotel Operator / Brand",       icon:"🏨", desc:"Branded hotel operators or PE hotel platforms (Henderson Park, Tristan, etc).",        yieldBias:0,    timeMonths:"4-8"},
+  {key:"industrial_inv",label:"Industrial Investor / Logistics Fund",icon:"🏭",desc:"Tritax Big Box / Segro / Prologis / Blackstone industrial.",                    yieldBias:-0.10,timeMonths:"3-6"},
+  {key:"trade_buyer",  label:"Trade Buyer",                  icon:"🤝", desc:"Competitor / consolidator buys for strategic / operational reasons.",                  yieldBias:0,    timeMonths:"3-9"},
+  {key:"bank_takeout", label:"Refi + Hold (Bank Take-out)",  icon:"🏦", desc:"You keep asset. Refinance dev debt onto investment debt. Pull out equity tax-efficiently.",yieldBias:0, timeMonths:"2-4"},
+  {key:"sale_leaseback",label:"Sale & Leaseback",            icon:"📜", desc:"You sell freehold and lease back as operator. Releases capital, maintains operation.",  yieldBias:+0.25,timeMonths:"4-6"},
+  {key:"change_use",   label:"Change of Use / Redevelop",    icon:"⚖",  desc:"Repurpose to higher-value class (pub→resi, office→resi, retail→resi).",                yieldBias:0,    timeMonths:"12-36"},
+  {key:"hold",         label:"Hold + Operate Long-Term",     icon:"⏳", desc:"No sale. Run as income asset. Distributions to shareholders / reinvest.",              yieldBias:0,    timeMonths:"ongoing"},
+  {key:"forward_fund", label:"Forward-Fund / Pre-completion Sale",icon:"⏩",desc:"Sell to investor pre-completion. They buy income stream. Discounted for risk.",   yieldBias:+0.50,timeMonths:"3-6"}
+];
+
+// Which exits realistically work for which asset types (true = good fit)
+var ASSET_EXIT_FIT = {
+  pbsa:          ["pension","sovereign","reit","btr_op","family","forward_fund","bank_takeout","hold","trade_buyer"],
+  btr:           ["pension","sovereign","reit","btr_op","family","forward_fund","bank_takeout","sale_leaseback","hold"],
+  sfh_portfolio: ["pension","reit","btr_op","family","ha_rp","homes_eng","open_mkt","bank_takeout","hold"],
+  hotel:         ["family","hotel_op","trade_buyer","reit","sale_leaseback","bank_takeout","hold","sovereign"],
+  pub:           ["pubco","trade_buyer","family","sale_leaseback","change_use","open_mkt","hold"],
+  industrial:    ["pension","sovereign","reit","industrial_inv","family","sale_leaseback","bank_takeout","hold","trade_buyer"],
+  office:        ["family","reit","trade_buyer","sale_leaseback","change_use","bank_takeout","hold","pension"],
+  retail:        ["family","reit","trade_buyer","change_use","sale_leaseback","bank_takeout","hold"],
+  residential:   ["open_mkt","family","ha_rp","bank_takeout","hold","change_use"],
+  mixed:         ["family","reit","sovereign","trade_buyer","bank_takeout","hold","change_use"],
+  care:          ["family","reit","trade_buyer","pension","sale_leaseback","hold","bank_takeout"],
+  data_centre:   ["pension","sovereign","reit","trade_buyer","sale_leaseback","bank_takeout","hold","family"],
+  other:         ["family","trade_buyer","bank_takeout","hold","sale_leaseback","change_use"]
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // calcDealMetrics(data) — SINGLE SOURCE OF TRUTH for deal-level financial metrics
 // Used by Dashboard, Summary, Fin, Exit, Reports, Data Room.
 // Returns a normalised object regardless of scheme type (SFH vs BTR vs PBSA vs Mixed).
@@ -1377,7 +1456,8 @@ function Tool(props){
 // ── STAGES ───────────────────────────────────────────────────────────────────
 var ALL_STAGES = [
   // ── 0. START ─────────────────────────────────────────────────────────────
-  {id:"navigator",   label:"Process Navigator",    icon:"🧭", group:"0. Start",    journeys:["all","land","property","sfh","btr","pbsa","recovery"]},
+  {id:"navigator",       label:"Process Navigator",  icon:"🧭", group:"0. Start",    journeys:["all","land","property","sfh","btr","pbsa","recovery","asset"]},
+  {id:"assetOptimiser",  label:"Asset Exit Optimiser", icon:"🏛", group:"0. Start",    journeys:["asset","all"]},
   // ── 1. FIND ──────────────────────────────────────────────────────────────
   {id:"placona",     label:"Placona Agent",         icon:"🤖", group:"1. Find",     journeys:["land","sfh","btr","pbsa","all"]},
   {id:"monitor",     label:"Planning Monitor",     icon:"📡", group:"1. Find",     journeys:["land","sfh","btr","pbsa","all"]},
@@ -1405,6 +1485,7 @@ var ALL_STAGES = [
   {id:"teaser",      label:"Teaser PDF",           icon:"📬", group:"5. Report",   journeys:["land","sfh","btr","pbsa","all"]},
   {id:"im",          label:"Investor Memorandum",  icon:"📑", group:"5. Report",   journeys:["land","sfh","btr","pbsa","all"]},
   {id:"dataroom",    label:"Data Room",            icon:"📁", group:"5. Report",   journeys:["sfh","btr","pbsa","land","property","all"]},
+  {id:"investor",    label:"Investor Marketing Suite", icon:"🎯", group:"5. Report",journeys:["land","sfh","btr","pbsa","property","asset","all"]},
   {id:"summary",     label:"Executive Summary",    icon:"📄", group:"5. Report",   journeys:["land","sfh","btr","pbsa","property","recovery","all"]},
   // ── 6. RECORDS ───────────────────────────────────────────────────────────
   {id:"meetings",    label:"Meeting Transcripts",  icon:"📝", group:"6. Records",  journeys:["all"]},
@@ -7578,6 +7659,7 @@ var JOURNEYS = {
 
     // Scheme definitions for page 1
     var SCHEMES_NAV = [
+      {key:"asset",    label:"Existing Asset I Own",  icon:"🏛", desc:"Asset already built or operating — PBSA, BTR, SFH portfolio, pub, hotel, industrial, office, retail. Skip acquisition stages and jump straight to exit comparison and optimisation.", isExisting:true},
       {key:"sfh",      label:"Single Family Homes",  icon:"🏡", desc:"Estate of houses for sale or rent — terraced, semis, detached. Build and exit through retail, HA or institutional portfolio."},
       {key:"btr",      label:"Build to Rent",        icon:"🏢", desc:"Single block of apartments owned by one institutional landlord. Designed for renting from day one — gym, concierge, amenity space."},
       {key:"pbsa",     label:"Purpose-Built Student",icon:"🎓", desc:"Student accommodation near a Russell Group / RG-tier university. Weekly rents, term-time occupancy, operator-led."},
@@ -7651,15 +7733,23 @@ var JOURNEYS = {
             return e("div",{key:s.key,
               onClick:function(){
                 setSchemes([s.key]); // single-scheme selection from navigator
-                setStep(2);
+                if(s.isExisting){
+                  // Existing Asset path — skip exit picker, go straight to Optimiser
+                  navTo("assetOptimiser");
+                } else {
+                  setStep(2);
+                }
               },
               style:isPicked?cardStyleActive:cardStyle
             },
+              s.isExisting&&e("div",{style:{position:"absolute",top:8,left:8,background:"#9A7B3E",color:"#fff",fontSize:8,fontWeight:800,padding:"3px 7px",borderRadius:3,letterSpacing:".08em"}},"FAST TRACK"),
               isPicked&&e("div",{style:{position:"absolute",top:10,right:12,fontSize:18,color:"#2D7A65",fontWeight:800}},"✓"),
-              e("div",{style:{fontSize:36,marginBottom:10}},s.icon),
+              e("div",{style:{fontSize:36,marginBottom:10,marginTop:s.isExisting?12:0}},s.icon),
               e("div",{style:{fontSize:16,fontWeight:800,color:"#1E1F5C",marginBottom:6}},s.label),
               e("div",{style:{fontSize:11,color:"#7278A0",lineHeight:1.55}},s.desc),
-              e("div",{style:{marginTop:12,paddingTop:10,borderTop:"1px solid #F0F1FA",fontSize:10,color:"#4A4BAE",fontWeight:700,letterSpacing:".05em"}},"Select →")
+              e("div",{style:{marginTop:12,paddingTop:10,borderTop:"1px solid #F0F1FA",fontSize:10,color:s.isExisting?"#2D7A65":"#4A4BAE",fontWeight:700,letterSpacing:".05em"}},
+                s.isExisting?"Skip to exit comparison →":"Select →"
+              )
             );
           })
         ),
@@ -8055,6 +8145,1223 @@ var JOURNEYS = {
     return e("div",null,e("p",null,"Loading navigator..."));
   }
 
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ASSET EXIT OPTIMISER
+  //   For existing/completing assets (PBSA, BTR, SFH portfolio, pub, hotel,
+  //   industrial, office, retail, etc) — compare every viable exit route
+  //   side-by-side and surface the optimal strategy.
+  // ═══════════════════════════════════════════════════════════════════════════
+  function renderAssetOptimiser(){
+    var o = data.optimiser || {};
+    function upo(k,v){ up("optimiser",k,v); }
+
+    // Resolve defaults
+    var assetType = o.assetType || "pbsa";
+    var assetDef = ASSET_TYPES.find(function(a){return a.key===assetType;}) || ASSET_TYPES[0];
+    var location = o.location || "regional";  // "prime" | "regional"
+    var yieldBand = (SECTOR_YIELDS[assetType] && SECTOR_YIELDS[assetType][location]) || [6,8];
+    var yieldMid = (yieldBand[0]+yieldBand[1])/2;
+    var ownerPriority = o.priority || "irr";  // "cash" | "irr" | "strategic" | "risk_off"
+
+    // Input values
+    var costBase    = num(o.costBase);       // total dev cost incurred
+    var existingDebt= num(o.existingDebt);
+    var debtRate    = num(o.debtRate || 7.0);
+    var stabilNOI   = num(o.stabilisedNOI);  // pa
+    var currentNOI  = num(o.currentNOI||0);  // pa, today
+    var monthsToStabil = num(o.monthsToStabil||0);
+
+    // If user hasn't entered NOI directly, try to derive from rents
+    if(stabilNOI===0){
+      if(assetType==="pbsa" && o.beds && o.rentPerBedPw){
+        var grossPbsa = num(o.beds)*num(o.rentPerBedPw)*51;  // PBSA = 51-week tenancies typical
+        var opexPbsa  = num(o.opexPct||25);
+        stabilNOI = grossPbsa * (1-opexPbsa/100);
+      }
+      if(assetType==="btr" && o.units && o.rentPerUnitPcm){
+        var grossBtr = num(o.units)*num(o.rentPerUnitPcm)*12;
+        var opexBtr  = num(o.opexPct||25);
+        stabilNOI = grossBtr * (1-opexBtr/100);
+      }
+      if((assetType==="industrial"||assetType==="office"||assetType==="retail") && o.sqft && o.rentPsfPa){
+        var grossCom = num(o.sqft)*num(o.rentPsfPa);
+        var opexCom  = num(o.opexPct||10);  // commercial is FRI typically, low landlord costs
+        stabilNOI = grossCom * (1-opexCom/100);
+      }
+    }
+
+    // Helper: compute capital value at a given yield + NOI
+    function capVal(noi, yld){
+      if(!noi || !yld) return 0;
+      return noi / (yld/100);
+    }
+
+    // Get the viable exits for this asset type
+    var viableExitKeys = ASSET_EXIT_FIT[assetType] || ASSET_EXIT_FIT.other;
+    var viableExits = viableExitKeys.map(function(k){
+      return EXIT_ROUTES.find(function(x){return x.key===k;});
+    }).filter(Boolean);
+
+    // Compute each exit route's outputs
+    function computeExit(ex){
+      var yld;
+      var noiUsed = stabilNOI > 0 ? stabilNOI : currentNOI;
+      var headline = 0;
+      var notes = [];
+
+      // Most exits = capital value based on NOI + yield + bias
+      if(["pension","sovereign","reit","family","btr_op","ha_rp","homes_eng","industrial_inv","trade_buyer","hotel_op","sale_leaseback","pubco"].indexOf(ex.key)>=0){
+        yld = Math.max(2, yieldMid + ex.yieldBias);
+        // Forward-fund discount
+        if(monthsToStabil > 6 && ex.key !== "forward_fund") yld += 0.25;
+        // Care/HA buyers discount
+        headline = capVal(noiUsed, yld);
+        if(headline === 0) notes.push("Need NOI to value");
+      }
+      else if(ex.key === "forward_fund"){
+        yld = Math.max(2, yieldMid + 0.50);  // forward-fund pricier
+        headline = capVal(stabilNOI || noiUsed, yld) * 0.93;  // 7% discount for pre-completion risk
+        if(headline > 0) notes.push("7% risk discount applied");
+        else notes.push("Need projected stabilised NOI");
+      }
+      else if(ex.key === "open_mkt"){
+        // Open market = sum of individual residential sales
+        if(assetType==="residential" || assetType==="sfh_portfolio"){
+          headline = num(o.estGdvOpenMkt) || (noiUsed > 0 ? capVal(noiUsed, 4.0) : 0);
+          notes.push("Per-unit retail sale; 18-30mo run-off");
+        } else {
+          headline = 0;
+          notes.push("Not typically applicable");
+        }
+      }
+      else if(ex.key === "bank_takeout"){
+        // Refi: typically 55-65% LTV on stabilised value, you keep asset
+        yld = Math.max(2, yieldMid + 0.10);
+        var marketVal = capVal(noiUsed, yld);
+        var ltv = num(o.refiLtv || 60) / 100;
+        var newDebt = marketVal * ltv;
+        var equityReleased = newDebt - existingDebt;
+        headline = Math.max(0, equityReleased);
+        notes.push(Math.round(ltv*100)+"% LTV on £"+(marketVal/1000000).toFixed(1)+"m market val");
+      }
+      else if(ex.key === "hold"){
+        // Hold = NOI continues. Show 10-year cumulative NOI as comparative figure.
+        headline = noiUsed * 10;  // 10-year cumulative
+        notes.push("10-year cumulative NOI (no sale)");
+      }
+      else if(ex.key === "change_use"){
+        // Change of use to higher value class — placeholder estimate
+        headline = num(o.estGdvChangeUse) || (costBase * 1.5);
+        notes.push("Estimate — requires planning + redevelopment");
+      }
+
+      // Net to seller (after debt and selling costs)
+      var sellingCosts = headline * 0.012;  // ~1.2% agent + legal
+      var net = ex.key === "bank_takeout" ? headline  // already net (equity released)
+               : ex.key === "hold" ? noiUsed*10        // cumulative NOI
+               : headline - existingDebt - sellingCosts;
+
+      // Profit on cost
+      var profitOnCost = costBase > 0 ? ((headline - costBase - existingDebt*0.05) / costBase) * 100 : 0;
+
+      // IRR proxy: simple — for hold, calc on equity invested
+      var equityIn = Math.max(1, costBase - existingDebt);
+      var simpleIrr;
+      if(ex.key === "hold") {
+        simpleIrr = (noiUsed - existingDebt*debtRate/100) / equityIn * 100;
+      } else if(ex.key === "bank_takeout") {
+        simpleIrr = headline > 0 ? (headline / equityIn) * 100 / 1 : 0;  // immediate equity return
+      } else {
+        // Single exit IRR proxy = total return / equity / years
+        var years = (monthsToStabil + 6) / 12;
+        years = Math.max(0.5, years);
+        simpleIrr = (net / equityIn - 1) * 100 / years;
+      }
+
+      return {
+        ex:ex,
+        yld:yld||0,
+        headline:headline,
+        net:net,
+        sellingCosts:sellingCosts,
+        profitOnCost:profitOnCost,
+        simpleIrr:simpleIrr,
+        notes:notes
+      };
+    }
+
+    var results = viableExits.map(computeExit);
+
+    // Score each exit based on user's priority
+    results.forEach(function(r){
+      var score = 0;
+      if(ownerPriority === "cash") {
+        // Cash now — favour speed + net £
+        score = r.net/1000000 + (r.ex.timeMonths.indexOf("ongoing")>=0?-20:0);
+      } else if(ownerPriority === "irr"){
+        score = r.simpleIrr;
+      } else if(ownerPriority === "strategic"){
+        score = r.net/1000000 + (r.ex.key==="trade_buyer"?15:0) + (r.ex.key==="family"?10:0);
+      } else if(ownerPriority === "risk_off"){
+        score = r.net/1000000 + (r.ex.key==="pension"?15:0) + (r.ex.key==="sovereign"?15:0) + (r.ex.key==="hold"?-10:0);
+      }
+      r.score = score;
+    });
+    var sorted = results.slice().sort(function(a,b){return b.score-a.score;});
+    var bestExit = sorted[0];
+    var secondExit = sorted[1];
+
+    // Equity at risk
+    var equityIn = Math.max(0, costBase - existingDebt);
+
+    // Card styles
+    var ipt = {width:"100%",padding:"8px 10px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:12,fontFamily:"DM Sans,sans-serif",color:"#2E2F8A",background:"#fff"};
+    var lbl = {fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".08em",fontWeight:700,marginBottom:3,display:"block"};
+
+    return e("div",null,
+      // Header
+      e("div",{style:{marginBottom:18}},
+        e("div",{style:{fontSize:9,letterSpacing:".25em",textTransform:"uppercase",color:"#9A7B3E",marginBottom:6,fontWeight:700}},"Asset Exit Optimiser"),
+        e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:6}},"Optimise exit on your existing asset"),
+        e("p",{style:{fontSize:12,color:"#7278A0",maxWidth:680,lineHeight:1.6}},"For assets you already own or are about to complete. Enter asset profile + income, see every viable exit route compared side-by-side with our recommendation. No planning, no land appraisal — just the optimal way out.")
+      ),
+
+      // ── SECTION 1: ASSET PROFILE ───────────────────────────────────────
+      e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:18,marginBottom:14}},
+        e("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:14,paddingBottom:10,borderBottom:"1px solid #F0F1FA"}},
+          e("div",{style:{width:24,height:24,borderRadius:"50%",background:"#9A7B3E",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:12}},"1"),
+          e("h3",{style:{fontSize:14,fontWeight:800,color:"#1E1F5C"}},"Asset Profile")
+        ),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12}},
+          e("div",null,
+            e("label",{style:lbl},"Asset Type"),
+            e("select",{value:assetType,onChange:function(ev){upo("assetType",ev.target.value);},style:ipt},
+              ASSET_TYPES.map(function(a){return e("option",{key:a.key,value:a.key},a.icon+" "+a.label);})
+            )
+          ),
+          e("div",null,
+            e("label",{style:lbl},"Location Tier"),
+            e("select",{value:location,onChange:function(ev){upo("location",ev.target.value);},style:ipt},
+              e("option",{value:"prime"},"Prime (London / RG cities / Tier 1)"),
+              e("option",{value:"regional"},"Regional / Secondary")
+            )
+          ),
+          e("div",null,
+            e("label",{style:lbl},"Asset Name / Address"),
+            e("input",{value:o.assetName||"",onChange:function(ev){upo("assetName",ev.target.value);},placeholder:"e.g. The Granary, Bristol",style:ipt})
+          ),
+          e("div",null,
+            e("label",{style:lbl},"Status"),
+            e("select",{value:o.status||"operating",onChange:function(ev){upo("status",ev.target.value);},style:ipt},
+              e("option",{value:"completing"},"Completing (opens within 6mo)"),
+              e("option",{value:"lease_up"},"In lease-up (under stabilisation)"),
+              e("option",{value:"operating"},"Operating + stabilised"),
+              e("option",{value:"recently_done"},"Recently completed")
+            )
+          ),
+          e("div",null,
+            e("label",{style:lbl},"Months to Stabilisation"),
+            e("input",{type:"number",value:o.monthsToStabil||"",onChange:function(ev){upo("monthsToStabil",ev.target.value);},placeholder:"0 if already stabilised",style:ipt})
+          ),
+          e("div",null,
+            e("label",{style:lbl},"Total Dev Cost Incurred (£)"),
+            e("input",{type:"number",value:o.costBase||"",onChange:function(ev){upo("costBase",ev.target.value);},placeholder:"e.g. 22000000",style:ipt})
+          ),
+          e("div",null,
+            e("label",{style:lbl},"Existing Debt (£)"),
+            e("input",{type:"number",value:o.existingDebt||"",onChange:function(ev){upo("existingDebt",ev.target.value);},placeholder:"Current outstanding facility",style:ipt})
+          ),
+          e("div",null,
+            e("label",{style:lbl},"Debt Rate %"),
+            e("input",{type:"number",value:o.debtRate||"",onChange:function(ev){upo("debtRate",ev.target.value);},placeholder:"7.0",style:ipt})
+          )
+        )
+      ),
+
+      // ── SECTION 2: INCOME ─────────────────────────────────────────────
+      e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:18,marginBottom:14}},
+        e("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:14,paddingBottom:10,borderBottom:"1px solid #F0F1FA"}},
+          e("div",{style:{width:24,height:24,borderRadius:"50%",background:"#2D7A65",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:12}},"2"),
+          e("h3",{style:{fontSize:14,fontWeight:800,color:"#1E1F5C"}},"Income & Operating ("+assetDef.label+")")
+        ),
+        e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:14,lineHeight:1.6}},"Enter either the unit-level income (and we'll calculate NOI) OR a stabilised NOI directly. Asset-specific fields appear based on the type you picked."),
+
+        // PBSA-specific inputs
+        assetType==="pbsa" && e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,marginBottom:12}},
+          e("div",null,e("label",{style:lbl},"Total Beds"),e("input",{type:"number",value:o.beds||"",onChange:function(ev){upo("beds",ev.target.value);},placeholder:"e.g. 240",style:ipt})),
+          e("div",null,e("label",{style:lbl},"Rent per Bed/Week (£)"),e("input",{type:"number",value:o.rentPerBedPw||"",onChange:function(ev){upo("rentPerBedPw",ev.target.value);},placeholder:"e.g. 175",style:ipt})),
+          e("div",null,e("label",{style:lbl},"Opex %"),e("input",{type:"number",value:o.opexPct||"",onChange:function(ev){upo("opexPct",ev.target.value);},placeholder:"25",style:ipt}))
+        ),
+
+        // BTR-specific
+        assetType==="btr" && e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,marginBottom:12}},
+          e("div",null,e("label",{style:lbl},"Total Units"),e("input",{type:"number",value:o.units||"",onChange:function(ev){upo("units",ev.target.value);},placeholder:"e.g. 200",style:ipt})),
+          e("div",null,e("label",{style:lbl},"Avg Rent per Unit pcm (£)"),e("input",{type:"number",value:o.rentPerUnitPcm||"",onChange:function(ev){upo("rentPerUnitPcm",ev.target.value);},placeholder:"e.g. 1450",style:ipt})),
+          e("div",null,e("label",{style:lbl},"Opex %"),e("input",{type:"number",value:o.opexPct||"",onChange:function(ev){upo("opexPct",ev.target.value);},placeholder:"25",style:ipt}))
+        ),
+
+        // Industrial/Office/Retail
+        (assetType==="industrial" || assetType==="office" || assetType==="retail") && e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,marginBottom:12}},
+          e("div",null,e("label",{style:lbl},"Sqft (lettable)"),e("input",{type:"number",value:o.sqft||"",onChange:function(ev){upo("sqft",ev.target.value);},placeholder:"e.g. 80000",style:ipt})),
+          e("div",null,e("label",{style:lbl},"Rent £/sqft pa"),e("input",{type:"number",value:o.rentPsfPa||"",onChange:function(ev){upo("rentPsfPa",ev.target.value);},placeholder:assetType==="industrial"?"14":assetType==="office"?"30":"50",style:ipt})),
+          e("div",null,e("label",{style:lbl},"Opex %"),e("input",{type:"number",value:o.opexPct||"",onChange:function(ev){upo("opexPct",ev.target.value);},placeholder:"10",style:ipt}))
+        ),
+
+        // Residential (single house/flat) — comparable-based, not yield-based
+        assetType==="residential" && (function(){
+          var pc=(o.postcode||"").toUpperCase().replace(/\s+/g,"");
+          var lrData=o.lrData;
+          var lrLoading=o.lrLoading;
+          var lrError=o.lrError;
+
+          // Auto-trigger LR fetch when postcode is valid + we don't already have data
+          if(pc && pc.length>=5 && !lrData && !lrLoading && !lrError && !o.lrTriggered){
+            var match=pc.match(/^([A-Z]{1,2})(\d{1,2}[A-Z]?)(\d)([A-Z]{2})$/);
+            if(match){
+              var district=match[1]+match[2];
+              upo("lrTriggered",true);
+              upo("lrLoading",true);
+              var sparql="PREFIX lrppi: <http://landregistry.data.gov.uk/def/ppi/> "+
+                "PREFIX lrcommon: <http://landregistry.data.gov.uk/def/common/> "+
+                "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> "+
+                "SELECT ?paon ?street ?town ?postcode ?amount ?date ?typeUri WHERE { "+
+                "?addr lrcommon:postcode ?postcode . "+
+                "FILTER(STRSTARTS(?postcode, \""+district+"\")) "+
+                "?t lrppi:propertyAddress ?addr ; lrppi:pricePaid ?amount ; lrppi:transactionDate ?date ; lrppi:propertyType ?typeUri . "+
+                "OPTIONAL{?addr lrcommon:paon ?paon} OPTIONAL{?addr lrcommon:street ?street} OPTIONAL{?addr lrcommon:town ?town} "+
+                "FILTER(?date >= \"2022-01-01\"^^xsd:date) "+
+                "} ORDER BY DESC(?date) LIMIT 50";
+              var lrTimeout=setTimeout(function(){
+                upo("lrLoading",false);
+                upo("lrError","Land Registry query timed out — enter average sale price manually below");
+              },30000);
+              fetch("https://landregistry.data.gov.uk/landregistry/query?query="+encodeURIComponent(sparql)+"&output=json",{headers:{Accept:"application/json"}})
+                .then(function(r){return r.json();})
+                .then(function(json){
+                  clearTimeout(lrTimeout);
+                  var rows=(json&&json.results&&json.results.bindings)||[];
+                  if(rows.length===0){
+                    upo("lrLoading",false);
+                    upo("lrError","No sales found in "+district+" since 2022. Enter average sale price manually below.");
+                    return;
+                  }
+                  // Calculate weighted average (£) from rows
+                  var sum=0, n=0, prices=[];
+                  rows.forEach(function(row){
+                    var amt=parseFloat(row.amount&&row.amount.value)||0;
+                    if(amt>0){sum+=amt;n++;prices.push(amt);}
+                  });
+                  var avgPrice=n>0?sum/n:0;
+                  // Median is more robust to outliers
+                  prices.sort(function(a,b){return a-b;});
+                  var median=prices.length>0 ? prices[Math.floor(prices.length/2)] : 0;
+                  upo("lrLoading",false);
+                  upo("lrData",{count:n,avgPrice:avgPrice,medianPrice:median,district:district});
+                })
+                .catch(function(err){
+                  clearTimeout(lrTimeout);
+                  upo("lrLoading",false);
+                  upo("lrError","Network error fetching Land Registry data");
+                });
+            }
+          }
+          return e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,marginBottom:12}},
+            e("div",null,e("label",{style:lbl},"Postcode"),e("input",{value:o.postcode||"",onChange:function(ev){upo("postcode",ev.target.value);upo("lrTriggered",false);upo("lrData",null);upo("lrError","");},placeholder:"e.g. CV5 7XX",style:ipt})),
+            e("div",null,e("label",{style:lbl},"Floor area (sqft)"),e("input",{type:"number",value:o.resSqft||"",onChange:function(ev){upo("resSqft",ev.target.value);},placeholder:"e.g. 1400",style:ipt})),
+            e("div",null,e("label",{style:lbl},"Bedrooms"),e("input",{type:"number",value:o.resBeds||"",onChange:function(ev){upo("resBeds",ev.target.value);},placeholder:"e.g. 4",style:ipt})),
+            e("div",null,
+              e("label",{style:lbl},"Condition"),
+              e("select",{value:o.resCondition||"good",onChange:function(ev){upo("resCondition",ev.target.value);},style:ipt},
+                e("option",{value:"derelict"},"Derelict / unmodernised"),
+                e("option",{value:"tired"},"Tired / 1970s decor"),
+                e("option",{value:"good"},"Good / liveable"),
+                e("option",{value:"excellent"},"Excellent / recently refurbished")
+              )
+            ),
+            e("div",null,e("label",{style:lbl},"Rent achievable pcm (£)"),e("input",{type:"number",value:o.resRentPcm||"",onChange:function(ev){upo("resRentPcm",ev.target.value);},placeholder:"Single AST market rent",style:ipt})),
+            e("div",null,e("label",{style:lbl},"Refurb budget (£)"),e("input",{type:"number",value:o.resRefurbCost||"",onChange:function(ev){upo("resRefurbCost",ev.target.value);},placeholder:"e.g. 35000",style:ipt})),
+            e("div",null,e("label",{style:lbl},"Refurb-uplift £/sqft"),e("input",{type:"number",value:o.resRefurbUplift||"",onChange:function(ev){upo("resRefurbUplift",ev.target.value);},placeholder:"e.g. 50 (uplift in £/sqft)",style:ipt})),
+            e("div",null,e("label",{style:lbl},"HMO rent per room pcm (£)"),e("input",{type:"number",value:o.resHmoPerRoom||"",onChange:function(ev){upo("resHmoPerRoom",ev.target.value);},placeholder:"e.g. 600",style:ipt}))
+          );
+        })(),
+
+        // LR data display for residential
+        assetType==="residential" && o.lrLoading && e("div",{style:{padding:"10px 14px",background:"rgba(74,75,174,0.06)",border:"1px solid rgba(74,75,174,0.3)",borderRadius:6,fontSize:11,color:"#4A4BAE",marginTop:8}},"⟳ Fetching Land Registry comparables for postcode..."),
+        assetType==="residential" && o.lrError && e("div",{style:{padding:"10px 14px",background:"rgba(176,90,53,0.06)",border:"1px solid rgba(176,90,53,0.3)",borderRadius:6,fontSize:11,color:"#B05A35",marginTop:8}},"⚠ "+o.lrError),
+        assetType==="residential" && o.lrData && o.lrData.count>0 && e("div",{style:{padding:"12px 14px",background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.3)",borderRadius:6,fontSize:11,color:"#2D7A65",marginTop:8,lineHeight:1.7}},
+          e("strong",null,"✓ Land Registry: "),
+          o.lrData.count+" sales in "+o.lrData.district+" since 2022. ",
+          "Avg "+fmt(o.lrData.avgPrice)+" · Median "+fmt(o.lrData.medianPrice),
+          num(o.resSqft)>0 && " · Implied £/sqft (avg): "+Math.round(o.lrData.avgPrice/num(o.resSqft))
+        ),
+
+        // Direct NOI override (always shown — but suppressed for residential)
+        assetType!=="residential" && e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,padding:"12px",background:"#F8F8FE",borderRadius:6,marginTop:6}},
+          e("div",null,e("label",{style:lbl},"Stabilised NOI (£/yr) — override"),e("input",{type:"number",value:o.stabilisedNOI||"",onChange:function(ev){upo("stabilisedNOI",ev.target.value);},placeholder:stabilNOI>0?Math.round(stabilNOI):"e.g. 1500000",style:ipt})),
+          e("div",null,e("label",{style:lbl},"Current NOI (£/yr) — today"),e("input",{type:"number",value:o.currentNOI||"",onChange:function(ev){upo("currentNOI",ev.target.value);},placeholder:"For pre-stabilisation",style:ipt}))
+        ),
+
+        // Derived NOI display
+        stabilNOI>0 && e("div",{style:{marginTop:10,padding:"10px 12px",background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.3)",borderRadius:6,fontSize:12,color:"#2D7A65"}},
+          e("strong",null,"Stabilised NOI: ",fmt(stabilNOI),"/yr"),
+          assetType==="pbsa" && o.beds>0 && " · "+Math.round(stabilNOI/num(o.beds))+"/bed/yr",
+          " · Sector yield range: "+yieldBand[0].toFixed(2)+"–"+yieldBand[1].toFixed(2)+"%"
+        )
+      ),
+
+      // ── SECTION 3: STRATEGIC PRIORITY ──────────────────────────────────
+      e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:18,marginBottom:14}},
+        e("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:14,paddingBottom:10,borderBottom:"1px solid #F0F1FA"}},
+          e("div",{style:{width:24,height:24,borderRadius:"50%",background:"#4A4BAE",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:12}},"3"),
+          e("h3",{style:{fontSize:14,fontWeight:800,color:"#1E1F5C"}},"What matters most to you?")
+        ),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10}},
+          [
+            {key:"cash",      label:"Cash now",         desc:"Maximum £ in hand, fastest",icon:"💷"},
+            {key:"irr",       label:"Best IRR",         desc:"Highest return on equity",   icon:"📈"},
+            {key:"strategic", label:"Strategic value",  desc:"Trade buyer / partnership",  icon:"🤝"},
+            {key:"risk_off",  label:"Risk-off",         desc:"Most reliable counterparty",icon:"🛡"}
+          ].map(function(p){
+            var picked = ownerPriority === p.key;
+            return e("div",{key:p.key,onClick:function(){upo("priority",p.key);},
+              style:{padding:"12px 14px",borderRadius:8,border:"2px solid "+(picked?"#4A4BAE":"#DDE0ED"),background:picked?"rgba(74,75,174,0.06)":"#fff",cursor:"pointer",textAlign:"center"}},
+              e("div",{style:{fontSize:22,marginBottom:4}},p.icon),
+              e("div",{style:{fontSize:12,fontWeight:800,color:picked?"#2E2F8A":"#1E1F5C",marginBottom:2}},p.label),
+              e("div",{style:{fontSize:10,color:"#7278A0"}},p.desc)
+            );
+          })
+        )
+      ),
+
+      // ── SECTION 4: RESIDENTIAL STRATEGIES (single house/flat workflow) ──
+      assetType==="residential" && (function(){
+        // Compute residential strategies from inputs
+        var sqft = num(o.resSqft);
+        var beds = num(o.resBeds);
+        var rentPcm = num(o.resRentPcm);
+        var refurbCost = num(o.resRefurbCost);
+        var refurbUplift = num(o.resRefurbUplift);
+        var hmoPerRoom = num(o.resHmoPerRoom);
+        var condition = o.resCondition || "good";
+
+        // Derive £/sqft from LR data
+        var basePsf = 0;
+        if(o.lrData && o.lrData.avgPrice > 0 && sqft > 0){
+          basePsf = o.lrData.avgPrice / 1100;  // assume avg comp sqft ~1100; better: median
+          // Actually use the *per-sqft* method only if user typed their own sqft
+          basePsf = o.lrData.medianPrice / 1100;
+        }
+        // Override: if user typed a manual asking value, prefer that
+        var manualVal = num(o.resManualValue);
+
+        // Condition multiplier
+        var condMult = {derelict:0.78,tired:0.90,good:1.0,excellent:1.08}[condition] || 1.0;
+
+        // Market value as-is
+        var asIsValue;
+        if(manualVal > 0) asIsValue = manualVal;
+        else if(o.lrData && o.lrData.medianPrice > 0 && sqft > 0){
+          // £/sqft from median ÷ assumed comp sqft (1100) × this sqft × condition
+          asIsValue = (o.lrData.medianPrice / 1100) * sqft * condMult;
+        } else if(o.lrData && o.lrData.medianPrice > 0){
+          asIsValue = o.lrData.medianPrice * condMult;
+        } else {
+          asIsValue = 0;
+        }
+
+        // Refurb strategy
+        var refurbedValue = 0;
+        if(refurbUplift > 0 && sqft > 0){
+          refurbedValue = asIsValue + (refurbUplift * sqft);
+        } else if(refurbCost > 0){
+          // Heuristic: typical refurb returns £2 of value per £1 spent on right asset
+          refurbedValue = asIsValue + refurbCost * 2;
+        }
+
+        // HMO conversion estimate
+        var hmoRooms = beds > 0 ? beds + 1 : 0;  // assume one extra room created (reception)
+        var hmoGrossYr = hmoPerRoom > 0 ? hmoPerRoom * 12 * hmoRooms * 0.85 : 0;  // 85% occupancy
+        var hmoNetYr = hmoGrossYr * 0.70;  // 70% of gross after costs (mgmt, void, utilities, mtnce)
+        var hmoConvCost = beds * 8000;  // ~£8k per room for fire-doors / kitchens / licensing
+        var hmoCapVal = hmoNetYr > 0 ? hmoNetYr / 0.075 : 0;  // 7.5% yield for HMO sale
+
+        // BTL strategy
+        var btlGrossYr = rentPcm > 0 ? rentPcm * 12 * 0.96 : 0;  // 96% occupancy
+        var btlNetYr = btlGrossYr * 0.80;  // 80% net after mgmt/voids/repairs
+        var btlGrossYield = asIsValue > 0 && rentPcm > 0 ? (rentPcm*12/asIsValue)*100 : 0;
+
+        // Remortgage strategy (75% LTV)
+        var remortRaised = asIsValue * 0.75;
+        var equityReleased = remortRaised - existingDebt;
+
+        // Demolish + 2 plots redevelopment
+        var demoCost = 25000;
+        var planningPro = 8000;
+        var newGdv = sqft > 0 && o.lrData && o.lrData.medianPrice > 0
+          ? (o.lrData.medianPrice / 1100) * sqft * 2 * 1.15  // 2 plots, 15% premium for new build
+          : 0;
+        var redevCost = sqft > 0 ? sqft * 1.8 * 180 : 0;  // 80% more sqft (2 units), £180/sqft build
+        var redevProfit = newGdv - redevCost - demoCost - planningPro - asIsValue;
+
+        var sellingCostsPct = 0.022;  // 2.2% (agent 1.5% + legals 0.5% + EPC etc 0.2%)
+
+        var resStrategies = [
+          {
+            key:"sell_now",
+            label:"🏠 Sell as-is",
+            desc:"List on open market in current condition. Quickest cash, no further capital risk.",
+            cost:asIsValue*sellingCostsPct,
+            time:"3-6 mo",
+            timeMonths:4.5,
+            gross:asIsValue,
+            net:asIsValue - (asIsValue*sellingCostsPct) - existingDebt,
+            annualised: 0,  // one-shot
+            notes:["Median "+(o.lrData?fmt(o.lrData.medianPrice):"—")+" comp", condition+" condition × "+condMult.toFixed(2)]
+          },
+          {
+            key:"refurb_sell",
+            label:"🔧 Refurb + sell",
+            desc:"Modernise (kitchen, bathrooms, decor). Time + capital but unlocks higher £/sqft.",
+            cost:refurbCost + (refurbedValue*sellingCostsPct),
+            time:"6-9 mo",
+            timeMonths:7.5,
+            gross:refurbedValue,
+            net:refurbedValue - refurbCost - (refurbedValue*sellingCostsPct) - existingDebt,
+            annualised: refurbedValue > asIsValue && refurbCost > 0 ?
+              ((refurbedValue - refurbCost - asIsValue) / refurbCost) * (12/7.5) * 100 : 0,
+            notes:[refurbCost>0?fmt(refurbCost)+" refurb":"set refurb budget", refurbUplift>0?"+£"+refurbUplift+"/sqft uplift":"using 2x rule"]
+          },
+          {
+            key:"convert_hmo",
+            label:"🏘 Convert to HMO",
+            desc:"5+ bed shared house. Licensing, fire compliance. Sell to HMO investor or hold for cashflow.",
+            cost:hmoConvCost + (hmoCapVal*sellingCostsPct),
+            time:"9-12 mo",
+            timeMonths:10.5,
+            gross:hmoCapVal,
+            net:hmoCapVal - hmoConvCost - (hmoCapVal*sellingCostsPct) - existingDebt,
+            annualised: hmoNetYr > 0 && asIsValue > 0 ? (hmoNetYr/asIsValue)*100 : 0,
+            notes:[hmoRooms+"-room HMO", hmoPerRoom>0?fmt(hmoNetYr)+"/yr net":"set room rent", "7.5% sale yield"]
+          },
+          {
+            key:"rent_btl",
+            label:"🔑 Rent out (single AST)",
+            desc:"Let on single Assured Shorthold Tenancy. Hold long-term, single tenant, lowest hassle.",
+            cost:0,
+            time:"1-2 mo",
+            timeMonths:1.5,
+            gross:rentPcm > 0 ? rentPcm * 12 : 0,
+            net:btlNetYr,
+            annualised: btlGrossYield,
+            notes:[btlGrossYield>0?btlGrossYield.toFixed(1)+"% gross yield":"set rent pcm", "Net "+fmt(btlNetYr)+"/yr"]
+          },
+          {
+            key:"remort_hold",
+            label:"🏦 Remortgage + hold",
+            desc:"Take BTL mortgage at 75% LTV. Release tax-efficient equity. Keep asset for capital growth.",
+            cost:2500,  // legals
+            time:"2-3 mo",
+            timeMonths:2.5,
+            gross:remortRaised,
+            net:equityReleased - 2500,
+            annualised: 0,  // not applicable to one-shot
+            notes:["75% LTV on "+fmt(asIsValue), equityReleased>0?fmt(equityReleased)+" released":"already over-levered", "+ ongoing rent if let"]
+          },
+          {
+            key:"demo_redev",
+            label:"⚖ Demolish + redevelop",
+            desc:"Knock down, plant 2+ new units. Planning required. Highest upside but timeline + risk.",
+            cost:demoCost + planningPro + redevCost + (newGdv*sellingCostsPct),
+            time:"18-24 mo",
+            timeMonths:21,
+            gross:newGdv,
+            net:redevProfit - existingDebt,
+            annualised: redevProfit > 0 && (redevCost + asIsValue) > 0 ? (redevProfit / (redevCost + asIsValue)) * (12/21) * 100 : 0,
+            notes:["Subject to planning", newGdv>0?"GDV "+fmt(newGdv):"need sqft", redevCost>0?"Build "+fmt(redevCost):""]
+          }
+        ];
+
+        // Score each strategy by user's priority
+        resStrategies.forEach(function(r){
+          var s = 0;
+          if(ownerPriority === "cash"){
+            // Cash now = max net, fast
+            s = r.net/1000 + (r.timeMonths < 5 ? 50 : 0) - r.timeMonths*5;
+          } else if(ownerPriority === "irr"){
+            s = r.annualised;
+          } else if(ownerPriority === "strategic"){
+            s = r.net/1000 + (r.key==="convert_hmo"?30:0) + (r.key==="demo_redev"?40:0);
+          } else if(ownerPriority === "risk_off"){
+            s = r.net/1000 + (r.key==="sell_now"?40:0) + (r.key==="remort_hold"?30:0) - (r.key==="demo_redev"?50:0);
+          }
+          r.score = s;
+        });
+        var resSorted = resStrategies.slice().sort(function(a,b){return b.score-a.score;});
+        var resBest = resSorted[0];
+        var resSecond = resSorted[1];
+
+        // Store for AI section to read
+        upo("_resBestKey", resBest ? resBest.key : "");
+        upo("_resBestLabel", resBest ? resBest.label : "");
+
+        return e("div",null,
+          e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:18,marginBottom:14}},
+            e("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:14,paddingBottom:10,borderBottom:"1px solid #F0F1FA"}},
+              e("div",{style:{width:24,height:24,borderRadius:"50%",background:"#B05A35",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:12}},"4"),
+              e("h3",{style:{fontSize:14,fontWeight:800,color:"#1E1F5C"}},"Residential strategies — ranked by your priority")
+            ),
+
+            // Manual override for value if LR not loaded
+            !o.lrData && e("div",{style:{padding:"10px 14px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:6,fontSize:11,color:"#7278A0",marginBottom:14}},
+              e("strong",null,"No comparables loaded yet. "),
+              "Either fill in postcode above for auto-lookup, OR enter your estimated value manually:",
+              e("input",{type:"number",value:o.resManualValue||"",onChange:function(ev){upo("resManualValue",ev.target.value);},placeholder:"Estimated market value (£)",style:Object.assign({},ipt,{marginTop:8,maxWidth:240})})
+            ),
+
+            // Strategy cards
+            e("div",{style:{display:"grid",gridTemplateColumns:"1fr",gap:10}},
+              resSorted.map(function(r,idx){
+                var isBest = idx===0;
+                return e("div",{key:r.key,style:{
+                  background:isBest?"linear-gradient(135deg,rgba(45,122,101,0.06),rgba(74,75,174,0.04))":"#fff",
+                  border:"2px solid "+(isBest?"#2D7A65":"#DDE0ED"),
+                  borderRadius:8,
+                  padding:"14px 16px",
+                  position:"relative"
+                }},
+                  isBest && e("div",{style:{position:"absolute",top:-9,left:14,background:"#2D7A65",color:"#fff",fontSize:9,fontWeight:800,padding:"3px 8px",borderRadius:3,letterSpacing:".08em"}},"🏆 RECOMMENDED"),
+                  e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"start",gap:14,flexWrap:"wrap"}},
+                    e("div",{style:{flex:"1 1 250px",minWidth:200}},
+                      e("div",{style:{fontSize:14,fontWeight:800,color:"#1E1F5C",marginBottom:3}},r.label),
+                      e("div",{style:{fontSize:11,color:"#7278A0",lineHeight:1.5,marginBottom:8}},r.desc),
+                      e("div",{style:{fontSize:10,color:"#9A7B3E",fontStyle:"italic"}},r.notes.filter(function(n){return n;}).join(" · "))
+                    ),
+                    e("div",{style:{display:"flex",gap:14,flexWrap:"wrap"}},
+                      e("div",{style:{textAlign:"right"}},
+                        e("div",{style:{fontSize:9,color:"#7278A0",letterSpacing:".05em",textTransform:"uppercase"}},"Gross"),
+                        e("div",{style:{fontSize:14,fontWeight:700,color:"#2E2F8A"}},r.gross>0?fmt(r.gross):"—")
+                      ),
+                      e("div",{style:{textAlign:"right"}},
+                        e("div",{style:{fontSize:9,color:"#7278A0",letterSpacing:".05em",textTransform:"uppercase"}},"Net to you"),
+                        e("div",{style:{fontSize:14,fontWeight:800,color:r.net>0?"#2D7A65":"#B05A35"}},r.net!==0?fmt(r.net):"—")
+                      ),
+                      e("div",{style:{textAlign:"right"}},
+                        e("div",{style:{fontSize:9,color:"#7278A0",letterSpacing:".05em",textTransform:"uppercase"}},"Time"),
+                        e("div",{style:{fontSize:12,fontWeight:700,color:"#3A3D6A"}},r.time)
+                      ),
+                      r.annualised > 0 && e("div",{style:{textAlign:"right"}},
+                        e("div",{style:{fontSize:9,color:"#7278A0",letterSpacing:".05em",textTransform:"uppercase"}},"Annualised"),
+                        e("div",{style:{fontSize:12,fontWeight:700,color:r.annualised>10?"#2D7A65":"#9A7B3E"}},r.annualised.toFixed(1)+"%")
+                      )
+                    )
+                  )
+                );
+              })
+            ),
+
+            asIsValue>0 && e("div",{style:{marginTop:14,padding:"12px 14px",background:"#F8F8FE",borderLeft:"3px solid #4A4BAE",borderRadius:6,fontSize:11,color:"#3A3D6A",lineHeight:1.6}},
+              e("strong",null,"As-is estimated value: "+fmt(asIsValue)+"."),
+              " Based on "+(o.lrData?"Land Registry median + your sqft + condition":"manual override"),
+              ". Adjust 'Condition' or enter a manual value to override."
+            )
+          ),
+
+          // Best recommendation card (residential)
+          resBest && asIsValue>0 && e("div",{style:{background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",color:"#fff",borderRadius:10,padding:24,marginBottom:14}},
+            e("div",{style:{fontSize:9,letterSpacing:".25em",textTransform:"uppercase",color:"#EDE84A",marginBottom:6,fontWeight:700}},"Cassidy Recommendation"),
+            e("div",{style:{fontSize:20,fontWeight:800,marginBottom:10}},"Optimal strategy: "+resBest.label),
+            e("div",{style:{fontSize:13,opacity:0.9,marginBottom:14,lineHeight:1.7}},resBest.desc),
+            e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:12,marginTop:14,paddingTop:14,borderTop:"1px solid rgba(255,255,255,0.15)"}},
+              e("div",null,
+                e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:".1em",textTransform:"uppercase",fontWeight:700,marginBottom:4}},"Net Proceeds"),
+                e("div",{style:{fontSize:18,fontWeight:800,color:"#fff"}},resBest.net>0?fmt(resBest.net):"—")
+              ),
+              e("div",null,
+                e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:".1em",textTransform:"uppercase",fontWeight:700,marginBottom:4}},"Timeline"),
+                e("div",{style:{fontSize:18,fontWeight:800,color:"#fff"}},resBest.time)
+              ),
+              resBest.annualised>0 && e("div",null,
+                e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:".1em",textTransform:"uppercase",fontWeight:700,marginBottom:4}},"Annualised"),
+                e("div",{style:{fontSize:18,fontWeight:800,color:"#EDE84A"}},resBest.annualised.toFixed(1)+"%")
+              ),
+              e("div",null,
+                e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:".1em",textTransform:"uppercase",fontWeight:700,marginBottom:4}},"Capital Needed"),
+                e("div",{style:{fontSize:18,fontWeight:800,color:"#fff"}},resBest.cost>0?fmt(resBest.cost):"None")
+              )
+            ),
+            resSecond && e("div",{style:{marginTop:16,padding:"12px 14px",background:"rgba(255,255,255,0.06)",borderRadius:6,fontSize:11,color:"rgba(255,255,255,0.85)",lineHeight:1.6}},
+              e("strong",{style:{color:"#EDE84A",letterSpacing:".05em"}},"Second choice: "),
+              resSecond.label+" — Net "+fmt(resSecond.net)+" ("+resSecond.time+")"
+            )
+          )
+        );
+      })(),
+
+      // ── SECTION 4: GENERIC EXIT COMPARISON (for non-residential assets) ──
+      assetType!=="residential" && e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:18,marginBottom:14}},
+        e("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:14,paddingBottom:10,borderBottom:"1px solid #F0F1FA"}},
+          e("div",{style:{width:24,height:24,borderRadius:"50%",background:"#B05A35",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:12}},"4"),
+          e("h3",{style:{fontSize:14,fontWeight:800,color:"#1E1F5C"}},"Exit routes side-by-side — ranked by your priority")
+        ),
+
+        (stabilNOI===0 && costBase===0) && e("div",{style:{padding:"14px 16px",background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.3)",borderRadius:6,fontSize:11,color:"#B05A35",lineHeight:1.6}},
+          "⚠ Enter at least an income figure (NOI or unit-level rent) and cost base to see live comparison."
+        ),
+
+        // Table
+        (stabilNOI>0 || costBase>0) && e("div",{style:{overflowX:"auto"}},
+          e("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:11,fontFamily:"DM Sans,sans-serif"}},
+            e("thead",null,
+              e("tr",{style:{background:"#F4F5FB"}},
+                ["Rank","Exit route","Headline","Net to you","Yield","IRR proxy","Time","Notes"].map(function(h,i){
+                  return e("th",{key:i,style:{padding:"10px 8px",textAlign:i<=1?"left":"right",fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".05em",fontWeight:700,borderBottom:"2px solid #DDE0ED"}},h);
+                })
+              )
+            ),
+            e("tbody",null,
+              sorted.map(function(r,idx){
+                var isBest = idx===0;
+                return e("tr",{key:r.ex.key,style:{borderBottom:"1px solid #F0F1FA",background:isBest?"rgba(45,122,101,0.04)":"transparent"}},
+                  e("td",{style:{padding:"10px 8px",fontWeight:800,color:isBest?"#2D7A65":"#7278A0",fontSize:13}},isBest?"🏆 1":(idx+1)),
+                  e("td",{style:{padding:"10px 8px"}},
+                    e("div",{style:{fontWeight:700,color:"#1E1F5C"}},r.ex.icon+" "+r.ex.label),
+                    e("div",{style:{fontSize:9,color:"#7278A0",marginTop:1}},r.ex.desc.substring(0,90)+(r.ex.desc.length>90?"…":""))
+                  ),
+                  e("td",{style:{padding:"10px 8px",textAlign:"right",fontWeight:700,color:"#2E2F8A"}},r.headline>0?fmt(r.headline):"—"),
+                  e("td",{style:{padding:"10px 8px",textAlign:"right",fontWeight:800,color:r.net>0?"#2D7A65":"#B05A35"}},r.net>0?fmt(r.net):(r.ex.key==="hold"?fmt(stabilNOI||currentNOI)+"/yr":"—")),
+                  e("td",{style:{padding:"10px 8px",textAlign:"right",color:"#7278A0"}},r.yld>0?r.yld.toFixed(2)+"%":"—"),
+                  e("td",{style:{padding:"10px 8px",textAlign:"right",fontWeight:700,color:r.simpleIrr>15?"#2D7A65":r.simpleIrr>0?"#9A7B3E":"#B05A35"}},isFinite(r.simpleIrr)&&r.simpleIrr!==0?r.simpleIrr.toFixed(1)+"%":"—"),
+                  e("td",{style:{padding:"10px 8px",textAlign:"right",color:"#7278A0",fontSize:10}},r.ex.timeMonths+(r.ex.timeMonths.indexOf("ongoing")<0?"mo":"")),
+                  e("td",{style:{padding:"10px 8px",fontSize:10,color:"#7278A0",maxWidth:160}},r.notes.join(" · "))
+                );
+              })
+            )
+          )
+        )
+      ),
+
+      // ── SECTION 5: RECOMMENDATION (non-residential only) ──────────────
+      assetType!=="residential" && bestExit && stabilNOI>0 && e("div",{style:{background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",color:"#fff",borderRadius:10,padding:24,marginBottom:14}},
+        e("div",{style:{fontSize:9,letterSpacing:".25em",textTransform:"uppercase",color:"#EDE84A",marginBottom:6,fontWeight:700}},"Cassidy Recommendation"),
+        e("div",{style:{fontSize:20,fontWeight:800,marginBottom:10}},
+          "Optimal exit: "+bestExit.ex.icon+" "+bestExit.ex.label
+        ),
+        e("div",{style:{fontSize:13,opacity:0.9,marginBottom:14,lineHeight:1.7}},
+          bestExit.headline > 0 && "Expected headline value: "+e("strong",{style:{color:"#EDE84A"}},fmt(bestExit.headline)),
+          bestExit.net > 0 && " · Net to you: "+fmt(bestExit.net),
+          " · Timing: "+bestExit.ex.timeMonths+"mo"
+        ),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:12,marginTop:14,paddingTop:14,borderTop:"1px solid rgba(255,255,255,0.15)"}},
+          e("div",null,
+            e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:".1em",textTransform:"uppercase",fontWeight:700,marginBottom:4}},"Net Proceeds"),
+            e("div",{style:{fontSize:18,fontWeight:800,color:"#fff"}},bestExit.net>0?fmt(bestExit.net):"—")
+          ),
+          e("div",null,
+            e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:".1em",textTransform:"uppercase",fontWeight:700,marginBottom:4}},"Profit on Cost"),
+            e("div",{style:{fontSize:18,fontWeight:800,color:bestExit.profitOnCost>=15?"#2D7A65":"#fff"}},bestExit.profitOnCost!==0?bestExit.profitOnCost.toFixed(1)+"%":"—")
+          ),
+          e("div",null,
+            e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:".1em",textTransform:"uppercase",fontWeight:700,marginBottom:4}},"IRR Proxy"),
+            e("div",{style:{fontSize:18,fontWeight:800,color:"#EDE84A"}},isFinite(bestExit.simpleIrr)&&bestExit.simpleIrr!==0?bestExit.simpleIrr.toFixed(1)+"%":"—")
+          ),
+          e("div",null,
+            e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:".1em",textTransform:"uppercase",fontWeight:700,marginBottom:4}},"Equity at Risk"),
+            e("div",{style:{fontSize:18,fontWeight:800,color:"#fff"}},equityIn>0?fmt(equityIn):"—")
+          )
+        ),
+        secondExit && e("div",{style:{marginTop:16,padding:"12px 14px",background:"rgba(255,255,255,0.06)",borderRadius:6,fontSize:11,color:"rgba(255,255,255,0.85)",lineHeight:1.6}},
+          e("strong",{style:{color:"#EDE84A",letterSpacing:".05em"}},"Second choice: "),
+          secondExit.ex.icon+" "+secondExit.ex.label,
+          secondExit.headline>0 && " — "+fmt(secondExit.headline),
+          " ("+secondExit.ex.timeMonths+"mo)"
+        )
+      ),
+
+      // ── SECTION 6: AI INSIGHT (institutional/commercial assets) ────────
+      assetType!=="residential" && stabilNOI>0 && bestExit && e(AIPanel,{user:user,up:up,stage:"optimiser",data:data,persistKey:"optimiser_strategy",label:"Strategic Exit Analysis",
+        prompt:"Strategic analysis for an existing "+assetDef.label+" asset. " +
+          "Location: "+(o.assetName||"(unnamed)")+", "+(location==="prime"?"prime market":"regional market")+". " +
+          "Stabilised NOI: "+fmt(stabilNOI)+"/yr. Dev cost: "+fmt(costBase)+". Existing debt: "+fmt(existingDebt)+". Months to stabilisation: "+monthsToStabil+". " +
+          "Owner priority: "+ownerPriority+". " +
+          "Top-ranked exit route by our model: "+bestExit.ex.label+" — expected net "+fmt(bestExit.net)+", IRR "+(isFinite(bestExit.simpleIrr)?bestExit.simpleIrr.toFixed(1):"—")+"%. " +
+          "Second-ranked: "+(secondExit?secondExit.ex.label:"")+". " +
+          "Provide: 1) Whether you agree with the top-ranked exit and why, 2) Risks specific to that exit route in current UK market, " +
+          "3) Specific named buyers/funds to approach (real institutions active in this sector), 4) Timing recommendation (sell now vs wait for stabilisation), " +
+          "5) Any structuring tips (forward-fund, leaseback, debt restructure) that could improve outcome. Be specific and commercial — UK 2026 market. 250 words."
+      }),
+
+      // ── SECTION 6: AI INSIGHT (residential — single house/flat) ────────
+      assetType==="residential" && o._resBestKey && e(AIPanel,{user:user,up:up,stage:"optimiser",data:data,persistKey:"optimiser_residential_strategy",label:"Residential Strategy Analysis",
+        prompt:"Strategic analysis for a residential property the owner wants to monetise. " +
+          "Property: "+(o.assetName||"residence")+" in "+(o.postcode||"(no postcode)")+", "+(num(o.resSqft)>0?num(o.resSqft)+" sqft":"")+", "+(num(o.resBeds)>0?num(o.resBeds)+" bedrooms":"")+", condition '"+(o.resCondition||"good")+"'. " +
+          (o.lrData?"Land Registry: "+o.lrData.count+" comparable sales in "+o.lrData.district+", median "+fmt(o.lrData.medianPrice)+". ":"") +
+          "Cost base: "+fmt(costBase)+". Existing debt: "+fmt(existingDebt)+". " +
+          "Owner priority: "+ownerPriority+". " +
+          "Top-ranked strategy by our model: "+o._resBestLabel+". " +
+          "Provide: 1) Whether you agree with this strategy and why, 2) Specific tactics to maximise outcome (e.g. best refurb £/sqft return, HMO licensing tips, demolition planning angle), " +
+          "3) Local market intel for the postcode/area (demand trends, comparable house types, buyer pool), " +
+          "4) Timing recommendation, 5) Any tax / SDLT / CGT considerations specific to this strategy. " +
+          "Be specific, commercial, UK-focused. 250 words plain text."
+      })
+    );
+  }
+
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INVESTOR MARKETING SUITE
+  //   Creates tiered investor packages (Teaser / IM / Data Room) with media
+  //   uploads, shareable links, and view analytics. The endpoint for any deal.
+  // ═══════════════════════════════════════════════════════════════════════════
+  function renderInvestorSuite(){
+    var inv = data.investor || {};
+    function upi(k,v){ up("investor",k,v); }
+    var dealId = data._cloudDealId || "";
+    var hasDeal = !!dealId;
+
+    var tab = inv.tab || "package";  // "package" | "media" | "shares" | "analytics"
+
+    // ── Load shares from backend on first visit ──
+    if(hasDeal && user && user.userId && !inv._sharesLoaded && !inv._sharesLoading){
+      upi("_sharesLoading",true);
+      fetch(WEBHOOK+"?action=share_analytics&userId="+encodeURIComponent(user.userId)+"&dealId="+encodeURIComponent(dealId))
+        .then(function(r){return r.json();})
+        .then(function(d){
+          upi("_sharesLoaded",true);
+          upi("_sharesLoading",false);
+          if(d && d.status==="ok"){
+            upi("shares", d.shares || []);
+          }
+        }).catch(function(){
+          upi("_sharesLoaded",true);
+          upi("_sharesLoading",false);
+        });
+    }
+
+    function refreshShares(){
+      upi("_sharesLoaded",false);
+    }
+
+    // ── Tab styles ──
+    function tabBtn(key,label){
+      var isActive = tab===key;
+      return e("div",{key:key,onClick:function(){upi("tab",key);},
+        style:{
+          padding:"10px 18px",
+          fontSize:12,fontWeight:700,letterSpacing:".03em",
+          borderBottom:"3px solid "+(isActive?"#4A4BAE":"transparent"),
+          color:isActive?"#2E2F8A":"#7278A0",
+          cursor:"pointer",
+          marginBottom:-2
+        }
+      }, label);
+    }
+
+    var ipt = {width:"100%",padding:"8px 10px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:12,fontFamily:"DM Sans,sans-serif",color:"#2E2F8A",background:"#fff"};
+    var lbl = {fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".08em",fontWeight:700,marginBottom:3,display:"block"};
+
+    return e("div",null,
+      // ── Header ──
+      e("div",{style:{marginBottom:18}},
+        e("div",{style:{fontSize:9,letterSpacing:".25em",textTransform:"uppercase",color:"#9A7B3E",marginBottom:6,fontWeight:700}},"Investor Marketing Suite"),
+        e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:6}},"Package, market, and track your deal"),
+        e("p",{style:{fontSize:12,color:"#7278A0",maxWidth:680,lineHeight:1.6}},"Generate institutional-grade Teaser, IM and Data Room. Upload photos and embed videos. Create shareable links per investor with view analytics so you can gauge interest in real-time.")
+      ),
+
+      // ── Save-deal prompt if no cloud ID ──
+      !hasDeal && e("div",{style:{padding:"14px 18px",background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.3)",borderRadius:8,fontSize:12,color:"#B05A35",marginBottom:18,lineHeight:1.6}},
+        e("strong",null,"⚠ Save your deal first. "),"The Investor Marketing Suite needs a cloud-saved deal to generate shareable links. Click ",
+        e("strong",null,"💾 Save Deal")," in the topbar, then come back.",
+        e("div",{style:{marginTop:10}},
+          e("button",{onClick:saveDeal,style:{padding:"8px 16px",background:"#B05A35",border:"none",color:"#fff",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"💾 Save Now →")
+        )
+      ),
+
+      hasDeal && e("div",null,
+        // ── Tabs ──
+        e("div",{style:{display:"flex",gap:0,borderBottom:"2px solid #F0F1FA",marginBottom:18,overflowX:"auto",flexWrap:"wrap"}},
+          tabBtn("package","📦 Build Package"),
+          tabBtn("media","🖼 Media Library"),
+          tabBtn("shares","🔗 Share Links"),
+          tabBtn("analytics","📊 Activity & Engagement")
+        ),
+
+        // ── TAB 1: PACKAGE ───────────────────────────────────────────────
+        tab==="package" && e("div",null,
+          e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:14,marginBottom:18}},
+            // Tier 1: Teaser
+            e("div",{style:{background:"#fff",border:"2px solid #DDE0ED",borderLeft:"5px solid #2D7A65",borderRadius:10,padding:18}},
+              e("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:10}},
+                e("div",{style:{fontSize:24}},"📬"),
+                e("div",null,
+                  e("div",{style:{fontSize:14,fontWeight:800,color:"#1E1F5C"}},"Tier 1 — Teaser"),
+                  e("div",{style:{fontSize:9,color:"#2D7A65",fontWeight:700,letterSpacing:".05em"}},"NDA-FREE · BROADCAST WIDELY")
+                )
+              ),
+              e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:14,lineHeight:1.6}},"1-2 pages. Headline numbers, location, hero image, 3-bullet pitch. Pass-the-pub test for analysts."),
+              e("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
+                e("button",{onClick:function(){navTo("teaser");},style:{flex:1,padding:"7px 10px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:5,fontSize:11,fontWeight:700,color:"#3A3D6A",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"📝 Edit content"),
+                e("button",{onClick:function(){upi("createTier","teaser");},style:{flex:1,padding:"7px 10px",background:"linear-gradient(135deg,#2D7A65,#4A4BAE)",border:"none",borderRadius:5,fontSize:11,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"🔗 Create link →")
+              )
+            ),
+            // Tier 2: IM
+            e("div",{style:{background:"#fff",border:"2px solid #DDE0ED",borderLeft:"5px solid #4A4BAE",borderRadius:10,padding:18}},
+              e("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:10}},
+                e("div",{style:{fontSize:24}},"📑"),
+                e("div",null,
+                  e("div",{style:{fontSize:14,fontWeight:800,color:"#1E1F5C"}},"Tier 2 — IM"),
+                  e("div",{style:{fontSize:9,color:"#4A4BAE",fontWeight:700,letterSpacing:".05em"}},"POST-NDA · IC-READY")
+                )
+              ),
+              e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:14,lineHeight:1.6}},"15-25 pages. Financial model summary, sensitivities, market analysis, exit strategy, risks, team."),
+              e("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
+                e("button",{onClick:function(){navTo("im");},style:{flex:1,padding:"7px 10px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:5,fontSize:11,fontWeight:700,color:"#3A3D6A",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"📝 Edit content"),
+                e("button",{onClick:function(){upi("createTier","im");},style:{flex:1,padding:"7px 10px",background:"linear-gradient(135deg,#4A4BAE,#2E2F8A)",border:"none",borderRadius:5,fontSize:11,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"🔗 Create link →")
+              )
+            ),
+            // Tier 3: Data Room
+            e("div",{style:{background:"#fff",border:"2px solid #DDE0ED",borderLeft:"5px solid #9A7B3E",borderRadius:10,padding:18}},
+              e("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:10}},
+                e("div",{style:{fontSize:24}},"📁"),
+                e("div",null,
+                  e("div",{style:{fontSize:14,fontWeight:800,color:"#1E1F5C"}},"Tier 3 — Data Room"),
+                  e("div",{style:{fontSize:9,color:"#9A7B3E",fontWeight:700,letterSpacing:".05em"}},"POST-LOI · FULL DD")
+                )
+              ),
+              e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:14,lineHeight:1.6}},"Title plans, planning consents, surveys, models, leases, environmental. Light DR = deal dies."),
+              e("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
+                e("button",{onClick:function(){navTo("dataroom");},style:{flex:1,padding:"7px 10px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:5,fontSize:11,fontWeight:700,color:"#3A3D6A",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"📝 Manage docs"),
+                e("button",{onClick:function(){upi("createTier","dataroom");},style:{flex:1,padding:"7px 10px",background:"linear-gradient(135deg,#9A7B3E,#B05A35)",border:"none",borderRadius:5,fontSize:11,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"🔗 Create link →")
+              )
+            )
+          ),
+
+          // ── Create Share modal-style block ──
+          inv.createTier && e("div",{style:{background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",color:"#fff",borderRadius:10,padding:22,marginBottom:18}},
+            e("div",{style:{fontSize:9,letterSpacing:".25em",textTransform:"uppercase",color:"#EDE84A",marginBottom:6,fontWeight:700}},"Create Share Link"),
+            e("h3",{style:{fontSize:18,fontWeight:800,marginBottom:14}},"Configure your "+(inv.createTier==="teaser"?"Teaser":inv.createTier==="im"?"Investor Memorandum":"Data Room")+" link"),
+            e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:14,marginBottom:14}},
+              e("div",null,
+                e("label",{style:Object.assign({},lbl,{color:"rgba(255,255,255,0.6)"})},"Share title"),
+                e("input",{value:inv.shareTitle||"",onChange:function(ev){upi("shareTitle",ev.target.value);},placeholder:"e.g. Coventry PBSA — Pension Fund Pack",style:Object.assign({},ipt,{background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.2)",color:"#fff"})})
+              ),
+              e("div",null,
+                e("label",{style:Object.assign({},lbl,{color:"rgba(255,255,255,0.6)"})},"Audience preset"),
+                e("select",{value:inv.shareAudience||"pension",onChange:function(ev){upi("shareAudience",ev.target.value);},style:Object.assign({},ipt,{background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.2)",color:"#fff"})},
+                  e("option",{value:"pension"},"Pension Fund / Long-Income"),
+                  e("option",{value:"sovereign"},"Sovereign Wealth Fund"),
+                  e("option",{value:"family"},"Family Office"),
+                  e("option",{value:"jv"},"JV Partner / Co-Investor"),
+                  e("option",{value:"trade"},"Trade Buyer"),
+                  e("option",{value:"reit"},"Listed REIT"),
+                  e("option",{value:"hni"},"High Net Worth Individual"),
+                  e("option",{value:"general"},"General / Broadcast")
+                )
+              ),
+              e("div",null,
+                e("label",{style:Object.assign({},lbl,{color:"rgba(255,255,255,0.6)"})},"Passcode (optional)"),
+                e("input",{value:inv.sharePasscode||"",onChange:function(ev){upi("sharePasscode",ev.target.value);},placeholder:"Leave blank for no passcode",style:Object.assign({},ipt,{background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.2)",color:"#fff"})})
+              ),
+              e("div",null,
+                e("label",{style:Object.assign({},lbl,{color:"rgba(255,255,255,0.6)"})},"Expires (optional)"),
+                e("input",{type:"date",value:inv.shareExpires||"",onChange:function(ev){upi("shareExpires",ev.target.value);},style:Object.assign({},ipt,{background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.2)",color:"#fff"})})
+              )
+            ),
+            e("div",{style:{display:"flex",gap:10,marginTop:8}},
+              e("button",{
+                onClick:function(){
+                  // Create share
+                  fetch(WEBHOOK+"?"+new URLSearchParams({
+                    action:"create_share",
+                    userId:user.userId,
+                    dealId:dealId,
+                    tier:inv.createTier,
+                    passcode:inv.sharePasscode||"",
+                    expiresAt:inv.shareExpires||"",
+                    title:inv.shareTitle||"Investment Opportunity",
+                    emailGate:"true"
+                  }).toString())
+                  .then(function(r){return r.json();})
+                  .then(function(d){
+                    if(d && d.status==="ok"){
+                      upi("createTier","");
+                      upi("shareTitle","");upi("sharePasscode","");upi("shareExpires","");
+                      refreshShares();
+                      upi("tab","shares");
+                      alert("✓ Share link created. Switch to 'Share Links' tab to copy + send.");
+                    } else {
+                      alert("Failed: "+((d&&d.message)||"unknown error"));
+                    }
+                  })
+                  .catch(function(){alert("Network error");});
+                },
+                style:{padding:"10px 20px",background:"#EDE84A",border:"none",borderRadius:6,color:"#1E1F5C",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+              },"Create Link →"),
+              e("button",{onClick:function(){upi("createTier","");},style:{padding:"10px 20px",background:"transparent",border:"1px solid rgba(255,255,255,0.3)",color:"#fff",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Cancel")
+            )
+          ),
+
+          // Quick guide
+          e("div",{style:{background:"#F8F8FE",borderLeft:"3px solid #4A4BAE",borderRadius:6,padding:"14px 16px",fontSize:11,color:"#3A3D6A",lineHeight:1.7}},
+            e("strong",{style:{color:"#1E1F5C"}},"How institutional outreach actually works: "),
+            "Send the ",e("strong",null,"Teaser")," to 50+ contacts (no NDA needed). 5-10 will request more — give them the ",e("strong",null,"IM")," after they sign your NDA. 1-2 will reach LOI stage — only THEN open the ",e("strong",null,"Data Room"),". Every share link has its own analytics so you can see who's engaged."
+          )
+        ),
+
+        // ── TAB 2: MEDIA LIBRARY ─────────────────────────────────────────
+        tab==="media" && renderInvestorMedia(dealId, upi, ipt, lbl),
+
+        // ── TAB 3: SHARES ────────────────────────────────────────────────
+        tab==="shares" && e("div",null,
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}},
+            e("div",null,
+              e("h3",{style:{fontSize:16,fontWeight:800,color:"#1E1F5C",marginBottom:2}},"Your share links"),
+              e("div",{style:{fontSize:11,color:"#7278A0"}},"All shareable links for this deal — copy, deactivate, or check engagement")
+            ),
+            e("button",{onClick:refreshShares,style:{padding:"6px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:5,fontSize:11,fontWeight:700,color:"#3A3D6A",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"⟳ Refresh")
+          ),
+          inv._sharesLoading && e("div",{style:{padding:20,textAlign:"center",color:"#7278A0",fontSize:12}},"Loading..."),
+          !inv._sharesLoading && (!inv.shares || inv.shares.length===0) && e("div",{style:{background:"rgba(74,75,174,0.06)",border:"1px dashed rgba(74,75,174,0.3)",borderRadius:10,padding:"28px 24px",textAlign:"center"}},
+            e("div",{style:{fontSize:32,marginBottom:8}},"🔗"),
+            e("div",{style:{fontSize:13,fontWeight:700,color:"#2E2F8A",marginBottom:6}},"No share links yet"),
+            e("div",{style:{fontSize:11,color:"#7278A0",lineHeight:1.6}},"Switch to 'Build Package' tab and click 'Create link' on Teaser / IM / Data Room.")
+          ),
+          (inv.shares||[]).map(function(s){
+            var tierLabel = s.tier==="teaser"?"📬 Teaser":s.tier==="im"?"📑 IM":"📁 Data Room";
+            var tierColor = s.tier==="teaser"?"#2D7A65":s.tier==="im"?"#4A4BAE":"#9A7B3E";
+            var shareUrl = window.location.origin + window.location.pathname + "?share="+s.shareId;
+            return e("div",{key:s.shareId,style:{background:"#fff",border:"1px solid #DDE0ED",borderLeft:"5px solid "+tierColor,borderRadius:8,padding:"14px 16px",marginBottom:10}},
+              e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"start",gap:12,flexWrap:"wrap"}},
+                e("div",{style:{flex:"1 1 240px",minWidth:0}},
+                  e("div",{style:{fontSize:13,fontWeight:800,color:"#1E1F5C",marginBottom:3}},s.title||"Untitled"),
+                  e("div",{style:{fontSize:10,color:tierColor,fontWeight:700,letterSpacing:".05em",marginBottom:6}},tierLabel),
+                  e("div",{style:{display:"flex",gap:14,flexWrap:"wrap",fontSize:10,color:"#7278A0"}},
+                    e("span",null,"👁 "+s.viewCount+" view"+(s.viewCount===1?"":"s")),
+                    s.lastViewedAt && e("span",null,"Last view: "+new Date(s.lastViewedAt).toLocaleString("en-GB")),
+                    s.expiresAt && e("span",null,"Expires: "+new Date(s.expiresAt).toLocaleDateString("en-GB"))
+                  )
+                ),
+                e("div",{style:{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}},
+                  e("input",{readOnly:true,value:shareUrl,onClick:function(ev){ev.target.select();},style:{padding:"6px 10px",border:"1px solid #DDE0ED",borderRadius:4,fontSize:10,fontFamily:"monospace",color:"#3A3D6A",background:"#F7F8FC",width:240}}),
+                  e("button",{onClick:function(){
+                    try{
+                      navigator.clipboard.writeText(shareUrl);
+                      alert("✓ Copied to clipboard");
+                    }catch(e){
+                      window.prompt("Copy this link:",shareUrl);
+                    }
+                  },style:{padding:"6px 12px",background:"#4A4BAE",border:"none",color:"#fff",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"📋 Copy")
+                )
+              )
+            );
+          })
+        ),
+
+        // ── TAB 4: ANALYTICS ─────────────────────────────────────────────
+        tab==="analytics" && e("div",null,
+          e("h3",{style:{fontSize:16,fontWeight:800,color:"#1E1F5C",marginBottom:14}},"Engagement analytics"),
+          (!inv.shares || inv.shares.length===0) && e("div",{style:{background:"rgba(74,75,174,0.06)",border:"1px dashed rgba(74,75,174,0.3)",borderRadius:10,padding:"28px 24px",textAlign:"center"}},
+            e("div",{style:{fontSize:11,color:"#7278A0",lineHeight:1.6}},"Create share links first, then engagement data appears here as investors view your materials.")
+          ),
+          inv.shares && inv.shares.length>0 && (function(){
+            var totalViews = inv.shares.reduce(function(a,s){return a+(s.viewCount||0);},0);
+            var totalLinks = inv.shares.length;
+            var activeLinks = inv.shares.filter(function(s){return s.viewCount>0;}).length;
+            return e("div",null,
+              e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:12,marginBottom:18}},
+                e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,padding:"14px 16px"}},
+                  e("div",{style:{fontSize:9,color:"#7278A0",letterSpacing:".08em",textTransform:"uppercase",fontWeight:700}},"Total Links"),
+                  e("div",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginTop:4}},totalLinks)
+                ),
+                e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,padding:"14px 16px"}},
+                  e("div",{style:{fontSize:9,color:"#7278A0",letterSpacing:".08em",textTransform:"uppercase",fontWeight:700}},"Total Views"),
+                  e("div",{style:{fontSize:24,fontWeight:800,color:"#2D7A65",marginTop:4}},totalViews)
+                ),
+                e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,padding:"14px 16px"}},
+                  e("div",{style:{fontSize:9,color:"#7278A0",letterSpacing:".08em",textTransform:"uppercase",fontWeight:700}},"Active Links"),
+                  e("div",{style:{fontSize:24,fontWeight:800,color:"#9A7B3E",marginTop:4}},activeLinks)
+                ),
+                e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,padding:"14px 16px"}},
+                  e("div",{style:{fontSize:9,color:"#7278A0",letterSpacing:".08em",textTransform:"uppercase",fontWeight:700}},"Avg Views/Link"),
+                  e("div",{style:{fontSize:24,fontWeight:800,color:"#4A4BAE",marginTop:4}},totalLinks>0?(totalViews/totalLinks).toFixed(1):"0")
+                )
+              ),
+              e("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:11,fontFamily:"DM Sans,sans-serif",background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,overflow:"hidden"}},
+                e("thead",null,
+                  e("tr",{style:{background:"#F4F5FB"}},
+                    ["Link","Tier","Views","Last viewed","Status"].map(function(h){
+                      return e("th",{key:h,style:{padding:"10px 12px",textAlign:"left",fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".05em",fontWeight:700,borderBottom:"2px solid #DDE0ED"}},h);
+                    })
+                  )
+                ),
+                e("tbody",null,
+                  inv.shares.map(function(s){
+                    return e("tr",{key:s.shareId,style:{borderBottom:"1px solid #F0F1FA"}},
+                      e("td",{style:{padding:"10px 12px",fontWeight:700,color:"#1E1F5C"}},s.title||"Untitled"),
+                      e("td",{style:{padding:"10px 12px"}},s.tier==="teaser"?"📬 Teaser":s.tier==="im"?"📑 IM":"📁 Data Room"),
+                      e("td",{style:{padding:"10px 12px",fontWeight:800,color:s.viewCount>0?"#2D7A65":"#C0C4D8"}},s.viewCount||0),
+                      e("td",{style:{padding:"10px 12px",color:"#7278A0",fontSize:10}},s.lastViewedAt?new Date(s.lastViewedAt).toLocaleString("en-GB"):"—"),
+                      e("td",{style:{padding:"10px 12px"}},
+                        e("span",{style:{padding:"2px 8px",background:s.viewCount>0?"rgba(45,122,101,0.12)":"rgba(120,120,160,0.08)",color:s.viewCount>0?"#2D7A65":"#7278A0",borderRadius:3,fontSize:9,fontWeight:700,letterSpacing:".05em"}},s.viewCount>0?"ENGAGED":"NOT YET")
+                      )
+                    );
+                  })
+                )
+              )
+            );
+          })()
+        )
+      )
+    );
+  }
+
+  // ── Media library sub-render (used by Investor Suite) ──
+  function renderInvestorMedia(dealId, upi, ipt, lbl){
+    var inv = data.investor || {};
+    var mediaList = inv.media || [];
+
+    // Auto-fetch on first visit if empty
+    if(!inv._mediaLoaded && !inv._mediaLoading && user && user.userId){
+      upi("_mediaLoading",true);
+      // For now, media is part of the share endpoint — there's no separate list
+      // We'll add a separate list endpoint if needed; for v9.2, fetch via share load
+      upi("_mediaLoaded",true);
+      upi("_mediaLoading",false);
+    }
+
+    function handleFile(file, kind){
+      if(!file) return;
+      if(file.size > 5*1024*1024){
+        alert("File too large — max 5MB. (Apps Script upload limit). For larger files, use a YouTube/Vimeo embed.");
+        return;
+      }
+      var reader = new FileReader();
+      reader.onload = function(ev){
+        upi("_uploading",true);
+        var base64 = ev.target.result;
+        fetch(WEBHOOK, {
+          method:"POST",
+          headers:{"Content-Type":"text/plain;charset=utf-8"},
+          body:JSON.stringify({
+            action:"upload_media",
+            userId:user.userId,
+            dealId:dealId,
+            kind:kind,
+            title:file.name,
+            mimeType:file.type,
+            base64Data:base64
+          })
+        })
+        .then(function(r){return r.json();})
+        .then(function(d){
+          upi("_uploading",false);
+          if(d && d.status==="ok"){
+            var newMedia = (inv.media||[]).concat([{
+              mediaId:d.mediaId, kind:kind, title:file.name,
+              driveUrl:d.driveUrl, embedUrl:d.embedUrl
+            }]);
+            upi("media",newMedia);
+            alert("✓ Uploaded: "+file.name);
+          } else {
+            alert("Upload failed: "+((d&&d.message)||"unknown error"));
+          }
+        })
+        .catch(function(err){
+          upi("_uploading",false);
+          alert("Upload error — file may be too large for backend (5MB max).");
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function addVideoEmbed(){
+      var url = window.prompt("Paste YouTube or Vimeo URL:");
+      if(!url) return;
+      var title = window.prompt("Title for this video:","Site video");
+      upi("_uploading",true);
+      fetch(WEBHOOK+"?"+new URLSearchParams({
+        action:"upload_media",
+        userId:user.userId,
+        dealId:dealId,
+        kind:"video_embed",
+        title:title||"Video",
+        embedUrl:url
+      }).toString())
+      .then(function(r){return r.json();})
+      .then(function(d){
+        upi("_uploading",false);
+        if(d && d.status==="ok"){
+          var newMedia = (inv.media||[]).concat([{
+            mediaId:d.mediaId, kind:"video_embed", title:title,
+            embedUrl:d.embedUrl
+          }]);
+          upi("media",newMedia);
+        } else {
+          alert("Failed: "+((d&&d.message)||"unknown error"));
+        }
+      })
+      .catch(function(){
+        upi("_uploading",false);
+        alert("Network error");
+      });
+    }
+
+    return e("div",null,
+      e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}},
+        e("div",null,
+          e("h3",{style:{fontSize:16,fontWeight:800,color:"#1E1F5C",marginBottom:2}},"Media library"),
+          e("div",{style:{fontSize:11,color:"#7278A0"}},"Photos, videos, and supporting documents shown to investors when they view your share links")
+        )
+      ),
+
+      // Upload buttons
+      e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:12,marginBottom:18}},
+        e("label",{style:{background:"#fff",border:"2px dashed #4A4BAE",borderRadius:10,padding:"18px 16px",textAlign:"center",cursor:"pointer",display:"block"}},
+          e("input",{type:"file",accept:"image/*",style:{display:"none"},onChange:function(ev){handleFile(ev.target.files[0],"photo");}}),
+          e("div",{style:{fontSize:28,marginBottom:6}},"🖼"),
+          e("div",{style:{fontSize:12,fontWeight:800,color:"#2E2F8A",marginBottom:3}},"Upload Photo"),
+          e("div",{style:{fontSize:10,color:"#7278A0"}},"JPG / PNG · max 5MB")
+        ),
+        e("div",{onClick:addVideoEmbed,style:{background:"#fff",border:"2px dashed #2D7A65",borderRadius:10,padding:"18px 16px",textAlign:"center",cursor:"pointer"}},
+          e("div",{style:{fontSize:28,marginBottom:6}},"🎬"),
+          e("div",{style:{fontSize:12,fontWeight:800,color:"#2E2F8A",marginBottom:3}},"Embed Video"),
+          e("div",{style:{fontSize:10,color:"#7278A0"}},"YouTube / Vimeo link")
+        ),
+        e("label",{style:{background:"#fff",border:"2px dashed #9A7B3E",borderRadius:10,padding:"18px 16px",textAlign:"center",cursor:"pointer",display:"block"}},
+          e("input",{type:"file",accept:".pdf,.doc,.docx,.xls,.xlsx",style:{display:"none"},onChange:function(ev){handleFile(ev.target.files[0],"document");}}),
+          e("div",{style:{fontSize:28,marginBottom:6}},"📄"),
+          e("div",{style:{fontSize:12,fontWeight:800,color:"#2E2F8A",marginBottom:3}},"Upload Document"),
+          e("div",{style:{fontSize:10,color:"#7278A0"}},"PDF / Word · max 5MB")
+        )
+      ),
+
+      inv._uploading && e("div",{style:{padding:"12px 14px",background:"rgba(74,75,174,0.08)",border:"1px solid rgba(74,75,174,0.3)",borderRadius:6,fontSize:11,color:"#4A4BAE",marginBottom:14}},"⟳ Uploading..."),
+
+      // Gallery
+      mediaList.length === 0 && e("div",{style:{background:"rgba(74,75,174,0.06)",border:"1px dashed rgba(74,75,174,0.3)",borderRadius:10,padding:"24px",textAlign:"center"}},
+        e("div",{style:{fontSize:32,marginBottom:8}},"📸"),
+        e("div",{style:{fontSize:13,fontWeight:700,color:"#2E2F8A",marginBottom:6}},"No media uploaded yet"),
+        e("div",{style:{fontSize:11,color:"#7278A0",lineHeight:1.6,maxWidth:380,margin:"0 auto"}},"Upload site photos, embed a drone tour video, attach planning docs. Investors see all of this when they open your share link.")
+      ),
+      mediaList.length > 0 && e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12}},
+        mediaList.map(function(m){
+          return e("div",{key:m.mediaId,style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,padding:10}},
+            m.kind==="photo" && e("img",{src:m.driveUrl,alt:m.title,style:{width:"100%",height:140,objectFit:"cover",borderRadius:5,marginBottom:8,background:"#F7F8FC"}}),
+            m.kind==="video_embed" && e("div",{style:{position:"relative",paddingBottom:"56.25%",height:0,marginBottom:8,borderRadius:5,overflow:"hidden",background:"#000"}},
+              e("iframe",{src:m.embedUrl,style:{position:"absolute",top:0,left:0,width:"100%",height:"100%",border:0},allowFullScreen:true,title:m.title})
+            ),
+            m.kind==="document" && e("div",{style:{padding:"24px 12px",textAlign:"center",background:"#F7F8FC",borderRadius:5,marginBottom:8}},
+              e("div",{style:{fontSize:36}},"📄"),
+              e("div",{style:{fontSize:10,color:"#7278A0",marginTop:4}},"Document")
+            ),
+            e("div",{style:{fontSize:11,fontWeight:700,color:"#1E1F5C",marginBottom:2,wordBreak:"break-word"}},m.title||"Untitled"),
+            e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".05em"}},m.kind.replace("_"," ")),
+            m.driveUrl && e("a",{href:m.driveUrl,target:"_blank",style:{fontSize:10,color:"#4A4BAE",textDecoration:"underline",display:"inline-block",marginTop:4}},"Open in Drive →")
+          );
+        })
+      )
+    );
+  }
 
   function renderDashboard(){
     try{
@@ -12127,6 +13434,8 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
     if(stage==="scorecard")return renderScorecard();
     if(stage==="placona")return renderPlacona();
     if(stage==="navigator")return renderProcessNavigator();
+    if(stage==="assetOptimiser")return renderAssetOptimiser();
+    if(stage==="investor")return renderInvestorSuite();
     if(stage==="capitalise")return renderCapitalise();
     if(stage==="grants")return renderGrants();
     if(stage==="teaser")return renderTeaser();
@@ -12278,7 +13587,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
             e("span",{style:{width:18,height:2,background:"#2E2F8A",display:"block",borderRadius:2}})
           ),
           e("div",{className:"lf-stage-mobile-title",style:{fontSize:isMobile?14:15,fontWeight:700,color:"#2E2F8A",whiteSpace:"nowrap"}},curStage.label),
-          e("div",{title:"Build v8.9",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v8.9"),
+          e("div",{title:"Build v9.2",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v9.2"),
           !isMobile&&e("div",{style:{fontSize:11,color:"#7278A0",marginLeft:6}},at.toUpperCase()+" · "+cityName(city))
         ),
 
@@ -12456,6 +13765,18 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
 
 // ── ROOT ──────────────────────────────────────────────────────────────────────
 function Root(){
+  // Detect public-share mode from URL: ?share=<shareId>
+  var shareId = (function(){
+    try{
+      var params = new URLSearchParams(window.location.search);
+      return params.get("share") || null;
+    }catch(e){ return null; }
+  })();
+
+  if(shareId){
+    return e(PublicShareViewer,{shareId:shareId});
+  }
+
   // Try to restore login session from localStorage
   var initialUser = (function(){
     try{
@@ -12482,6 +13803,245 @@ function Root(){
     setUser(u);
   }});
   return e(Tool,{user:user, onLogout:logout});
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PUBLIC SHARE VIEWER
+//   Shown when investor clicks a ?share=<shareId> link. Branded read-only view.
+//   Captures email + tracks view duration for analytics.
+// ═══════════════════════════════════════════════════════════════════════════
+function PublicShareViewer(props){
+  var shareId = props.shareId;
+  var ls = useState(true); var loading=ls[0]; var setLoading=ls[1];
+  var ds = useState(null); var shareData=ds[0]; var setShareData=ds[1];
+  var es = useState(""); var err=es[0]; var setErr=es[1];
+  var ns = useState(false); var needPasscode=ns[0]; var setNeedPasscode=ns[1];
+  var pcs = useState(""); var passcode=pcs[0]; var setPasscode=pcs[1];
+
+  // Email gate state
+  var egs = useState(false); var emailEntered=egs[0]; var setEmailEntered=egs[1];
+  var ems = useState(""); var viewerEmail=ems[0]; var setViewerEmail=ems[1];
+  var vns = useState(""); var viewerName=vns[0]; var setViewerName=vns[1];
+  var vcs = useState(""); var viewerCompany=vcs[0]; var setViewerCompany=vcs[1];
+
+  var startedAt = React.useRef ? React.useRef(Date.now()) : {current:Date.now()};
+
+  function loadShare(submittedPasscode){
+    setLoading(true);setErr("");
+    var url = WEBHOOK+"?action=load_share&shareId="+encodeURIComponent(shareId);
+    if(submittedPasscode) url += "&passcode="+encodeURIComponent(submittedPasscode);
+    fetch(url)
+      .then(function(r){return r.json();})
+      .then(function(d){
+        setLoading(false);
+        if(d && d.status==="need_passcode"){
+          setNeedPasscode(true);
+          return;
+        }
+        if(d && d.status==="ok"){
+          setShareData(d);
+          setNeedPasscode(false);
+        } else {
+          setErr((d&&d.message)||"Unable to load this link");
+        }
+      })
+      .catch(function(){setLoading(false);setErr("Network error");});
+  }
+
+  // Initial load
+  React.useEffect(function(){
+    loadShare("");
+    // Track view duration when leaving
+    var handleUnload = function(){
+      try{
+        var duration = Math.round((Date.now()-startedAt.current)/1000);
+        navigator.sendBeacon && navigator.sendBeacon(
+          WEBHOOK+"?action=track_view&shareId="+encodeURIComponent(shareId)+"&durationSec="+duration+"&viewerEmail="+encodeURIComponent(viewerEmail||"anonymous")+"&viewerName="+encodeURIComponent(viewerName)+"&viewerCompany="+encodeURIComponent(viewerCompany)+"&userAgent="+encodeURIComponent(navigator.userAgent.substring(0,100))
+        );
+      }catch(e){}
+    };
+    window.addEventListener("beforeunload",handleUnload);
+    return function(){window.removeEventListener("beforeunload",handleUnload);};
+  },[]);
+
+  // Fire initial track when email submitted
+  function recordView(){
+    fetch(WEBHOOK+"?action=track_view&shareId="+encodeURIComponent(shareId)+"&viewerEmail="+encodeURIComponent(viewerEmail)+"&viewerName="+encodeURIComponent(viewerName)+"&viewerCompany="+encodeURIComponent(viewerCompany)+"&tier="+encodeURIComponent((shareData&&shareData.tier)||"")+"&userAgent="+encodeURIComponent(navigator.userAgent.substring(0,100)))
+      .catch(function(){});
+    setEmailEntered(true);
+  }
+
+  // ── Render states ──
+  if(loading){
+    return e("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#F4F5F9",fontFamily:"DM Sans,sans-serif"}},
+      e("div",{style:{textAlign:"center"}},
+        e("img",{src:"data:image/webp;base64,"+LOGO,style:{width:80,marginBottom:14,opacity:0.7}}),
+        e("div",{style:{fontSize:13,color:"#7278A0"}},"Loading investment package…")
+      )
+    );
+  }
+
+  if(err){
+    return e("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#F4F5F9",fontFamily:"DM Sans,sans-serif",padding:20}},
+      e("div",{style:{background:"#fff",borderRadius:12,padding:"40px 36px",maxWidth:440,textAlign:"center"}},
+        e("img",{src:"data:image/webp;base64,"+LOGO,style:{width:100,marginBottom:18}}),
+        e("h2",{style:{color:"#B05A35",fontSize:18,marginBottom:10}},"Link unavailable"),
+        e("p",{style:{color:"#7278A0",fontSize:13,lineHeight:1.6}},err),
+        e("p",{style:{color:"#A0A4C0",fontSize:11,marginTop:14}},"Please contact the sender to request a new link.")
+      )
+    );
+  }
+
+  if(needPasscode){
+    return e("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#F4F5F9",fontFamily:"DM Sans,sans-serif",padding:20}},
+      e("div",{style:{background:"#fff",borderRadius:12,padding:"40px 36px",maxWidth:380,textAlign:"center"}},
+        e("img",{src:"data:image/webp;base64,"+LOGO,style:{width:100,marginBottom:18}}),
+        e("h2",{style:{color:"#2E2F8A",fontSize:18,marginBottom:8}},"Passcode required"),
+        e("p",{style:{color:"#7278A0",fontSize:12,marginBottom:18}},"This investment pack is passcode-protected."),
+        e("input",{type:"password",value:passcode,onChange:function(ev){setPasscode(ev.target.value);},onKeyDown:function(ev){if(ev.key==="Enter")loadShare(passcode);},placeholder:"Enter passcode",style:{width:"100%",padding:"10px 12px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:13,marginBottom:12,fontFamily:"DM Sans,sans-serif",boxSizing:"border-box"}}),
+        e("button",{onClick:function(){loadShare(passcode);},style:{width:"100%",padding:"10px",background:"#4A4BAE",border:"none",borderRadius:6,color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Unlock →")
+      )
+    );
+  }
+
+  // Email gate (only if shareData.emailGate)
+  if(shareData && shareData.emailGate && !emailEntered){
+    return e("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",fontFamily:"DM Sans,sans-serif",padding:20}},
+      e("div",{style:{background:"#fff",borderRadius:12,padding:"40px 36px",maxWidth:440,boxShadow:"0 8px 40px rgba(0,0,0,0.25)"}},
+        e("div",{style:{textAlign:"center",marginBottom:20}},
+          e("img",{src:"data:image/webp;base64,"+LOGO,style:{width:110,marginBottom:14}}),
+          e("h2",{style:{color:"#2E2F8A",fontSize:18,fontWeight:800,marginBottom:6}},shareData.title||"Investment Opportunity"),
+          e("p",{style:{color:"#7278A0",fontSize:12}},"Please introduce yourself to view this opportunity")
+        ),
+        e("div",{style:{display:"flex",flexDirection:"column",gap:12}},
+          e("input",{value:viewerName,onChange:function(ev){setViewerName(ev.target.value);},placeholder:"Your name",style:{padding:"10px 12px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:13,fontFamily:"DM Sans,sans-serif"}}),
+          e("input",{value:viewerCompany,onChange:function(ev){setViewerCompany(ev.target.value);},placeholder:"Company / fund",style:{padding:"10px 12px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:13,fontFamily:"DM Sans,sans-serif"}}),
+          e("input",{type:"email",value:viewerEmail,onChange:function(ev){setViewerEmail(ev.target.value);},placeholder:"Email address",style:{padding:"10px 12px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:13,fontFamily:"DM Sans,sans-serif"}}),
+          e("button",{onClick:function(){
+            if(!viewerEmail || viewerEmail.indexOf("@")<0){alert("Please enter a valid email");return;}
+            if(!viewerName){alert("Please enter your name");return;}
+            recordView();
+          },style:{padding:12,background:"#4A4BAE",border:"none",borderRadius:6,color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"View Opportunity →")
+        ),
+        e("p",{style:{textAlign:"center",fontSize:10,color:"#A0A4C0",marginTop:18,lineHeight:1.5}},"This is a private investment opportunity. Your details are only shared with the sender for tracking purposes.")
+      )
+    );
+  }
+
+  // ── Main content view ──
+  var deal = {};
+  try{ deal = JSON.parse(shareData.payload); }catch(e){}
+  var tier = shareData.tier;
+  var media = shareData.media || [];
+  var photos = media.filter(function(m){return m.kind==="photo";});
+  var videos = media.filter(function(m){return m.kind==="video_embed";});
+  var docs = media.filter(function(m){return m.kind==="document";});
+
+  // Extract deal metrics
+  var address = (deal.land&&deal.land.address) || shareData.title;
+  var city = (deal.land&&deal.land.city) || "—";
+  var scheme = deal.assetType || "—";
+  var units = (deal.planning&&deal.planning.units) || (deal.sfh&&deal.sfh.totalUnits) || (deal.hra&&deal.hra.units) || "—";
+  var gdv = (deal.fin&&deal.fin.gdv) || 0;
+  var profit = (deal.fin&&deal.fin.profit) || 0;
+  var margin = (deal.fin&&deal.fin.margin) || 0;
+
+  function fmtPub(n){if(!n||isNaN(n))return"—";if(n>=1e6)return"£"+(n/1e6).toFixed(2)+"m";if(n>=1e3)return"£"+(n/1e3).toFixed(0)+"k";return"£"+Math.round(n).toLocaleString();}
+
+  return e("div",{style:{minHeight:"100vh",background:"#F4F5F9",fontFamily:"DM Sans,sans-serif"}},
+    // Header bar
+    e("div",{style:{background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",color:"#fff",padding:"18px 24px"}},
+      e("div",{style:{maxWidth:1100,margin:"0 auto",display:"flex",alignItems:"center",gap:14}},
+        e("img",{src:"data:image/webp;base64,"+LOGO,style:{width:60,height:"auto",filter:"brightness(0) invert(1)"}}),
+        e("div",null,
+          e("div",{style:{fontSize:10,letterSpacing:".25em",textTransform:"uppercase",color:"#EDE84A",fontWeight:700}},"Cassidy Group — "+(tier==="teaser"?"Teaser":tier==="im"?"Investment Memorandum":"Data Room")),
+          e("div",{style:{fontSize:17,fontWeight:800,marginTop:2}},shareData.title||"Investment Opportunity")
+        )
+      )
+    ),
+
+    // Main content
+    e("div",{style:{maxWidth:1100,margin:"0 auto",padding:"30px 24px"}},
+      // Hero photo
+      photos.length > 0 && e("img",{src:photos[0].driveUrl,alt:photos[0].title,style:{width:"100%",height:380,objectFit:"cover",borderRadius:10,marginBottom:24,background:"#DDE0ED"}}),
+
+      // Key metrics
+      e("div",{style:{background:"#fff",borderRadius:12,padding:24,marginBottom:20,boxShadow:"0 2px 10px rgba(0,0,0,0.04)"}},
+        e("h1",{style:{fontSize:26,fontWeight:800,color:"#1E1F5C",marginBottom:6}},address),
+        e("p",{style:{fontSize:14,color:"#7278A0",marginBottom:20}},city+" · "+String(scheme).toUpperCase()+" · "+units+" units"),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:14}},
+          e("div",{style:{padding:"14px 16px",background:"linear-gradient(135deg,rgba(45,122,101,0.06),rgba(74,75,174,0.04))",borderRadius:8}},
+            e("div",{style:{fontSize:9,letterSpacing:".1em",textTransform:"uppercase",color:"#7278A0",fontWeight:700}},"GDV"),
+            e("div",{style:{fontSize:22,fontWeight:800,color:"#2E2F8A",marginTop:4}},fmtPub(gdv))
+          ),
+          e("div",{style:{padding:"14px 16px",background:"linear-gradient(135deg,rgba(45,122,101,0.06),rgba(74,75,174,0.04))",borderRadius:8}},
+            e("div",{style:{fontSize:9,letterSpacing:".1em",textTransform:"uppercase",color:"#7278A0",fontWeight:700}},"Projected Profit"),
+            e("div",{style:{fontSize:22,fontWeight:800,color:"#2D7A65",marginTop:4}},fmtPub(profit))
+          ),
+          e("div",{style:{padding:"14px 16px",background:"linear-gradient(135deg,rgba(45,122,101,0.06),rgba(74,75,174,0.04))",borderRadius:8}},
+            e("div",{style:{fontSize:9,letterSpacing:".1em",textTransform:"uppercase",color:"#7278A0",fontWeight:700}},"Margin"),
+            e("div",{style:{fontSize:22,fontWeight:800,color:"#9A7B3E",marginTop:4}},margin>0?margin.toFixed(1)+"%":"—")
+          ),
+          e("div",{style:{padding:"14px 16px",background:"linear-gradient(135deg,rgba(45,122,101,0.06),rgba(74,75,174,0.04))",borderRadius:8}},
+            e("div",{style:{fontSize:9,letterSpacing:".1em",textTransform:"uppercase",color:"#7278A0",fontWeight:700}},"Scheme"),
+            e("div",{style:{fontSize:18,fontWeight:800,color:"#4A4BAE",marginTop:4}},String(scheme).toUpperCase())
+          )
+        )
+      ),
+
+      // Videos
+      videos.length > 0 && e("div",{style:{background:"#fff",borderRadius:12,padding:24,marginBottom:20,boxShadow:"0 2px 10px rgba(0,0,0,0.04)"}},
+        e("h2",{style:{fontSize:18,fontWeight:800,color:"#1E1F5C",marginBottom:14}},"🎬 Site Tour"),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(320px,1fr))",gap:14}},
+          videos.map(function(v){
+            return e("div",{key:v.mediaId},
+              e("div",{style:{position:"relative",paddingBottom:"56.25%",height:0,borderRadius:8,overflow:"hidden",background:"#000"}},
+                e("iframe",{src:v.embedUrl,style:{position:"absolute",top:0,left:0,width:"100%",height:"100%",border:0},allowFullScreen:true,title:v.title})
+              ),
+              e("div",{style:{fontSize:11,color:"#7278A0",marginTop:6}},v.title)
+            );
+          })
+        )
+      ),
+
+      // Photo gallery (additional)
+      photos.length > 1 && e("div",{style:{background:"#fff",borderRadius:12,padding:24,marginBottom:20,boxShadow:"0 2px 10px rgba(0,0,0,0.04)"}},
+        e("h2",{style:{fontSize:18,fontWeight:800,color:"#1E1F5C",marginBottom:14}},"📸 Gallery"),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10}},
+          photos.slice(1).map(function(p){
+            return e("img",{key:p.mediaId,src:p.driveUrl,alt:p.title,style:{width:"100%",height:140,objectFit:"cover",borderRadius:6,background:"#DDE0ED"}});
+          })
+        )
+      ),
+
+      // Documents (only in IM / Data Room tier)
+      (tier==="im"||tier==="dataroom") && docs.length > 0 && e("div",{style:{background:"#fff",borderRadius:12,padding:24,marginBottom:20,boxShadow:"0 2px 10px rgba(0,0,0,0.04)"}},
+        e("h2",{style:{fontSize:18,fontWeight:800,color:"#1E1F5C",marginBottom:14}},"📁 Documents"),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:10}},
+          docs.map(function(d){
+            return e("a",{key:d.mediaId,href:d.driveUrl,target:"_blank",style:{display:"block",padding:"14px 16px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,textDecoration:"none"}},
+              e("div",{style:{fontSize:24,marginBottom:6}},"📄"),
+              e("div",{style:{fontSize:12,fontWeight:700,color:"#2E2F8A"}},d.title),
+              e("div",{style:{fontSize:10,color:"#4A4BAE",marginTop:4}},"Open document →")
+            );
+          })
+        )
+      ),
+
+      // Contact CTA
+      e("div",{style:{background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",color:"#fff",borderRadius:12,padding:30,textAlign:"center",marginTop:20}},
+        e("div",{style:{fontSize:9,letterSpacing:".25em",textTransform:"uppercase",color:"#EDE84A",marginBottom:6,fontWeight:700}},"Interested?"),
+        e("h2",{style:{fontSize:22,fontWeight:800,marginBottom:8}},"Let's discuss this opportunity"),
+        e("p",{style:{fontSize:13,opacity:0.9,marginBottom:16,maxWidth:480,margin:"0 auto 16px"}},"Cassidy Group is the sponsor of this opportunity. To request the IM, schedule a site visit, or discuss commercial terms, please contact us directly."),
+        e("div",{style:{fontSize:14,fontWeight:700,color:"#EDE84A"}},"info@cassidygroupltd.com")
+      ),
+
+      // Footer
+      e("div",{style:{textAlign:"center",padding:"24px 0",fontSize:10,color:"#A0A4C0"}},
+        "© Cassidy Group Ltd 2026 · This opportunity is confidential. Do not share without permission."
+      )
+    )
+  );
 }
 
 ReactDOM.render(e(Root,null),document.getElementById("root"));
