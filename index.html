@@ -743,6 +743,42 @@ var ASSET_EXIT_FIT = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
+// TENURE MIX — for mixed-tenure development schemes (real UK SFH/BTR reality)
+//
+// A single scheme can sell units across multiple tenures (Open Market + AR +
+// SO + BTR + First Homes etc.) with different buyers and pricing. The
+// pricingFactor is applied to the Open Market price to get this tenure's
+// effective price per unit. The buyerType drives Exit Strategy recommendations.
+// ═══════════════════════════════════════════════════════════════════════════
+var TENURE_TYPES = [
+  {key:"oms",       label:"Open Market Sale",         short:"OMS",     icon:"🏠", pricingFactor:1.00, buyerType:"individual",     incomeType:"capital",     order:1, desc:"Full retail price to individual buyers via agents."},
+  {key:"first_homes", label:"First Homes",            short:"FH",      icon:"🥇", pricingFactor:0.70, buyerType:"individual_ftb", incomeType:"capital",     order:2, desc:"30% discount to local first-time buyers (S106 obligation)."},
+  {key:"dms",       label:"Discounted Market Sale",   short:"DMS",     icon:"💸", pricingFactor:0.80, buyerType:"individual",     incomeType:"capital",     order:3, desc:"20% discount on open market — eligibility criteria apply."},
+  {key:"so",        label:"Shared Ownership",         short:"SO",      icon:"🤝", pricingFactor:0.85, buyerType:"ha_rp",          incomeType:"mixed",       order:4, desc:"HA buys 100%, sells 25-75% share + rent on rest. HA pays ~85% of OMS to take it on."},
+  {key:"ar",        label:"Affordable Rent",          short:"AR",      icon:"🏛", pricingFactor:0.60, buyerType:"ha_rp",          incomeType:"capital",     order:5, desc:"Bulk sale to Housing Association. Rent capped ~80% of market."},
+  {key:"sr",        label:"Social Rent",              short:"SR",      icon:"🏛", pricingFactor:0.50, buyerType:"ha_rp",          incomeType:"capital",     order:6, desc:"Lowest rent (formula-based). Bulk sale to HA at deepest discount."},
+  {key:"btr",       label:"Build to Rent",            short:"BTR",     icon:"🏢", pricingFactor:0.80, buyerType:"institutional",  incomeType:"capital",     order:7, desc:"Bulk sale to pension fund / BTR operator. Forward-fund or stabilised."},
+  {key:"prs",       label:"Private Rented Sector",    short:"PRS",     icon:"🔑", pricingFactor:0.85, buyerType:"individual_llrd", incomeType:"capital",    order:8, desc:"Single landlord investor buys 1-10 units. Smaller discount than BTR."},
+  {key:"rtb_lease", label:"Rent to Buy",              short:"RtB",     icon:"⏳", pricingFactor:0.85, buyerType:"individual",     incomeType:"deferred",    order:9, desc:"Tenant pays intermediate rent, option to buy after 5yrs."},
+  {key:"rtb_buy",   label:"Right to Buy back-buy",    short:"RtBB",    icon:"♻", pricingFactor:0.70, buyerType:"council",        incomeType:"capital",     order:10, desc:"Council buys back former RTB units at discount."}
+];
+
+function getTenureDef(key){
+  for(var i=0;i<TENURE_TYPES.length;i++){if(TENURE_TYPES[i].key===key)return TENURE_TYPES[i];}
+  return TENURE_TYPES[0];
+}
+
+// Default mix presets — common patterns
+var TENURE_PRESETS = {
+  "all_market":    {label:"100% Open Market",        mix:{oms:100}},
+  "standard_s106": {label:"Standard S106 (70/30)",   mix:{oms:70, ar:20, so:10}},
+  "intermediate":  {label:"Intermediate-heavy",       mix:{oms:60, so:20, first_homes:10, ar:10}},
+  "all_affordable":{label:"100% Affordable (HA-led)", mix:{ar:50, sr:25, so:25}},
+  "btr_blend":     {label:"BTR + AR blend",           mix:{btr:80, ar:20}},
+  "ftb_focus":     {label:"First Homes focus",        mix:{oms:55, first_homes:25, so:20}}
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // calcDealMetrics(data) — SINGLE SOURCE OF TRUTH for deal-level financial metrics
 // Used by Dashboard, Summary, Fin, Exit, Reports, Data Room.
 // Returns a normalised object regardless of scheme type (SFH vs BTR vs PBSA vs Mixed).
@@ -804,9 +840,14 @@ function calcDealMetrics(data){
   // Manual override on Financial Modelling
   var manualGdv = num(f.gdv);
 
+  // Blended GDV from Tenure Mix — takes priority over single-tenure SFH/BTR calcs
+  // when the user has set up a tenure split
+  var tenureBlendedGdv = num((data.tenure&&data.tenure.blendedGdv)||0);
+
   // Choose the right GDV based on asset type / scheme
   var gdv = 0;
   if (manualGdv > 0) gdv = manualGdv;
+  else if (tenureBlendedGdv > 0) gdv = tenureBlendedGdv;  // mixed-tenure scheme
   else if (at === "sfh" && sfhGdv > 0) gdv = sfhGdv;
   else if ((at === "btr" || at === "pbsa") && btrGdv > 0) gdv = btrGdv;
   else if (sfhGdv > 0) gdv = sfhGdv;
@@ -1468,6 +1509,7 @@ var ALL_STAGES = [
   // ── 2. VALUE ────────────────────────────────────────────────────────────
   {id:"rlv",         label:"Land Valuation (RLV)", icon:"◆",  group:"2. Value",    journeys:["land","sfh","btr","pbsa","property","all"]},
   {id:"sfh",         label:"SFH House Mix",        icon:"🏡", group:"2. Value",    journeys:["sfh","property","all"]},
+  {id:"tenure",      label:"Tenure Mix",           icon:"🤝", group:"2. Value",    journeys:["sfh","btr","property","all"]},
   {id:"hra",         label:"BTR / PBSA Block",     icon:"🏢", group:"2. Value",    journeys:["btr","pbsa","all"]},
   {id:"capitalise",  label:"Capitalisation",       icon:"£",  group:"2. Value",    journeys:["land","btr","pbsa","sfh","all"]},
   {id:"grants",      label:"Grant & Funding",      icon:"💷", group:"2. Value",    journeys:["sfh","btr","pbsa","land","all"]},
@@ -8387,15 +8429,166 @@ var JOURNEYS = {
         ),
         e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:14,lineHeight:1.6}},"Enter either the unit-level income (and we'll calculate NOI) OR a stabilised NOI directly. Asset-specific fields appear based on the type you picked."),
 
-        // PBSA-specific inputs
-        assetType==="pbsa" && e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,marginBottom:12}},
+        // Block mix toggle — only shown for PBSA / BTR / Mixed (where a single block can blend uses)
+        (assetType==="pbsa" || assetType==="btr" || assetType==="mixed") && e("div",{style:{padding:"10px 14px",background:o.blockMixOn?"rgba(45,122,101,0.06)":"#F8F8FE",border:"1px solid "+(o.blockMixOn?"rgba(45,122,101,0.3)":"#DDE0ED"),borderRadius:6,marginBottom:14,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}},
+          e("label",{style:{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontWeight:700,fontSize:12,color:"#2E2F8A"}},
+            e("input",{type:"checkbox",checked:!!o.blockMixOn,onChange:function(ev){upo("blockMixOn",ev.target.checked);},style:{width:16,height:16,cursor:"pointer"}}),
+            "Block contains a mix of accommodation types"
+          ),
+          e("span",{style:{fontSize:10,color:"#7278A0",flex:"1 1 200px"}},"Toggle on if this single block blends Student PBSA + Key Worker + BTR + Affordable etc. The blended NOI flows to the exit comparison and the optimiser will surface split-sale opportunities.")
+        ),
+
+        // ── BLOCK ACCOMMODATION MIX (when toggle ON) ──
+        (assetType==="pbsa" || assetType==="btr" || assetType==="mixed") && o.blockMixOn && (function(){
+          // Define the accommodation components available in a block
+          var BLOCK_COMPONENTS = [
+            {key:"pbsa",      label:"🎓 Student (PBSA)",      rentUnit:"per bed/week",  weeks:51, occDefault:95, opexDefault:25, yieldHint:5.50, buyer:"PBSA fund / student investor"},
+            {key:"kw",        label:"🏥 Key Worker",          rentUnit:"per unit pcm",  weeks:12, occDefault:96, opexDefault:22, yieldHint:5.00, buyer:"BTR fund / NHS / Council"},
+            {key:"btr",       label:"🏢 BTR (market rent)",   rentUnit:"per unit pcm",  weeks:12, occDefault:95, opexDefault:25, yieldHint:4.50, buyer:"Pension / BTR operator"},
+            {key:"prs",       label:"🔑 PRS (single AST)",    rentUnit:"per unit pcm",  weeks:12, occDefault:94, opexDefault:25, yieldHint:5.25, buyer:"Landlord investor"},
+            {key:"ar",        label:"🏛 Affordable Rent",     rentUnit:"per unit pcm",  weeks:12, occDefault:98, opexDefault:18, yieldHint:5.50, buyer:"Housing Association"},
+            {key:"so",        label:"🤝 Shared Ownership",    rentUnit:"per unit pcm (on retained share)", weeks:12, occDefault:98, opexDefault:15, yieldHint:5.50, buyer:"Housing Association"},
+            {key:"commercial",label:"🛍 Commercial (G/F)",    rentUnit:"per sqft pa",   weeks:1,  occDefault:90, opexDefault:10, yieldHint:6.50, buyer:"Property investor"}
+          ];
+
+          var mix = o.blockMix || {};
+          function setComp(compKey, field, val){
+            var m = Object.assign({}, mix);
+            m[compKey] = Object.assign({}, m[compKey]||{});
+            m[compKey][field] = val;
+            upo("blockMix", m);
+          }
+          function clearComp(compKey){
+            var m = Object.assign({}, mix);
+            delete m[compKey];
+            upo("blockMix", m);
+          }
+
+          // Compute NOI for each active component
+          function compNOI(comp){
+            var cd = mix[comp.key];
+            if(!cd) return {gross:0,noi:0,units:0};
+            var count = num(cd.count);
+            var rent = num(cd.rent);
+            var occ = num(cd.occ||comp.occDefault) / 100;
+            var opex = num(cd.opex||comp.opexDefault) / 100;
+            var gross = 0;
+            if(comp.key==="pbsa"){
+              gross = count * rent * (num(cd.weeks)||comp.weeks);
+            } else if(comp.key==="commercial"){
+              gross = count * rent;  // count = sqft, rent = £/sqft pa
+            } else {
+              gross = count * rent * 12;
+            }
+            gross *= occ;
+            var noi = gross * (1 - opex);
+            return {gross:gross, noi:noi, units:count};
+          }
+
+          var rowsActive = BLOCK_COMPONENTS.filter(function(c){return mix[c.key] && num(mix[c.key].count)>0;});
+          var blendedNoi = 0;
+          var totalBeds = 0;
+          rowsActive.forEach(function(c){
+            var r = compNOI(c);
+            blendedNoi += r.noi;
+            if(c.key !== "commercial") totalBeds += r.units;
+          });
+
+          // Push blended NOI back to main NOI field so exit comparison uses it
+          if(blendedNoi > 0 && Math.abs(blendedNoi - num(o.stabilisedNOI)) > 100){
+            upo("stabilisedNOI", Math.round(blendedNoi));
+          }
+
+          return e("div",null,
+            e("div",{style:{fontSize:10,color:"#9A7B3E",textTransform:"uppercase",letterSpacing:".08em",fontWeight:700,marginBottom:8}},"Block accommodation mix"),
+
+            e("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:11,fontFamily:"DM Sans,sans-serif",marginBottom:14,minWidth:780}},
+              e("thead",null,
+                e("tr",{style:{background:"#F4F5FB"}},
+                  ["Component","Count","Rent","Occ %","Opex %","Gross pa","NOI pa","Action"].map(function(h,i){
+                    return e("th",{key:i,style:{padding:"9px 8px",textAlign:i===0?"left":"right",fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".05em",fontWeight:700,borderBottom:"2px solid #DDE0ED"}},h);
+                  })
+                )
+              ),
+              e("tbody",null,
+                BLOCK_COMPONENTS.map(function(comp){
+                  var cd = mix[comp.key] || {};
+                  var active = num(cd.count) > 0;
+                  var r = compNOI(comp);
+                  return e("tr",{key:comp.key,style:{borderBottom:"1px solid #F0F1FA",background:active?"rgba(45,122,101,0.03)":"transparent"}},
+                    // Component
+                    e("td",{style:{padding:"8px"}},
+                      e("div",{style:{fontWeight:700,color:"#1E1F5C",fontSize:11}},comp.label),
+                      e("div",{style:{fontSize:9,color:"#7278A0",marginTop:1}}, comp.rentUnit)
+                    ),
+                    // Count
+                    e("td",{style:{padding:"8px",textAlign:"right"}},
+                      e("input",{type:"number",value:cd.count||"",onChange:function(ev){setComp(comp.key,"count",ev.target.value);},placeholder:comp.key==="commercial"?"sqft":"units",style:{width:70,padding:"5px 6px",border:"1px solid #DDE0ED",borderRadius:4,fontSize:11,textAlign:"right",fontFamily:"DM Sans,sans-serif"}})
+                    ),
+                    // Rent
+                    e("td",{style:{padding:"8px",textAlign:"right"}},
+                      e("input",{type:"number",value:cd.rent||"",onChange:function(ev){setComp(comp.key,"rent",ev.target.value);},placeholder:comp.key==="pbsa"?"175":comp.key==="kw"?"950":comp.key==="btr"?"1250":comp.key==="commercial"?"28":"1100",style:{width:70,padding:"5px 6px",border:"1px solid #DDE0ED",borderRadius:4,fontSize:11,textAlign:"right",fontFamily:"DM Sans,sans-serif"}})
+                    ),
+                    // Occ
+                    e("td",{style:{padding:"8px",textAlign:"right"}},
+                      e("input",{type:"number",value:cd.occ||"",onChange:function(ev){setComp(comp.key,"occ",ev.target.value);},placeholder:String(comp.occDefault),style:{width:55,padding:"5px 6px",border:"1px solid #DDE0ED",borderRadius:4,fontSize:11,textAlign:"right",fontFamily:"DM Sans,sans-serif"}})
+                    ),
+                    // Opex
+                    e("td",{style:{padding:"8px",textAlign:"right"}},
+                      e("input",{type:"number",value:cd.opex||"",onChange:function(ev){setComp(comp.key,"opex",ev.target.value);},placeholder:String(comp.opexDefault),style:{width:55,padding:"5px 6px",border:"1px solid #DDE0ED",borderRadius:4,fontSize:11,textAlign:"right",fontFamily:"DM Sans,sans-serif"}})
+                    ),
+                    // Gross
+                    e("td",{style:{padding:"8px",textAlign:"right",color:active?"#3A3D6A":"#C0C4D8",fontSize:11}}, r.gross>0?fmt(r.gross):"—"),
+                    // NOI
+                    e("td",{style:{padding:"8px",textAlign:"right",fontWeight:700,color:active?"#2D7A65":"#C0C4D8"}}, r.noi>0?fmt(r.noi):"—"),
+                    // Action
+                    e("td",{style:{padding:"8px",textAlign:"right"}},
+                      active && e("button",{onClick:function(){clearComp(comp.key);},style:{padding:"3px 8px",background:"#FFF5F0",border:"1px solid #E8C4B0",color:"#B05A35",borderRadius:3,fontSize:10,cursor:"pointer"}},"Clear")
+                    )
+                  );
+                })
+              )
+            ),
+
+            // Blended summary
+            rowsActive.length > 0 && e("div",{style:{padding:"12px 14px",background:"linear-gradient(135deg,rgba(45,122,101,0.08),rgba(74,75,174,0.05))",border:"1px solid rgba(45,122,101,0.3)",borderRadius:6,fontSize:11,color:"#2D7A65",lineHeight:1.7,marginBottom:8}},
+              e("div",{style:{fontSize:9,letterSpacing:".1em",textTransform:"uppercase",fontWeight:700,marginBottom:4,color:"#9A7B3E"}},"Blended block result"),
+              e("strong",{style:{fontSize:14,color:"#1E1F5C"}},"Total NOI: "+fmt(blendedNoi)+"/yr"),
+              " · ",rowsActive.length+" income stream"+(rowsActive.length>1?"s":""),
+              " · ",rowsActive.map(function(c){return num(mix[c.key].count)+" "+c.label.replace(/^[^\s]+\s/,"");}).join(" + ")
+            ),
+
+            // Insight: split-sale opportunity
+            rowsActive.length >= 2 && (function(){
+              var splitVal = 0;
+              rowsActive.forEach(function(c){
+                var r = compNOI(c);
+                splitVal += r.noi / (c.yieldHint/100);
+              });
+              var blendedYield = yieldMid;
+              var singleSaleVal = blendedNoi / (blendedYield/100);
+              var splitUplift = splitVal - singleSaleVal;
+              var splitUpliftPct = singleSaleVal > 0 ? (splitUplift/singleSaleVal)*100 : 0;
+              if(Math.abs(splitUpliftPct) < 0.5) return null;  // not material
+              return e("div",{style:{padding:"12px 14px",background:splitUplift>0?"rgba(237,232,74,0.15)":"rgba(176,90,53,0.08)",border:"1px solid "+(splitUplift>0?"#9A7B3E":"#E8C4B0"),borderRadius:6,fontSize:11,lineHeight:1.7,color:splitUplift>0?"#9A7B3E":"#B05A35"}},
+                e("div",{style:{fontSize:9,letterSpacing:".1em",textTransform:"uppercase",fontWeight:700,marginBottom:4}},splitUplift>0?"💡 Split-sale opportunity":"⚠ Single sale preferred"),
+                splitUplift>0
+                  ? e("span",null,"Splitting the sale across "+rowsActive.length+" buyers could realise approximately ",e("strong",null,fmt(splitVal))," vs ",fmt(singleSaleVal)," as one combined sale — uplift of ",e("strong",null,fmt(splitUplift)+" ("+splitUpliftPct.toFixed(1)+"%)"),". Add ~3-4 months timeline for parallel processes. See Exit Comparison below for buyer-specific routes.")
+                  : e("span",null,"Single-buyer sale of the whole block (",fmt(singleSaleVal),") is likely more efficient than splitting (",fmt(splitVal),") — savings on legals + faster close.")
+              );
+            })()
+          );
+        })(),
+
+        // PBSA-specific inputs (only when block mix is OFF)
+        assetType==="pbsa" && !o.blockMixOn && e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,marginBottom:12}},
           e("div",null,e("label",{style:lbl},"Total Beds"),e("input",{type:"number",value:o.beds||"",onChange:function(ev){upo("beds",ev.target.value);},placeholder:"e.g. 240",style:ipt})),
           e("div",null,e("label",{style:lbl},"Rent per Bed/Week (£)"),e("input",{type:"number",value:o.rentPerBedPw||"",onChange:function(ev){upo("rentPerBedPw",ev.target.value);},placeholder:"e.g. 175",style:ipt})),
           e("div",null,e("label",{style:lbl},"Opex %"),e("input",{type:"number",value:o.opexPct||"",onChange:function(ev){upo("opexPct",ev.target.value);},placeholder:"25",style:ipt}))
         ),
 
-        // BTR-specific
-        assetType==="btr" && e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,marginBottom:12}},
+        // BTR-specific (only when block mix is OFF)
+        assetType==="btr" && !o.blockMixOn && e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,marginBottom:12}},
           e("div",null,e("label",{style:lbl},"Total Units"),e("input",{type:"number",value:o.units||"",onChange:function(ev){upo("units",ev.target.value);},placeholder:"e.g. 200",style:ipt})),
           e("div",null,e("label",{style:lbl},"Avg Rent per Unit pcm (£)"),e("input",{type:"number",value:o.rentPerUnitPcm||"",onChange:function(ev){upo("rentPerUnitPcm",ev.target.value);},placeholder:"e.g. 1450",style:ipt})),
           e("div",null,e("label",{style:lbl},"Opex %"),e("input",{type:"number",value:o.opexPct||"",onChange:function(ev){upo("opexPct",ev.target.value);},placeholder:"25",style:ipt}))
@@ -8883,12 +9076,17 @@ var JOURNEYS = {
         prompt:"Strategic analysis for an existing "+assetDef.label+" asset. " +
           "Location: "+(o.assetName||"(unnamed)")+", "+(location==="prime"?"prime market":"regional market")+". " +
           "Stabilised NOI: "+fmt(stabilNOI)+"/yr. Dev cost: "+fmt(costBase)+". Existing debt: "+fmt(existingDebt)+". Months to stabilisation: "+monthsToStabil+". " +
+          (o.blockMixOn && o.blockMix ? "Block contains a MIX of accommodation: " + Object.keys(o.blockMix).filter(function(k){return num(o.blockMix[k].count)>0;}).map(function(k){
+            var c = o.blockMix[k];
+            var lbls = {pbsa:"Student PBSA",kw:"Key Worker",btr:"Market BTR",prs:"PRS landlord",ar:"Affordable Rent",so:"Shared Ownership",commercial:"Commercial ground-floor"};
+            return num(c.count)+" "+(lbls[k]||k)+" at "+fmt(num(c.rent))+" "+(k==="pbsa"?"/bed/wk":k==="commercial"?"/sqft pa":"/unit pcm");
+          }).join(", ") + ". " : "") +
           "Owner priority: "+ownerPriority+". " +
           "Top-ranked exit route by our model: "+bestExit.ex.label+" — expected net "+fmt(bestExit.net)+", IRR "+(isFinite(bestExit.simpleIrr)?bestExit.simpleIrr.toFixed(1):"—")+"%. " +
           "Second-ranked: "+(secondExit?secondExit.ex.label:"")+". " +
-          "Provide: 1) Whether you agree with the top-ranked exit and why, 2) Risks specific to that exit route in current UK market, " +
-          "3) Specific named buyers/funds to approach (real institutions active in this sector), 4) Timing recommendation (sell now vs wait for stabilisation), " +
-          "5) Any structuring tips (forward-fund, leaseback, debt restructure) that could improve outcome. Be specific and commercial — UK 2026 market. 250 words."
+          "Provide: 1) Whether you agree with the top-ranked exit and why, 2) " + (o.blockMixOn ? "Whether SPLIT-SALE (different buyers for each accommodation type) beats single-block sale, and which buyers to target for each component, " : "Risks specific to that exit route in current UK market, ") +
+          "3) Specific named buyers/funds to approach (real UK institutions active in this sector + accommodation mix), 4) Timing recommendation (sell now vs wait for stabilisation), " +
+          "5) Any structuring tips (forward-fund, leaseback, debt restructure, NHS/Council lease for Key Worker) that could improve outcome. Be specific and commercial — UK 2026 market. 280 words."
       }),
 
       // ── SECTION 6: AI INSIGHT (residential — single house/flat) ────────
@@ -9362,6 +9560,337 @@ var JOURNEYS = {
       )
     );
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TENURE MIX — Mixed-tenure development planning
+  //   Real UK SFH/BTR schemes blend Open Market + Affordable Rent + Shared
+  //   Ownership + First Homes + BTR etc. This stage lets the user split units
+  //   across tenures, set per-tenure pricing, and see blended GDV.
+  // ═══════════════════════════════════════════════════════════════════════════
+  function renderTenureMix(){
+    var t = data.tenure || {};
+    function upt(k,v){ up("tenure",k,v); }
+
+    var totalSchemeUnits = num(t.totalUnits) ||
+      num(data.sfh&&data.sfh.totalUnits) ||
+      num(data.planning&&data.planning.units) ||
+      num(data.hra&&data.hra.units) || 0;
+
+    var basePsf = num(t.basePsf) ||
+      num(data.sfh&&data.sfh.basePsf) ||
+      num(data.rlv&&data.rlv.salePsf) || 350;
+
+    var avgSqft = num(t.avgSqft) ||
+      num(data.sfh&&data.sfh.avgSqft) || 900;
+
+    var omsUnitPrice = num(t.omsUnitPrice) || (basePsf * avgSqft);
+    var omsRentPa = num(t.omsRentPa) || (omsUnitPrice * 0.04);  // 4% gross yield default for rental tenures
+    var inputMode = t.inputMode || "units";  // "units" or "percent"
+
+    // Mix object — defaults to 100% OMS if empty
+    var mix = t.mix || {oms: 100};
+
+    // Compute totals for validation
+    function computeTotals(){
+      var totalPct = 0, totalUnits = 0;
+      TENURE_TYPES.forEach(function(td){
+        var v = num(mix[td.key]);
+        if(inputMode === "units"){
+          totalUnits += v;
+          totalPct += totalSchemeUnits > 0 ? (v / totalSchemeUnits) * 100 : 0;
+        } else {
+          totalPct += v;
+          totalUnits += totalSchemeUnits > 0 ? Math.round(totalSchemeUnits * v / 100) : 0;
+        }
+      });
+      return {totalPct:totalPct, totalUnits:totalUnits};
+    }
+    var totals = computeTotals();
+    var pctOk = Math.abs(totals.totalPct - 100) < 1;
+    var unitsOk = Math.abs(totals.totalUnits - totalSchemeUnits) < 2;
+
+    // Compute per-tenure values
+    function tenureValue(td){
+      var v = num(mix[td.key]);
+      var unitsForTenure = inputMode === "units" ? v : (totalSchemeUnits * v / 100);
+      // Pricing override
+      var unitPriceKey = td.key + "_unitPrice";
+      var defaultPrice = omsUnitPrice * td.pricingFactor;
+      var unitPrice = num(t[unitPriceKey]) || defaultPrice;
+      // For Shared Ownership: HA pays for full unit but takes both buyer-share sale + ongoing rent. Use 85% bulk.
+      // For rental tenures (AR, SR, BTR): capital value = unit bulk price (HA/inst pays this and gets ongoing rent themselves)
+      var capValue = unitsForTenure * unitPrice;
+      // Ongoing rental income tracking (HA / BTR / SO retained portion)
+      var rentPerUnit = num(t[td.key+"_rentPa"]) || (td.incomeType !== "capital" || (td.key==="ar"||td.key==="sr"||td.key==="btr") ? omsRentPa * (td.key==="sr" ? 0.6 : td.key==="ar" ? 0.8 : 1.0) : 0);
+      return {
+        td:td,
+        units:unitsForTenure,
+        unitPrice:unitPrice,
+        capValue:capValue,
+        rentPerUnit:rentPerUnit,
+        annualRent:rentPerUnit * unitsForTenure,
+        pct: totalSchemeUnits > 0 ? (unitsForTenure / totalSchemeUnits) * 100 : 0
+      };
+    }
+    var rows = TENURE_TYPES.map(tenureValue).filter(function(r){ return r.units > 0; });
+    var blendedGdv = rows.reduce(function(a,r){return a + r.capValue;}, 0);
+    var annualIncome = rows.reduce(function(a,r){return a + r.annualRent;}, 0);
+    var pureMarketGdv = totalSchemeUnits * omsUnitPrice;
+    var tenureDiscount = pureMarketGdv > 0 ? (1 - blendedGdv/pureMarketGdv) * 100 : 0;
+
+    // Write back the master blended GDV so other stages pick it up
+    if(blendedGdv > 0 && Math.abs(blendedGdv - num(t.blendedGdv)) > 100){
+      upt("blendedGdv", Math.round(blendedGdv));
+    }
+
+    // Styles
+    var ipt = {width:"100%",padding:"8px 10px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:12,fontFamily:"DM Sans,sans-serif",color:"#2E2F8A",background:"#fff"};
+    var lbl = {fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".08em",fontWeight:700,marginBottom:3,display:"block"};
+
+    function applyPreset(presetKey){
+      var preset = TENURE_PRESETS[presetKey];
+      if(!preset) return;
+      upt("mix", Object.assign({}, preset.mix));
+      upt("inputMode", "percent");
+    }
+
+    return e("div",null,
+      // Header
+      e("div",{style:{marginBottom:18}},
+        e("div",{style:{fontSize:9,letterSpacing:".25em",textTransform:"uppercase",color:"#9A7B3E",marginBottom:6,fontWeight:700}},"Tenure Mix"),
+        e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:6}},"Mix tenures across the scheme"),
+        e("p",{style:{fontSize:12,color:"#7278A0",maxWidth:680,lineHeight:1.6}},"Set how units are split across Open Market, Affordable, Shared Ownership, BTR, First Homes etc. Each tenure has its own pricing rule and buyer type. Blended GDV flows through to RLV, Fin, and Exit Strategy.")
+      ),
+
+      // Scheme totals + input toggle
+      e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:18,marginBottom:14}},
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:12,marginBottom:14}},
+          e("div",null,
+            e("label",{style:lbl},"Total scheme units"),
+            e("input",{type:"number",value:t.totalUnits||totalSchemeUnits||"",onChange:function(ev){upt("totalUnits",ev.target.value);},placeholder:"e.g. 100",style:ipt})
+          ),
+          e("div",null,
+            e("label",{style:lbl},"Avg unit sqft"),
+            e("input",{type:"number",value:t.avgSqft||avgSqft||"",onChange:function(ev){upt("avgSqft",ev.target.value);},placeholder:"900",style:ipt})
+          ),
+          e("div",null,
+            e("label",{style:lbl},"Open Market PSF (£)"),
+            e("input",{type:"number",value:t.basePsf||basePsf||"",onChange:function(ev){upt("basePsf",ev.target.value);},placeholder:"350",style:ipt})
+          ),
+          e("div",null,
+            e("label",{style:lbl},"OMS unit price (calculated)"),
+            e("input",{type:"number",value:t.omsUnitPrice||Math.round(omsUnitPrice)||"",onChange:function(ev){upt("omsUnitPrice",ev.target.value);},placeholder:"315000",style:ipt})
+          )
+        ),
+        // Mode toggle
+        e("div",{style:{display:"flex",gap:10,alignItems:"center",paddingTop:10,borderTop:"1px solid #F0F1FA"}},
+          e("div",{style:{fontSize:10,color:"#7278A0",textTransform:"uppercase",letterSpacing:".08em",fontWeight:700}},"Input mode:"),
+          ["units","percent"].map(function(m){
+            var picked = inputMode === m;
+            return e("button",{key:m,onClick:function(){upt("inputMode",m);},style:{padding:"5px 12px",background:picked?"#4A4BAE":"#F7F8FC",color:picked?"#fff":"#3A3D6A",border:"1px solid "+(picked?"#4A4BAE":"#DDE0ED"),borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},m==="units"?"By Unit Count":"By Percentage");
+          })
+        )
+      ),
+
+      // Presets
+      e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:18,marginBottom:14}},
+        e("div",{style:{fontSize:10,color:"#7278A0",textTransform:"uppercase",letterSpacing:".08em",fontWeight:700,marginBottom:10}},"Quick presets"),
+        e("div",{style:{display:"flex",flexWrap:"wrap",gap:8}},
+          Object.keys(TENURE_PRESETS).map(function(k){
+            return e("button",{key:k,onClick:function(){applyPreset(k);},style:{padding:"7px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:5,fontSize:11,fontWeight:700,color:"#3A3D6A",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},TENURE_PRESETS[k].label);
+          })
+        )
+      ),
+
+      // The mix table
+      e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:18,marginBottom:14,overflowX:"auto"}},
+        e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,paddingBottom:10,borderBottom:"1px solid #F0F1FA"}},
+          e("h3",{style:{fontSize:14,fontWeight:800,color:"#1E1F5C"}},"Tenure mix breakdown"),
+          // Live total
+          inputMode==="units"
+            ? e("div",{style:{fontSize:11,fontWeight:700,color:unitsOk?"#2D7A65":"#B05A35"}}, totals.totalUnits+" / "+totalSchemeUnits+" units allocated " + (unitsOk?"✓":"⚠"))
+            : e("div",{style:{fontSize:11,fontWeight:700,color:pctOk?"#2D7A65":"#B05A35"}}, totals.totalPct.toFixed(1)+"% allocated " + (pctOk?"✓":"⚠"))
+        ),
+
+        e("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:11,fontFamily:"DM Sans,sans-serif",minWidth:780}},
+          e("thead",null,
+            e("tr",{style:{background:"#F4F5FB"}},
+              ["Tenure","Units / %","% of scheme","Unit price (£)","Capital value (£)","Rent £/unit pa","Buyer","Action"].map(function(h,i){
+                return e("th",{key:i,style:{padding:"10px 8px",textAlign:i<=1?"left":"right",fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".05em",fontWeight:700,borderBottom:"2px solid #DDE0ED"}},h);
+              })
+            )
+          ),
+          e("tbody",null,
+            TENURE_TYPES.map(function(td){
+              var currentVal = num(mix[td.key]);
+              var defaultPrice = Math.round(omsUnitPrice * td.pricingFactor);
+              var unitPriceKey = td.key + "_unitPrice";
+              var rentKey = td.key + "_rentPa";
+              var rowData = tenureValue(td);
+              var isActive = currentVal > 0;
+              var buyerLabel = {
+                individual:"Individual buyers", individual_ftb:"First-time buyers (local)", individual_llrd:"Landlord investor",
+                ha_rp:"Housing Association", institutional:"Pension / BTR Op", council:"Local Authority"
+              }[td.buyerType] || td.buyerType;
+              return e("tr",{key:td.key,style:{borderBottom:"1px solid #F0F1FA",background:isActive?"rgba(45,122,101,0.03)":"transparent"}},
+                // Tenure label
+                e("td",{style:{padding:"8px",fontWeight:700,color:"#1E1F5C"}},
+                  e("div",{style:{display:"flex",alignItems:"center",gap:6}},
+                    e("span",{style:{fontSize:18}},td.icon),
+                    e("div",null,
+                      e("div",{style:{fontSize:11}},td.label),
+                      e("div",{style:{fontSize:9,color:"#7278A0"}},td.short+" · " + Math.round(td.pricingFactor*100) + "% of OMS")
+                    )
+                  )
+                ),
+                // Units or % input
+                e("td",{style:{padding:"8px",textAlign:"right"}},
+                  e("input",{type:"number",value:currentVal||"",onChange:function(ev){
+                    var nm = Object.assign({},mix);
+                    nm[td.key] = parseFloat(ev.target.value)||0;
+                    upt("mix",nm);
+                  },placeholder:"0",style:{width:70,padding:"5px 6px",border:"1px solid #DDE0ED",borderRadius:4,fontSize:11,textAlign:"right",fontFamily:"DM Sans,sans-serif"}})
+                ),
+                // % of scheme
+                e("td",{style:{padding:"8px",textAlign:"right",color:"#7278A0",fontSize:11}}, rowData.pct>0?rowData.pct.toFixed(1)+"%":"—"),
+                // Unit price override
+                e("td",{style:{padding:"8px",textAlign:"right"}},
+                  e("input",{type:"number",value:t[unitPriceKey]||"",onChange:function(ev){upt(unitPriceKey,ev.target.value);},placeholder:defaultPrice.toLocaleString(),style:{width:90,padding:"5px 6px",border:"1px solid #DDE0ED",borderRadius:4,fontSize:11,textAlign:"right",fontFamily:"DM Sans,sans-serif",background:t[unitPriceKey]?"#fff":"#FBFBFE"}})
+                ),
+                // Capital value
+                e("td",{style:{padding:"8px",textAlign:"right",fontWeight:700,color:rowData.capValue>0?"#2D7A65":"#C0C4D8"}}, rowData.capValue>0?fmt(rowData.capValue):"—"),
+                // Rent per unit pa
+                e("td",{style:{padding:"8px",textAlign:"right"}},
+                  isActive && (td.key==="ar"||td.key==="sr"||td.key==="btr"||td.key==="so") ?
+                    e("input",{type:"number",value:t[rentKey]||"",onChange:function(ev){upt(rentKey,ev.target.value);},placeholder:Math.round(rowData.rentPerUnit).toLocaleString(),style:{width:80,padding:"5px 6px",border:"1px solid #DDE0ED",borderRadius:4,fontSize:11,textAlign:"right",fontFamily:"DM Sans,sans-serif",background:t[rentKey]?"#fff":"#FBFBFE"}})
+                    : e("span",{style:{color:"#C0C4D8",fontSize:10}},"n/a")
+                ),
+                // Buyer
+                e("td",{style:{padding:"8px",textAlign:"right",fontSize:10,color:"#7278A0"}}, buyerLabel),
+                // Quick clear
+                e("td",{style:{padding:"8px",textAlign:"right"}},
+                  isActive && e("button",{onClick:function(){
+                    var nm = Object.assign({},mix);
+                    delete nm[td.key];
+                    delete t[unitPriceKey];
+                    delete t[rentKey];
+                    upt("mix",nm);
+                  },style:{padding:"3px 8px",background:"#FFF5F0",border:"1px solid #E8C4B0",color:"#B05A35",borderRadius:3,fontSize:10,cursor:"pointer"}},"Clear")
+                )
+              );
+            })
+          )
+        )
+      ),
+
+      // Validation warning
+      ((inputMode==="units" && !unitsOk) || (inputMode==="percent" && !pctOk)) && rows.length>0 && e("div",{style:{padding:"10px 14px",background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.3)",borderRadius:6,fontSize:11,color:"#B05A35",marginBottom:14,lineHeight:1.6}},
+        "⚠ ",inputMode==="units" ? "Allocated units ("+totals.totalUnits+") don't match scheme total ("+totalSchemeUnits+"). Adjust until they match." : "Percentages add up to "+totals.totalPct.toFixed(1)+"%, not 100%. Adjust until they total 100%."
+      ),
+
+      // Blended results card
+      rows.length > 0 && blendedGdv > 0 && e("div",{style:{background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",color:"#fff",borderRadius:10,padding:24,marginBottom:14}},
+        e("div",{style:{fontSize:9,letterSpacing:".25em",textTransform:"uppercase",color:"#EDE84A",marginBottom:6,fontWeight:700}},"Blended Scheme Result"),
+        e("h3",{style:{fontSize:20,fontWeight:800,marginBottom:14}},"Mixed-tenure economics"),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:14}},
+          e("div",null,
+            e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:".1em",textTransform:"uppercase",fontWeight:700,marginBottom:4}},"Blended GDV"),
+            e("div",{style:{fontSize:22,fontWeight:800,color:"#fff"}},fmt(blendedGdv))
+          ),
+          e("div",null,
+            e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:".1em",textTransform:"uppercase",fontWeight:700,marginBottom:4}},"Pure-OMS GDV"),
+            e("div",{style:{fontSize:18,fontWeight:700,color:"rgba(255,255,255,0.6)"}},fmt(pureMarketGdv))
+          ),
+          e("div",null,
+            e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:".1em",textTransform:"uppercase",fontWeight:700,marginBottom:4}},"Tenure Discount"),
+            e("div",{style:{fontSize:18,fontWeight:700,color:tenureDiscount>0?"#EDE84A":"#fff"}},tenureDiscount>0?"-"+tenureDiscount.toFixed(1)+"%":"none")
+          ),
+          annualIncome > 0 && e("div",null,
+            e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:".1em",textTransform:"uppercase",fontWeight:700,marginBottom:4}},"Annual Rent (HA/BTR/SO)"),
+            e("div",{style:{fontSize:18,fontWeight:700,color:"#fff"}},fmt(annualIncome))
+          )
+        ),
+        // Tenure breakdown stack visualization
+        e("div",{style:{marginTop:18,paddingTop:14,borderTop:"1px solid rgba(255,255,255,0.15)"}},
+          e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:".1em",textTransform:"uppercase",fontWeight:700,marginBottom:8}},"Unit breakdown"),
+          e("div",{style:{display:"flex",height:8,borderRadius:4,overflow:"hidden",background:"rgba(255,255,255,0.1)"}},
+            rows.map(function(r,i){
+              var colors = ["#EDE84A","#2D7A65","#9A7B3E","#B05A35","#4A4BAE","#6E70C8","#A4A6E0","#C9CBED","#E0E2F4","#F0F1FA"];
+              return e("div",{key:r.td.key,title:r.td.label+" — "+Math.round(r.units)+" units",style:{width:(r.pct||0)+"%",background:colors[i%colors.length]}});
+            })
+          ),
+          e("div",{style:{display:"flex",flexWrap:"wrap",gap:14,marginTop:10,fontSize:10}},
+            rows.map(function(r,i){
+              var colors = ["#EDE84A","#2D7A65","#9A7B3E","#B05A35","#4A4BAE","#6E70C8","#A4A6E0","#C9CBED","#E0E2F4","#F0F1FA"];
+              return e("div",{key:r.td.key,style:{display:"flex",alignItems:"center",gap:5,color:"rgba(255,255,255,0.85)"}},
+                e("div",{style:{width:9,height:9,background:colors[i%colors.length],borderRadius:2}}),
+                e("span",null,r.td.short+" "+Math.round(r.units))
+              );
+            })
+          )
+        )
+      ),
+
+      // Multi-buyer exit roadmap (auto-generated from mix)
+      rows.length > 0 && e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:18,marginBottom:14}},
+        e("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:14,paddingBottom:10,borderBottom:"1px solid #F0F1FA"}},
+          e("h3",{style:{fontSize:14,fontWeight:800,color:"#1E1F5C"}},"Multi-buyer exit roadmap")
+        ),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:12}},
+          // Group rows by buyer type
+          (function(){
+            var groups = {};
+            rows.forEach(function(r){
+              var k = r.td.buyerType;
+              if(!groups[k]) groups[k] = {label:"",units:0,value:0,tenures:[]};
+              groups[k].units += r.units;
+              groups[k].value += r.capValue;
+              groups[k].tenures.push(r);
+            });
+            var groupLabels = {
+              individual:"🏠 Open Market Sales",
+              individual_ftb:"🥇 First Homes (FTB)",
+              individual_llrd:"🔑 PRS Landlords",
+              ha_rp:"🏛 Housing Association",
+              institutional:"🏢 Institutional (Pension / BTR Op)",
+              council:"♻ Council / LA"
+            };
+            return Object.keys(groups).map(function(k){
+              var g = groups[k];
+              var notes = {
+                individual:"18-30mo sales runoff. Multiple sales channels: agents, off-plan, Help-to-Buy.",
+                individual_ftb:"Local FTB only, income-capped (S106). Re-sale restrictions apply.",
+                individual_llrd:"1-10 unit buyers. Smaller cheques than BTR. Yield-driven.",
+                ha_rp:"Bulk sale to RP (Clarion, Sanctuary, Bromford etc). 4-6mo legal timeline.",
+                institutional:"Forward-fund or stabilised. Pension fund / Grainger / Quintain. 6-9mo.",
+                council:"Local authority repurchase. Discount but reliable counterparty."
+              };
+              return e("div",{key:k,style:{padding:14,background:"#F7F8FC",borderRadius:8,borderLeft:"4px solid #4A4BAE"}},
+                e("div",{style:{fontSize:12,fontWeight:800,color:"#1E1F5C",marginBottom:6}}, groupLabels[k] || k),
+                e("div",{style:{fontSize:11,color:"#2E2F8A",marginBottom:6}}, Math.round(g.units)+" units · "+fmt(g.value)),
+                e("div",{style:{fontSize:9,color:"#9A7B3E",marginBottom:6,fontWeight:600}},
+                  g.tenures.map(function(t){return t.td.short+" "+Math.round(t.units);}).join(" · ")
+                ),
+                e("div",{style:{fontSize:10,color:"#7278A0",lineHeight:1.6}}, notes[k] || "")
+              );
+            });
+          })()
+        )
+      ),
+
+      // AI insight
+      rows.length > 0 && blendedGdv > 0 && e(AIPanel,{user:user,up:up,stage:"tenure",data:data,persistKey:"tenure_strategy",label:"Tenure Strategy Analysis",
+        prompt:"Mixed-tenure scheme analysis. Total "+totalSchemeUnits+" units. Blended GDV "+fmt(blendedGdv)+" ("+tenureDiscount.toFixed(1)+"% below pure-OMS GDV of "+fmt(pureMarketGdv)+"). " +
+          "Tenure breakdown: " + rows.map(function(r){return Math.round(r.units)+" "+r.td.short+" at "+fmt(r.unitPrice)+"/unit";}).join(", ") + ". " +
+          "Provide: 1) Strategic assessment of this mix vs typical UK planning policy / S106 requirements, " +
+          "2) Specific HA partners likely to bid on the affordable portion (real UK RPs by region), " +
+          "3) Institutional buyers active in this scale/region, " +
+          "4) Cashflow timing implications (HA bulk sales early, OMS spread over 18-30mo, BTR forward-fund vs stabilised), " +
+          "5) Risk factors specific to mixed-tenure (HA negotiation, S106 compliance, FTB pipeline, etc). UK 2026 market. 250 words plain text."
+      })
+    );
+  }
+
 
   function renderDashboard(){
     try{
@@ -13436,6 +13965,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
     if(stage==="navigator")return renderProcessNavigator();
     if(stage==="assetOptimiser")return renderAssetOptimiser();
     if(stage==="investor")return renderInvestorSuite();
+    if(stage==="tenure")return renderTenureMix();
     if(stage==="capitalise")return renderCapitalise();
     if(stage==="grants")return renderGrants();
     if(stage==="teaser")return renderTeaser();
@@ -13587,7 +14117,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
             e("span",{style:{width:18,height:2,background:"#2E2F8A",display:"block",borderRadius:2}})
           ),
           e("div",{className:"lf-stage-mobile-title",style:{fontSize:isMobile?14:15,fontWeight:700,color:"#2E2F8A",whiteSpace:"nowrap"}},curStage.label),
-          e("div",{title:"Build v9.2",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v9.2"),
+          e("div",{title:"Build v9.4",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v9.4"),
           !isMobile&&e("div",{style:{fontSize:11,color:"#7278A0",marginLeft:6}},at.toUpperCase()+" · "+cityName(city))
         ),
 
