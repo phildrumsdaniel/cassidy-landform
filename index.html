@@ -1824,7 +1824,9 @@ var JOURNEYS = {
           if(d.dealId && !existingId){
             setData(function(prev){return Object.assign({},prev,{_cloudDealId:d.dealId});});
           }
-          alert("✓ Deal saved: "+name+"\n\nSynced to cloud — visible on all your devices.");
+          var sizeKb = d.payloadSize ? Math.round(d.payloadSize/1024) : 0;
+          var sizeNote = d.chunks && d.chunks>1 ? "\n\n(Deal size: "+sizeKb+"KB across "+d.chunks+" cells — large deals are now fully supported.)" : "";
+          alert("✓ Deal saved: "+name+"\n\nSynced to cloud — visible on all your devices."+sizeNote);
         } else {
           alert("✓ Deal saved locally: "+name+"\n\n⚠ Cloud sync failed: "+((d&&d.message)||"unknown error")+"\nDeal is still safe on this device.");
         }
@@ -7562,14 +7564,23 @@ var JOURNEYS = {
       .then(function(r){return r.json();})
       .then(function(d){
         if(d && d.status==="ok" && d.payload){
+          // Backend tells us if the payload is valid JSON
+          if(d.valid === false){
+            alert("⚠ This deal's saved data appears corrupted (it may have been saved before a size-limit fix).\n\nThe deal couldn't be fully restored. Your current work on screen has NOT been overwritten.");
+            setData(function(prev){return Object.assign({},prev,{portfolio:Object.assign({},prev.portfolio||{},{loadingDeal:null})});});
+            return;
+          }
           try{
             var dealData = JSON.parse(d.payload);
-            // Tag with cloud ID so future saves UPDATE rather than CREATE
+            if(!dealData || typeof dealData !== "object"){
+              throw new Error("not an object");
+            }
             dealData._cloudDealId = d.dealId;
             setData(dealData);
             navTo("dashboard");
           }catch(e){
-            alert("Couldn't parse deal data");
+            alert("⚠ Couldn't read this deal's data — it may be corrupted. Your current work has not been overwritten.");
+            setData(function(prev){return Object.assign({},prev,{portfolio:Object.assign({},prev.portfolio||{},{loadingDeal:null})});});
           }
         } else {
           alert("Couldn't load deal: "+((d&&d.message)||"unknown error"));
@@ -14117,7 +14128,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
             e("span",{style:{width:18,height:2,background:"#2E2F8A",display:"block",borderRadius:2}})
           ),
           e("div",{className:"lf-stage-mobile-title",style:{fontSize:isMobile?14:15,fontWeight:700,color:"#2E2F8A",whiteSpace:"nowrap"}},curStage.label),
-          e("div",{title:"Build v9.4",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v9.4"),
+          e("div",{title:"Build v9.5",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v9.5"),
           !isMobile&&e("div",{style:{fontSize:11,color:"#7278A0",marginLeft:6}},at.toUpperCase()+" · "+cityName(city))
         ),
 
