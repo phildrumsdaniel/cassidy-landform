@@ -6868,30 +6868,130 @@ var JOURNEYS = {
     var view=pl.view||"search"; // "search" | "inbox" | "detail"
 
     var COUNTIES=[
-      {id:"tyne_wear",        label:"Tyne & Wear"},
-      {id:"northumberland",   label:"Northumberland"},
-      {id:"county_durham",    label:"County Durham"},
-      {id:"tees_valley",      label:"Tees Valley"},
-      {id:"north_yorkshire",  label:"North Yorkshire"},
-      {id:"west_yorkshire",   label:"West Yorkshire"},
-      {id:"south_yorkshire",  label:"South Yorkshire"},
-      {id:"east_yorkshire",   label:"East Yorkshire"},
-      {id:"nottinghamshire",  label:"Nottinghamshire"},
-      {id:"derbyshire",       label:"Derbyshire"},
-      {id:"staffordshire",    label:"Staffordshire"},
-      {id:"warwickshire",     label:"Warwickshire"},
-      {id:"west_midlands",    label:"West Midlands"},
-      {id:"worcestershire",   label:"Worcestershire"},
-      {id:"gloucestershire",  label:"Gloucestershire"},
-      {id:"bristol",          label:"Bristol"},
+      // ── NORTH EAST ENGLAND ───────────────────────────────────────────
+      {id:"tyne_wear",        label:"Tyne & Wear",        region:"North East"},
+      {id:"northumberland",   label:"Northumberland",     region:"North East"},
+      {id:"county_durham",    label:"County Durham",      region:"North East"},
+      {id:"tees_valley",      label:"Tees Valley",        region:"North East"},
+
+      // ── NORTH WEST ENGLAND ───────────────────────────────────────────
+      {id:"cumbria",          label:"Cumbria",            region:"North West"},
+      {id:"lancashire",       label:"Lancashire",         region:"North West"},
+      {id:"greater_manchester",label:"Greater Manchester",region:"North West"},
+      {id:"merseyside",       label:"Merseyside",         region:"North West"},
+      {id:"cheshire",         label:"Cheshire",           region:"North West"},
+
+      // ── YORKSHIRE & THE HUMBER ───────────────────────────────────────
+      {id:"north_yorkshire",  label:"North Yorkshire",    region:"Yorkshire"},
+      {id:"west_yorkshire",   label:"West Yorkshire",     region:"Yorkshire"},
+      {id:"south_yorkshire",  label:"South Yorkshire",    region:"Yorkshire"},
+      {id:"east_yorkshire",   label:"East Yorkshire",     region:"Yorkshire"},
+
+      // ── EAST MIDLANDS ────────────────────────────────────────────────
+      {id:"nottinghamshire",  label:"Nottinghamshire",    region:"East Midlands"},
+      {id:"derbyshire",       label:"Derbyshire",         region:"East Midlands"},
+      {id:"leicestershire",   label:"Leicestershire",     region:"East Midlands"},
+      {id:"lincolnshire",     label:"Lincolnshire",       region:"East Midlands"},
+      {id:"northamptonshire", label:"Northamptonshire",   region:"East Midlands"},
+      {id:"rutland",          label:"Rutland",            region:"East Midlands"},
+
+      // ── WEST MIDLANDS ────────────────────────────────────────────────
+      {id:"staffordshire",    label:"Staffordshire",      region:"West Midlands"},
+      {id:"warwickshire",     label:"Warwickshire",       region:"West Midlands"},
+      {id:"west_midlands",    label:"West Midlands",      region:"West Midlands"},
+      {id:"worcestershire",   label:"Worcestershire",     region:"West Midlands"},
+      {id:"herefordshire",    label:"Herefordshire",      region:"West Midlands"},
+      {id:"shropshire",       label:"Shropshire",         region:"West Midlands"},
+
+      // ── EAST OF ENGLAND ──────────────────────────────────────────────
+      {id:"norfolk",          label:"Norfolk",            region:"East of England"},
+      {id:"suffolk",          label:"Suffolk",            region:"East of England"},
+      {id:"cambridgeshire",   label:"Cambridgeshire",     region:"East of England"},
+      {id:"essex",            label:"Essex",              region:"East of England"},
+      {id:"hertfordshire",    label:"Hertfordshire",      region:"East of England"},
+      {id:"bedfordshire",     label:"Bedfordshire",       region:"East of England"},
+
+      // ── GREATER LONDON ───────────────────────────────────────────────
+      {id:"london_central",   label:"Central London",     region:"Greater London"},
+      {id:"london_north",     label:"North London",       region:"Greater London"},
+      {id:"london_east",      label:"East London",        region:"Greater London"},
+      {id:"london_south",     label:"South London",       region:"Greater London"},
+      {id:"london_west",      label:"West London",        region:"Greater London"},
+
+      // ── SOUTH EAST ENGLAND ───────────────────────────────────────────
+      {id:"berkshire",        label:"Berkshire",          region:"South East"},
+      {id:"buckinghamshire",  label:"Buckinghamshire",    region:"South East"},
+      {id:"oxfordshire",      label:"Oxfordshire",        region:"South East"},
+      {id:"surrey",           label:"Surrey",             region:"South East"},
+      {id:"kent",             label:"Kent",               region:"South East"},
+      {id:"east_sussex",      label:"East Sussex",        region:"South East"},
+      {id:"west_sussex",      label:"West Sussex",        region:"South East"},
+      {id:"hampshire",        label:"Hampshire",          region:"South East"},
+      {id:"isle_of_wight",    label:"Isle of Wight",      region:"South East"},
+
+      // ── SOUTH WEST ENGLAND ───────────────────────────────────────────
+      {id:"gloucestershire",  label:"Gloucestershire",    region:"South West"},
+      {id:"bristol",          label:"Bristol",            region:"South West"},
+      {id:"wiltshire",        label:"Wiltshire",          region:"South West"},
+      {id:"somerset",         label:"Somerset",           region:"South West"},
+      {id:"dorset",           label:"Dorset",             region:"South West"},
+      {id:"devon",            label:"Devon",              region:"South West"},
+      {id:"cornwall",         label:"Cornwall",           region:"South West"},
+
+      // ── WALES ────────────────────────────────────────────────────────
+      {id:"cardiff",          label:"Cardiff",            region:"Wales"},
+      {id:"swansea",          label:"Swansea & SW Wales", region:"Wales"},
+      {id:"newport",          label:"Newport & SE Wales", region:"Wales"},
+      {id:"north_wales",      label:"North Wales",        region:"Wales"},
+      {id:"mid_wales",        label:"Mid & West Wales",   region:"Wales"},
+      {id:"valleys",          label:"South Wales Valleys",region:"Wales"},
+
+      // ── SCOTLAND ─────────────────────────────────────────────────────
+      {id:"glasgow",          label:"Glasgow & Strathclyde",region:"Scotland"},
+      {id:"edinburgh",        label:"Edinburgh & Lothian",region:"Scotland"},
+      {id:"aberdeen",         label:"Aberdeen & Grampian",region:"Scotland"},
+      {id:"dundee",           label:"Dundee & Tayside",   region:"Scotland"},
+      {id:"highlands",        label:"Highlands & Islands",region:"Scotland"},
+      {id:"borders",          label:"Scottish Borders",   region:"Scotland"},
+      {id:"fife",             label:"Fife",               region:"Scotland"},
+      {id:"stirling",         label:"Stirling & Central", region:"Scotland"},
+      {id:"dumfries",         label:"Dumfries & Galloway",region:"Scotland"},
+
+      // ── NORTHERN IRELAND ─────────────────────────────────────────────
+      {id:"belfast",          label:"Belfast",            region:"Northern Ireland"},
+      {id:"derry",            label:"Derry / Londonderry",region:"Northern Ireland"},
+      {id:"antrim",           label:"Antrim",             region:"Northern Ireland"},
+      {id:"down",             label:"Down",               region:"Northern Ireland"},
+      {id:"armagh",           label:"Armagh",             region:"Northern Ireland"},
+      {id:"tyrone",           label:"Tyrone",             region:"Northern Ireland"},
+      {id:"fermanagh",        label:"Fermanagh",          region:"Northern Ireland"}
     ];
 
+    // Build regional presets dynamically
+    var REGION_GROUPS = {};
+    COUNTIES.forEach(function(c){
+      if(!REGION_GROUPS[c.region]) REGION_GROUPS[c.region] = [];
+      REGION_GROUPS[c.region].push(c.id);
+    });
+
     var PRESETS=[
-      {label:"North East",          ids:["tyne_wear","northumberland","county_durham","tees_valley"]},
-      {label:"Yorkshire",           ids:["north_yorkshire","west_yorkshire","south_yorkshire","east_yorkshire"]},
-      {label:"Midlands",            ids:["nottinghamshire","derbyshire","staffordshire","warwickshire","west_midlands","worcestershire"]},
-      {label:"South West",          ids:["gloucestershire","bristol"]},
-      {label:"All Corridors",       ids:["tyne_wear","northumberland","county_durham","tees_valley","north_yorkshire","west_yorkshire","south_yorkshire","east_yorkshire","nottinghamshire","derbyshire","staffordshire","warwickshire","west_midlands","worcestershire","gloucestershire","bristol"]},
+      {label:"North East",        ids:REGION_GROUPS["North East"]},
+      {label:"North West",        ids:REGION_GROUPS["North West"]},
+      {label:"Yorkshire",         ids:REGION_GROUPS["Yorkshire"]},
+      {label:"East Midlands",     ids:REGION_GROUPS["East Midlands"]},
+      {label:"West Midlands",     ids:REGION_GROUPS["West Midlands"]},
+      {label:"East of England",   ids:REGION_GROUPS["East of England"]},
+      {label:"Greater London",    ids:REGION_GROUPS["Greater London"]},
+      {label:"South East",        ids:REGION_GROUPS["South East"]},
+      {label:"South West",        ids:REGION_GROUPS["South West"]},
+      {label:"Wales",             ids:REGION_GROUPS["Wales"]},
+      {label:"Scotland",          ids:REGION_GROUPS["Scotland"]},
+      {label:"Northern Ireland",  ids:REGION_GROUPS["Northern Ireland"]},
+      {label:"Whole UK",          ids:COUNTIES.map(function(c){return c.id;})},
+      {label:"England Only",      ids:COUNTIES.filter(function(c){return ["North East","North West","Yorkshire","East Midlands","West Midlands","East of England","Greater London","South East","South West"].indexOf(c.region)>=0;}).map(function(c){return c.id;})},
+      {label:"M62 Corridor",      ids:["merseyside","greater_manchester","west_yorkshire","south_yorkshire","east_yorkshire"]},
+      {label:"M1/M6 Corridor",    ids:["bedfordshire","northamptonshire","leicestershire","warwickshire","west_midlands","staffordshire","cheshire","greater_manchester"]},
+      {label:"M4 Corridor",       ids:["london_west","berkshire","wiltshire","bristol","cardiff","swansea"]}
     ];
 
     var selected=pl.selectedCounties||[];
@@ -7302,17 +7402,45 @@ var JOURNEYS = {
               },preset.label);
             })
           ),
-          // County grid (uses .lf-pill-grid class for mobile-friendly handling)
-          e("div",{className:"lf-pill-grid",style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}},
-            COUNTIES.map(function(county){
-              var checked=selected.indexOf(county.id)>=0;
-              return e("label",{key:county.id,
-                style:{display:"flex",alignItems:"center",gap:7,padding:"7px 10px",background:checked?"rgba(74,75,174,0.08)":"#F7F8FC",border:"1px solid "+(checked?"#4A4BAE":"#E8E9F5"),borderRadius:6,cursor:"pointer"}},
-                e("input",{type:"checkbox",checked:checked,onChange:function(){toggleCounty(county.id);},style:{accentColor:"#4A4BAE",width:13,height:13,flexShrink:0}}),
-                e("span",{style:{fontSize:11,fontWeight:checked?700:400,color:checked?"#2E2F8A":"#5A5C80"}},county.label)
-              );
-            })
-          ),
+          // County grid grouped by region (12 regions, alphabetical within each)
+          (function(){
+            var regions = ["North East","North West","Yorkshire","East Midlands","West Midlands","East of England","Greater London","South East","South West","Wales","Scotland","Northern Ireland"];
+            return e("div",null,
+              regions.map(function(regionName){
+                var inRegion = COUNTIES.filter(function(c){return c.region === regionName;});
+                if(inRegion.length === 0) return null;
+                var regionSelected = inRegion.filter(function(c){return selected.indexOf(c.id)>=0;}).length;
+                var allSelected = regionSelected === inRegion.length;
+                return e("div",{key:regionName,style:{marginBottom:12}},
+                  e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,paddingBottom:4,borderBottom:"1px solid #E8E9F5"}},
+                    e("span",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".08em"}}, regionName + (regionSelected>0?" · "+regionSelected+"/"+inRegion.length+" selected":"")),
+                    e("button",{onClick:function(){
+                      var ids=inRegion.map(function(c){return c.id;});
+                      if(allSelected){
+                        // deselect all in region
+                        up("placona","selectedCounties",selected.filter(function(s){return ids.indexOf(s)<0;}));
+                      } else {
+                        // select all in region (merge)
+                        var combined=selected.slice();
+                        ids.forEach(function(id){if(combined.indexOf(id)<0)combined.push(id);});
+                        up("placona","selectedCounties",combined);
+                      }
+                    },style:{padding:"2px 8px",fontSize:9,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",background:allSelected?"#9A7B3E":"#F7F8FC",color:allSelected?"#fff":"#4A4BAE",border:"1px solid "+(allSelected?"#9A7B3E":"#DDE0ED"),borderRadius:3,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}, allSelected?"Clear":"All")
+                  ),
+                  e("div",{className:"lf-pill-grid",style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}},
+                    inRegion.map(function(county){
+                      var checked=selected.indexOf(county.id)>=0;
+                      return e("label",{key:county.id,
+                        style:{display:"flex",alignItems:"center",gap:7,padding:"7px 10px",background:checked?"rgba(74,75,174,0.08)":"#F7F8FC",border:"1px solid "+(checked?"#4A4BAE":"#E8E9F5"),borderRadius:6,cursor:"pointer"}},
+                        e("input",{type:"checkbox",checked:checked,onChange:function(){toggleCounty(county.id);},style:{accentColor:"#4A4BAE",width:13,height:13,flexShrink:0}}),
+                        e("span",{style:{fontSize:11,fontWeight:checked?700:400,color:checked?"#2E2F8A":"#5A5C80"}},county.label)
+                      );
+                    })
+                  )
+                );
+              })
+            );
+          })(),
           selected.length>0&&e("div",{style:{marginTop:10,fontSize:11,color:"#4A4BAE",fontWeight:600}},
             selected.length+" "+(selected.length===1?"county":"counties")+" selected: "+selectedLabels.join(", ")
           )
@@ -8229,7 +8357,7 @@ var JOURNEYS = {
     // Input values
     var costBase    = num(o.costBase);       // total dev cost incurred
     var existingDebt= num(o.existingDebt);
-    var debtRate    = num(o.debtRate || 7.0);
+    var debtRate    = numOr(o.debtRate, 7.0);
     var stabilNOI   = num(o.stabilisedNOI);  // pa
     var currentNOI  = num(o.currentNOI||0);  // pa, today
     var monthsToStabil = num(o.monthsToStabil||0);
@@ -8238,17 +8366,17 @@ var JOURNEYS = {
     if(stabilNOI===0){
       if(assetType==="pbsa" && o.beds && o.rentPerBedPw){
         var grossPbsa = num(o.beds)*num(o.rentPerBedPw)*51;  // PBSA = 51-week tenancies typical
-        var opexPbsa  = num(o.opexPct||25);
+        var opexPbsa  = numOr(o.opexPct, 25);
         stabilNOI = grossPbsa * (1-opexPbsa/100);
       }
       if(assetType==="btr" && o.units && o.rentPerUnitPcm){
         var grossBtr = num(o.units)*num(o.rentPerUnitPcm)*12;
-        var opexBtr  = num(o.opexPct||25);
+        var opexBtr  = numOr(o.opexPct, 25);
         stabilNOI = grossBtr * (1-opexBtr/100);
       }
       if((assetType==="industrial"||assetType==="office"||assetType==="retail") && o.sqft && o.rentPsfPa){
         var grossCom = num(o.sqft)*num(o.rentPsfPa);
-        var opexCom  = num(o.opexPct||10);  // commercial is FRI typically, low landlord costs
+        var opexCom  = numOr(o.opexPct, 10);  // commercial is FRI typically, low landlord costs
         stabilNOI = grossCom * (1-opexCom/100);
       }
     }
@@ -8301,7 +8429,7 @@ var JOURNEYS = {
         // Refi: typically 55-65% LTV on stabilised value, you keep asset
         yld = Math.max(2, yieldMid + 0.10);
         var marketVal = capVal(noiUsed, yld);
-        var ltv = num(o.refiLtv || 60) / 100;
+        var ltv = numOr(o.refiLtv, 60) / 100;
         var newDebt = marketVal * ltv;
         var equityReleased = newDebt - existingDebt;
         headline = Math.max(0, equityReleased);
@@ -8490,8 +8618,8 @@ var JOURNEYS = {
             if(!cd) return {gross:0,noi:0,units:0};
             var count = num(cd.count);
             var rent = num(cd.rent);
-            var occ = num(cd.occ||comp.occDefault) / 100;
-            var opex = num(cd.opex||comp.opexDefault) / 100;
+            var occ = numOr(cd.occ, comp.occDefault) / 100;
+            var opex = numOr(cd.opex, comp.opexDefault) / 100;
             var gross = 0;
             if(comp.key==="pbsa"){
               gross = count * rent * (num(cd.weeks)||comp.weeks);
@@ -9591,20 +9719,20 @@ var JOURNEYS = {
     var t = data.tenure || {};
     function upt(k,v){ up("tenure",k,v); }
 
-    var totalSchemeUnits = num(t.totalUnits) ||
+    var totalSchemeUnits = numOr(t.totalUnits,
       num(data.sfh&&data.sfh.totalUnits) ||
       num(data.planning&&data.planning.units) ||
-      num(data.hra&&data.hra.units) || 0;
+      num(data.hra&&data.hra.units) || 0);
 
-    var basePsf = num(t.basePsf) ||
+    var basePsf = numOr(t.basePsf,
       num(data.sfh&&data.sfh.basePsf) ||
-      num(data.rlv&&data.rlv.salePsf) || 350;
+      num(data.rlv&&data.rlv.salePsf) || 350);
 
-    var avgSqft = num(t.avgSqft) ||
-      num(data.sfh&&data.sfh.avgSqft) || 900;
+    var avgSqft = numOr(t.avgSqft,
+      num(data.sfh&&data.sfh.avgSqft) || 900);
 
-    var omsUnitPrice = num(t.omsUnitPrice) || (basePsf * avgSqft);
-    var omsRentPa = num(t.omsRentPa) || (omsUnitPrice * 0.04);  // 4% gross yield default for rental tenures
+    var omsUnitPrice = numOr(t.omsUnitPrice, basePsf * avgSqft);
+    var omsRentPa = numOr(t.omsRentPa, omsUnitPrice * 0.04);  // 4% gross yield default for rental tenures
     var inputMode = t.inputMode || "units";  // "units" or "percent"
 
     // Mix object — defaults to 100% OMS if empty
@@ -10755,16 +10883,16 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     var rCity=(pcData&&pcData.city)||"manchester";
     var rm=MKT[rCity]||MKT.manchester;
     var bt=BUILD_TYPES[r.schType]||BUILD_TYPES["Residential houses"];
-    var rUnits=num(r.units); var rSqft=num(r.avgSqft)||850;
+    var rUnits=num(r.units); var rSqft=numOr(r.avgSqft, 850);
     var rSalePsf=num(r.salePsf)||(pcData&&pcData.salePsf)||(rm.btr*8.5/12)||(m&&m.btr*8.5/12)||260;
     var rBuild=num(r.buildPsf)||(m&&m.build)||bt.mid;
-    var rProfit=num(r.profitPct)||17.5; var rFin=num(r.finRate)||7.5;
-    var rCont=num(r.contingency)||5;
+    var rProfit=numOr(r.profitPct, 17.5); var rFin=numOr(r.finRate, 7.5);
+    var rCont=numOr(r.contingency, 5);
     var rGdv=rUnits*rSqft*rSalePsf;
     var rBc=rUnits*rSqft*rBuild;
     var rFees=rBc*bt.fees; var rContCost=rBc*(rCont/100);
     var rFinCost=(rBc+rFees)*(rFin/100);
-    var rS106=rUnits*(num(r.s106pu)||8000);
+    var rS106=rUnits*(numOr(r.s106pu, 8000));
     var rPlan=rUnits*bt.plan;
     var rDevProfit=rGdv*(rProfit/100);
     var rRlv=rGdv-rBc-rFees-rContCost-rFinCost-rS106-rPlan-rDevProfit;
@@ -11398,12 +11526,12 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     })();
     var basePsf=num(s.basePsf)||mktPsf;
     var sBuild=num(s.buildPsf)||(sm&&sm.build)||195;
-    var sProfit=num(s.profitPct)||17.5;
-    var sFin=num(s.finRate)||7.5;
-    var sCont=num(s.contingency)||5;
-    var s106Pu=num(s.s106pu)||8000;
-    var roads=num(s.roads)||12000;
-    var totalUa=Math.max(4,Math.floor(sAcres*0.404686*(num(s.dph)||30)));
+    var sProfit=numOr(s.profitPct, 17.5);
+    var sFin=numOr(s.finRate, 7.5);
+    var sCont=numOr(s.contingency, 5);
+    var s106Pu=numOr(s.s106pu, 8000);
+    var roads=numOr(s.roads, 12000);
+    var totalUa=Math.max(4,Math.floor(sAcres*0.404686*(numOr(s.dph, 30))));
     var autoMix=[
       {type:"2-bed semi",beds:"2",count:String(Math.round(totalUa*0.10)),sqft:"820",unitPrice:String(Math.round(820*basePsf*0.88)),psf:"",tenure:"private",ahPct:"0"},
       {type:"3-bed semi",beds:"3",count:String(Math.round(totalUa*0.35)),sqft:"1020",unitPrice:String(Math.round(1020*basePsf)),psf:"",tenure:"private",ahPct:"0"},
@@ -11416,10 +11544,10 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     var houseCalcs=mix.map(function(row){
       var cnt=num(row.count); if(!cnt||!row.type)return null;
       var info=HOUSE_TYPES[row.type]||HOUSE_TYPES["3-bed semi"]||{sqft:900,adj:1.0};
-      var rowSqft=num(row.sqft)||info.sqft;
+      var rowSqft=numOr(row.sqft, info.sqft);
       var unitPrice=num(row.unitPrice||0);
       var sp=unitPrice&&rowSqft?unitPrice/rowSqft:(num(row.psf)||(basePsf*(info.adj||1)));
-      var beds=num(row.beds)||(info.beds||3);
+      var beds=numOr(row.beds, info.beds||3);
       return{type:row.type,beds:beds,count:cnt,sqft:rowSqft,sp:sp,unitPrice:unitPrice||rowSqft*sp,totalGdv:rowSqft*sp*cnt,build:rowSqft*sBuild*cnt};
     }).filter(Boolean);
 
@@ -11502,7 +11630,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}},
             e("div",{style:{fontSize:10,color:"#7278A0",fontStyle:"italic"}},"Name each type, enter sqft and Savills price — matches professional appraisal methodology"),
             e("button",{onClick:function(){
-              var totalU2=Math.floor(sAcres*0.404686*(num(s.dph)||30));
+              var totalU2=Math.floor(sAcres*0.404686*(numOr(s.dph, 30)));
               if(totalU2<1)totalU2=20;
               var newMix=[
                 {type:"2-bed semi",beds:"2",count:String(Math.round(totalU2*0.10)),sqft:"820",unitPrice:String(Math.round(820*basePsf*0.88)),psf:"",tenure:"private",ahPct:"0"},
@@ -11582,6 +11710,9 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
         ),
 
         // ── FULL SALES & PROFIT TABLE ───────────────────────────────────────
+        totalUnits>0&&e("div",{style:{padding:"10px 14px",background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.3)",borderRadius:6,fontSize:10,color:"#B05A35",lineHeight:1.6,marginBottom:14}},
+          e("strong",null,"Indicative scenario only — not a formal valuation. "),"For commercial commitment, cross-reference with chartered surveyor (RICS Red Book) appraisal and current market evidence. Outputs depend on inputs and assumptions you've entered."
+        ),
         totalUnits>0&&e("div",{style:S.card},
           e("div",{style:S.cardTitle},"Sales Revenue & Profit — Full Breakdown"),
           e("div",{style:{border:"1px solid #DDE0ED",borderRadius:8,overflow:"hidden",marginBottom:16}},
@@ -11792,7 +11923,14 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
 
     return e("div",null,
       e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"High-Rise Apartments"),
-      e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Multi-storey flatted development — BSA Gateway 2/3, EWS1, fire strategy, lift provision, GIA efficiency"),
+      e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:14}},"Multi-storey flatted development — BSA Gateway 2/3, EWS1, fire strategy, lift provision, GIA efficiency"),
+
+      // Workflow guidance: how unit count is derived
+      e("div",{style:{padding:"10px 14px",background:"rgba(74,75,174,0.06)",border:"1px solid rgba(74,75,174,0.3)",borderRadius:6,fontSize:11,color:"#3A3D6A",lineHeight:1.7,marginBottom:14}},
+        e("strong",{style:{color:"#2E2F8A"}},"How unit count is calculated: "),
+        "This stage works ",e("strong",null,"bottom-up")," from the building. Total units = Floorplate × Storeys × Efficiency × Mix Splits ÷ Unit Sizes. To model a target unit count (e.g. exactly 124 units), adjust the Floorplate, Storeys, or Unit Sizes until the total matches. If you already know your unit count and want to skip building geometry, use the simpler ",e("strong",null,"Tenure Mix")," stage or enter the target manually in Financial Modelling."
+      ),
+
       LiveMarketBanner(),
       storeys>0&&e("div",{style:{border:"1px solid "+(bsa?"#B05A35":"#4A4BAE"),borderRadius:10,padding:"16px 20px",background:bsa?"rgba(176,90,53,0.06)":"rgba(74,75,174,0.04)",marginBottom:16}},
         e("div",{style:{fontWeight:700,fontSize:13,color:bsa?"#B05A35":"#4A4BAE",marginBottom:12}},bsa?"🔴 Higher Risk Building — Building Safety Act 2022 applies":"🟡 Medium-rise — Fire Safety (England) Regulations apply"),
@@ -11914,7 +12052,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           ),
           e("div",null,
             e("div",{style:{fontSize:9,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,marginBottom:10}},"COSTS"),
-            [["Build ("+gia2.toLocaleString()+" sqft @ £"+bcp+"/sqft)",hBc],["Prof Fees (13%)",hFees],["Contingency ("+((num(h.contingency)||6))+"%)",hCont],["Finance ("+((num(h.finRate)||8))+"%)",hFin],["Planning fees",hPlan],["S106/CIL",hS106],["Lifts ("+cores+" cores × "+storeys+" floors)",liftCost],["Sprinklers ("+(ews?"mandatory":"rec.")+")",sprCost],["Structural premium",structP],["Resident amenity",amenity]].concat(ewsCost>0?[["EWS1 assessment",ewsCost]]:[]).concat(g2Cost>0?[["BSA Gateway 2 & 3",g2Cost]]:[]).concat([["Dev Profit ("+(num(h.profitPct)||17.5)+"%)",hDevProfit]]).map(function(row){
+            [["Build ("+gia2.toLocaleString()+" sqft @ £"+bcp+"/sqft)",hBc],["Prof Fees (13%)",hFees],["Contingency ("+(numOr(h.contingency,6))+"%)",hCont],["Finance ("+(numOr(h.finRate,8))+"%)",hFin],["Planning fees",hPlan],["S106/CIL",hS106],["Lifts ("+cores+" cores × "+storeys+" floors)",liftCost],["Sprinklers ("+(ews?"mandatory":"rec.")+")",sprCost],["Structural premium",structP],["Resident amenity",amenity]].concat(ewsCost>0?[["EWS1 assessment",ewsCost]]:[]).concat(g2Cost>0?[["BSA Gateway 2 & 3",g2Cost]]:[]).concat([["Dev Profit ("+(numOr(h.profitPct,17.5))+"%)",hDevProfit]]).map(function(row){
               return e("div",{key:row[0],style:{display:"flex",justifyContent:"space-between",fontSize:11,color:"#7278A0",padding:"3px 0",borderBottom:"1px solid #F0F0F0"}},
                 e("span",null,row[0]),e("span",null,"("+fmt(row[1])+")")
               );
@@ -12843,7 +12981,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
       for(var mi=0;mi<mix.length;mi++){
         var row=mix[mi]; var cnt=num(row.count);
         if(!cnt||!row.type)continue;
-        var rowSqft=num(row.sqft)||900;
+        var rowSqft=numOr(row.sqft, 900);
         var unitP=num(row.unitPrice||0);
         var sp=unitP&&rowSqft?unitP/rowSqft:(num(row.psf)||bPsf);
         total += rowSqft*sp*cnt;
@@ -12860,7 +12998,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
       var bBuild=num(data.sfh&&data.sfh.buildPsf)||(MKT[city]&&MKT[city].build)||185;
       var t=0;
       for(var mi=0;mi<mix.length;mi++){
-        t+=num(mix[mi].sqft||900)*bBuild*num(mix[mi].count||0);
+        t+=numOr(mix[mi].sqft, 900)*bBuild*num(mix[mi].count||0);
       }
       return t||bc;
     })();
@@ -12885,9 +13023,14 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     // Build cost: keep existing fallback logic but prefer centralised when available
     var effBuildCost = DM.buildCost > 0 ? DM.buildCost : (manualBuildCost>0?manualBuildCost:(isSFH&&sfhTotalBuildCost>0?sfhTotalBuildCost:bc));
 
+    // Pre-resolve rates with numOr so user-entered zero is respected
+    var finContPct = numOr(f.contingency, 5);
+    var finRatePct = numOr(f.finRate, 7.5);
+    var finS106Pu = numOr(f.s106pu, 8000);
+
     // Total Development Cost (still locally compute land-inclusive for legacy display)
-    var s106fin = DM.s106 || (isSFH?sfhTotalUnits*num(f.s106pu||8000):(data.planning&&data.planning.s106?num(data.planning.s106):units*num(f.s106pu||8000)));
-    var tc4 = effBuildCost + lc + s106fin + effBuildCost*0.12 + effBuildCost*(num(f.contingency)||5)/100 + (effBuildCost+lc)*(num(f.finRate)||7.5)/100 + lc*0.05;
+    var s106fin = DM.s106 || (isSFH?sfhTotalUnits*finS106Pu:(data.planning&&data.planning.s106?num(data.planning.s106):units*finS106Pu));
+    var tc4 = effBuildCost + lc + s106fin + effBuildCost*0.12 + effBuildCost*(finContPct/100) + (effBuildCost+lc)*(finRatePct/100) + lc*0.05;
 
     var profit2 = DM.actualProfit !== 0 ? DM.actualProfit : (gdv2-tc4);
     var margin2 = DM.marginPct !== 0 ? DM.marginPct : (gdv2>0?(profit2/gdv2)*100:0);
@@ -12974,7 +13117,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:12}},
             e("div",null,
               e("div",{style:{fontSize:9,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,marginBottom:10}},"COSTS"),
-              [["Land",lc],["Build ("+Math.round(gia).toLocaleString()+" sqft @ £"+buildPsf+"/sqft)",bc],["S106/CIL",data.planning&&data.planning.s106?num(data.planning.s106):0],["Contingency ("+(num(f.contingency)||5)+"%)",bc*(num(f.contingency)||5)/100],["Prof Fees (12%)",bc*0.12],["Finance ("+(num(f.finRate)||7.5)+"%)",(bc+lc)*(num(f.finRate)||7.5)/100],["SDLT (5%)",lc*0.05]].map(function(row){
+              [["Land",lc],["Build ("+Math.round(gia).toLocaleString()+" sqft @ £"+buildPsf+"/sqft)",bc],["S106/CIL",data.planning&&data.planning.s106?num(data.planning.s106):0],["Contingency ("+finContPct+"%)",bc*(finContPct/100)],["Prof Fees (12%)",bc*0.12],["Finance ("+finRatePct+"%)",(bc+lc)*(finRatePct/100)],["SDLT (5%)",lc*0.05]].map(function(row){
                 return e("div",{key:row[0],style:{display:"flex",justifyContent:"space-between",fontSize:12,color:"#7278A0",padding:"4px 0",borderBottom:"1px solid #F0F0F0"}},
                   e("span",null,row[0]),e("span",null,fmt(row[1]))
                 );
@@ -14195,7 +14338,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
             e("span",{style:{width:18,height:2,background:"#2E2F8A",display:"block",borderRadius:2}})
           ),
           e("div",{className:"lf-stage-mobile-title",style:{fontSize:isMobile?14:15,fontWeight:700,color:"#2E2F8A",whiteSpace:"nowrap"}},curStage.label),
-          e("div",{title:"Build v9.6 — Audit fixes (mix validation, transparent assumptions, disclaimers)",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v9.6"),
+          e("div",{title:"Build v9.8 — Placona expanded to whole UK + audit sweep",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v9.8"),
           !isMobile&&e("div",{style:{fontSize:11,color:"#7278A0",marginLeft:6}},at.toUpperCase()+" · "+cityName(city))
         ),
 
