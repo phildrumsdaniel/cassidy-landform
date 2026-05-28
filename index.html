@@ -573,6 +573,15 @@ var PROP_TYPES = ["Detached house","Semi-detached house","End of terrace house",
   "Agricultural building","Vacant land / Brownfield"];
 
 function num(v){return parseFloat(v)||0;}
+// numOr — same as num() but treats explicit 0 / "0" as a real value (not falsy)
+// Use this when a default should only apply if the user hasn't entered anything.
+// Returns the parsed number if the input is a valid number (including 0), otherwise the fallback.
+function numOr(v, fallback){
+  if(v===null||v===undefined||v==="") return fallback;
+  var n = parseFloat(v);
+  if(isNaN(n)) return fallback;
+  return n;
+}
 function fmt(n){
   if(n===null||n===undefined||n===""||isNaN(Number(n)))return"—";
   var v=Number(n), a=Math.abs(v);
@@ -11732,35 +11741,39 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     var hCity=h.city||city;
     var hm=MKT[hCity]||MKT.manchester;
     var storeys=num(h.storeys); var fp=num(h.fp);
-    var eff=num(h.eff)||80;
+    var eff=numOr(h.eff,80);
     var gia2=fp*storeys; var nia=gia2*(eff/100);
-    var ss=num(h.ss)||20; var os=num(h.os)||50; var ts=num(h.ts)||30;
-    var ssqft=num(h.ssqft)||380; var osqft=num(h.osqft)||520; var tsqft=num(h.tsqft)||750;
-    var su=nia>0?Math.round(nia*(ss/100)/ssqft):0;
-    var ou=nia>0?Math.round(nia*(os/100)/osqft):0;
-    var tu=nia>0?Math.round(nia*(ts/100)/tsqft):0;
+    // CRITICAL: use numOr so user-entered 0 is respected (was bug — 0 fell through to default 20/50/30)
+    var ss=numOr(h.ss,20); var os=numOr(h.os,50); var ts=numOr(h.ts,30);
+    var mixTotal = ss+os+ts;
+    var mixOk = Math.abs(mixTotal - 100) < 0.5;
+    var ssqft=numOr(h.ssqft,380); var osqft=numOr(h.osqft,520); var tsqft=numOr(h.tsqft,750);
+    // Compute units — guard against div-by-zero, and skip rows with 0% share
+    var su = (nia>0 && ss>0 && ssqft>0) ? Math.round(nia*(ss/100)/ssqft) : 0;
+    var ou = (nia>0 && os>0 && osqft>0) ? Math.round(nia*(os/100)/osqft) : 0;
+    var tu = (nia>0 && ts>0 && tsqft>0) ? Math.round(nia*(ts/100)/tsqft) : 0;
     var total=su+ou+tu;
     var mktSalePsf=num((data.rlv&&data.rlv.salePsf)||(city&&PC_PSF&&PC_PSF[city.substring(0,3).toUpperCase()])||260);
     var sPsf=num(h.sPsf)||Math.round(mktSalePsf*0.92);
     var oPsf=num(h.oPsf)||Math.round(mktSalePsf);
     var tPsf=num(h.tPsf)||Math.round(mktSalePsf*1.08);
-    var fl=num(h.fl)||0.5;
+    var fl=numOr(h.fl,0.5);
     var blend=1+(storeys>1?(storeys/2)*fl/100:0);
     var sGdv=su*ssqft*sPsf*blend; var oGdv=ou*osqft*oPsf*blend; var tGdv=tu*tsqft*tPsf*blend;
     var hGdv=sGdv+oGdv+tGdv; var avgPsf=nia>0?hGdv/nia:0;
-    var bcp=num(h.bcp)||(storeys>=20?310:storeys>=15?280:storeys>=10?255:230);
+    var bcp=numOr(h.bcp, (storeys>=20?310:storeys>=15?280:storeys>=10?255:230));
     var hBc=gia2*bcp;
-    var cores=num(h.cores)||Math.max(1,Math.ceil(gia2/40000));
+    var cores=numOr(h.cores, Math.max(1,Math.ceil(gia2/40000)));
     var liftCost=cores*storeys*18000;
     var sprCost=gia2*18;
     var ewsCost=storeys>=11?25000:0;
     var g2Cost=storeys>=18?45000:storeys>=11?28000:0;
     var structP=storeys>=20?gia2*15:storeys>=15?gia2*10:gia2*6;
     var amenity=Math.min(total*3500,500000);
-    var hFees=hBc*0.13; var hCont=hBc*(num(h.contingency)||6)/100;
-    var hFin=(hBc+hFees)*(num(h.finRate)||8)/100;
-    var hS106=total*(num(h.s106pu)||10000); var hPlan=total*12000;
-    var hDevProfit=hGdv*(num(h.profitPct)||17.5)/100;
+    var hFees=hBc*0.13; var hCont=hBc*(numOr(h.contingency,6))/100;
+    var hFin=(hBc+hFees)*(numOr(h.finRate,8))/100;
+    var hS106=total*(numOr(h.s106pu,10000)); var hPlan=total*12000;
+    var hDevProfit=hGdv*(numOr(h.profitPct,17.5))/100;
     var hrCosts=liftCost+sprCost+ewsCost+g2Cost+structP+amenity;
     var hTc=hBc+hFees+hCont+hFin+hS106+hPlan+hrCosts;
     var hRlv=hGdv-hTc-hDevProfit;
@@ -11812,6 +11825,13 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
       ),
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Unit Mix & Pricing"),
+        // 100% validation warning — visible if splits don't add up
+        (storeys>0 && fp>0) && !mixOk && e("div",{style:{padding:"10px 14px",background:"rgba(176,90,53,0.08)",border:"1px solid #B05A35",borderRadius:6,marginBottom:12,fontSize:11,color:"#B05A35",lineHeight:1.6,fontWeight:700}},
+          "⚠ Unit mix splits add up to "+mixTotal.toFixed(0)+"% — should total 100% (Studio "+ss+"% + 1-bed "+os+"% + 2-bed "+ts+"%). Adjust the splits below until they sum to 100%."
+        ),
+        (storeys>0 && fp>0) && mixOk && (ss===0 || os===0 || ts===0) && e("div",{style:{padding:"8px 12px",background:"rgba(74,75,174,0.06)",border:"1px solid rgba(74,75,174,0.3)",borderRadius:6,marginBottom:12,fontSize:10,color:"#4A4BAE",lineHeight:1.5}},
+          "ℹ Mix totals 100%. " + [ss===0?"No studios":"", os===0?"No 1-beds":"", ts===0?"No 2-beds":""].filter(Boolean).join(", ") + " — your input respected."
+        ),
         e("div",{style:S.grid2},
           e(Inp,{label:"Studio split %",type:"number",value:h.ss,onChange:function(v){up("hra","ss",v);},placeholder:"20"}),
           e(Inp,{label:"Studio size sqft",type:"number",value:h.ssqft,onChange:function(v){up("hra","ssqft",v);},placeholder:"380"}),
@@ -11843,6 +11863,41 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           })
         )
       ),
+      total>0&&e("div",{style:S.card},
+        e("div",{style:S.cardTitle},"Default assumptions in use"),
+        e("div",{style:{padding:"10px 14px",background:"rgba(74,75,174,0.04)",borderLeft:"3px solid #4A4BAE",borderRadius:6,fontSize:11,color:"#3A3D6A",lineHeight:1.8,marginBottom:10}},
+          e("div",{style:{fontWeight:700,marginBottom:6,color:"#2E2F8A"}},"⚠ These values were assumed by Landform. Override any of them above if you have site-specific data."),
+          e("table",{style:{width:"100%",fontSize:11,borderCollapse:"collapse"}},
+            e("tbody",null,
+              [
+                ["Open-market PSF baseline", "£"+Math.round(mktSalePsf)+"/sqft", data.rlv&&data.rlv.salePsf?"User-entered in RLV":"Postcode lookup / city average"],
+                ["Studio PSF", h.sPsf?"£"+h.sPsf+"/sqft (user)":"£"+Math.round(sPsf)+"/sqft", h.sPsf?"User override":"Auto: 92% of baseline"],
+                ["1-bed PSF", h.oPsf?"£"+h.oPsf+"/sqft (user)":"£"+Math.round(oPsf)+"/sqft", h.oPsf?"User override":"Auto: 100% of baseline"],
+                ["2-bed PSF", h.tPsf?"£"+h.tPsf+"/sqft (user)":"£"+Math.round(tPsf)+"/sqft", h.tPsf?"User override":"Auto: 108% of baseline"],
+                ["Floor-level premium", fl+"% per floor (blended +"+((blend-1)*100).toFixed(1)+"% on GDV)", h.fl!==undefined&&h.fl!==""?"User entry":"Default 0.5%/floor — set to 0 to disable"],
+                ["Build cost", "£"+bcp+"/sqft GIA", h.bcp?"User override":"Auto by storey count ("+storeys+" storeys)"],
+                ["Developer profit margin", numOr(h.profitPct,17.5)+"% of GDV", h.profitPct?"User override":"Auto: 17.5% (BTR/PBSA norm)"],
+                ["Contingency", numOr(h.contingency,6)+"% of build", h.contingency?"User override":"Auto: 6%"],
+                ["Finance rate", numOr(h.finRate,8)+"% on build+fees", h.finRate?"User override":"Auto: 8% — current market"],
+                ["S106/CIL per unit", "£"+numOr(h.s106pu,10000), h.s106pu?"User override":"Auto: £10,000"]
+              ].map(function(r,i){
+                var isUser = String(r[2]).indexOf("override")>=0 || String(r[2]).indexOf("User")>=0;
+                return e("tr",{key:i,style:{borderBottom:"1px solid rgba(74,75,174,0.1)"}},
+                  e("td",{style:{padding:"5px 8px 5px 0",width:"32%"}},r[0]),
+                  e("td",{style:{padding:"5px 8px",fontWeight:700,color:isUser?"#2D7A65":"#9A7B3E",width:"28%"}},r[1]),
+                  e("td",{style:{padding:"5px 0",fontSize:10,color:"#7278A0",fontStyle:"italic"}},r[2])
+                );
+              })
+            )
+          )
+        )
+      ),
+
+      // Disclaimer banner — always visible
+      total>0&&e("div",{style:{padding:"10px 14px",background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.3)",borderRadius:6,fontSize:10,color:"#B05A35",lineHeight:1.6,marginBottom:14}},
+        e("strong",null,"Indicative scenario only — not a formal valuation. "),"For commercial commitment, cross-reference with chartered surveyor (RICS Red Book) appraisal and current market evidence. Outputs depend on the inputs and assumptions shown above."
+      ),
+
       total>0&&hGdv>0&&e("div",{style:S.card},
         e("div",{style:S.cardTitle},"High-Rise Development Appraisal"),
         e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:12}},
@@ -12883,10 +12938,22 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
         ),
         e("div",{style:S.grid2},
           e(Inp,{label:"Build Cost psf (£) — market: £"+m.build,type:"number",value:f.buildPsf,onChange:function(v){up("fin","buildPsf",v);},placeholder:m.build+""}),
-          f.buildPsf&&(num(f.buildPsf)<120||num(f.buildPsf)>350)&&e("div",{style:{gridColumn:"span 2",background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.25)",borderRadius:5,padding:"6px 12px",fontSize:11,color:"#B05A35"}},
-            num(f.buildPsf)<120?"⚠ Build cost below £120/sqft is very low — Persimmon procure at £135/sqft. Check your figure.":
-            "⚠ Build cost above £350/sqft is very high — Barratt rarely exceed £200/sqft for standard homes. Check your figure."
-          ),
+          // Scheme-aware build cost sanity check (BCIS Q1 2026 benchmarks)
+          // SFH (2-3 storey houses): ~£148/sqft floor · BTR/PBSA flats: ~£180/sqft · refurb can be lower
+          f.buildPsf&&(function(){
+            var bv = num(f.buildPsf);
+            var schemeFloor = (at==="btr"||at==="pbsa") ? 165 : 130;  // £/sqft below which "unusually low"
+            var schemeCeil  = (at==="btr"||at==="pbsa") ? 380 : 280;
+            if(bv < schemeFloor){
+              return e("div",{style:{gridColumn:"span 2",background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.25)",borderRadius:5,padding:"6px 12px",fontSize:11,color:"#B05A35"}},
+                "⚠ Build cost £"+bv+"/sqft is below "+(at==="btr"||at==="pbsa"?"typical flatted-scheme floor of £165/sqft":"typical SFH floor of £130/sqft")+". BCIS Q1 2026 benchmarks: SFH 2-3 storey £148/sqft, flats 4-5 storey £181/sqft. Check your figure — unless this is refurbishment or stripped-spec, this may be too low.");
+            }
+            if(bv > schemeCeil){
+              return e("div",{style:{gridColumn:"span 2",background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.25)",borderRadius:5,padding:"6px 12px",fontSize:11,color:"#B05A35"}},
+                "⚠ Build cost £"+bv+"/sqft is unusually high (above £"+schemeCeil+"/sqft). High-spec / central-London / complex sites only. Check your figure.");
+            }
+            return null;
+          })(),
           e(Inp,{label:(at==="pbsa"?"Weekly Rent/Bed":"Monthly Rent/Unit")+" (£) — market: £"+(at==="pbsa"?m.pbsa:m.btr),type:"number",value:f.rent,onChange:function(v){up("fin","rent",v);},placeholder:(at==="pbsa"?m.pbsa:m.btr)+""}),
           e(Inp,{label:"Exit Yield (%) — market: "+pct(m.yield*100),type:"number",value:f.exitYield,onChange:function(v){up("fin","exitYield",v);},placeholder:(m.yield*100).toFixed(2)}),
           e(Inp,{label:"Finance Rate (%) — typical 7.5-9.0% senior debt",type:"number",value:f.finRate,onChange:function(v){up("fin","finRate",v);},placeholder:"7.5"}),
@@ -14128,7 +14195,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
             e("span",{style:{width:18,height:2,background:"#2E2F8A",display:"block",borderRadius:2}})
           ),
           e("div",{className:"lf-stage-mobile-title",style:{fontSize:isMobile?14:15,fontWeight:700,color:"#2E2F8A",whiteSpace:"nowrap"}},curStage.label),
-          e("div",{title:"Build v9.5",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v9.5"),
+          e("div",{title:"Build v9.6 — Audit fixes (mix validation, transparent assumptions, disclaimers)",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v9.6"),
           !isMobile&&e("div",{style:{fontSize:11,color:"#7278A0",marginLeft:6}},at.toUpperCase()+" · "+cityName(city))
         ),
 
@@ -14575,6 +14642,12 @@ function PublicShareViewer(props){
         e("h2",{style:{fontSize:22,fontWeight:800,marginBottom:8}},"Let's discuss this opportunity"),
         e("p",{style:{fontSize:13,opacity:0.9,marginBottom:16,maxWidth:480,margin:"0 auto 16px"}},"Cassidy Group is the sponsor of this opportunity. To request the IM, schedule a site visit, or discuss commercial terms, please contact us directly."),
         e("div",{style:{fontSize:14,fontWeight:700,color:"#EDE84A"}},"info@cassidygroupltd.com")
+      ),
+
+      // Indicative-only disclaimer (institutional standard)
+      e("div",{style:{padding:"14px 18px",background:"#F8F8FE",border:"1px solid #DDE0ED",borderRadius:8,fontSize:10,color:"#7278A0",lineHeight:1.7,marginTop:8}},
+        e("strong",{style:{color:"#3A3D6A"}},"Important — Indicative Information Only. "),
+        "The figures, valuations and projections shown are indicative and based on developer's current assumptions and modelling. They do not constitute a formal valuation under the RICS Red Book. Recipients should undertake independent due diligence and obtain professional valuation and legal advice before any commercial commitment. Past performance is not a guarantee of future returns. Capital is at risk."
       ),
 
       // Footer
