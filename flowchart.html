@@ -80,7 +80,7 @@
 
 <header class="header">
   <div class="logo">CASSIDY <span>LANDFORM</span></div>
-  <div class="subtitle">Workflow Atlas · Decision Tree & Stage Playbook</div>
+  <div class="subtitle">Workflow Atlas v9.8 · Decision Tree & Stage Playbook</div>
   <div class="controls">
     <button class="control-btn" onclick="zoomOut()">−</button>
     <button class="control-btn" id="zoomLabel" onclick="resetZoom()">100%</button>
@@ -140,7 +140,7 @@ const NODES = [
    <ul><li>Is this a strategic land play (sell with planning)?</li>
    <li>Or are you actually going to build it out?</li>
    <li>Who is the most likely exit buyer?</li></ul>`,
-   connectsTo:["scheme-land","scheme-sfh","scheme-btr","scheme-pbsa","scheme-property","scheme-recovery"]},
+   connectsTo:["scheme-land","scheme-sfh","scheme-btr","scheme-pbsa","scheme-property","scheme-recovery","scheme-asset"]},
 
   // ─── 1 · SCHEME TYPES (column 1) ────────────────────────────────────
   {id:"scheme-land", x:340, y:80, type:"scheme", icon:"🔍", title:"Land Strategy", sub:"Promote → sell with planning",
@@ -214,6 +214,38 @@ const NODES = [
    <li>Appeal grounds + timeline</li></ul>`,
    connectsTo:["stage-recovery","stage-land","stage-planning"]},
 
+  // ─── FAST TRACK: Existing Asset I Own ───────────────────────────────
+  {id:"scheme-asset", x:340, y:1040, type:"scheme", icon:"🏛", title:"Existing Asset I Own", sub:"FAST TRACK — skip to exit",
+   detail:`<h4>What this means</h4>
+   <ul><li>You already own or are completing an asset (PBSA, BTR, SFH portfolio, pub, hotel, industrial, office, retail)</li>
+   <li>Skip acquisition/planning/build stages entirely</li>
+   <li>Land directly in the Asset Exit Optimiser</li>
+   <li>Compare every viable exit route side-by-side</li></ul>
+   <h4>Critical fields</h4>
+   <ul><li>Asset type, location tier (prime vs regional)</li>
+   <li>Stabilised NOI or current rent roll</li>
+   <li>Cost base, existing debt, months to stabilisation</li>
+   <li>Strategic priority: Cash now / Best IRR / Risk-off / Strategic</li></ul>
+   <h4>Typical timeline</h4>
+   <span class="key-metric">2–9 months</span> to exit depending on route`,
+   connectsTo:["stage-asset-optimiser"]},
+
+  // ─── ASSET EXIT OPTIMISER (Section 0 — fast track endpoint) ─────────
+  {id:"stage-asset-optimiser", x:680, y:1100, type:"stage", icon:"🏛", title:"Asset Exit Optimiser", sub:"13 asset types · 17 exit routes",
+   detail:`<h4>Purpose</h4> For existing or completing assets — compare every viable exit side-by-side and surface the optimal strategy by yield, IRR, or timing.
+   <h4>Built-in intelligence</h4>
+   <ul><li><b>13 asset types</b>: PBSA, BTR, SFH portfolio, Hotel, Pub, Industrial, Office, Retail, Single Residential, Mixed-use, Care Home, Data Centre, Other</li>
+   <li><b>17 exit routes</b> with yield biases and typical timelines</li>
+   <li><b>Asset-exit fit matrix</b> — only viable exits shown per asset type</li>
+   <li><b>Sector yield benchmarks</b> mid-2026 (PBSA 4.75-6.5%, BTR 4-5.5%, Industrial 5-7%, Pub 7-11% etc)</li>
+   <li><b>Block accommodation mix</b> — blend PBSA + Key Worker + BTR + Affordable + commercial in single block</li>
+   <li><b>Split-sale detector</b> — flags when selling components separately beats single-block sale</li></ul>
+   <h4>Residential workflow (single house/flat)</h4>
+   <ul><li>Land Registry comparables auto-fetch by postcode</li>
+   <li>6 strategies: Sell as-is, Refurb+sell, HMO convert, Rent (AST), Remortgage+hold, Demolish+redev</li></ul>
+   <h4>Output</h4> Branded recommendation + AI strategic analysis with named UK institutional buyers`,
+   connectsTo:["stage-investor","endpoint-deal"]},
+
   // ─── 2 · FIND & VALUE STAGES (column 2) ─────────────────────────────
   {id:"stage-placona", x:680, y:140, type:"stage", icon:"🤖", title:"Placona Agent", sub:"AI land discovery",
    detail:`<h4>Purpose</h4> Find live land opportunities by county, scored 0–100 for deliverability.
@@ -268,7 +300,7 @@ const NODES = [
    <span class="key-metric">DPH 30-40</span> typical UK SFH density
    <span class="key-metric">£/sqft</span> must match local Land Registry — check the Live Market Banner.
    <h4>Red flag</h4> <span class="red-flag">Build:Sale ratio &gt; 75%</span> = structurally unviable, even at zero land cost`,
-   connectsTo:["stage-rlv","decision-rlv","stage-planning"]},
+   connectsTo:["stage-rlv","decision-rlv","stage-planning","stage-tenure"]},
 
   {id:"stage-hra", x:1080, y:400, type:"stage", icon:"🏢", title:"BTR / PBSA Block", sub:"Apartment appraisal",
    detail:`<h4>Purpose</h4> Multi-storey appraisal with fire/building safety overlay.
@@ -280,7 +312,7 @@ const NODES = [
    <span class="key-metric">GIA eff. 78-82%</span> realistic
    <span class="key-metric">Lifts: 1 per 60-75 beds</span>
    <h4>Red flag</h4> <span class="red-flag">Eff &lt; 75%</span> = badly designed building`,
-   connectsTo:["stage-rlv","stage-capitalise"]},
+   connectsTo:["stage-rlv","stage-capitalise","stage-tenure"]},
 
   {id:"stage-rlv", x:1080, y:80, type:"stage", icon:"◆", title:"Land Valuation (RLV)", sub:"Live LR + residual",
    detail:`<h4>Purpose</h4> Fetch live Land Registry data and run residual.
@@ -504,12 +536,12 @@ const NODES = [
    <ul><li>20-40 page institutional-grade IM</li>
    <li>Executive summary, market analysis, scheme description, financial model summary, ESG, exit strategy</li></ul>
    <h4>Use for</h4> Pension fund / SWF / family office pitches.`,
-   connectsTo:["endpoint-deal"]},
+   connectsTo:["stage-investor","endpoint-deal"]},
 
   {id:"report-teaser", x:2180, y:400, type:"stage", icon:"📬", title:"Teaser PDF", sub:"1-page summary",
    detail:`<h4>What it produces</h4> 1-2 page anonymous-by-default teaser.
    <h4>Use for</h4> First-touch with buyers, broker mailshots, initial gauge of interest before full IM.`,
-   connectsTo:["endpoint-deal"]},
+   connectsTo:["stage-investor","endpoint-deal"]},
 
   {id:"report-grants", x:2180, y:560, type:"stage", icon:"💷", title:"Grants & Funding", sub:"AHP / Homes England",
    detail:`<h4>What it produces</h4> Application templates for:
@@ -532,7 +564,7 @@ const NODES = [
    <li>Sub-scores: location, planning, ground, market</li>
    <li>Category A/B/C/D</li></ul>
    <h4>Use for</h4> Quick share with prospective JV partners.`,
-   connectsTo:["endpoint-deal"]},
+   connectsTo:["stage-investor","endpoint-deal"]},
 
   // ─── 7 · ENDPOINT ──────────────────────────────────────────────────
   {id:"endpoint-deal", x:2580, y:480, type:"endpoint", icon:"🎯", title:"Deal Executed", sub:"Acquired · Promoted · Sold",
@@ -561,6 +593,52 @@ const NODES = [
    <li>Pick recovery route: appeal, re-design, or pre-app rescue</li>
    <li>Generate letters from the toolkit</li></ol>`,
    connectsTo:["stage-planning","stage-fin"]},
+
+  // ─── TENURE MIX: Mixed-tenure SFH / BTR development ─────────────────
+  {id:"stage-tenure", x:1080, y:240, type:"stage", icon:"🤝", title:"Tenure Mix", sub:"10 tenures · blended GDV",
+   detail:`<h4>Purpose</h4> Split units across multiple tenures with different buyers and pricing. Real UK schemes blend Open Market + Affordable + Shared Ownership + BTR + First Homes.
+   <h4>10 supported tenures</h4>
+   <ul><li><b>Open Market Sale</b> (100% PSF) → individual buyers</li>
+   <li><b>First Homes</b> (70% PSF, S106 statutory) → local FTBs</li>
+   <li><b>Discounted Market Sale</b> (80%) → individual</li>
+   <li><b>Shared Ownership</b> (85% bulk) → Housing Association</li>
+   <li><b>Affordable Rent</b> (60% bulk) → HA</li>
+   <li><b>Social Rent</b> (50% bulk) → HA</li>
+   <li><b>Build to Rent</b> (80% bulk) → pension / BTR op</li>
+   <li><b>Private Rented Sector</b> (85%) → landlord investor</li>
+   <li><b>Rent to Buy</b> (85%) → deferred purchase</li>
+   <li><b>RTB Back-buy</b> (70%) → local authority</li></ul>
+   <h4>Output</h4>
+   <ul><li>Blended GDV (flows to all downstream stages)</li>
+   <li>Tenure-discount % vs pure-OMS</li>
+   <li>Multi-buyer exit roadmap (grouped by buyer type)</li>
+   <li>Annual rent for HA/BTR/SO portions</li></ul>
+   <h4>Quick presets</h4> 100% OMS · Standard S106 (70/20/10) · Intermediate-heavy · All Affordable · BTR+AR blend · First Homes focus`,
+   connectsTo:["stage-fin","stage-capitalise","exit-flow"]},
+
+  // ─── INVESTOR MARKETING SUITE: Tiered shareable links + analytics ───
+  {id:"stage-investor", x:2280, y:680, type:"stage", icon:"🎯", title:"Investor Marketing Suite", sub:"Teaser · IM · Data Room",
+   detail:`<h4>Purpose</h4> The endpoint for capital raising. Package, share, and track engagement with institutional investors. Three-tier institutional outreach.
+   <h4>Three tiers</h4>
+   <ul><li><b>Tier 1 Teaser</b> (NDA-free) — 1-2 pages, broadcast widely. Pass-the-pub test.</li>
+   <li><b>Tier 2 IM</b> (post-NDA) — 15-25 pages, IC-ready. Financial model summary, sensitivities, market analysis, exit strategy, risks, team.</li>
+   <li><b>Tier 3 Data Room</b> (post-LOI) — Full DD. Title plans, consents, surveys, models, leases, environmental.</li></ul>
+   <h4>Media management</h4>
+   <ul><li>Photo uploads (5MB) → Google Drive</li>
+   <li>Video embeds (YouTube/Vimeo)</li>
+   <li>Document uploads (PDF/Word)</li>
+   <li>Per-deal folder structure</li></ul>
+   <h4>Shareable links</h4>
+   <ul><li>Unique URL per investor — no login needed for them</li>
+   <li>Optional passcode + email gate</li>
+   <li>Optional expiry date</li>
+   <li>Audience presets: Pension / SWF / Family Office / JV / Trade / REIT / HNI</li></ul>
+   <h4>Analytics (the gold)</h4>
+   <ul><li>Total views per link · time on page</li>
+   <li>Viewer name + email + company captured</li>
+   <li>"ENGAGED" vs "NOT YET" status per link</li>
+   <li>Indicative-only RICS disclaimer auto-included</li></ul>`,
+   connectsTo:["endpoint-deal"]},
 ];
 
 // ═══════════════════════════════════════════════════════════════════════
