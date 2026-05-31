@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Landform Process Chart · Cassidy Group</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#1E1F5C;
+  --navy-deep:#13144A;
+  --navy-soft:#3A3D6A;
+  --gold:#EDE84A;
+  --gold-deep:#9A7B3E;
+  --green:#2D7A65;
+  --bronze:#B05A35;
+  --paper:#F8F6F0;
+  --paper-deep:#EFEBE0;
+  --rule:#D6D2C4;
+  --ink:#1A1A2E;
+  --mute:#7278A0;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:"DM Sans",sans-serif;
+  background:var(--paper);
+  color:var(--ink);
+  font-size:14px;
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ─── PAGE HEADER ──────────────────────────────────────────────────── */
+.lf-header{
+  background:var(--navy);
+  color:white;
+  padding:24px 40px 22px;
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  border-bottom:5px solid var(--gold);
+}
+.lf-brand{display:flex;align-items:baseline;gap:14px}
+.lf-brand-mark{
+  font-family:"Fraunces",serif;
+  font-size:32px;
+  font-weight:800;
+  color:var(--gold);
+  letter-spacing:-0.02em;
+  line-height:1;
+}
+.lf-brand-name{
+  font-family:"Fraunces",serif;
+  font-size:24px;
+  font-weight:600;
+  color:white;
+  letter-spacing:-0.01em;
+}
+.lf-brand-sub{
+  font-size:11px;
+  letter-spacing:0.18em;
+  text-transform:uppercase;
+  color:rgba(255,255,255,0.6);
+  margin-top:4px;
+}
+.lf-version{
+  font-size:10px;
+  letter-spacing:0.2em;
+  text-transform:uppercase;
+  color:var(--gold);
+  background:rgba(237,232,74,0.12);
+  padding:6px 12px;
+  border-radius:3px;
+  font-weight:700;
+}
+
+/* ─── ROUTE SELECTOR ───────────────────────────────────────────────── */
+.lf-routebar{
+  background:var(--navy-deep);
+  padding:18px 40px;
+  display:flex;
+  align-items:center;
+  gap:24px;
+  flex-wrap:wrap;
+}
+.lf-routebar-label{
+  font-size:10px;
+  letter-spacing:0.2em;
+  text-transform:uppercase;
+  color:var(--gold);
+  font-weight:700;
+}
+.lf-routes{display:flex;gap:10px;flex-wrap:wrap}
+.lf-route{
+  background:transparent;
+  border:1px solid rgba(255,255,255,0.25);
+  color:rgba(255,255,255,0.85);
+  padding:7px 16px;
+  font-size:12px;
+  font-family:"DM Sans",sans-serif;
+  font-weight:500;
+  letter-spacing:0.03em;
+  border-radius:3px;
+  cursor:pointer;
+  transition:all 0.18s;
+}
+.lf-route:hover{border-color:var(--gold);color:white}
+.lf-route.active{
+  background:var(--gold);
+  color:var(--navy-deep);
+  border-color:var(--gold);
+  font-weight:700;
+}
+.lf-print-btn{
+  margin-left:auto;
+  background:var(--gold);
+  color:var(--navy-deep);
+  border:none;
+  padding:9px 18px;
+  font-size:11px;
+  font-family:"DM Sans",sans-serif;
+  font-weight:700;
+  letter-spacing:0.1em;
+  text-transform:uppercase;
+  cursor:pointer;
+  border-radius:3px;
+  transition:all 0.18s;
+}
+.lf-print-btn:hover{background:white}
+
+/* ─── CHART CANVAS ─────────────────────────────────────────────────── */
+.lf-chart-wrap{
+  position:relative;
+  overflow:auto;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(30,31,92,0.04), transparent 40%),
+    radial-gradient(circle at 70% 80%, rgba(176,90,53,0.04), transparent 40%),
+    var(--paper);
+  min-height:calc(100vh - 156px);
+}
+.lf-chart{
+  position:relative;
+  padding:50px 40px 80px;
+  min-width:1500px;
+}
+.lf-group{
+  margin-bottom:42px;
+}
+.lf-group-label{
+  font-family:"Fraunces",serif;
+  font-size:13px;
+  font-weight:600;
+  letter-spacing:0.18em;
+  text-transform:uppercase;
+  color:var(--navy);
+  display:flex;
+  align-items:center;
+  gap:16px;
+  margin-bottom:18px;
+}
+.lf-group-label::before{
+  content:"";
+  display:inline-block;
+  width:28px;
+  height:2px;
+  background:var(--gold-deep);
+}
+.lf-group-label::after{
+  content:"";
+  flex:1;
+  height:1px;
+  background:linear-gradient(to right, var(--rule), transparent);
+}
+.lf-group-num{
+  font-family:"Fraunces",serif;
+  font-style:italic;
+  font-weight:400;
+  color:var(--gold-deep);
+  margin-right:6px;
+}
+
+.lf-row{
+  display:flex;
+  gap:14px;
+  flex-wrap:wrap;
+  align-items:stretch;
+}
+
+/* ─── STAGE NODES ──────────────────────────────────────────────────── */
+.lf-node{
+  background:white;
+  border:1.5px solid var(--rule);
+  border-left:4px solid var(--navy);
+  border-radius:3px;
+  padding:14px 16px;
+  width:215px;
+  cursor:pointer;
+  position:relative;
+  transition:all 0.2s;
+  display:flex;
+  flex-direction:column;
+  font-family:"DM Sans",sans-serif;
+}
+.lf-node:hover{
+  transform:translateY(-2px);
+  border-color:var(--gold-deep);
+  box-shadow:0 8px 24px -8px rgba(30,31,92,0.18);
+}
+.lf-node.faded{opacity:0.22;pointer-events:none}
+.lf-node-num{
+  font-family:"Fraunces",serif;
+  font-style:italic;
+  font-size:10px;
+  color:var(--gold-deep);
+  letter-spacing:0.05em;
+  margin-bottom:3px;
+}
+.lf-node-icon{
+  font-size:18px;
+  position:absolute;
+  top:12px;
+  right:14px;
+  opacity:0.8;
+}
+.lf-node-title{
+  font-family:"Fraunces",serif;
+  font-size:15px;
+  font-weight:600;
+  color:var(--navy);
+  letter-spacing:-0.005em;
+  line-height:1.2;
+  margin-bottom:5px;
+  padding-right:28px;
+}
+.lf-node-sub{
+  font-size:11px;
+  color:var(--mute);
+  line-height:1.4;
+}
+.lf-node-route-tags{
+  display:flex;
+  gap:4px;
+  margin-top:8px;
+  flex-wrap:wrap;
+}
+.lf-tag{
+  font-size:8.5px;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  font-weight:700;
+  padding:2px 7px;
+  border-radius:2px;
+  background:var(--paper-deep);
+  color:var(--navy-soft);
+}
+.lf-tag.sfh{background:rgba(45,122,101,0.12);color:var(--green)}
+.lf-tag.btr{background:rgba(30,31,92,0.10);color:var(--navy)}
+.lf-tag.pbsa{background:rgba(176,90,53,0.12);color:var(--bronze)}
+.lf-tag.asset{background:rgba(154,123,62,0.15);color:var(--gold-deep)}
+.lf-tag.mix{background:rgba(115,103,160,0.15);color:#6a5ba0}
+
+/* Decision / gate nodes have a different shape */
+.lf-node.decision{
+  border-left-color:var(--bronze);
+  background:#FDF8F3;
+}
+.lf-node.gate{
+  border-left-color:var(--green);
+  background:#F4FAF7;
+}
+.lf-node.fast{
+  border-left-color:var(--gold-deep);
+  background:#FCF8EC;
+}
+
+/* Connector arrows ↓ between groups */
+.lf-arrow{
+  text-align:center;
+  font-size:22px;
+  color:var(--rule);
+  margin:6px 0 -12px;
+  line-height:1;
+}
+
+/* ─── DETAIL OVERLAY ───────────────────────────────────────────────── */
+.lf-overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(19,20,74,0.55);
+  backdrop-filter:blur(4px);
+  z-index:100;
+  display:none;
+  align-items:flex-start;
+  justify-content:center;
+  padding:40px 20px;
+  overflow-y:auto;
+}
+.lf-overlay.open{display:flex;animation:fadeIn 0.2s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+.lf-page{
+  background:white;
+  width:210mm;
+  min-height:297mm;
+  padding:22mm 22mm 20mm;
+  box-shadow:0 25px 80px -20px rgba(0,0,0,0.4);
+  position:relative;
+  font-family:"DM Sans",sans-serif;
+  color:var(--ink);
+}
+.lf-page-close{
+  position:absolute;
+  top:18px;
+  right:20px;
+  width:30px;
+  height:30px;
+  border-radius:50%;
+  background:var(--paper-deep);
+  border:1px solid var(--rule);
+  cursor:pointer;
+  font-size:16px;
+  color:var(--navy);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+}
+.lf-page-close:hover{background:var(--navy);color:white;border-color:var(--navy)}
+
+.lf-page-head{
+  border-bottom:2px solid var(--navy);
+  padding-bottom:14px;
+  margin-bottom:18px;
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:16px;
+}
+.lf-page-eyebrow{
+  font-size:10px;
+  letter-spacing:0.18em;
+  text-transform:uppercase;
+  color:var(--gold-deep);
+  font-weight:700;
+  font-family:"DM Sans",sans-serif;
+}
+.lf-page-num{
+  font-family:"Fraunces",serif;
+  font-style:italic;
+  font-size:13px;
+  color:var(--mute);
+  margin-top:6px;
+}
+.lf-page-title{
+  font-family:"Fraunces",serif;
+  font-weight:600;
+  font-size:32px;
+  letter-spacing:-0.015em;
+  color:var(--navy);
+  line-height:1.05;
+  margin-top:4px;
+}
+.lf-page-sub{
+  font-size:13px;
+  color:var(--mute);
+  margin-top:6px;
+  font-style:italic;
+}
+.lf-page-icon{
+  font-size:54px;
+  opacity:0.85;
+  line-height:1;
+}
+
+.lf-section{margin-bottom:14px}
+.lf-section h3{
+  font-family:"DM Sans",sans-serif;
+  font-size:9.5px;
+  letter-spacing:0.2em;
+  text-transform:uppercase;
+  font-weight:700;
+  color:var(--gold-deep);
+  margin-bottom:5px;
+  border-bottom:1px dotted var(--rule);
+  padding-bottom:3px;
+}
+.lf-section p{font-size:11.5px;line-height:1.55;color:var(--ink)}
+.lf-section ul{padding-left:18px;font-size:11.5px;line-height:1.6}
+.lf-section li{margin-bottom:2px}
+.lf-section li strong{color:var(--navy);font-weight:600}
+
+.lf-twocol{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.lf-redflag{
+  background:rgba(176,90,53,0.07);
+  border-left:3px solid var(--bronze);
+  padding:8px 12px;
+  font-size:11px;
+  color:var(--bronze);
+  margin-top:6px;
+  font-weight:500;
+}
+.lf-tip{
+  background:rgba(45,122,101,0.08);
+  border-left:3px solid var(--green);
+  padding:8px 12px;
+  font-size:11px;
+  color:#1d5446;
+  margin-top:6px;
+  font-style:italic;
+}
+
+.lf-page-foot{
+  position:absolute;
+  bottom:14mm;
+  left:22mm;
+  right:22mm;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  font-size:9px;
+  color:var(--mute);
+  letter-spacing:0.1em;
+  text-transform:uppercase;
+  border-top:1px solid var(--rule);
+  padding-top:8px;
+}
+.lf-page-foot-mark{font-family:"Fraunces",serif;font-style:italic;text-transform:none;letter-spacing:0;color:var(--gold-deep)}
+
+.lf-page-nav{
+  display:flex;
+  gap:8px;
+  margin-top:14px;
+  padding-top:12px;
+  border-top:1px solid var(--rule);
+}
+.lf-pagenav-btn{
+  flex:1;
+  background:white;
+  border:1px solid var(--rule);
+  padding:9px 12px;
+  font-family:"DM Sans",sans-serif;
+  font-size:10.5px;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  font-weight:600;
+  color:var(--navy);
+  cursor:pointer;
+  border-radius:2px;
+  transition:all 0.15s;
+}
+.lf-pagenav-btn:hover:not(:disabled){background:var(--navy);color:white;border-color:var(--navy)}
+.lf-pagenav-btn:disabled{opacity:0.35;cursor:not-allowed}
+.lf-pagenav-btn.primary{background:var(--gold);color:var(--navy-deep);border-color:var(--gold);font-weight:700}
+.lf-pagenav-btn.primary:hover{background:var(--gold-deep);color:white;border-color:var(--gold-deep)}
+
+/* ─── PRINT MODE ──────────────────────────────────────────────────── */
+@media print{
+  body{background:white}
+  .lf-header,.lf-routebar,.lf-chart-wrap{display:none!important}
+  .lf-overlay{position:static;background:none;backdrop-filter:none;padding:0;display:block!important}
+  .lf-page{
+    box-shadow:none;
+    page-break-after:always;
+    width:100%;
+    min-height:auto;
+    padding:18mm 18mm 14mm;
+  }
+  .lf-page-close,.lf-page-nav{display:none}
+  .print-all .lf-page{page-break-after:always}
+}
+
+/* Mobile responsiveness — collapses chart for narrow screens */
+@media (max-width:780px){
+  .lf-header{padding:18px 22px}
+  .lf-routebar{padding:14px 22px}
+  .lf-brand-name{font-size:18px}
+  .lf-chart{padding:30px 22px 60px;min-width:auto}
+  .lf-node{width:100%}
+  .lf-row{flex-direction:column}
+  .lf-page{width:100%;padding:18px}
+}
+</style>
+</head>
+<body>
+
+<header class="lf-header">
+  <div class="lf-brand">
+    <div class="lf-brand-mark">L.</div>
+    <div>
+      <div class="lf-brand-name">Landform Process Chart</div>
+      <div class="lf-brand-sub">Cassidy Group · Internal Reference</div>
+    </div>
+  </div>
+  <div class="lf-version">v9.8 · 28 Stages</div>
+</header>
+
+<div class="lf-routebar">
+  <span class="lf-routebar-label">Filter by Route</span>
+  <div class="lf-routes" id="routeFilter">
+    <button class="lf-route active" data-route="all">All Routes</button>
+    <button class="lf-route" data-route="sfh">SFH</button>
+    <button class="lf-route" data-route="btr">BTR</button>
+    <button class="lf-route" data-route="pbsa">PBSA</button>
+    <button class="lf-route" data-route="asset">Existing Asset (Fast Track)</button>
+    <button class="lf-route" data-route="mix">Mixed Use</button>
+  </div>
+  <button class="lf-print-btn" onclick="printAll()">Print full manual</button>
+</div>
+
+<div class="lf-chart-wrap">
+  <div class="lf-chart" id="chart"></div>
+</div>
+
+<div class="lf-overlay" id="overlay">
+  <div class="lf-page" id="page"></div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────
+// STAGE DATA — 28 stages of the Landform v9.8 workflow
+// ─────────────────────────────────────────────────────────────────────
+// Routes legend:
+//   all = appears in every journey
+//   sfh, btr, pbsa, asset, mix = route-specific
+
+const STAGES = [
+  // GROUP 0 — START
+  {n:1, group:"0 · Start", icon:"⊕", title:"Sign In / Register",
+   sub:"Account access, session control",
+   routes:["all"],
+   purpose:"Enter Landform. Either resume a saved deal from any device or set up a new account.",
+   inputs:["Email address (unique identifier)","Password (8+ characters, hashed SHA-256 server-side)","On first run: name + company name"],
+   sources:["Self-supplied"],
+   outputs:["Authenticated session (30-day token)","Access to your private portfolio of saved deals"],
+   validation:["Email must be unique on register","Password minimum 8 characters","Invalid credentials block sign-in"],
+   redflags:["Sharing accounts across colleagues — each user must have their own login (audit trail integrity)"],
+   tips:["Recommend a password manager for the team","Cassidy Group Limited account credentials are confidential business assets"],
+   next:"Process Navigator (or open existing deal from Portfolio)"
+  },
+  {n:2, group:"0 · Start", icon:"🧭", title:"Process Navigator",
+   sub:"Pick scheme · pick exit",
+   routes:["all"],
+   purpose:"The three-page guided journey that orients you before entering any data. Sets the scheme route and exit strategy that determines which downstream stages apply.",
+   inputs:["Page 1: Scheme type — Land Strategy / SFH / BTR / PBSA / Existing Asset / Property / Recovery","Page 2: Most likely exit — Build & Sell / Land + Planning / Forward Fund / Build & Hold / Forward Sale / Block Sale","Page 3: confirms the workflow stages that apply to your route"],
+   sources:["Your own commercial judgement"],
+   outputs:["Sets data.assetType, data.exitChoice","Sidebar filters to show only relevant stages","Downstream calculations switch to scheme-appropriate logic (SFH PSF model vs BTR yield model)"],
+   validation:["You can change scheme/exit mid-deal but it may invalidate populated stages","System warns before re-route if data exists"],
+   redflags:["Picking the wrong scheme type at the start propagates assumption errors through every later stage"],
+   tips:["If unsure between SFH and BTR, model SFH first — easier to convert appraisal","Existing Asset I Own = FAST TRACK to Asset Optimiser (skips acquisition + planning + build)"],
+   next:"Find / Site Readiness, OR direct to Asset Optimiser if existing asset"
+  },
+  {n:3, group:"0 · Start", icon:"🏛", title:"Asset Exit Optimiser",
+   sub:"FAST TRACK — for existing or completing assets",
+   routes:["asset"],
+   purpose:"Skip acquisition and planning entirely. For an asset Cassidy already owns or is acquiring complete. Compares every viable exit route side-by-side and surfaces optimal strategy by yield, IRR, or timing.",
+   inputs:["Asset type: PBSA / BTR / SFH portfolio / Hotel / Pub / Industrial / Office / Retail / Single Residential / Mixed-use / Care / Data Centre / Other","Location tier: Prime / Regional","Stabilised NOI (or current NOI + months to stabilisation)","Cost base (acquisition + capex)","Existing debt + rate","Strategic priority: Cash now / Best IRR / Strategic value / Risk-off"],
+   sources:["Internal financials","Rent roll / lease schedule","Most recent lender valuation","Knight Frank / CBRE / Savills sector reports for yield benchmarks"],
+   outputs:["13 asset types × 17 exit routes filtered to viable combinations","Sector yield benchmarks (mid-2026: PBSA 4.75-6.5%, BTR 4-5.5%, Industrial 5-7%, Pub 7-11%)","Block accommodation mix module (PBSA + Key Worker + BTR + commercial blend)","Split-sale detector — flags when components sold separately beats single-block sale","AI strategic analysis with named UK institutional buyers"],
+   validation:["Stabilised NOI must be positive","Cost base must be greater than zero","Asset type determines which exit routes are shown"],
+   redflags:["Using stabilised NOI when asset is still in lease-up — overstates value","Ignoring sector-specific covenant/lease structures when comparing yields"],
+   tips:["Set 'Months to stabilisation' realistically — stretching it doesn't help your model","Use Block Mix for any single building with multiple use classes — they have different yields"],
+   next:"Exit Strategy → Reports → Investor Marketing Suite → Deal Executed"
+  },
+
+  // GROUP 1 — FIND
+  {n:4, group:"1 · Find", icon:"🚪", title:"Site Readiness Check",
+   sub:"Capture site fundamentals before progressing",
+   routes:["all"],
+   purpose:"Confirms the deal has enough basic site information to be worth working up. A discipline checkpoint — incomplete sites get parked, not analysed.",
+   inputs:["Site address (full postal address)","Site boundary (red line plan, even if approximate)","Acreage (or m² / hectares)","Ownership status: Owned / Optioned / Under offer / Targeted","Planning context: Allocated / Outside settlement / Brownfield / Greenbelt","Access provision: Adopted highway / Private / Ransom strip","Known constraints headline"],
+   sources:["HM Land Registry Title Plan (£3 from gov.uk/search-property-information)","Local Plan policies map","Site visit notes","Vendor / agent particulars"],
+   outputs:["Goes into data.land — feeds every downstream stage","Anchors the rest of the workflow"],
+   validation:["Address + acreage minimum to proceed","Boundary recommended even if rough","Without ownership clarity, model is theoretical"],
+   redflags:["No access provision identified = ransom strip risk","Site within designated landscape (AONB / Green Belt / Conservation Area) without strategy","Title plan not yet checked for restrictions or covenants"],
+   tips:["10 minutes downloading the Title Register pays off hundreds of times over","Photograph the site visit — useful for Teaser pack later","If targeting only, mark as 'speculative' to filter Portfolio later"],
+   next:"Placona Agent (if site-finding) OR straight to Land Appraisal (if site known)"
+  },
+  {n:5, group:"1 · Find", icon:"🤖", title:"Placona Agent",
+   sub:"AI land sourcing across the UK",
+   routes:["all"],
+   purpose:"Discovers off-market and on-market development sites matching scheme criteria. Covers 74 UK areas across 12 regions.",
+   inputs:["Scheme type (auto from Process Navigator)","Minimum units required","Selected counties/regions (multi-select)","Deep Research mode toggle (slower, broader)"],
+   sources:["Live web research via Claude AI","Land agency listings","Council planning applications","CoStar / EG / Rightmove development pages"],
+   outputs:["10-15 development sites per search","Each result: address, postcode, acres, units, indicative price, LPA, planning status, agent contact, key constraints, source URL","One-click 'Load Deal' auto-populates 12 downstream stages"],
+   validation:["Minimum units must be > 0","At least one county must be selected","Deep Research mode requires longer wait (~30 seconds)"],
+   redflags:["Always verify pricing — Placona's figures are indicative, sourced from open data","Some 'available' sites may be under offer not yet reflected in listings"],
+   tips:["Use the M1/M6 Corridor preset for Cassidy's Midlands focus","Whole UK search good for first scan, then re-run with specific region","Use Planning Monitor afterwards to track pre-app activity in your shortlist"],
+   next:"Site Readiness Check (for each shortlisted site) → Land Appraisal"
+  },
+  {n:6, group:"1 · Find", icon:"🛰", title:"Planning Monitor",
+   sub:"Watch nearby applications & pre-apps",
+   routes:["all"],
+   purpose:"Tracks live planning activity around your site. Identifies competition, comparables, and emerging market intelligence.",
+   inputs:["Postcode or LPA area","Radius (default 1 mile)","Application type filter (Full / Outline / Reserved Matters / Pre-app)","Date range"],
+   sources:["LPA online planning portals (live scraped via AI)","Planning Inspectorate appeals database","Local press releases"],
+   outputs:["List of recent applications by address","Status: Approved / Refused / Pending / Appeal","Application descriptions, decision dates","Comparable consents in pipeline"],
+   validation:["Postcode must be valid UK format","Some LPAs have weaker online portals — results vary"],
+   redflags:["Recent refusals on similar schemes within 1 mile = policy risk signal","Appeals running on adjacent sites may set precedent"],
+   tips:["Run after Site Readiness — informs your Planning & Viability stage","Print results for the Risk Register"],
+   next:"Constraint Check"
+  },
+  {n:7, group:"1 · Find", icon:"⚠", title:"Constraint Check",
+   sub:"Designation overlays, environmental, infrastructure",
+   routes:["all"],
+   purpose:"Reveals statutory and physical constraints that affect developability — from flood zones to listed buildings to grid connections.",
+   inputs:["Site coordinates or address","Layers to check (default: all major)"],
+   sources:["Environment Agency flood maps","Natural England designations (SSSI / SAC / SPA)","Historic England (listed buildings, conservation areas)","Ofgem / DNO capacity statements","Coal Authority","UK Power Networks etc."],
+   outputs:["Visual summary of constraints","Mitigation options where flagged","Priority rating — show-stopper vs design constraint vs negligible"],
+   validation:["Postcode must resolve to coordinates","Some layers update quarterly — note check date"],
+   redflags:["Flood Zone 3a/3b without sequential test passed = high refusal risk","Listed building within 100m = setting impact assessment needed","No grid capacity within 5km of large scheme = STOP"],
+   tips:["Save the constraint summary PDF — required for Due Diligence pack","Flag any flagged items to Risk Register"],
+   next:"Land Appraisal (or back out of deal if showstopper)"
+  },
+
+  // GROUP 2 — VALUE
+  {n:8, group:"2 · Value", icon:"🔷", title:"Land Appraisal",
+   sub:"100-point site scoring",
+   routes:["all"],
+   purpose:"Produces a quantified site score across location, planning, ground conditions, and market. Used for filtering, prioritisation, and external pitching.",
+   inputs:["Location quality (1-10 sliders): transport, amenities, employment","Planning likelihood: allocated, in 5YHLS shortfall, etc","Ground risk: known contamination, slope, ground conditions","Market depth: comparable absorption, agency interest"],
+   sources:["Site visit","Comparable sales evidence","LPA Local Plan","Knight Frank / Savills market reports"],
+   outputs:["Overall score 0-100","Sub-scores per category","Category grade A (80+) / B (60-79) / C (40-59) / D (<40)","Sits in Teaser & IC Memo packs"],
+   validation:["All four sub-scores required for overall","Score < 40 triggers warning — usually a kill signal"],
+   redflags:["Score 60-65 with planning at < 50 = high-risk speculation","Cassidy historic Apsley benchmark: site needed > 70 to commit"],
+   tips:["Use score consistently across Portfolio for comparison","Don't game the inputs — score should reflect reality"],
+   next:"Property Evaluator (if existing building on site) OR Land Valuation (RLV)"
+  },
+  {n:9, group:"2 · Value", icon:"🏠", title:"Property Evaluator",
+   sub:"Existing built property assessment",
+   routes:["asset","sfh","btr","pbsa","mix"],
+   purpose:"For sites with existing buildings (residential, commercial, industrial). Establishes existing use value, refurbishment potential, demolition cost, and change-of-use scenarios.",
+   inputs:["Building type, sqft, condition","Current rent / use","Refurbishment cost estimate","Demolition cost estimate","Change-of-use options to evaluate"],
+   sources:["Building survey (RICS Level 2 or 3)","Local rent comparables","Demolition contractor quote","Council Class E / change-of-use guidance"],
+   outputs:["EUV (Existing Use Value)","Refurb-as-is exit value","Demolition net cost","Change-of-use uplift potential"],
+   validation:["Building sqft required","Condition affects refurb cost multipliers"],
+   redflags:["Asbestos suspected pre-1999 building — survey before commitment","Listed building constraints on demolition","Sui generis use may preserve PD rights worth more than redevelopment"],
+   tips:["Always model 'retain & refurb' alongside 'demolish & rebuild' — sometimes refurb wins","Class E commercial → residential PDR has hard rules — check"],
+   next:"Land Valuation (RLV)"
+  },
+  {n:10, group:"2 · Value", icon:"◆", title:"Land Valuation (RLV)",
+   sub:"Residual land value — what you can pay",
+   routes:["all"],
+   purpose:"Calculates the residual land value Cassidy can pay given target profit. Anchors every land negotiation. The 'walk-away' figure.",
+   inputs:["Total units","Average sqft per unit","Sale PSF (or auto from postcode comparables)","Build cost PSF","Target profit margin (% of GDV)","Finance rate %","Contingency %","S106 per unit"],
+   sources:["Live HM Land Registry comparables (auto-pulled via SPARQL)","BCIS for build cost benchmarks","Knight Frank / Savills land bulletin","Internal cost plans"],
+   outputs:["Gross Development Value","Build cost total","Total Development Cost","Residual Land Value","Land PSF + per-unit equivalent"],
+   validation:["Sale PSF must exceed build PSF","Profit % usually 15-20% for SFH, 17-20% for BTR","Negative RLV = cannot do deal at this price"],
+   redflags:["Profit margin < 12% — institutional buyers won't fund","RLV more than 20% above guide price = walk away","Sale PSF 'optimistic' (no comparable evidence) = inflated RLV"],
+   tips:["Run sensitivity: +/-5% on sale PSF, +/-5% on build PSF — see how robust","Postcode auto-PSF is a starting point only, verify with 3+ comps"],
+   next:"SFH House Mix (if houses) OR BTR/PBSA Block (if flats) OR Tenure Mix (if mixed)"
+  },
+  {n:11, group:"2 · Value", icon:"🏡", title:"SFH House Mix",
+   sub:"Plot-by-plot detailed housing schedule",
+   routes:["sfh","mix"],
+   purpose:"Builds the detailed plot schedule for a single-family housing scheme: house types, sqft, sale prices, mix percentages.",
+   inputs:["Total units (from RLV or auto-derive)","Density (dwellings per acre)","For each row: house type, count, sqft, sale price","Building cost PSF","Profit %, finance %, contingency %","S106 per unit"],
+   sources:["Persimmon/Barratt/Taylor Wimpey comparable schemes","Land Registry sold-price evidence per postcode","BCIS Q1 2026: SFH 2-3 storey £148/sqft baseline"],
+   outputs:["Total GDV from plot schedule","Total build cost","Per-house breakeven","Average sale price","Sales absorption schedule"],
+   validation:["At least one house row required","Audit-clean zero handling — entering 0% respects the user (v9.7)","Build cost below £130/sqft flags warning"],
+   redflags:["Sale price PSF varies more than 15% between house types without justification","More than 30% 4+ bed in non-rural location = absorption risk"],
+   tips:["Use HOUSE_TYPES presets first, then customise","Set base PSF once — house types auto-adjust by sqft and bedroom count"],
+   next:"Tenure Mix (if affordable / shared ownership / first homes blend) OR Planning & Viability"
+  },
+  {n:12, group:"2 · Value", icon:"🤝", title:"Tenure Mix",
+   sub:"Mixed-tenure development blending",
+   routes:["sfh","btr","pbsa","mix"],
+   purpose:"For schemes blending multiple tenures — open market sale, affordable rent, shared ownership, BTR, etc. Each tenure has its own pricing and buyer type. Outputs blended GDV.",
+   inputs:["Total scheme units","Base PSF","Average sqft","For each tenure: count or %, plus optional overrides"],
+   sources:["S106 affordable housing requirement (from Planning & Viability)","Housing Association bulk-deal evidence","BTR institutional cap rates"],
+   outputs:["10 supported tenures: Open Market Sale, First Homes, Discounted Market Sale, Shared Ownership, Affordable Rent, Social Rent, Build to Rent, PRS, Rent to Buy, RTB Back-buy","Blended GDV (flows to all downstream stages)","Tenure discount % vs pure OMS","Multi-buyer exit roadmap grouped by buyer category","Annual rent revenue for rental portions"],
+   validation:["Tenure splits must total scheme unit count","Pricing factors are typical % of OMS PSF — overridable","Audit-clean zero handling"],
+   redflags:["Affordable % below LPA policy = viability challenge expected","100% rental schemes don't qualify for First Homes","Shared Ownership pricing varies by Housing Association — bulk-deal usually 80-85% PSF"],
+   tips:["Use the 70/20/10 preset (Open + Intermediate + Affordable Rent) for standard S106-led schemes","Cassidy worked with [HA name] historically at 82% PSF bulk deal — useful benchmark"],
+   next:"Planning & Viability"
+  },
+  {n:13, group:"2 · Value", icon:"🏢", title:"BTR / PBSA Block",
+   sub:"Multi-storey flatted appraisal",
+   routes:["btr","pbsa","mix"],
+   purpose:"Detailed appraisal for build-to-rent or purpose-built student schemes. Captures the apartment-block-specific calculations: efficiency, lifts, fire safety, EWS1, sprinklers.",
+   inputs:["Storeys, floorplate sqft GIA","Efficiency % (NIA/GIA, typically 78-82%)","Mix: studio/1-bed/2-bed split percentages","Unit sizes per type","Sale PSF per type (auto or override)","Floor level premium %","Build cost PSF, cores, contingency, finance %, profit %","S106 per unit"],
+   sources:["JLL/Knight Frank BTR rental benchmark","StuRents / Knight Frank PBSA rents","BCIS Q1 2026: flats 4-5 storey £181/sqft baseline","BSA Gateway 2/3 guidance for buildings ≥7 storeys"],
+   outputs:["Unit count from building geometry","Total GDV","Cost stack with HRB premium if ≥18m","NOI for capitalisation pathway","Transparent assumptions panel (v9.6) — every default visible","Mix validation banner — 100% check (v9.6)"],
+   validation:["Mix splits must total 100% — banner if not","Studio at 0% now respected (v9.7 — was a bug)","Audit-clean zero handling across all fields","Efficiency below 75% flagged"],
+   redflags:["Building ≥18m without Gateway 2/3 plan = STOP","No EWS1 strategy for ≥11m = lender refusal","Per-storey premium compounding × city PSF default × 2-bed premium can inflate GDV — check assumptions panel"],
+   tips:["Bottom-up: unit count emerges from floorplate × storeys × efficiency × mix ÷ sizes — adjust those to hit a target","Use Capitalisation stage to convert NOI to investment value"],
+   next:"Tenure Mix (if blended) OR Capitalisation (BTR yield-driven) OR Planning"
+  },
+  {n:14, group:"2 · Value", icon:"£", title:"Capitalisation",
+   sub:"NOI to investment value (BTR / PBSA / commercial)",
+   routes:["btr","pbsa","asset","mix"],
+   purpose:"Converts net operating income into capital value via yield. The institutional valuation pathway for income-producing assets.",
+   inputs:["Gross rent","Void %","Operating cost % or absolute","Capitalisation yield","Ground rent (if any)"],
+   sources:["JLL/Knight Frank yield bulletins","Comparable forward funding deals","Institutional cap rate guidance (Pension fund / SWF / REIT bid yields)"],
+   outputs:["Stabilised NOI","Capital value at chosen yield","Gross to net yield reconciliation"],
+   validation:["Yield in plausible range (3-9% depending on sector)","NOI must be positive"],
+   redflags:["Compressed yields driving valuation — sensitivity test","Operating cost assumptions optimistic (BTR typically 25-35% of gross)"],
+   tips:["Use multiple yields — bull case, base case, stress case","Forward fund vs build-and-hold often differs 50bps in yield"],
+   next:"Financial Modelling"
+  },
+  {n:15, group:"2 · Value", icon:"💷", title:"Grants & Funding",
+   sub:"AHP, Brownfield, Help to Build, LA streams",
+   routes:["all"],
+   purpose:"Identifies and templates grant funding opportunities to improve scheme viability. Brings external capital into the stack.",
+   inputs:["Scheme type","LA region","Tenure mix","Specific funding programmes to check"],
+   sources:["Homes England (AHP rates by area)","Brownfield Land Release Fund","Help to Build","LA Capital Programmes","Levelling Up Fund","Local CIL/S106 receipts available"],
+   outputs:["Grant eligibility checklist","Indicative grant rates","Application timeline","Letter templates for each funding stream"],
+   validation:["Grant rates change quarterly — verify on date","Some funds local-authority-specific"],
+   redflags:["Grants assumed in viability without confirmed eligibility","AHP draw-down requires specific tenure outcomes — match design"],
+   tips:["Brownfield Land Release Fund pays £8,800/unit on qualifying sites","Always overlay grants AFTER viability — sweetener, not core economics"],
+   next:"Planning & Viability"
+  },
+
+  // GROUP 3 — DEVELOP
+  {n:16, group:"3 · Develop", icon:"▲", title:"Planning & Viability",
+   sub:"Policy, S106/CIL, affordable provision",
+   routes:["all"],
+   purpose:"Captures the planning policy context, calculates statutory contributions, and quantifies affordable housing impact on viability.",
+   inputs:["LA area, allocation status","Affordable housing % required","S106 per-unit estimate or LA tariff","CIL rate","Planning application route: Full / Outline / Reserved","Viability case justification if reducing affordable"],
+   sources:["Local Plan policies map","LA planning portal CIL rates","Affordable housing supplementary planning document","Comparable viability assessments accepted"],
+   outputs:["Affordable housing unit count","Total S106 + CIL liability","Planning application cost (~£12k/unit typical)","Viability gap quantified"],
+   validation:["Affordable % must match LA policy","S106 per-unit varies hugely by LA — verify"],
+   redflags:["Below-policy affordable without robust viability case = refusal","Pre-application advice not yet sought","Trying to negotiate down S106 with weak evidence"],
+   tips:["Pre-app meeting £3-8k usually money well spent","Hire a planning consultant early on borderline schemes","Use Planning Recovery stage if scheme already refused"],
+   next:"Financial Modelling"
+  },
+  {n:17, group:"3 · Develop", icon:"◉", title:"Financial Modelling",
+   sub:"Full appraisal with cashflow",
+   routes:["all"],
+   purpose:"The integrated appraisal. Pulls together GDV (from mix), costs, finance, S106, profit, and produces the full Profit on Cost / Margin on GDV metrics.",
+   inputs:["GDV (auto from upstream)","Build cost (auto)","Land cost","Manual GDV override (if you want to force a number)","Manual build cost override","Contingency %, finance %, profit margin %"],
+   sources:["All previous stages flow into here","Cassidy debt term sheet for current finance rate"],
+   outputs:["TDC (Total Development Cost)","Profit £","Margin on GDV %","Profit on Cost %","Reconciliation with Dashboard top-line","Cost breakdown by category"],
+   validation:["Margin on GDV usually 15-25%","Profit on Cost usually 18-30%","Audit-clean zero handling (v9.7)"],
+   redflags:["Profit on Cost < 18% = institutional bid won't engage","TDC > 50% above GDV = unfundable","Land cost driving > 25% of TDC for SFH = land overpriced"],
+   tips:["Manual GDV override useful when bidding a fixed sales price","Cross-check against Mix-stage GDV before sharing externally"],
+   next:"Detailed Appraisal (drill-down) OR Due Diligence"
+  },
+  {n:18, group:"3 · Develop", icon:"📐", title:"Detailed Appraisal",
+   sub:"Cashflow with timing, draw schedule",
+   routes:["all"],
+   purpose:"Time-phased cashflow. Spreads costs and revenues across months to model peak debt, interest accrual, and project IRR.",
+   inputs:["Build programme months","Sales/lease-up curve","Draw schedule for finance","Pre-construction costs phasing","Peak gearing"],
+   sources:["Internal programme","Comparable absorption rates","Finance term sheet"],
+   outputs:["Month-by-month cashflow","Peak debt","Interest cost","Project IRR","Equity IRR with assumed gearing"],
+   validation:["Build months × monthly cost ≈ total build (sanity check)","Absorption rate plausible for unit count"],
+   redflags:["Peak gearing > 75% LTC = covenant breach risk","IRR < 15% = institutional bid won't engage","Interest cost > 8% of TDC = badly phased"],
+   tips:["Run Bull/Base/Bear cases — easier to defend at IC","Sales absorption is the variable most often wrong — be conservative"],
+   next:"Due Diligence"
+  },
+  {n:19, group:"3 · Develop", icon:"◈", title:"Due Diligence",
+   sub:"Title, search, survey, environmental",
+   routes:["all"],
+   purpose:"The pre-exchange and pre-acquisition DD checklist. Captures all the third-party reports and searches required, with status tracking.",
+   inputs:["Item-by-item DD checklist (~40 items)","Status per item: Outstanding / In progress / Received / Issue","Notes / RAG flag per item"],
+   sources:["Solicitor DD report","Surveyor reports (Phase I / II environmental, structural, topographic, ecological)","Local authority searches","Title register & plan"],
+   outputs:["DD status dashboard","List of show-stoppers (Red items)","Items requiring vendor disclosure","Items requiring lender comfort"],
+   validation:["All 'Critical' items must be cleared before exchange","RAG status visible on dashboard"],
+   redflags:["Title restrictive covenant on use","Outstanding contaminated land notice","Highways adoption uncertain","Untested archaeology"],
+   tips:["Insist on Phase I environmental even for clean-looking sites","Get the Local Plan policy chapter as part of DD"],
+   next:"Risk Register"
+  },
+  {n:20, group:"3 · Develop", icon:"⬡", title:"Risk Register",
+   sub:"RAG-rated risk log",
+   routes:["all"],
+   purpose:"Captures every identified risk with probability, impact, mitigation, and owner. The document a lender or investor will request first.",
+   inputs:["Risk description","Category: Planning / Construction / Market / Finance / Legal","Probability: Low/Med/High","Impact: Low/Med/High","Mitigation strategy","Owner + review date"],
+   sources:["Carried forward from DD, Planning, Constraint Check","Site-specific risks identified in site visit","Generic scheme risks per category"],
+   outputs:["Full risk register","Heat map (probability × impact)","Top 5 risks summary","Mitigation tracking"],
+   validation:["At least 5 risks expected on any real deal","'Black' (deal-stopper) items block progression"],
+   redflags:["High probability × High impact unmitigated = walk away","More than 3 'Red' items in single category = systemic risk","Mitigation strategy 'TBC' on multiple items"],
+   tips:["Be honest — the register is for Cassidy's benefit, not optics","Investors discount aggressively if register is too rosy"],
+   next:"Exit Strategy"
+  },
+
+  // GROUP 4 — EXIT
+  {n:21, group:"4 · Exit", icon:"◆", title:"Exit Strategy",
+   sub:"8 routes compared, buyer-specific advice",
+   routes:["all"],
+   purpose:"Compares all viable exit routes (sell land with planning, build and sell, forward fund, build and hold, block sale, etc) and produces buyer-specific commercial recommendations.",
+   inputs:["Scheme outcome (from Fin Modelling)","Preferred exit (from Process Navigator)","Strategic priority: Fastest / Highest IRR / Lowest risk / Strategic","Target buyer category"],
+   sources:["Live institutional bid yields","Historic Cassidy exit data","Sector-specific buyer behaviour"],
+   outputs:["Side-by-side comparison of 8 exit routes","Yield bias and timeline per route","Buyer category match (Pension, SWF, House-builder, etc)","AI strategic analysis with named UK institutional buyers and structuring tips"],
+   validation:["Scheme must have GDV calculated","Some exits only viable for certain scheme types"],
+   redflags:["Forward fund pre-planning = significant yield haircut","Build-and-hold without secured operator = exit risk","Land sale assuming planning achieved = contingent value"],
+   tips:["Most Cassidy schemes have 2-3 realistic exits — model all then decide","Forward fund typically 4.25-4.5% PBSA, 4.5-5% BTR for mid-2026"],
+   next:"Reports OR Planning Recovery (if scheme stalled)"
+  },
+  {n:22, group:"4 · Exit", icon:"⚖", title:"Planning Recovery",
+   sub:"Stalled / refused scheme rescue",
+   routes:["all"],
+   purpose:"For schemes refused, withdrawn, or stalled. Provides a toolkit to recover the scheme: appeal, redesign, ward councillor engagement, viability challenge.",
+   inputs:["Reason for refusal / stall","LPA's 5-year housing land supply position","Officer recommendation vs committee outcome","Pre-app advice prior to refusal"],
+   sources:["Refusal notice","Planning officer's report","Local Plan policies cited","Recent appeals in same LPA"],
+   outputs:["Recovery strategy recommendation","Pre-App Meeting Request letter","Grounds of Appeal template","Ward Councillor engagement letter","Viability Challenge letter","Community Consultation letter","5YHLS Challenge letter"],
+   validation:["Refusal date determines appeal window (6 months)","5YHLS test = strong material consideration if LA below"],
+   redflags:["Refusal in line with adopted Local Plan = appeal weak","Local member objection = political risk for re-submission","More than 1 refusal on same site = significant"],
+   tips:["Pre-app rescue often beats appeal — cheaper and reset relationship","5YHLS challenge is often decisive — verify with LA monitoring statement"],
+   next:"Re-run Planning & Viability OR Exit Strategy with revised scheme"
+  },
+
+  // GROUP 5 — REPORT
+  {n:23, group:"5 · Report", icon:"🏆", title:"Site Scorecard",
+   sub:"100-point one-page grade",
+   routes:["all"],
+   purpose:"Quick-share one-page A4 with quantified site quality. Used for JV partner approaches, internal screening, and Portfolio prioritisation.",
+   inputs:["Pulls from Land Appraisal scoring","Headline financial metrics from Fin Modelling","Top 3 risks from Risk Register"],
+   sources:["All upstream stages"],
+   outputs:["One-page A4 graphical scorecard","Overall score 0-100","Sub-scores: location, planning, ground, market","Category grade A/B/C/D","AI-written 200-word narrative"],
+   validation:["Land Appraisal must have been completed"],
+   redflags:["Don't share scorecard with score < 60 externally — Category C/D"],
+   tips:["Branded with Cassidy logo and footer","Print to PDF for email — looks more institutional than HTML link"],
+   next:"Teaser PDF (if external sharing) OR Executive Summary (if internal)"
+  },
+  {n:24, group:"5 · Report", icon:"📬", title:"Teaser PDF",
+   sub:"NDA-free 1-2 page summary",
+   routes:["all"],
+   purpose:"First-touch document for buyers, investors, brokers. Anonymous-by-default. Gauges interest before sharing full IM.",
+   inputs:["Scheme summary","Headline GDV, profit, units","Indicative exit","Location at LPA-level (not full address)"],
+   sources:["All previous stages","AI-generated narrative"],
+   outputs:["1-2 page PDF","Cassidy-branded","Anonymous postcode-level location","Indicative-only RICS disclaimer included"],
+   validation:["Excludes confidential details (vendor name, exact financials)","Indicative disclaimer mandatory"],
+   redflags:["Sharing teaser before site readiness gate passed = embarrassing","Including exact GDV breakdowns dilutes negotiation"],
+   tips:["Broker mailshot — track who engages via Investor Marketing Suite analytics","Use 'Aspect / Tier' wording — institutional buyers respond to vagueness more than detail at this stage"],
+   next:"Investor Memorandum (post-NDA) OR Investor Marketing Suite (for share links)"
+  },
+  {n:25, group:"5 · Report", icon:"📑", title:"Investor Memorandum",
+   sub:"Post-NDA, IC-ready full pack",
+   routes:["all"],
+   purpose:"The full institutional investment pack. Sent post-NDA. Designed to support an investor's investment committee decision.",
+   inputs:["Full scheme detail (already in deal)","Risk register","Exit analysis","Sensitivities","Team & track record"],
+   sources:["All upstream stages","Cassidy track record + bios"],
+   outputs:["15-25 page IM","Executive summary, market analysis, scheme description, financial model summary, ESG, exit strategy, risks, team","Cassidy-branded with photos","Indicative-only RICS disclaimer"],
+   validation:["Risk Register must be substantially complete","Fin Modelling must include sensitivities"],
+   redflags:["Sending IM before NDA executed = confidential breach","Skipping the sensitivity section — institutional buyers expect ±10% / ±50bps stress tests"],
+   tips:["Use Cassidy historic deals as case studies in 'Team' section","If targeting pension funds, include ESG section even if generic — they need it for their own IC"],
+   next:"Data Room (if engagement progresses) OR Investor Marketing Suite (to share)"
+  },
+  {n:26, group:"5 · Report", icon:"📁", title:"Data Room",
+   sub:"Post-LOI full DD documents",
+   routes:["all"],
+   purpose:"Tier 3 sharing — full due diligence pack. Sent post-Letter of Intent to support the buyer's confirmatory DD.",
+   inputs:["Title plans","Planning consents and conditions","Surveys (environmental, structural, topographic)","Financial model in full detail","Leases / lettings status","Construction contracts"],
+   sources:["DD reports","Solicitor file","Project programme"],
+   outputs:["Structured folder per asset","Secure share link with passcode + email gate","Indexed contents list"],
+   validation:["LOI must be in place","Buyer email captured for audit"],
+   redflags:["Sharing pre-LOI = giveaway","Missing items create DD delays — pre-build the index"],
+   tips:["Use Cassidy's standard folder template (01_Title / 02_Planning / 03_Surveys etc)","Reset link if buyer drops out — preserves confidentiality"],
+   next:"Exchange & Completion (off-platform)"
+  },
+  {n:27, group:"5 · Report", icon:"📄", title:"Executive Summary",
+   sub:"3-page internal IC briefing",
+   routes:["all"],
+   purpose:"The internal investment-committee paper. Concise summary for Cassidy IC sign-off. Not for external sharing.",
+   inputs:["All scheme detail","Recommendation: Proceed / Hold / Pass","Risk and mitigation summary"],
+   sources:["All upstream stages"],
+   outputs:["3-page PDF","Headline metrics","Top 5 risks","Go/no-go recommendation","Capital required + return"],
+   validation:["Recommendation must be explicit","Cassidy IC quorum requirements separate"],
+   redflags:["Don't pre-approve in this document — IC decides","Generic 'subject to DD' caveat masks real issues"],
+   tips:["Use the same format across all deals — easier comparison in Portfolio","Print + sign as audit trail"],
+   next:"Investor Marketing Suite (if proceeding to raise)"
+  },
+
+  // GROUP 6 — MARKET
+  {n:28, group:"6 · Market & Manage", icon:"🎯", title:"Investor Marketing Suite",
+   sub:"Tiered share links + analytics",
+   routes:["all"],
+   purpose:"The capital-raise endpoint. Packages, shares, and tracks investor engagement. Three-tier institutional outreach.",
+   inputs:["Active deal (saved)","Audience preset: Pension / SWF / Family Office / JV / Trade / REIT / HNI","Optional passcode + expiry","Media: photos, videos, documents"],
+   sources:["All upstream stages"],
+   outputs:["Tier 1 Teaser (NDA-free, 1-2 page broadcast)","Tier 2 IM (post-NDA, IC-ready, 15-25 pages)","Tier 3 Data Room (post-LOI, full DD)","Unique shareable URLs per investor","Email + passcode gating","Activity analytics: views, time on page, viewer email + company captured","Cassidy-branded public share viewer with RICS disclaimer"],
+   validation:["Deal must be saved (cloud ID required)","Each link can be regenerated / revoked"],
+   redflags:["Sharing Tier 3 broadly = confidentiality breach","Skipping passcode on Tier 2/3 = security risk"],
+   tips:["Monitor Activity tab — viewer engagement signals genuine interest","Re-issue link if it leaks","Use email gate to capture lead intelligence for CRM"],
+   next:"Portfolio (manage outcomes) → Deal Executed"
+  }
+];
+
+// ─────────────────────────────────────────────────────────────────────
+// GROUP STRUCTURE
+// ─────────────────────────────────────────────────────────────────────
+const GROUPS = [
+  "0 · Start",
+  "1 · Find",
+  "2 · Value",
+  "3 · Develop",
+  "4 · Exit",
+  "5 · Report",
+  "6 · Market & Manage"
+];
+
+// ─────────────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────────────
+let currentRoute = "all";
+let currentStage = null;
+
+// ─────────────────────────────────────────────────────────────────────
+// RENDER FLOWCHART
+// ─────────────────────────────────────────────────────────────────────
+function renderChart(){
+  const chart = document.getElementById("chart");
+  chart.innerHTML = "";
+  
+  GROUPS.forEach((groupName, idx) => {
+    const groupDiv = document.createElement("div");
+    groupDiv.className = "lf-group";
+    
+    const label = document.createElement("div");
+    label.className = "lf-group-label";
+    const [num, ...nameParts] = groupName.split(" · ");
+    label.innerHTML = `<span class="lf-group-num">${num}</span>${nameParts.join(" · ")}`;
+    groupDiv.appendChild(label);
+    
+    const row = document.createElement("div");
+    row.className = "lf-row";
+    
+    const stages = STAGES.filter(s => s.group === groupName);
+    stages.forEach(stage => {
+      const node = document.createElement("div");
+      const isVisible = currentRoute === "all" || stage.routes.includes("all") || stage.routes.includes(currentRoute);
+      node.className = "lf-node" + (isVisible ? "" : " faded");
+      
+      // Decision / gate / fast styling
+      if(stage.title.includes("Readiness")) node.classList.add("gate");
+      if(stage.title.includes("Recovery")) node.classList.add("decision");
+      if(stage.routes.length === 1 && stage.routes[0] === "asset") node.classList.add("fast");
+      
+      node.innerHTML = `
+        <div class="lf-node-icon">${stage.icon}</div>
+        <div class="lf-node-num">Stage ${stage.n}</div>
+        <div class="lf-node-title">${stage.title}</div>
+        <div class="lf-node-sub">${stage.sub}</div>
+        <div class="lf-node-route-tags">
+          ${stage.routes.map(r => `<span class="lf-tag ${r==='all'?'':r}">${r==='all'?'all routes':r.toUpperCase()}</span>`).join("")}
+        </div>
+      `;
+      node.addEventListener("click", () => {
+        if(isVisible) openStage(stage.n);
+      });
+      row.appendChild(node);
+    });
+    
+    groupDiv.appendChild(row);
+    chart.appendChild(groupDiv);
+    
+    if(idx < GROUPS.length - 1){
+      const arrow = document.createElement("div");
+      arrow.className = "lf-arrow";
+      arrow.textContent = "↓";
+      chart.appendChild(arrow);
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// RENDER DETAIL PAGE
+// ─────────────────────────────────────────────────────────────────────
+function openStage(n){
+  const stage = STAGES.find(s => s.n === n);
+  if(!stage) return;
+  currentStage = n;
+  
+  const page = document.getElementById("page");
+  const [grpNum, ...grpName] = stage.group.split(" · ");
+  
+  // Find previous & next in current route view
+  const visibleStages = STAGES.filter(s => currentRoute === "all" || s.routes.includes("all") || s.routes.includes(currentRoute));
+  const idx = visibleStages.findIndex(s => s.n === n);
+  const prev = idx > 0 ? visibleStages[idx-1] : null;
+  const next = idx < visibleStages.length - 1 ? visibleStages[idx+1] : null;
+  
+  page.innerHTML = `
+    <button class="lf-page-close" onclick="closeStage()" aria-label="Close">×</button>
+    <div class="lf-page-head">
+      <div>
+        <div class="lf-page-eyebrow">Group ${grpNum} · ${grpName.join(" · ")}</div>
+        <div class="lf-page-num">Stage ${stage.n} of ${STAGES.length}</div>
+        <div class="lf-page-title">${stage.title}</div>
+        <div class="lf-page-sub">${stage.sub}</div>
+      </div>
+      <div class="lf-page-icon">${stage.icon}</div>
+    </div>
+    
+    <div class="lf-section">
+      <h3>Purpose</h3>
+      <p>${stage.purpose}</p>
+    </div>
+    
+    <div class="lf-twocol">
+      <div class="lf-section">
+        <h3>What you enter</h3>
+        <ul>${stage.inputs.map(i => `<li>${i}</li>`).join("")}</ul>
+      </div>
+      <div class="lf-section">
+        <h3>Where to find it</h3>
+        <ul>${stage.sources.map(s => `<li>${s}</li>`).join("")}</ul>
+      </div>
+    </div>
+    
+    <div class="lf-section">
+      <h3>What it produces</h3>
+      <ul>${stage.outputs.map(o => `<li>${o}</li>`).join("")}</ul>
+    </div>
+    
+    <div class="lf-twocol">
+      <div class="lf-section">
+        <h3>Validation rules</h3>
+        <ul>${stage.validation.map(v => `<li>${v}</li>`).join("")}</ul>
+      </div>
+      <div class="lf-section">
+        <h3>Red flags</h3>
+        <ul>${stage.redflags.map(r => `<li>${r}</li>`).join("")}</ul>
+      </div>
+    </div>
+    
+    ${stage.tips && stage.tips.length ? `
+    <div class="lf-section">
+      <h3>Tips from experience</h3>
+      <ul>${stage.tips.map(t => `<li>${t}</li>`).join("")}</ul>
+    </div>` : ""}
+    
+    <div class="lf-tip"><strong>Routes:</strong> ${stage.routes.map(r => r === "all" ? "All routes" : r.toUpperCase()).join(" · ")} &nbsp;|&nbsp; <strong>Next stage:</strong> ${stage.next}</div>
+    
+    <div class="lf-page-nav">
+      <button class="lf-pagenav-btn" ${!prev?"disabled":""} onclick="${prev?`openStage(${prev.n})`:""}">← ${prev ? prev.title : "Start of route"}</button>
+      <button class="lf-pagenav-btn primary" onclick="printStage()">Print this page</button>
+      <button class="lf-pagenav-btn" ${!next?"disabled":""} onclick="${next?`openStage(${next.n})`:""}">${next ? next.title : "End of route"} →</button>
+    </div>
+    
+    <div class="lf-page-foot">
+      <span>Landform v9.8 · Internal Reference</span>
+      <span class="lf-page-foot-mark">Cassidy Group</span>
+      <span>Stage ${stage.n} / ${STAGES.length}</span>
+    </div>
+  `;
+  
+  document.getElementById("overlay").classList.add("open");
+  document.getElementById("page").scrollTop = 0;
+}
+
+function closeStage(){
+  document.getElementById("overlay").classList.remove("open");
+  currentStage = null;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// PRINTING
+// ─────────────────────────────────────────────────────────────────────
+function printStage(){
+  // Single page print — already in overlay
+  window.print();
+}
+
+function printAll(){
+  // Build all pages in the overlay then print
+  const overlay = document.getElementById("overlay");
+  const page = document.getElementById("page");
+  
+  // Stash old content
+  const oldContent = page.innerHTML;
+  
+  // Build all pages stacked
+  let html = "";
+  STAGES.forEach(stage => {
+    const [grpNum, ...grpName] = stage.group.split(" · ");
+    html += `<div class="lf-page" style="page-break-after:always">
+      <div class="lf-page-head">
+        <div>
+          <div class="lf-page-eyebrow">Group ${grpNum} · ${grpName.join(" · ")}</div>
+          <div class="lf-page-num">Stage ${stage.n} of ${STAGES.length}</div>
+          <div class="lf-page-title">${stage.title}</div>
+          <div class="lf-page-sub">${stage.sub}</div>
+        </div>
+        <div class="lf-page-icon">${stage.icon}</div>
+      </div>
+      <div class="lf-section"><h3>Purpose</h3><p>${stage.purpose}</p></div>
+      <div class="lf-twocol">
+        <div class="lf-section"><h3>What you enter</h3><ul>${stage.inputs.map(i => `<li>${i}</li>`).join("")}</ul></div>
+        <div class="lf-section"><h3>Where to find it</h3><ul>${stage.sources.map(s => `<li>${s}</li>`).join("")}</ul></div>
+      </div>
+      <div class="lf-section"><h3>What it produces</h3><ul>${stage.outputs.map(o => `<li>${o}</li>`).join("")}</ul></div>
+      <div class="lf-twocol">
+        <div class="lf-section"><h3>Validation rules</h3><ul>${stage.validation.map(v => `<li>${v}</li>`).join("")}</ul></div>
+        <div class="lf-section"><h3>Red flags</h3><ul>${stage.redflags.map(r => `<li>${r}</li>`).join("")}</ul></div>
+      </div>
+      ${stage.tips && stage.tips.length ? `<div class="lf-section"><h3>Tips from experience</h3><ul>${stage.tips.map(t => `<li>${t}</li>`).join("")}</ul></div>` : ""}
+      <div class="lf-tip"><strong>Routes:</strong> ${stage.routes.map(r => r === "all" ? "All routes" : r.toUpperCase()).join(" · ")} &nbsp;|&nbsp; <strong>Next stage:</strong> ${stage.next}</div>
+      <div class="lf-page-foot">
+        <span>Landform v9.8 · Internal Reference</span>
+        <span class="lf-page-foot-mark">Cassidy Group</span>
+        <span>Stage ${stage.n} / ${STAGES.length}</span>
+      </div>
+    </div>`;
+  });
+  
+  page.outerHTML = html;
+  overlay.classList.add("open");
+  setTimeout(() => {
+    window.print();
+    // Restore after print
+    setTimeout(() => location.reload(), 500);
+  }, 200);
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// ROUTE FILTER
+// ─────────────────────────────────────────────────────────────────────
+document.getElementById("routeFilter").addEventListener("click", e => {
+  if(e.target.matches("button[data-route]")){
+    currentRoute = e.target.dataset.route;
+    document.querySelectorAll("#routeFilter button").forEach(b => b.classList.remove("active"));
+    e.target.classList.add("active");
+    renderChart();
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// KEYBOARD NAVIGATION
+// ─────────────────────────────────────────────────────────────────────
+document.addEventListener("keydown", e => {
+  if(currentStage){
+    if(e.key === "Escape") closeStage();
+    if(e.key === "ArrowRight"){
+      const next = STAGES.find(s => s.n === currentStage + 1);
+      if(next) openStage(next.n);
+    }
+    if(e.key === "ArrowLeft"){
+      const prev = STAGES.find(s => s.n === currentStage - 1);
+      if(prev) openStage(prev.n);
+    }
+  }
+});
+
+// Click outside to close
+document.getElementById("overlay").addEventListener("click", e => {
+  if(e.target.id === "overlay") closeStage();
+});
+
+renderChart();
+</script>
+</body>
+</html>
