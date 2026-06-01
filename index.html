@@ -218,8 +218,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.17";
+var CURRENT_VERSION = "9.18";
 var VERSION_HISTORY = [
+  {v:"9.18", date:"Jun 2026", headline:"Cross-stage propagation fixes (units, S106, AH%)",
+   affectsCalc:true,
+   changes:["Scenario Apply now writes S106pu to Planning, RLV and Fin (was only writing to land.scenarioS106pu)","Scenario Apply writes BOTH ahPct AND afhPct fields (legacy dual naming was leaving Planning AH empty)","Unit-count sync warnings on Planning and RLV stages with one-click resolution","Planning stage now shows AH% input for ALL scheme types (was BTR-only)","Planning stage now shows S106 per-unit input (clearer than total)","Active scenario context banner now appears on Planning stage too"]},
   {v:"9.17", date:"May 2026", headline:"Automatic deal migration on portfolio load",
    affectsCalc:false,
    changes:["Deals loaded from portfolio auto-fix structural issues (schType mismatch, stale slider cache)","Migration banner shows what was changed with full audit trail","'Restore previous values' button if you disagree with auto-fixes","Manual-review flag for numeric fields that look unusual but might be user overrides"]},
@@ -2997,6 +3000,86 @@ var JOURNEYS = {
     // ── Migration 4: Clear obsolete _migrationDismissed if from older version ──
     if(data2._migrationDismissed && semverCompare(data2._migrationDismissed, CURRENT_VERSION) < 0){
       delete data2._migrationDismissed;
+    }
+
+    // ── Migration 5 (v9.18): Re-propagate scenario values to Planning/RLV/Fin ──
+    // Pre-v9.18 scenario Apply didn't write S106pu to Planning/RLV/Fin, and only wrote
+    // ahPct (not afhPct). For deals with an applied scenario, retroactively push these values.
+    if(data2.land && data2.land.appliedScenario){
+      var schAhPct = num(data2.land.scenarioAhPct || 0);
+      var schS106pu = num(data2.land.scenarioS106pu || 0);
+      var schFinRate = num(data2.land.scenarioFinanceRate || 0);
+      // Planning: set ahPct AND afhPct AND s106pu if scenario provided them and Planning is missing them
+      if(schAhPct > 0){
+        if(!data2.planning) data2.planning = {};
+        if(!num(data2.planning.ahPct) && !num(data2.planning.afhPct)){
+          data2.planning.ahPct = schAhPct;
+          data2.planning.afhPct = schAhPct;
+          migrations.push({
+            field:"planning.ahPct + planning.afhPct",
+            from:"(empty)",
+            to:String(schAhPct)+"%",
+            reason:"v9.18: Active scenario specified AH "+schAhPct+"% but it wasn't propagated to Planning"
+          });
+        }
+      }
+      if(schS106pu > 0){
+        if(!data2.planning) data2.planning = {};
+        if(!num(data2.planning.s106pu)){
+          data2.planning.s106pu = schS106pu;
+          migrations.push({
+            field:"planning.s106pu",
+            from:"(empty)",
+            to:"£"+schS106pu.toLocaleString()+"/unit",
+            reason:"v9.18: Active scenario specified S106 £"+schS106pu+"/unit but it wasn't propagated to Planning"
+          });
+        }
+        if(!data2.rlv) data2.rlv = {};
+        if(!num(data2.rlv.s106pu)){
+          data2.rlv.s106pu = schS106pu;
+          migrations.push({
+            field:"rlv.s106pu",
+            from:"(empty)",
+            to:"£"+schS106pu.toLocaleString()+"/unit",
+            reason:"v9.18: Active scenario S106 £"+schS106pu+"/unit wasn't propagated to RLV"
+          });
+        }
+        if(!data2.fin) data2.fin = {};
+        if(!num(data2.fin.s106pu)){
+          data2.fin.s106pu = schS106pu;
+          migrations.push({
+            field:"fin.s106pu",
+            from:"(empty)",
+            to:"£"+schS106pu.toLocaleString()+"/unit",
+            reason:"v9.18: Active scenario S106 £"+schS106pu+"/unit wasn't propagated to Fin"
+          });
+        }
+      }
+    }
+
+    // ── Migration 6 (v9.18): Unit count cross-stage gaps ───────────────────
+    // If Planning has units but RLV doesn't (or vice versa), copy across so calculations are consistent
+    if(data2.planning && data2.rlv){
+      var pUnits = num(data2.planning.units || 0);
+      var rUnits = num(data2.rlv.units || 0);
+      if(pUnits > 0 && !rUnits){
+        data2.rlv.units = pUnits;
+        migrations.push({
+          field:"rlv.units",
+          from:"(empty)",
+          to:String(pUnits),
+          reason:"v9.18: Copied from Planning's "+pUnits+" units — RLV was empty"
+        });
+      } else if(rUnits > 0 && !pUnits){
+        data2.planning.units = rUnits;
+        migrations.push({
+          field:"planning.units",
+          from:"(empty)",
+          to:String(rUnits),
+          reason:"v9.18: Copied from RLV's "+rUnits+" units — Planning was empty"
+        });
+      }
+      // Don't auto-resolve mismatches — surface them via the unit-sync warning instead
     }
 
     var changed = migrations.length > 0;
@@ -12492,10 +12575,46 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           "Realistic UK SFH build cost is £160–195/sqft; apartments £200–260/sqft. Realistic Maldon area SFH sale is £270–340/sqft."
         ),
 
+        // v9.18 — Unit-sync warning when Planning and RLV disagree
+        // Most common cause of cross-stage confusion: Planning says 627, RLV says 220, neither is "right"
+        (function(){
+          var planUnits = num(data.planning&&data.planning.units || 0);
+          var rlvUnits = num(r.units || 0);
+          if(planUnits > 0 && rlvUnits > 0 && planUnits !== rlvUnits){
+            return e("div",{style:{padding:"12px 14px",background:"rgba(176,90,53,0.10)",border:"1px solid rgba(176,90,53,0.4)",borderRadius:6,fontSize:12,color:"#8A3A1A",lineHeight:1.6,marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}},
+              e("div",{style:{flex:1,minWidth:240}},
+                e("div",{style:{fontWeight:700,marginBottom:4}},"⚠ Unit count mismatch across stages"),
+                e("div",null,
+                  "Planning stage says ",e("strong",null,planUnits+" units"),
+                  " but RLV stage says ",e("strong",null,rlvUnits+" units"),
+                  ". Pick one — RLV currently calculates against ",e("strong",null,rlvUnits+" units"),"."
+                )
+              ),
+              e("div",{style:{display:"flex",gap:6,flexShrink:0}},
+                e("button",{
+                  onClick:function(){up("rlv","units",planUnits);},
+                  style:{padding:"7px 12px",background:"#B05A35",border:"none",color:"#fff",borderRadius:4,fontSize:10,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}
+                },"Use Planning's "+planUnits),
+                e("button",{
+                  onClick:function(){up("planning","units",rlvUnits);},
+                  style:{padding:"7px 12px",background:"transparent",border:"1px solid #B05A35",color:"#B05A35",borderRadius:4,fontSize:10,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}
+                },"Push RLV's "+rlvUnits+" →")
+              )
+            );
+          }
+          if(planUnits > 0 && !rlvUnits){
+            return e("div",{style:{padding:"10px 14px",background:"rgba(74,75,174,0.08)",border:"1px solid rgba(74,75,174,0.3)",borderRadius:6,fontSize:11,color:"#3A3D6A",lineHeight:1.6,marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}},
+              e("div",null,"Planning stage has ",e("strong",null,planUnits+" units")," but RLV is empty. Copy across?"),
+              e("button",{
+                onClick:function(){up("rlv","units",planUnits);},
+                style:{padding:"6px 12px",background:"#4A4BAE",border:"none",color:"#fff",borderRadius:4,fontSize:10,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+              },"Copy "+planUnits+" units →")
+            );
+          }
+          return null;
+        })(),
+
         e("div",{style:S.grid2},
-          e(Sel,{label:"Scheme Type",value:r.schType,onChange:function(v){up("rlv","schType",v);},
-            options:[{value:"",label:"Select..."}].concat(Object.keys(BUILD_TYPES).map(function(t){return{value:t,label:t};}))}),
-          e(Inp,{label:"Number of Units / Beds",type:"number",value:r.units,onChange:function(v){up("rlv","units",v);},placeholder:"e.g. 45"}),
           e(Inp,{label:"Avg Unit Size (sqft)",type:"number",value:r.avgSqft,onChange:function(v){up("rlv","avgSqft",v);},placeholder:"850"}),
           e(Inp,{label:"Sale £/sqft"+(m?" — auto from "+cityName(city)+": £"+Math.round((pcData&&pcData.salePsf)||(m.btr*8.5/12)||260):""),type:"number",value:r.salePsf,onChange:function(v){up("rlv","salePsf",v);},placeholder:"£"+Math.round(rSalePsf)}),
           e(Inp,{label:"Build £/sqft"+(m?" — auto from "+cityName(city)+": £"+m.build+" · BCIS £"+bt.lo+"–£"+bt.hi:" — BCIS £"+bt.lo+"–£"+bt.hi),type:"number",value:r.buildPsf,onChange:function(v){up("rlv","buildPsf",v);},placeholder:"£"+Math.round(rBuild)}),
@@ -14354,27 +14473,46 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
             scenarioTimelineMo:s.timelineMo,
             scenarioYieldAdj:s.yieldAdj
           };
-          // Update planning
+          // v9.18 — Update planning with BOTH ahPct AND afhPct field names
+          // (legacy duplicate fieldname — different parts of app read different keys)
+          // Also populate s106pu so the empty S106 field gets filled.
           var planningUpdates = {
             status:s.label,
             ahPct:s.ahPct,
+            afhPct:s.ahPct,
+            s106pu:s.s106pu,
             scenarioApplied:s.key
           };
-          // Update RLV
+          // v9.18 — Update RLV with both finRate AND s106pu, AND sync units from Planning
+          // (if user has set units in Planning but not RLV)
           var rlvUpdates = {
             finRate:s.financeRate,
+            s106pu:s.s106pu,
             scenarioApplied:s.key
           };
-          // Update Fin
+          // v9.18 — Update Fin with s106pu too
           var finUpdates = {
             finRate:s.financeRate,
+            s106pu:s.s106pu,
             scenarioApplied:s.key
           };
           setData(function(prev){
+            var prevPlanningUnits = num((prev.planning && prev.planning.units) || 0);
+            var prevRlvUnits = num((prev.rlv && prev.rlv.units) || 0);
+            // If Planning has units but RLV doesn't, copy across
+            var rlvUpdatesFinal = Object.assign({}, rlvUpdates);
+            if(prevPlanningUnits > 0 && !prevRlvUnits){
+              rlvUpdatesFinal.units = prevPlanningUnits;
+            }
+            // If RLV has units but Planning doesn't, copy across
+            var planningUpdatesFinal = Object.assign({}, planningUpdates);
+            if(prevRlvUnits > 0 && !prevPlanningUnits){
+              planningUpdatesFinal.units = prevRlvUnits;
+            }
             return Object.assign({},prev,{
               land:Object.assign({},prev.land||{},landUpdates),
-              planning:Object.assign({},prev.planning||{},planningUpdates),
-              rlv:Object.assign({},prev.rlv||{},rlvUpdates),
+              planning:Object.assign({},prev.planning||{},planningUpdatesFinal),
+              rlv:Object.assign({},prev.rlv||{},rlvUpdatesFinal),
               fin:Object.assign({},prev.fin||{},finUpdates),
               _activeScenario:s.key,
               _activeScenarioLabel:s.label
@@ -14650,6 +14788,46 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     return e("div",null,
       e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Planning & Viability"),
       e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Planning strategy, policy compliance and S106 negotiation"),
+
+      // v9.18 — Active scenario context (mirrors Dashboard) so user sees why fields look as they do
+      data.land&&data.land.appliedScenario&&e("div",{style:{margin:"-8px 0 16px",padding:"10px 14px",background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.3)",borderRadius:6,fontSize:11,color:"#1d5446",lineHeight:1.5}},
+        e("strong",null,"✓ Modelling: "+(data.land.appliedScenarioLabel||"")+"."),
+        " AH%: ",e("strong",null,(num(data.land.scenarioAhPct||0))+"%"),
+        " · S106: ",e("strong",null,"£"+(num(data.land.scenarioS106pu||0)).toLocaleString()+"/unit"),
+        " · Finance: ",e("strong",null,(num(data.land.scenarioFinanceRate||0))+"%"),
+        " · Timeline: ",e("strong",null,(num(data.land.scenarioTimelineMo||0))+"mo"),
+        ". Override below if you have specific evidence."
+      ),
+
+      // v9.18 — Unit-sync warning when Planning and RLV disagree
+      (function(){
+        var planUnits = num(p.units || 0);
+        var rlvUnits = num(data.rlv&&data.rlv.units || 0);
+        if(planUnits > 0 && rlvUnits > 0 && planUnits !== rlvUnits){
+          return e("div",{style:{margin:"0 0 14px",padding:"12px 14px",background:"rgba(176,90,53,0.10)",border:"1px solid rgba(176,90,53,0.4)",borderRadius:6,fontSize:12,color:"#8A3A1A",lineHeight:1.6,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}},
+            e("div",{style:{flex:1,minWidth:240}},
+              e("div",{style:{fontWeight:700,marginBottom:4}},"⚠ Unit count mismatch across stages"),
+              e("div",null,
+                "RLV stage has ",e("strong",null,rlvUnits+" units"),
+                " but this stage has ",e("strong",null,planUnits+" units"),
+                "."
+              )
+            ),
+            e("div",{style:{display:"flex",gap:6,flexShrink:0}},
+              e("button",{
+                onClick:function(){up("planning","units",rlvUnits);},
+                style:{padding:"7px 12px",background:"#B05A35",border:"none",color:"#fff",borderRadius:4,fontSize:10,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}
+              },"Use RLV's "+rlvUnits),
+              e("button",{
+                onClick:function(){setData(function(prev){return Object.assign({},prev,{rlv:Object.assign({},prev.rlv||{},{units:planUnits})});});},
+                style:{padding:"7px 12px",background:"transparent",border:"1px solid #B05A35",color:"#B05A35",borderRadius:4,fontSize:10,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}
+              },"Push "+planUnits+" → RLV")
+            )
+          );
+        }
+        return null;
+      })(),
+
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Planning Position"),
         e("div",{style:S.grid2},
@@ -14682,8 +14860,14 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           ),
           e(Inp,{label:at==="pbsa"?"Beds Proposed":"Units Proposed",type:"number",value:p.units,onChange:function(v){up("planning","units",v);},placeholder:"e.g. 180"}),
           e(Inp,{label:"Storeys",type:"number",value:p.storeys,onChange:function(v){up("planning","storeys",v);},placeholder:"e.g. 8"}),
-          at==="btr"&&e(Inp,{label:"Affordable Housing %",type:"number",value:p.ahPct,onChange:function(v){up("planning","ahPct",v);},placeholder:"25"}),
-          e(Inp,{label:"S106 / CIL Total (£)",type:"number",value:p.s106,onChange:function(v){up("planning","s106",v);},placeholder:"e.g. 850000"}),
+          // v9.18 — Affordable Housing % field now shown for ALL scheme types (was BTR-only)
+          // Also writes to BOTH ahPct AND afhPct so any reader of either name gets the value
+          e(Inp,{label:"Affordable Housing %",type:"number",value:p.ahPct||p.afhPct||"",onChange:function(v){
+            setData(function(prev){return Object.assign({},prev,{planning:Object.assign({},prev.planning||{},{ahPct:v,afhPct:v})});});
+          },placeholder:at==="sfh"?"30":"25"}),
+          // v9.18 — S106 per unit field — clearer than total when units change
+          e(Inp,{label:"S106 / CIL per Unit (£)",type:"number",value:p.s106pu||"",onChange:function(v){up("planning","s106pu",v);},placeholder:"8000"}),
+          e(Inp,{label:"S106 / CIL Total (£) — auto = units × per-unit",type:"number",value:p.s106,onChange:function(v){up("planning","s106",v);},placeholder:num(p.units)>0&&num(p.s106pu)>0?String(num(p.units)*num(p.s106pu)):"e.g. 850000"}),
           e(Sel,{label:"Biodiversity Net Gain",value:p.bng,onChange:function(v){up("planning","bng",v);},
             options:[{value:"",label:"Select..."},{value:"on_site",label:"On-site 10%"},{value:"off_site",label:"Off-site credits"},{value:"exempt",label:"Exempt — brownfield"}]}),
           e(Sel,{label:"Fire Safety Gateway",value:p.gateway,onChange:function(v){up("planning","gateway",v);},
