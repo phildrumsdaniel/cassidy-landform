@@ -258,6 +258,27 @@ var MKT = {
   torquay:{btr:720,pbsa:0,yield:0.050,land:800000,build:182},
   plymouth:{btr:700,pbsa:145,yield:0.050,land:750000,build:180},
   truro:{btr:680,pbsa:0,yield:0.050,land:700000,build:180},
+  // ── Essex / East of England (Cassidy focus area) ────────────────────
+  chelmsford:{btr:1280,pbsa:175,yield:0.046,land:4500000,build:218},
+  maldon:{btr:1180,pbsa:0,yield:0.047,land:3400000,build:212},
+  colchester:{btr:1080,pbsa:165,yield:0.048,land:2900000,build:208},
+  basildon:{btr:1150,pbsa:0,yield:0.047,land:3200000,build:212},
+  chigwell:{btr:1850,pbsa:0,yield:0.044,land:7500000,build:248},
+  brentwood:{btr:1550,pbsa:0,yield:0.045,land:5500000,build:235},
+  southend:{btr:1100,pbsa:0,yield:0.048,land:2800000,build:208},
+  // ── Kent / Surrey / SE commuter belt ────────────────────────────────
+  canterbury:{btr:1180,pbsa:185,yield:0.047,land:3200000,build:215},
+  maidstone:{btr:1150,pbsa:0,yield:0.047,land:3100000,build:212},
+  tunbridge_wells:{btr:1450,pbsa:0,yield:0.045,land:5200000,build:228},
+  woking:{btr:1480,pbsa:0,yield:0.045,land:5800000,build:232},
+  // ── East Midlands / extra Midlands ──────────────────────────────────
+  northampton:{btr:880,pbsa:138,yield:0.049,land:1700000,build:192},
+  milton_keynes:{btr:1180,pbsa:165,yield:0.047,land:3400000,build:215},
+  peterborough:{btr:850,pbsa:135,yield:0.049,land:1600000,build:188},
+  // ── Hertfordshire / N London commuter ───────────────────────────────
+  watford:{btr:1650,pbsa:0,yield:0.044,land:6800000,build:245},
+  stevenage:{btr:1150,pbsa:0,yield:0.047,land:3100000,build:212},
+  st_albans:{btr:1750,pbsa:0,yield:0.044,land:7200000,build:248},
   newquay:{btr:680,pbsa:130,yield:0.050,land:650000,build:178},
   salisbury:{btr:820,pbsa:0,yield:0.049,land:1200000,build:190},
   swindon:{btr:780,pbsa:0,yield:0.050,land:950000,build:185},
@@ -12694,8 +12715,11 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     Object.keys(vm).forEach(function(k){score+=(vm[k][l[k]]||0);});
     var sc=score>=70?"#2D7A65":score>=45?"#9A7B3E":"#B05A35";
     var benchmark=m.land;
+    var benchmarkIsFallback = !MKT[city];  // true if we fell back to manchester default
     var askingPrice=num(l.price);
     var diff=benchmark>0?((askingPrice-benchmark)/benchmark*100):null;
+    // Per-acre benchmark for SFH (more meaningful than total)
+    var benchmarkPerAcre = num(l.acres)>0 ? benchmark/num(l.acres) : null;
 
     return e("div",null,
       e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
@@ -12768,15 +12792,19 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
         )
       ),
       city&&m&&e("div",{style:S.card},
-        e("div",{style:S.cardTitle},"Market Benchmarks — "+cityName(city)),
+        e("div",{style:S.cardTitle},"Market Benchmarks — "+cityName(city)+(benchmarkIsFallback?" (using national average — see note)":"")),
+        benchmarkIsFallback && e("div",{style:{padding:"10px 14px",background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.3)",borderRadius:6,fontSize:11,color:"#B05A35",lineHeight:1.6,marginBottom:12}},
+          e("strong",null,"⚠ Note on land value benchmark: "),
+          "We don't have a specific land-value benchmark for "+cityName(city)+" yet. The figure shown is a UK-average fallback and should NOT be relied on. For accurate comparison: cross-reference Land Registry sold-prices for development sites in your specific postcode, or speak to a local agent. The figure is illustrative only."
+        ),
         e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}},
-          [{l:"Market Land Value",v:fmt(benchmark),s:"Typical for "+at.toUpperCase()},
-           {l:"Your Asking Price",v:askingPrice?fmt(askingPrice):"—",s:diff!==null?"vs market: "+(diff>0?"+":"")+pct(diff):""},
-           {l:at==="pbsa"?"PBSA Rent/wk":"BTR Rent/mo",v:at==="pbsa"?"£"+m.pbsa+"/wk":"£"+m.btr+"/mo",s:"Market average"},
+          [{l:"Market Land Value"+(benchmarkPerAcre&&!benchmarkIsFallback?" (£/acre: "+fmt(benchmarkPerAcre)+")":""),v:fmt(benchmark),s:benchmarkIsFallback?"⚠ UK average — not "+cityName(city):"Typical total for "+at.toUpperCase()+" site"},
+           {l:"Your Asking Price",v:askingPrice?fmt(askingPrice):"—",s:diff!==null&&!benchmarkIsFallback?"vs market: "+(diff>0?"+":"")+pct(diff):(benchmarkIsFallback?"Comparison unreliable — see note":"")},
+           {l:at==="pbsa"?"PBSA Rent/wk":"BTR Rent/mo",v:at==="pbsa"?"£"+m.pbsa+"/wk":"£"+m.btr+"/mo",s:benchmarkIsFallback?"UK average":"Market average"},
            {l:"Exit Yield",v:pct(m.yield*100),s:"Institutional target"}].map(function(item){
             return e("div",{key:item.l,style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,padding:14}},
               e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",marginBottom:5}},item.l),
-              e("div",{style:{fontSize:20,fontWeight:700,color:"#4A4BAE",marginBottom:3}},item.v),
+              e("div",{style:{fontSize:20,fontWeight:700,color:benchmarkIsFallback&&(item.l.indexOf("Land Value")>=0||item.l.indexOf("Asking")>=0)?"#9A7B3E":"#4A4BAE",marginBottom:3}},item.v),
               e("div",{style:{fontSize:10,color:"#7278A0"}},item.s)
             );
           })
@@ -14338,7 +14366,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
             e("span",{style:{width:18,height:2,background:"#2E2F8A",display:"block",borderRadius:2}})
           ),
           e("div",{className:"lf-stage-mobile-title",style:{fontSize:isMobile?14:15,fontWeight:700,color:"#2E2F8A",whiteSpace:"nowrap"}},curStage.label),
-          e("div",{title:"Build v9.8 — Placona expanded to whole UK + audit sweep",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v9.8"),
+          e("div",{title:"Build v9.9 — Land Value benchmark transparency + Essex/Kent/Herts/E.Midlands postcodes added",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v9.9"),
           !isMobile&&e("div",{style:{fontSize:11,color:"#7278A0",marginLeft:6}},at.toUpperCase()+" · "+cityName(city))
         ),
 
