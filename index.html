@@ -218,8 +218,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.19";
+var CURRENT_VERSION = "9.20";
 var VERSION_HISTORY = [
+  {v:"9.20", date:"Jun 2026", headline:"Scenario drift detection + one-click re-sync",
+   affectsCalc:false,
+   changes:["SFH and Planning scenario banners now detect when stage values drift from the active scenario","Amber 'Drift detected' indicator lists which fields don't match","One-click 'Re-sync from scenario' button to fix drift without overwriting manual entries elsewhere","Pre-action confirmation dialog shows exactly what will change"]},
   {v:"9.19", date:"Jun 2026", headline:"Scenario propagation extended to scheme-specific stages",
    affectsCalc:true,
    changes:["Scenario Apply now writes to SFH House Mix, BTR/PBSA Block, Tenure Mix, Capitalisation","Auto-migration retroactively populates these stages on load for older scenario-applied deals","Active scenario context banner added to SFH House Mix","Capitalisation: applied scenarios now bump target yield by the scenario's yield-adjustment penalty"]},
@@ -13200,14 +13203,56 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
       e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Single Family Housing"),
       e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Plot-by-plot residential appraisal with house type mix, roads adoption and SuDS"),
 
-      // v9.19 — Active scenario context banner — mirrors Dashboard/Planning
-      data.land&&data.land.appliedScenario&&e("div",{style:{margin:"-8px 0 16px",padding:"10px 14px",background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.3)",borderRadius:6,fontSize:11,color:"#1d5446",lineHeight:1.5}},
-        e("strong",null,"✓ Modelling: "+(data.land.appliedScenarioLabel||"")+"."),
-        " AH%: ",e("strong",null,(num(data.land.scenarioAhPct||0))+"%"),
-        " · S106: ",e("strong",null,"£"+(num(data.land.scenarioS106pu||0)).toLocaleString()+"/plot"),
-        " · Finance: ",e("strong",null,(num(data.land.scenarioFinanceRate||0))+"%"),
-        ". Override any field below if you have specific evidence."
-      ),
+      // v9.20 — Active scenario context banner with DRIFT DETECTION + Re-sync
+      // Detects when the current SFH stage values don't match the active scenario
+      // (common when scenario was applied before v9.19 or fields were manually changed)
+      (function(){
+        if(!(data.land && data.land.appliedScenario)) return null;
+        var schAh = num(data.land.scenarioAhPct || 0);
+        var schS106 = num(data.land.scenarioS106pu || 0);
+        var schFin = num(data.land.scenarioFinanceRate || 0);
+        // Compute drift
+        var driftFields = [];
+        var sAh = num(s.ahPct);
+        var sS106 = num(s.s106pu);
+        var sFin = num(s.finRate);
+        if(schAh > 0 && sAh !== schAh) driftFields.push({field:"AH%", current:sAh, scenario:schAh, key:"ahPct"});
+        if(schS106 > 0 && sS106 !== schS106) driftFields.push({field:"S106/plot", current:"£"+sS106.toLocaleString(), scenario:"£"+schS106.toLocaleString(), key:"s106pu", scenarioRaw:schS106});
+        if(schFin > 0 && sFin !== schFin) driftFields.push({field:"Finance", current:sFin+"%", scenario:schFin+"%", key:"finRate", scenarioRaw:schFin});
+
+        var hasDrift = driftFields.length > 0;
+        var bg = hasDrift ? "rgba(154,123,62,0.10)" : "rgba(45,122,101,0.08)";
+        var bd = hasDrift ? "rgba(154,123,62,0.4)" : "rgba(45,122,101,0.3)";
+        var col = hasDrift ? "#7B6432" : "#1d5446";
+
+        return e("div",{style:{margin:"-8px 0 16px",padding:"12px 14px",background:bg,border:"1px solid "+bd,borderRadius:6,fontSize:11,color:col,lineHeight:1.5}},
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}},
+            e("div",{style:{flex:1,minWidth:240}},
+              e("strong",null,(hasDrift?"⚠ ":"✓ ")+"Scenario: "+(data.land.appliedScenarioLabel||"")+"."),
+              " AH%: ",e("strong",null,schAh+"%"),
+              " · S106: ",e("strong",null,"£"+schS106.toLocaleString()+"/plot"),
+              " · Finance: ",e("strong",null,schFin+"%"),
+              hasDrift ? e("div",{style:{marginTop:4,fontSize:11,color:"#8A7048"}},
+                e("strong",null,"Drift detected: "),
+                driftFields.map(function(d){return d.field+" is "+d.current+" (scenario says "+d.scenario+")";}).join(" · ")
+              ) : e("span",null," — values match.")
+            ),
+            hasDrift && e("button",{
+              onClick:function(){
+                if(!confirm("Re-sync SFH stage fields with the active scenario '"+data.land.appliedScenarioLabel+"'?\n\nThis will set:\n"+driftFields.map(function(d){return "• "+d.field+": "+d.current+" → "+d.scenario;}).join("\n")+"\n\nOther fields (acres, density, sale PSF, build cost) are NOT affected.")) return;
+                setData(function(prev){
+                  var sfhNext = Object.assign({}, prev.sfh||{});
+                  driftFields.forEach(function(d){
+                    sfhNext[d.key] = d.scenarioRaw !== undefined ? d.scenarioRaw : d.scenario;
+                  });
+                  return Object.assign({}, prev, {sfh:sfhNext});
+                });
+              },
+              style:{padding:"7px 13px",background:"#9A7B3E",border:"none",color:"#fff",borderRadius:4,fontSize:10,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",flexShrink:0}
+            },"Re-sync from scenario →")
+          )
+        );
+      })(),
 
       LiveMarketBanner(),
       e("div",{style:S.card},
@@ -14918,15 +14963,53 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
       e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Planning & Viability"),
       e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Planning strategy, policy compliance and S106 negotiation"),
 
-      // v9.18 — Active scenario context (mirrors Dashboard) so user sees why fields look as they do
-      data.land&&data.land.appliedScenario&&e("div",{style:{margin:"-8px 0 16px",padding:"10px 14px",background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.3)",borderRadius:6,fontSize:11,color:"#1d5446",lineHeight:1.5}},
-        e("strong",null,"✓ Modelling: "+(data.land.appliedScenarioLabel||"")+"."),
-        " AH%: ",e("strong",null,(num(data.land.scenarioAhPct||0))+"%"),
-        " · S106: ",e("strong",null,"£"+(num(data.land.scenarioS106pu||0)).toLocaleString()+"/unit"),
-        " · Finance: ",e("strong",null,(num(data.land.scenarioFinanceRate||0))+"%"),
-        " · Timeline: ",e("strong",null,(num(data.land.scenarioTimelineMo||0))+"mo"),
-        ". Override below if you have specific evidence."
-      ),
+      // v9.20 — Planning scenario banner with drift detection + re-sync
+      (function(){
+        if(!(data.land && data.land.appliedScenario)) return null;
+        var schAh = num(data.land.scenarioAhPct || 0);
+        var schS106 = num(data.land.scenarioS106pu || 0);
+        var schFin = num(data.land.scenarioFinanceRate || 0);
+        var schTime = num(data.land.scenarioTimelineMo || 0);
+        var driftFields = [];
+        var pAh = num(p.ahPct || p.afhPct);
+        var pS106 = num(p.s106pu);
+        if(schAh > 0 && pAh !== schAh) driftFields.push({field:"AH%", current:pAh+"%", scenario:schAh+"%", scenarioRaw:schAh, keys:["ahPct","afhPct"]});
+        if(schS106 > 0 && pS106 !== schS106) driftFields.push({field:"S106/unit", current:"£"+pS106.toLocaleString(), scenario:"£"+schS106.toLocaleString(), scenarioRaw:schS106, keys:["s106pu"]});
+
+        var hasDrift = driftFields.length > 0;
+        var bg = hasDrift ? "rgba(154,123,62,0.10)" : "rgba(45,122,101,0.08)";
+        var bd = hasDrift ? "rgba(154,123,62,0.4)" : "rgba(45,122,101,0.3)";
+        var col = hasDrift ? "#7B6432" : "#1d5446";
+
+        return e("div",{style:{margin:"-8px 0 16px",padding:"12px 14px",background:bg,border:"1px solid "+bd,borderRadius:6,fontSize:11,color:col,lineHeight:1.5}},
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}},
+            e("div",{style:{flex:1,minWidth:240}},
+              e("strong",null,(hasDrift?"⚠ ":"✓ ")+"Scenario: "+(data.land.appliedScenarioLabel||"")+"."),
+              " AH%: ",e("strong",null,schAh+"%"),
+              " · S106: ",e("strong",null,"£"+schS106.toLocaleString()+"/unit"),
+              " · Finance: ",e("strong",null,schFin+"%"),
+              " · Timeline: ",e("strong",null,schTime+"mo"),
+              hasDrift ? e("div",{style:{marginTop:4,fontSize:11,color:"#8A7048"}},
+                e("strong",null,"Drift detected: "),
+                driftFields.map(function(d){return d.field+" is "+d.current+" (scenario says "+d.scenario+")";}).join(" · ")
+              ) : e("span",null," — values match.")
+            ),
+            hasDrift && e("button",{
+              onClick:function(){
+                if(!confirm("Re-sync Planning fields with active scenario?\n\n"+driftFields.map(function(d){return "• "+d.field+": "+d.current+" → "+d.scenario;}).join("\n"))) return;
+                setData(function(prev){
+                  var pNext = Object.assign({}, prev.planning||{});
+                  driftFields.forEach(function(d){
+                    d.keys.forEach(function(k){pNext[k] = d.scenarioRaw;});
+                  });
+                  return Object.assign({}, prev, {planning:pNext});
+                });
+              },
+              style:{padding:"7px 13px",background:"#9A7B3E",border:"none",color:"#fff",borderRadius:4,fontSize:10,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",flexShrink:0}
+            },"Re-sync →")
+          )
+        );
+      })(),
 
       // v9.18 — Unit-sync warning when Planning and RLV disagree
       (function(){
