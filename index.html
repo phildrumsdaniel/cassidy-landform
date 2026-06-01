@@ -211,6 +211,56 @@ var useEffect = React.useEffect;
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjEIxzfbaFPCeWA2pLbNRy6-fXx2boVURdBmyHO2M3uE0/exec";
+
+// ──────────────────────────────────────────────────────────────────────────
+// VERSION TRACKING — v9.16
+// Every saved deal is stamped with the version it was saved on (_savedVersion).
+// When loaded, we compare to CURRENT_VERSION and surface a migration banner
+// if breaking calc changes happened in between.
+// ──────────────────────────────────────────────────────────────────────────
+var CURRENT_VERSION = "9.17";
+var VERSION_HISTORY = [
+  {v:"9.17", date:"May 2026", headline:"Automatic deal migration on portfolio load",
+   affectsCalc:false,
+   changes:["Deals loaded from portfolio auto-fix structural issues (schType mismatch, stale slider cache)","Migration banner shows what was changed with full audit trail","'Restore previous values' button if you disagree with auto-fixes","Manual-review flag for numeric fields that look unusual but might be user overrides"]},
+  {v:"9.16", date:"May 2026", headline:"Version-aware migration banners for old saved deals",
+   affectsCalc:false,
+   changes:["Per-deal version stamping on save","Migration banner on load when versions differ","Reset RLV defaults action for stale slider-overwritten inputs"]},
+  {v:"9.15", date:"May 2026", headline:"RLV scheme-type + isolated sensitivity sliders",
+   affectsCalc:true,
+   changes:["Build cost now uses scheme-correct default (SFH = £195/sqft, not £220)","Sensitivity sliders compute each variable in isolation (was: sliders interfered)","Acquisition costs now included in slider calcs","Scheme-type mismatch warning + one-click fix"]},
+  {v:"9.14", date:"May 2026", headline:"Save As New Deal",
+   affectsCalc:false,
+   changes:["🔀 Save As button — duplicate deal under new name for testing alternative scheme types"]},
+  {v:"9.13", date:"May 2026", headline:"Planning Scenarios engine",
+   affectsCalc:true,
+   changes:["5 planning scenarios on Land Appraisal with probability-weighted expected value","Apply scenario → propagates land value, AH%, S106, finance rate, timeline to RLV/Planning/Fin/Exit","Dashboard banner shows active scenario"]},
+  {v:"9.12", date:"May 2026", headline:"Acreage + planning-status aware land benchmark",
+   affectsCalc:true,
+   changes:["Land value benchmark now uses £/acre × actual acreage (was: fixed total)","5 planning tiers with different multipliers","AI grounding rules to prevent inventing missing data"]},
+  {v:"9.11", date:"May 2026", headline:"Full UK market data",
+   affectsCalc:false,
+   changes:["544 postcodes, 449 PSF entries, 430 cities covering whole UK","Maldon-specific market data added"]},
+  {v:"9.10", date:"May 2026", headline:"Killed stale Manchester references",
+   affectsCalc:true,
+   changes:["RLV no longer silently falls back to Manchester data","Essex/Herts/Kent/Surrey postcodes added","Transparency banner when location is unknown"]},
+  {v:"9.9", date:"May 2026", headline:"Land value benchmark transparency",
+   affectsCalc:true,
+   changes:["Fallback warning when city data unavailable","Per-acre indication added"]}
+];
+function semverCompare(a,b){
+  var aParts=String(a||"0.0").split(".").map(Number);
+  var bParts=String(b||"0.0").split(".").map(Number);
+  for(var i=0;i<Math.max(aParts.length,bParts.length);i++){
+    var av=aParts[i]||0,bv=bParts[i]||0;
+    if(av!==bv)return av<bv?-1:1;
+  }
+  return 0;
+}
+function calcAffectingChangesSince(oldVersion){
+  if(!oldVersion) return VERSION_HISTORY.filter(function(v){return v.affectsCalc;});
+  return VERSION_HISTORY.filter(function(v){return v.affectsCalc && semverCompare(v.v,oldVersion)>0;});
+}
 var EXPIRY  = new Date("2027-12-31");
 var LOGO    = "UklGRuYKAABXRUJQVlA4WAoAAAAQAAAASQAATwAAQUxQSDMGAAABoLZt2xlJntL1vO9bY7OxtnfYM2vbtm2j17Zt27Zte2bWdhtJ3vtDNVLpiYgJIGfnYdNXm7O/Ht4QnKPvmofpj6rrZ1YF7/qIBVj4FilmUsyi9PA08K4veKg5v0UxVddpVLx1cQhWOM/wY/6UUvU0ldovnweCFSuw3ndSEtXLVPr/zPEU27O1lET1PibS70ePMiuOp64zS5VvTKS7fX9vBTE34Eulyr0zfQzAWyEChylR/pleXX3jlcZBsMqZDf45ZhWQOiX9c96cEKxSgc2UqqLtaZpJ/55eBcEq47ktJhWKUkykP44bCb4SRmmmsspJMZF+OHAg+Pwc83YqFkGKifTFjh6fm2dFZSqGFFPpvXXx+W2mtDBSlkpH4XMK7KikQFKaakV8X8nUyyS+gstrC6UV6n3MlsDl4llNWcESHUnIxbFYVMFTPYLPxRj6p2KxMn3jydfxitJiRTWMxXIJnK6kaOkCuFw8yysrWlwkJ7PSDGUFyxbMicDxSgrWNmdejurGLBbr7+FYPnjOUVKkTF868jY3+s8sK1CqJ/F54dleSYESnUPIDc+9SoqTavNKmBsxQ2lRotrmwOWHY/H/lRUkja/iqKRnpTalxUh0MKEiBFZrUlKEGFtqcZUhUPeTkli5RLfiqXRgzhcVY8WybIJVDo8/JVGsUKLb8BTQGVO/i1lFYtY0p7kiQIlnlFakU/viKaZzL1Um0aN4isKLFUk1Y6Rzs4VUfy+KY3aQ6P86PLODRL9OITAbyDK9My+Bvpel0qUD8PS5mEjvrwWOgr2U9iom0qw9At4o2vNK056l0t/HDANP0c3mv0lKs+7SqLaL5wBP31zhJSmJZWkm3b4EBKNPmocdZkhJlmbSE8uCN/qsN4ad2CBJr6wD3tGnPcx36Wv3bgzO0dfNU26e2aEL5j1F9SGE4K0LCyH4rlwIITgACyEED7gQHFjo0htYCMEAF4LHGb23Mkf3Ru6ebg3AwQr1V15Rv84YM4whR9UfsyYOjNpDrrj0oAlmxoi9L7v88OnescYxx6wK8x1TX3/kYbuu0B9XfWL9ocE8E46pP5QFXlSXM0dggb0l/TbQzNnkP1S+NW7eGSo/xLhOuhTWU9dfb8GAp6VzKI38UTqo9ntl+uGlt1s1Bmfhs0Sd2o7geVId9x53U8cxcLU6nj7uqoYr4MIkORPWSDp+Pv/i5yVtx5CvU63Dg9Kl3KiOjv2HwEKnjyWwrvTsz/Ftc/Blqikwoc54PtGmsODyjouls2FN6Q1g3zT+O4bls2zmKdIXA/0/mU4EZwCOZ6IWul5akX7cofY/TxgHgTPU3nD+vFDqybuh5HlP2sY4RlLaORGvqCWCBxfwNiHVe6wp3U+wOT+V9MseeDfiZUn/Hu169A4W3M2Kp9Cfp2JbPJhAZ9Ry9Hc+gOcGxZ3wH8WOBfGMPOlHSXsRGHDI15JOpUfm+nNn2QCmST85Z3ySxccpHzGE2uao7775ujnVhZRKMOjCNPsU6wfuqDT9cxiXdPc24L+L2p5+TJW+7Yexozr1whZ1a53xzUKcpOTf3/7446c0/j3K3XH0IsP3yNLPjIvOWnLkeln653AuibEsxg/Gzbny45n+GGWBqTF+W8LgYnVbM+APqc6XSuF+6Qi+VvK/pGPgUcX/JV0Fl0rnwlqSWjokJWvjPXXSj2WOHd9uklo+O7u0XWvz04Bj1aamj/vv+XaL9Nup3tumL/8v/X35wMC5zc2nwmrNDS1trQ0/P7E8Ds/k5ubPyzCYa9LEeTyMrqoaZOVUVdcGqJ241HC6HL/0hNFgDKuuGgr9q6qqxo+vGgYOoFRVNZYuPV0GemiA85SXwPUzgODo0szo2jl675xzBmZmXeTqjS6NcmfldGtm3fXWrHTKpx/eMpA1X3vhiaVhvvtnvLgcXHIx415fmR1fe+Heec1RzMCx2mmB1Yawm+b65k1KX87Y+dnmKt58zc2jLTmrY662WwkF8bz7DEedP4ztOu76e1fm0qqM0rq8+iQjki04tuXO37bEFyRwXvu0IzUHu2Rr/FPPwF+fnnpJOh9XtU05SNM5qWlaDYU1G/5Y2/dvjGL7Fo5sHMpKP2UNu+BqXsnaT3cc8yP4nAAAVlA4IIwEAADwFgCdASpKAFAAPrVMnUmnJKKhLNM/cOAWiWwNv2VZ2V6ZfgOWQAE+oG825HmN/Yj1ZfRH55nUPegB5af7YfBn+7PpTZqr1EpGZuLjQVTXbRqAdKr0Hv2IUex6EJO0+0FrjMaawguLAZjCCWUcgy+G8qp/8Cr0DelGgTzDF9M08X3MQhEq7bMEMQHDDF/QTkol0BrNOd5moX1qeToOUPkDNJVB+8AFRaLG5+E1b6WZYiQ26CunI4Je+oH9q3X61AAA/vkpowRD0GlaMY0jJO8N06+OVdkRIoWugG/tii8eeQJYOkXekI6hly0ydEvy8bt+4U0VLQptndcgXZm06dCst9jagoQt6K/pNkgztzTPa8ntwdXxpmR7IiP/xH38ktz6wZR+HAUdW4qxh0hg6f8nDx2XEdbbpfxJoJ1/Gd+6Bv9/522az+QcWlvqA/BTqwlG42b5Cw8W2KLV9zJnaf7OolTU/0BSzoxWTtCaIYayaQTjdLahJgaA9dVcefN6I4iz/mBn5RsstfSZPBO5BIBDzkwPWq3CJ5u35cD//0v1Yyu+h/4rbcz4LPd5q+QqX+ouGv8DQnnkpdoubAnq5UXSsCrchfK9X5IhtU1jh25Jo2cZ8mUyxu2zdEp4LY59JlfGlWlVwNl89ppJ//0SLBIZUNtVZCChVLq9HScHR5VzUJoK2hfKSpxWPkr6i0rOjGitKK0+IZkPX/xNvGjJYZgudLrCt3FjeDaF3nC8No0XR5zMmk5QwkhoP0IrlgKQ1UVY0doSJ7+lmED9axyMV0VApao5PZQIlDfLBBqnWBUUiV5DxD6Hs/yyJaW2Yfy16kOr/jO7J5rm1exzwY8VceWvySDqjJx5CUKr3r6TOH+yovBdiFslD5H80bO6F4CxK5LvFf6eHAxbcd+eQ6fLu/Z/IT/5CW1pUKfsgz+kd83KqhdB+OFh7z6lWd0wOrevIPRpbOToKUxJhfjkXNkJLt4Vl63UhoZbsJ2wsNO97FtgCLDAiAbb7sMBYgs7++TYXWPTIa5hcpg9Sai1p+82EqQX03p7veR3AzzsDmTfnTd4hGsNMarweMUiZyszppYqbZFYgEvsx0GH9c///5zH747//MeFQFBBA8jhUAxZMUiGgM36zsdD3pZrSMTZCQLa2Oau/k3xFHNLDc/5pR+JneLmSQUp3URZNUr/viXvefcab+IkSGPYfYlzd9l6FFEUO6Xco5RHZFEdGS7gIbzEb8NxlYsMEXYvqHfwxL/QYIj1+KsbIXVAs7yy4iIsWmY8ASaC4lKzCU0h5eZEg8dfHoUn7iqTPVgVqAEa3xxhdAzVj+f2UWl4lF4cpPWx/HfSuFDBqjBN/pSJQaglTyVqK47JZAQA5Hx/Ootfzr2ZUx4TiJgqV1OZUmDAXGuVPs3V9xzADeG7gn5NU634ieVM6rJirVyiKMQhA/M41is72lvLmPzjuQEbdkOo1ua4vkiUpe04byXb5V2eWnndlx4iezpQMM70AdRcrQj+Kyj3plld+06L4u5PoURBhzZFQK9I79v2n4512fBNs+gAAAA=";
 
@@ -2702,7 +2752,7 @@ var JOURNEYS = {
 
     // ── BACKEND SYNC ─────────────────────────────────────────────────────
     // Push to cloud so deal appears across all devices
-    var dealPayload = Object.assign({}, data, {dealName:name, savedAt:snapshot.savedAt});
+    var dealPayload = Object.assign({}, data, {dealName:name, savedAt:snapshot.savedAt, _savedVersion:CURRENT_VERSION});
     if(user && user.userId){
       // Use POST so the large JSON payload doesn't break URL length limits
       var existingId = (data._cloudDealId) || "";
@@ -2777,6 +2827,7 @@ var JOURNEYS = {
     freshData.savedAt = new Date().toLocaleString("en-GB");
     freshData._copiedFrom = data._cloudDealId || null;
     freshData._copiedAt = new Date().toISOString();
+    freshData._savedVersion = CURRENT_VERSION;
 
     // Push fresh copy to cloud
     if(!user || !user.userId){
@@ -2831,7 +2882,146 @@ var JOURNEYS = {
   }
 
   function loadDeal(snap){
-    setData(snap.data);setStage("dashboard");setShowHist(false);
+    var migrated = migrateLoadedDeal(snap.data);
+    setData(migrated.data);
+    if(migrated.changed) logMigration(migrated);
+    setStage("dashboard");setShowHist(false);
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // AUTO-MIGRATION (v9.16)
+  // When a deal is loaded from portfolio (local or cloud), this function runs
+  // automatically to apply safe fixes for known bugs in older versions.
+  //
+  // Philosophy: only fix what's STRUCTURALLY PROVABLE (e.g. scheme type
+  // mismatch where assetType clearly contradicts schType). Don't touch
+  // numeric values the user may have deliberately entered (salePsf, buildPsf
+  // as overrides). Keep a backup so user can restore if needed.
+  // ──────────────────────────────────────────────────────────────────────
+  function migrateLoadedDeal(dealData){
+    if(!dealData || typeof dealData !== "object") return {data:dealData, changed:false, migrations:[]};
+    var data2 = JSON.parse(JSON.stringify(dealData));  // work on a copy
+    var backup = JSON.parse(JSON.stringify(dealData));  // for restore
+    var migrations = [];
+    var savedV = data2._savedVersion;
+
+    // If saved on current version or newer, no migration needed
+    if(savedV && semverCompare(savedV, CURRENT_VERSION) >= 0){
+      return {data:data2, changed:false, migrations:[]};
+    }
+
+    // ── Migration 1: schType mismatch (v9.15 fix) ────────────────────────
+    // If assetType=sfh but schType is apartments/BTR/PBSA → wrong default
+    // led to £220/sqft build cost being used for SFH (vs correct ~£195).
+    // This is a structurally provable mismatch — safe to auto-fix.
+    if(data2.rlv && data2.rlv.schType){
+      var atLc = (data2.assetType||"").toLowerCase();
+      var schType = data2.rlv.schType;
+      var typeApart = schType.indexOf("apart")>=0 || schType.indexOf("BTR")>=0 || schType.indexOf("PBSA")>=0;
+      var typeHouse = schType.indexOf("houses")>=0;
+      if(atLc==="sfh" && typeApart){
+        data2.rlv.schType = "Residential houses";
+        migrations.push({
+          field:"rlv.schType",
+          from:schType,
+          to:"Residential houses",
+          reason:"v9.15: SFH deal had apartments scheme type — auto-corrected"
+        });
+        // Also clear buildPsf if it matches the apartments default (£220)
+        // because that's almost certainly the wrong-default value, not a user override.
+        if(num(data2.rlv.buildPsf) === 220 || num(data2.rlv.buildPsf) === 235){
+          migrations.push({
+            field:"rlv.buildPsf",
+            from:data2.rlv.buildPsf,
+            to:"(auto)",
+            reason:"v9.15: Was apartments-mid default; cleared so it re-derives from SFH city data"
+          });
+          delete data2.rlv.buildPsf;
+        }
+      } else if((atLc==="btr"||atLc==="pbsa") && typeHouse){
+        var correct = atLc==="btr" ? "BTR (Build to Rent)" : "PBSA (Student)";
+        data2.rlv.schType = correct;
+        migrations.push({
+          field:"rlv.schType",
+          from:schType,
+          to:correct,
+          reason:"v9.15: "+atLc.toUpperCase()+" deal had houses scheme type — auto-corrected"
+        });
+        if(num(data2.rlv.buildPsf) === 195){
+          migrations.push({
+            field:"rlv.buildPsf",
+            from:data2.rlv.buildPsf,
+            to:"(auto)",
+            reason:"v9.15: Was houses-mid default on "+atLc.toUpperCase()+" deal; cleared so it re-derives"
+          });
+          delete data2.rlv.buildPsf;
+        }
+      }
+    }
+
+    // ── Migration 2: Stale sens_* slider cache (pre-v9.15) ───────────────
+    // The new isolated-sensitivity sliders use sens_* prefix.
+    // Any sens_* values from before v9.15 are leftover state we should clear.
+    if(data2.rlv){
+      ["sens_salePsf","sens_buildPsf","sens_units","sens_profitPct"].forEach(function(k){
+        if(data2.rlv[k] !== undefined && data2.rlv[k] !== null){
+          delete data2.rlv[k];
+          // Not user-visible, don't bother surfacing this in the banner
+        }
+      });
+    }
+
+    // ── Migration 3: Old sliders overwrote rlv.salePsf etc directly ──────
+    // Pre-v9.15 sliders wrote to rlv.salePsf when moved. If the saved deal
+    // shows a salePsf that doesn't match what postcode + city + benchmark would
+    // produce, AND it's clearly off (>30% from city benchmark), it's likely
+    // a stale slider position. But we can't be sure — flag for review.
+    // We DON'T auto-clear these because user may have intentionally entered them.
+    // Just record as "review recommended" so the banner can surface it.
+    var reviewRecommended = [];
+    if(data2.rlv && data2.land && data2.land.postcode){
+      var pcD = lookupPostcode(data2.land.postcode);
+      if(pcD && pcD.salePsf && num(data2.rlv.salePsf) > 0){
+        var dev = Math.abs(num(data2.rlv.salePsf) - pcD.salePsf) / pcD.salePsf;
+        if(dev > 0.3){
+          reviewRecommended.push({
+            field:"rlv.salePsf",
+            current:data2.rlv.salePsf,
+            expected:pcD.salePsf,
+            reason:"Differs from postcode benchmark by "+Math.round(dev*100)+"%"
+          });
+        }
+      }
+    }
+
+    // ── Migration 4: Clear obsolete _migrationDismissed if from older version ──
+    if(data2._migrationDismissed && semverCompare(data2._migrationDismissed, CURRENT_VERSION) < 0){
+      delete data2._migrationDismissed;
+    }
+
+    var changed = migrations.length > 0;
+    if(changed){
+      data2._migrationFrom = savedV || "(unstamped)";
+      data2._migrationTo = CURRENT_VERSION;
+      data2._migrationAt = new Date().toISOString();
+      data2._migrationLog = migrations;
+      data2._migrationReviewRecommended = reviewRecommended;
+      data2._preMigrationBackup = backup;  // for restore
+    }
+
+    return {data:data2, changed:changed, migrations:migrations, reviewRecommended:reviewRecommended, backup:backup};
+  }
+
+  function logMigration(migrationResult){
+    try{
+      logEvent(user,"DEAL_AUTO_MIGRATED",{
+        from:migrationResult.data._migrationFrom,
+        to:migrationResult.data._migrationTo,
+        fixCount:migrationResult.migrations.length,
+        reviewCount:(migrationResult.reviewRecommended||[]).length,
+        fields:migrationResult.migrations.map(function(m){return m.field;}).join(",")
+      });
+    }catch(e){}
   }
 
   // ── PLANNING RECOVERY JOURNEY ────────────────────────────────────────────────
@@ -8688,7 +8878,10 @@ var JOURNEYS = {
               throw new Error("not an object");
             }
             dealData._cloudDealId = d.dealId;
-            setData(dealData);
+            // Auto-migrate stale data from older versions before showing it
+            var migrated = migrateLoadedDeal(dealData);
+            setData(migrated.data);
+            if(migrated.changed) logMigration(migrated);
             navTo("dashboard");
           }catch(e){
             alert("⚠ Couldn't read this deal's data — it may be corrupted. Your current work has not been overwritten.");
@@ -11037,6 +11230,123 @@ var JOURNEYS = {
       e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Deal Dashboard"),
       e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:data.masterReport?8:12}},"Live overview — fill in the stages to see metrics update"),
 
+      // v9.16 — Auto-migration result banner
+      // After loadDeal/cloud load runs migrateLoadedDeal(), this banner surfaces
+      // what was auto-fixed and what may need user review. User can restore the
+      // pre-migration state if they disagree with any of the changes.
+      (function(){
+        var migLog = data._migrationLog || [];
+        var reviewList = data._migrationReviewRecommended || [];
+        if(migLog.length === 0 && reviewList.length === 0) return null;
+        if(data._migrationBannerDismissed === CURRENT_VERSION) return null;
+        return e("div",{style:{margin:"6px 0 14px",padding:"14px 16px",background:"linear-gradient(135deg,rgba(45,122,101,0.10),rgba(45,122,101,0.04))",border:"1px solid rgba(45,122,101,0.4)",borderRadius:8,fontSize:12,color:"#1d5446",lineHeight:1.6}},
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap",marginBottom:8}},
+            e("div",{style:{flex:1,minWidth:200}},
+              e("div",{style:{fontSize:10,letterSpacing:".15em",textTransform:"uppercase",fontWeight:700,color:"#2D7A65",marginBottom:3}},"✓ Deal auto-updated to v"+CURRENT_VERSION),
+              e("div",{style:{fontWeight:700,fontSize:13,color:"#1d5446"}},
+                migLog.length+" structural fix"+(migLog.length!==1?"es":"")+" applied automatically"+
+                (reviewList.length>0?" · "+reviewList.length+" field"+(reviewList.length!==1?"s":"")+" to review":"")
+              ),
+              e("div",{style:{fontSize:11,color:"#3A6B5C",marginTop:3}},
+                "Saved on v"+(data._migrationFrom||"(unknown)")+" — Landform fixed known issues automatically. You can restore the previous values if you disagree."
+              )
+            ),
+            e("button",{onClick:function(){
+              setData(function(prev){return Object.assign({},prev,{_migrationBannerDismissed:CURRENT_VERSION});});
+            },style:{padding:"4px 8px",background:"transparent",border:"1px solid #2D7A65",color:"#2D7A65",borderRadius:3,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Dismiss")
+          ),
+          // Auto-fixed list
+          migLog.length>0 && e("div",{style:{background:"rgba(255,255,255,0.5)",borderRadius:5,padding:"10px 12px",marginBottom:8,fontSize:11}},
+            e("div",{style:{fontWeight:700,marginBottom:6,color:"#1d5446"}},"What was auto-fixed:"),
+            migLog.map(function(m,i){
+              return e("div",{key:i,style:{marginBottom:5,paddingBottom:5,borderBottom:i<migLog.length-1?"1px dotted rgba(45,122,101,0.2)":"none"}},
+                e("div",{style:{fontSize:11,color:"#2E2F8A",fontFamily:"monospace"}},m.field),
+                e("div",{style:{fontSize:10,color:"#5C5238",marginTop:2}},
+                  "was: ",e("strong",null,String(m.from||"(empty)"))," → now: ",e("strong",null,String(m.to||"(auto)")),
+                ),
+                e("div",{style:{fontSize:10,color:"#7278A0",marginTop:2,fontStyle:"italic"}},m.reason)
+              );
+            })
+          ),
+          // Review-recommended list
+          reviewList.length>0 && e("div",{style:{background:"rgba(154,123,62,0.10)",borderRadius:5,padding:"10px 12px",marginBottom:8,fontSize:11,border:"1px solid rgba(154,123,62,0.25)"}},
+            e("div",{style:{fontWeight:700,marginBottom:6,color:"#7B6432"}},"⚠ Manual review recommended:"),
+            e("div",{style:{fontSize:10,color:"#7B6432",marginBottom:6,fontStyle:"italic"}},"These values weren't auto-changed because they may have been intentionally set, but they look unusual. Open RLV stage to verify."),
+            reviewList.map(function(r,i){
+              return e("div",{key:i,style:{marginBottom:4}},
+                e("span",{style:{fontFamily:"monospace",color:"#2E2F8A"}},r.field),
+                ": ",e("strong",null,String(r.current))," vs expected ",e("strong",null,String(r.expected))," (",r.reason,")"
+              );
+            })
+          ),
+          // Actions
+          e("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+            e("button",{
+              onClick:function(){navTo("rlv");},
+              style:{padding:"7px 13px",background:"#2D7A65",border:"none",color:"#fff",borderRadius:5,fontSize:11,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+            },"Review RLV stage →"),
+            data._preMigrationBackup && e("button",{
+              onClick:function(){
+                if(!confirm("Restore previous values?\n\nThis undoes all auto-migration fixes and restores the deal as it was originally saved (on v"+(data._migrationFrom||"unknown")+").\n\nYou can re-apply migration later via the Reset RLV defaults flow.")) return;
+                var backup = data._preMigrationBackup;
+                setData(function(prev){
+                  // Restore from backup but keep the cloud ID
+                  return Object.assign({}, backup, {_cloudDealId:prev._cloudDealId, _migrationRolledBack:true});
+                });
+              },
+              style:{padding:"7px 13px",background:"transparent",border:"1px solid #B05A35",color:"#B05A35",borderRadius:5,fontSize:11,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+            },"Restore previous values"),
+            e("button",{
+              onClick:function(){
+                var msg = "Auto-migration log:\n\nDeal saved on: v"+(data._migrationFrom||"unknown")+"\nCurrent version: v"+CURRENT_VERSION+"\nMigration ran: "+(data._migrationAt||"unknown")+"\n\nFields auto-fixed:\n";
+                migLog.forEach(function(m){
+                  msg += "  • "+m.field+": "+String(m.from)+" → "+String(m.to)+"\n    ("+m.reason+")\n";
+                });
+                if(reviewList.length>0){
+                  msg += "\nFields recommended for review:\n";
+                  reviewList.forEach(function(r){
+                    msg += "  • "+r.field+": currently "+r.current+", expected "+r.expected+" ("+r.reason+")\n";
+                  });
+                }
+                alert(msg);
+              },
+              style:{padding:"7px 13px",background:"transparent",border:"1px solid #2D7A65",color:"#2D7A65",borderRadius:5,fontSize:11,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+            },"Full log")
+          )
+        );
+      })(),
+
+      // v9.16 — Legacy "version mismatch" banner (now ONLY shows if there's a version gap
+      // but auto-migration found nothing safe to fix — i.e. user data may still be stale
+      // but we couldn't determine it was wrong)
+      (function(){
+        var savedV = data._savedVersion || null;
+        if(!savedV) return null;
+        if(semverCompare(savedV, CURRENT_VERSION) >= 0) return null;
+        // If auto-migration already ran (with fixes OR reviews), don't show this banner
+        if((data._migrationLog||[]).length > 0) return null;
+        if((data._migrationReviewRecommended||[]).length > 0) return null;
+        if(data._migrationDismissed === CURRENT_VERSION) return null;
+        var breakingChanges = calcAffectingChangesSince(savedV);
+        if(breakingChanges.length === 0) return null;
+        return e("div",{style:{margin:"6px 0 14px",padding:"14px 16px",background:"linear-gradient(135deg,rgba(154,123,62,0.10),rgba(154,123,62,0.04))",border:"1px solid rgba(154,123,62,0.4)",borderRadius:8,fontSize:12,color:"#7B6432",lineHeight:1.6}},
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap",marginBottom:8}},
+            e("div",{style:{flex:1,minWidth:200}},
+              e("div",{style:{fontSize:10,letterSpacing:".15em",textTransform:"uppercase",fontWeight:700,color:"#9A7B3E",marginBottom:3}},"⚠ Deal saved on older version"),
+              e("div",{style:{fontWeight:700,fontSize:13,color:"#7B6432"}},"Saved on v"+savedV+" — current is v"+CURRENT_VERSION),
+              e("div",{style:{fontSize:11,color:"#8A7048",marginTop:3}},"Auto-migration found nothing structurally wrong, but "+breakingChanges.length+" version(s) since save changed calculations. Manually review RLV inputs if figures look off.")
+            ),
+            e("button",{onClick:function(){
+              setData(function(prev){return Object.assign({},prev,{_migrationDismissed:CURRENT_VERSION});});
+            },style:{padding:"4px 8px",background:"transparent",border:"1px solid #9A7B3E",color:"#9A7B3E",borderRadius:3,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Dismiss")
+          ),
+          e("button",{
+            onClick:function(){navTo("rlv");},
+            style:{padding:"7px 13px",background:"#9A7B3E",border:"none",color:"#fff",borderRadius:5,fontSize:11,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+          },"Review RLV stage →")
+        );
+      })(),
+
       // Active scenario banner — tells the user which planning world this deal is modelled in
       data.land&&data.land.appliedScenario&&e("div",{style:{margin:"6px 0 14px",padding:"12px 16px",background:"linear-gradient(135deg,rgba(45,122,101,0.10),rgba(45,122,101,0.04))",border:"1px solid rgba(45,122,101,0.4)",borderRadius:8,fontSize:12,color:"#1d5446",lineHeight:1.5,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}},
         e("div",null,
@@ -11875,10 +12185,33 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     var rCity=(pcData&&pcData.city)||(data.land&&data.land.city)||null;
     var rCityKnown=!!(rCity && MKT[rCity]);  // only true if we have real market data
     var rm=(rCity&&MKT[rCity])||MKT.manchester;  // fallback retained for calculations only
-    var bt=BUILD_TYPES[r.schType]||BUILD_TYPES["Residential houses"];
+
+    // v9.15 — auto-resolve schType from assetType when missing/mismatched
+    // This prevents the silent "Residential apartments" default driving SFH RLV calcs
+    // (the £24m bug spotted on Maldon deal where £220/sqft was used instead of £180-195/sqft).
+    var schTypeResolved = r.schType;
+    var assetTypeLc = (data.assetType || "").toLowerCase();
+    var schemeMismatch = false;
+    if(!schTypeResolved){
+      // No schType set — default from assetType
+      if(assetTypeLc==="sfh") schTypeResolved = "Residential houses";
+      else if(assetTypeLc==="btr") schTypeResolved = "BTR (Build to Rent)";
+      else if(assetTypeLc==="pbsa") schTypeResolved = "PBSA (Student)";
+      else schTypeResolved = "Residential houses";
+    } else {
+      // Has schType — check if it matches assetType. If not, flag mismatch.
+      var typeApart = schTypeResolved.indexOf("apart")>=0 || schTypeResolved.indexOf("BTR")>=0 || schTypeResolved.indexOf("PBSA")>=0;
+      var typeHouse = schTypeResolved.indexOf("houses")>=0 || schTypeResolved.indexOf("Residential houses")>=0;
+      if(assetTypeLc==="sfh" && typeApart) schemeMismatch = true;
+      if((assetTypeLc==="btr"||assetTypeLc==="pbsa") && typeHouse) schemeMismatch = true;
+    }
+    var bt=BUILD_TYPES[schTypeResolved]||BUILD_TYPES["Residential houses"];
     var rUnits=num(r.units); var rSqft=numOr(r.avgSqft, 850);
     var rSalePsf=num(r.salePsf)||(pcData&&pcData.salePsf)||(rm.btr*8.5/12)||(m&&m.btr*8.5/12)||260;
-    var rBuild=num(r.buildPsf)||(m&&m.build)||bt.mid;
+    // v9.15 — use postcode-resolved city's build cost (rm.build) before outer-scope m.build
+    // The old code used m.build which is from `(city&&MKT[city])||MKT.manchester` (outer scope),
+    // which may not match the postcode the user just entered into RLV.
+    var rBuild=num(r.buildPsf)||(rm&&rm.build)||(m&&m.build)||bt.mid;
     var rProfit=numOr(r.profitPct, 17.5); var rFin=numOr(r.finRate, 7.5);
     var rCont=numOr(r.contingency, 5);
     var rGdv=rUnits*rSqft*rSalePsf;
@@ -12126,6 +12459,39 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
       ),
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Residual Land Valuation"),
+
+        // v9.15 — scheme type mismatch warning + auto-fix
+        schemeMismatch && e("div",{style:{padding:"12px 14px",background:"rgba(176,90,53,0.10)",border:"1px solid rgba(176,90,53,0.4)",borderRadius:6,fontSize:12,color:"#8A3A1A",lineHeight:1.6,marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}},
+          e("div",{style:{flex:1,minWidth:240}},
+            e("div",{style:{fontWeight:700,marginBottom:4}},"⚠ Scheme type doesn't match the deal"),
+            e("div",null,
+              "Deal asset type is ",e("strong",null,(data.assetType||"").toUpperCase()),
+              " but RLV scheme type is set to ",e("strong",null,'"'+(r.schType||"")+'"'),
+              ". This means RLV is using £"+bt.mid+"/sqft build cost (apartments mid) instead of the SFH benchmark for "+(rCityKnown?cityName(rCity):"this area")+
+              ". This is the most common cause of wildly negative RLVs."
+            )
+          ),
+          e("button",{
+            onClick:function(){
+              var correct = (data.assetType||"").toLowerCase()==="sfh" ? "Residential houses"
+                : (data.assetType||"").toLowerCase()==="btr" ? "BTR (Build to Rent)"
+                : (data.assetType||"").toLowerCase()==="pbsa" ? "PBSA (Student)"
+                : "Residential houses";
+              setData(function(prev){
+                return Object.assign({},prev,{rlv:Object.assign({},prev.rlv||{},{schType:correct, buildPsf:""})});
+              });
+            },
+            style:{padding:"8px 14px",background:"#B05A35",border:"none",color:"#fff",borderRadius:5,fontSize:11,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",flexShrink:0}
+          },"Fix automatically →")
+        ),
+
+        // v9.15 — informational note if RLV is heavily negative with no explanation
+        !schemeMismatch && rRlv < 0 && rGdv > 0 && Math.abs(rRlv) > rGdv*0.05 && e("div",{style:{padding:"12px 14px",background:"rgba(74,75,174,0.06)",border:"1px solid rgba(74,75,174,0.25)",borderRadius:6,fontSize:11,color:"#3A3D6A",lineHeight:1.6,marginBottom:14}},
+          e("strong",{style:{color:"#2E2F8A"}},"ℹ RLV is heavily negative — check your inputs: "),
+          "Build cost £",rBuild,"/sqft and sale price £",rSalePsf,"/sqft drive most of the gap. If these are inflated, RLV will be unrepresentative. "+
+          "Realistic UK SFH build cost is £160–195/sqft; apartments £200–260/sqft. Realistic Maldon area SFH sale is £270–340/sqft."
+        ),
+
         e("div",{style:S.grid2},
           e(Sel,{label:"Scheme Type",value:r.schType,onChange:function(v){up("rlv","schType",v);},
             options:[{value:"",label:"Select..."}].concat(Object.keys(BUILD_TYPES).map(function(t){return{value:t,label:t};}))}),
@@ -12343,54 +12709,88 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           })(),
 
           // ── 1. SENSITIVITY SLIDERS ──────────────────────────────────────────
-          e("div",{style:{background:"#F7F8FC",borderRadius:8,padding:"14px 16px",marginTop:12}},
-            e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:12}},"Sensitivity Analysis — drag to test scenarios"),
-            [
-              {k:"salePsf",l:"Sale price £/sqft",base:rSalePsf,min:Math.round(rSalePsf*0.7),max:Math.round(rSalePsf*1.3),step:5,fmt2:function(v){return"£"+v+"/sqft"}},
-              {k:"buildPsf",l:"Build cost £/sqft",base:rBuild,min:Math.round(rBuild*0.7),max:Math.round(rBuild*1.3),step:5,fmt2:function(v){return"£"+v+"/sqft"}},
-              {k:"units",l:"Number of units",base:rUnits||50,min:Math.max(1,Math.round((rUnits||50)*0.5)),max:Math.round((rUnits||50)*1.5),step:1,fmt2:function(v){return v+" units"}},
-              {k:"profitPct",l:"Developer profit %",base:rProfit,min:10,max:30,step:1,fmt2:function(v){return v+"%"}},
-            ].map(function(sl){
-              var curVal=num(r[sl.k])||sl.base;
-              // Calc RLV at this value
-              function rlvAt(sp,bp,un,pr){
-                var g=un*(rSqft||850)*sp;
-                var bc=un*(rSqft||850)*bp;
-                var fees2=bc*bt.fees;
-                var cc=bc*(rCont/100);
-                var fc=(bc+fees2)*(rFin/100);
-                var s=un*(num(r.s106pu)||8000);
-                var pl=un*bt.plan;
-                return g-bc-fees2-cc-fc-s-pl-g*(pr/100);
+          // v9.15 fix — sliders now compute each variable IN ISOLATION using frozen base values.
+          // Previously moving one slider changed data.rlv, which became the new base for all others
+          // (so all four sliders interacted with each other instead of testing isolated sensitivity).
+          // Also now includes acquisition costs so the base matches the headline RLV.
+          (function(){
+            // Snapshot the TRUE base values for sensitivity (these don't change when sliders move)
+            var BASE_SP = rSalePsf;
+            var BASE_BP = rBuild;
+            var BASE_UN = rUnits || 50;
+            var BASE_PR = rProfit;
+            // Compute true base RLV including acquisition costs to match displayed rRlv
+            function rlvCore(sp, bp, un, pr){
+              var g = un * (rSqft||850) * sp;
+              var bc = un * (rSqft||850) * bp;
+              var fees2 = bc * bt.fees;
+              var cc = bc * (rCont/100);
+              var fc = (bc + fees2) * (rFin/100);
+              var s = un * (num(r.s106pu) || 8000);
+              var pl = un * bt.plan;
+              var raw = g - bc - fees2 - cc - fc - s - pl - g*(pr/100);
+              // Apply same acquisition cost deduction as the main RLV display
+              if(r.includeAcqCosts && raw>0){
+                var dm = calcDealMetrics(Object.assign({}, data, {rlv:Object.assign({}, r, {salePsf:sp, buildPsf:bp, units:un, profitPct:pr})}));
+                raw = raw - num(dm.totalAcqCosts);
               }
-              var adjSale=sl.k==="salePsf"?curVal:rSalePsf;
-              var adjBuild=sl.k==="buildPsf"?curVal:rBuild;
-              var adjUnits=sl.k==="units"?curVal:rUnits;
-              var adjProfit=sl.k==="profitPct"?curVal:rProfit;
-              var adjRlv=rlvAt(adjSale,adjBuild,adjUnits,adjProfit);
-              var adjColor=adjRlv>0?"#2D7A65":"#B05A35";
-              var pctFromBase=rRlv!==0?(adjRlv-rRlv)/Math.abs(rRlv)*100:0;
+              return raw;
+            }
+            var BASE_RLV = rlvCore(BASE_SP, BASE_BP, BASE_UN, BASE_PR);
 
-              return e("div",{key:sl.k,style:{marginBottom:14}},
-                e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}},
-                  e("span",{style:{fontSize:11,color:"#4A4B6E",fontWeight:600}},sl.l),
-                  e("div",{style:{display:"flex",gap:12,alignItems:"center"}},
-                    e("span",{style:{fontSize:11,color:"#7278A0"}},sl.fmt2(curVal)),
-                    e("span",{style:{fontSize:12,fontWeight:800,color:adjColor}},
-                      "RLV: "+fmt(adjRlv)+" ("+(pctFromBase>=0?"+":"")+Math.round(pctFromBase)+"% vs base)"
+            return e("div",{style:{background:"#F7F8FC",borderRadius:8,padding:"14px 16px",marginTop:12}},
+              e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}},"Sensitivity Analysis — drag to test scenarios"),
+              e("div",{style:{fontSize:10,color:"#7278A0",marginBottom:12,fontStyle:"italic"}},"Each slider isolates one variable. Others stay at base."),
+              [
+                {k:"salePsf",l:"Sale price £/sqft",base:BASE_SP,min:Math.round(BASE_SP*0.7),max:Math.round(BASE_SP*1.3),step:5,fmt2:function(v){return"£"+v+"/sqft"}},
+                {k:"buildPsf",l:"Build cost £/sqft",base:BASE_BP,min:Math.round(BASE_BP*0.7),max:Math.round(BASE_BP*1.3),step:5,fmt2:function(v){return"£"+v+"/sqft"}},
+                {k:"units",l:"Number of units",base:BASE_UN,min:Math.max(1,Math.round(BASE_UN*0.5)),max:Math.round(BASE_UN*1.5),step:1,fmt2:function(v){return v+" units"}},
+                {k:"profitPct",l:"Developer profit %",base:BASE_PR,min:10,max:30,step:1,fmt2:function(v){return v+"%"}}
+              ].map(function(sl){
+                // Slider's own value comes from data.rlv[k] if user has dragged it, else its base
+                var curVal = num(r["sens_"+sl.k]);
+                if(!curVal) curVal = sl.base;
+                // Compute RLV at this slider's current value, ALL OTHERS HELD AT BASE
+                var adjRlv;
+                if(sl.k==="salePsf")   adjRlv = rlvCore(curVal, BASE_BP, BASE_UN, BASE_PR);
+                else if(sl.k==="buildPsf")  adjRlv = rlvCore(BASE_SP, curVal, BASE_UN, BASE_PR);
+                else if(sl.k==="units") adjRlv = rlvCore(BASE_SP, BASE_BP, curVal, BASE_PR);
+                else                    adjRlv = rlvCore(BASE_SP, BASE_BP, BASE_UN, curVal);
+                var adjColor = adjRlv > 0 ? "#2D7A65" : "#B05A35";
+                var diff = adjRlv - BASE_RLV;
+                var pctFromBase = BASE_RLV !== 0 ? (diff / Math.abs(BASE_RLV)) * 100 : 0;
+
+                return e("div",{key:sl.k,style:{marginBottom:14}},
+                  e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4,flexWrap:"wrap",gap:6}},
+                    e("span",{style:{fontSize:11,color:"#4A4B6E",fontWeight:600}},sl.l),
+                    e("div",{style:{display:"flex",gap:12,alignItems:"center"}},
+                      e("span",{style:{fontSize:11,color:"#7278A0",fontWeight:600}},sl.fmt2(curVal)),
+                      e("span",{style:{fontSize:12,fontWeight:800,color:adjColor}},
+                        "RLV: "+fmt(adjRlv)+" ("+(diff>=0?"+":"")+Math.round(pctFromBase)+"% vs base)"
+                      )
                     )
-                  )
-                ),
-                e("input",{
-                  type:"range",min:sl.min,max:sl.max,step:sl.step,
-                  value:curVal,
-                  onChange:function(ev){up("rlv",sl.k,Number(ev.target.value));},
-                  style:{width:"100%",accentColor:"#4A4BAE",cursor:"pointer"}
-                })
-              );
-            }),
-            e("div",{style:{fontSize:10,color:"#7278A0",marginTop:4}},"Base RLV: "+fmt(rRlv)+" · Sliders adjust the live calculation above")
-          ),
+                  ),
+                  e("input",{
+                    type:"range",min:sl.min,max:sl.max,step:sl.step,
+                    value:curVal,
+                    onChange:function(ev){up("rlv","sens_"+sl.k,Number(ev.target.value));},
+                    style:{width:"100%",accentColor:"#4A4BAE",cursor:"pointer"}
+                  })
+                );
+              }),
+              e("div",{style:{fontSize:10,color:"#7278A0",marginTop:4,display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:6}},
+                e("span",null,"Base RLV: "+fmt(BASE_RLV)+" · sliders show isolated impact"),
+                Math.abs(BASE_RLV - rRlv) > 1000 ? e("button",{onClick:function(){
+                  setData(function(prev){
+                    var rlvNext = Object.assign({},prev.rlv||{});
+                    delete rlvNext.sens_salePsf; delete rlvNext.sens_buildPsf;
+                    delete rlvNext.sens_units; delete rlvNext.sens_profitPct;
+                    return Object.assign({},prev,{rlv:rlvNext});
+                  });
+                },style:{background:"transparent",border:"none",color:"#4A4BAE",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",textDecoration:"underline"}},"Reset sliders") : null
+              )
+            );
+          })(),
 
           // ── 2. HOW THIS IS CALCULATED ────────────────────────────────────────
           e("div",{style:{background:"#F7F8FC",borderRadius:8,marginTop:12,overflow:"hidden"}},
@@ -15744,7 +16144,19 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
             e("span",{style:{width:18,height:2,background:"#2E2F8A",display:"block",borderRadius:2}})
           ),
           e("div",{className:"lf-stage-mobile-title",style:{fontSize:isMobile?14:15,fontWeight:700,color:"#2E2F8A",whiteSpace:"nowrap"}},curStage.label),
-          e("div",{title:"Build v9.14 — Save As New Deal (duplicate for testing alternative scheme types / scenarios on same site)",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v9.14"),
+          e("button",{
+            title:"Click to see what's new in v"+CURRENT_VERSION,
+            onClick:function(){
+              var msg = "Landform v"+CURRENT_VERSION+"\n\nRecent updates:\n\n";
+              VERSION_HISTORY.slice(0,5).forEach(function(v){
+                msg += "v"+v.v+" — "+v.headline+(v.affectsCalc?" (calc-affecting)":"")+"\n";
+                v.changes.forEach(function(c){msg += "  • "+c+"\n";});
+                msg += "\n";
+              });
+              alert(msg);
+            },
+            style:{fontSize:10,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"3px 8px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0,border:"1px solid rgba(154,123,62,0.3)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+          },"v"+CURRENT_VERSION+" ▾"),
           !isMobile&&e("div",{style:{fontSize:11,color:"#7278A0",marginLeft:6}},at.toUpperCase()+" · "+cityName(city))
         ),
 
