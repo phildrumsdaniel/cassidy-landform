@@ -218,8 +218,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.18";
+var CURRENT_VERSION = "9.19";
 var VERSION_HISTORY = [
+  {v:"9.19", date:"Jun 2026", headline:"Scenario propagation extended to scheme-specific stages",
+   affectsCalc:true,
+   changes:["Scenario Apply now writes to SFH House Mix, BTR/PBSA Block, Tenure Mix, Capitalisation","Auto-migration retroactively populates these stages on load for older scenario-applied deals","Active scenario context banner added to SFH House Mix","Capitalisation: applied scenarios now bump target yield by the scenario's yield-adjustment penalty"]},
   {v:"9.18", date:"Jun 2026", headline:"Cross-stage propagation fixes (units, S106, AH%)",
    affectsCalc:true,
    changes:["Scenario Apply now writes S106pu to Planning, RLV and Fin (was only writing to land.scenarioS106pu)","Scenario Apply writes BOTH ahPct AND afhPct fields (legacy dual naming was leaving Planning AH empty)","Unit-count sync warnings on Planning and RLV stages with one-click resolution","Planning stage now shows AH% input for ALL scheme types (was BTR-only)","Planning stage now shows S106 per-unit input (clearer than total)","Active scenario context banner now appears on Planning stage too"]},
@@ -3052,6 +3055,83 @@ var JOURNEYS = {
             from:"(empty)",
             to:"£"+schS106pu.toLocaleString()+"/unit",
             reason:"v9.18: Active scenario S106 £"+schS106pu+"/unit wasn't propagated to Fin"
+          });
+        }
+        // v9.19 — also propagate to scheme-specific input stages
+        if(!data2.sfh) data2.sfh = {};
+        if(!num(data2.sfh.s106pu)){
+          data2.sfh.s106pu = schS106pu;
+          migrations.push({
+            field:"sfh.s106pu",
+            from:"(empty)",
+            to:"£"+schS106pu.toLocaleString()+"/plot",
+            reason:"v9.19: Scenario S106 wasn't propagated to SFH House Mix stage"
+          });
+        }
+        if(!data2.hra) data2.hra = {};
+        if(!num(data2.hra.s106pu)){
+          data2.hra.s106pu = schS106pu;
+          migrations.push({
+            field:"hra.s106pu",
+            from:"(empty)",
+            to:"£"+schS106pu.toLocaleString()+"/unit",
+            reason:"v9.19: Scenario S106 wasn't propagated to BTR/PBSA Block stage"
+          });
+        }
+      }
+      // v9.19 — Propagate AH% to scheme-specific stages too
+      if(schAhPct > 0){
+        if(!data2.sfh) data2.sfh = {};
+        if(!num(data2.sfh.ahPct)){
+          data2.sfh.ahPct = schAhPct;
+          migrations.push({
+            field:"sfh.ahPct",
+            from:"(empty)",
+            to:String(schAhPct)+"%",
+            reason:"v9.19: Scenario AH% wasn't propagated to SFH House Mix stage"
+          });
+        }
+        if(!data2.hra) data2.hra = {};
+        if(!num(data2.hra.ahPct)){
+          data2.hra.ahPct = schAhPct;
+          migrations.push({
+            field:"hra.ahPct",
+            from:"(empty)",
+            to:String(schAhPct)+"%",
+            reason:"v9.19: Scenario AH% wasn't propagated to BTR/PBSA Block stage"
+          });
+        }
+        if(!data2.tenure) data2.tenure = {};
+        if(!num(data2.tenure.ahPct)){
+          data2.tenure.ahPct = schAhPct;
+          migrations.push({
+            field:"tenure.ahPct",
+            from:"(empty)",
+            to:String(schAhPct)+"%",
+            reason:"v9.19: Scenario AH% wasn't propagated to Tenure Mix stage"
+          });
+        }
+      }
+      // v9.19 — Propagate finance rate to scheme-specific stages
+      if(schFinRate > 0){
+        if(!data2.sfh) data2.sfh = {};
+        if(!num(data2.sfh.finRate)){
+          data2.sfh.finRate = schFinRate;
+          migrations.push({
+            field:"sfh.finRate",
+            from:"(empty)",
+            to:String(schFinRate)+"%",
+            reason:"v9.19: Scenario finance rate wasn't propagated to SFH House Mix"
+          });
+        }
+        if(!data2.hra) data2.hra = {};
+        if(!num(data2.hra.finRate)){
+          data2.hra.finRate = schFinRate;
+          migrations.push({
+            field:"hra.finRate",
+            from:"(empty)",
+            to:String(schFinRate)+"%",
+            reason:"v9.19: Scenario finance rate wasn't propagated to BTR/PBSA Block"
           });
         }
       }
@@ -13119,6 +13199,16 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     return e("div",null,
       e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Single Family Housing"),
       e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Plot-by-plot residential appraisal with house type mix, roads adoption and SuDS"),
+
+      // v9.19 — Active scenario context banner — mirrors Dashboard/Planning
+      data.land&&data.land.appliedScenario&&e("div",{style:{margin:"-8px 0 16px",padding:"10px 14px",background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.3)",borderRadius:6,fontSize:11,color:"#1d5446",lineHeight:1.5}},
+        e("strong",null,"✓ Modelling: "+(data.land.appliedScenarioLabel||"")+"."),
+        " AH%: ",e("strong",null,(num(data.land.scenarioAhPct||0))+"%"),
+        " · S106: ",e("strong",null,"£"+(num(data.land.scenarioS106pu||0)).toLocaleString()+"/plot"),
+        " · Finance: ",e("strong",null,(num(data.land.scenarioFinanceRate||0))+"%"),
+        ". Override any field below if you have specific evidence."
+      ),
+
       LiveMarketBanner(),
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Site Details"),
@@ -14496,6 +14586,30 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
             s106pu:s.s106pu,
             scenarioApplied:s.key
           };
+          // v9.19 — Update scheme-specific input stages too
+          // These were missed in v9.13: SFH House Mix / BTR-PBSA Block / Tenure Mix / Capitalisation
+          // all have their own AH%/S106pu/finRate fields that didn't receive scenario values.
+          var sfhUpdates = {
+            ahPct:s.ahPct,
+            s106pu:s.s106pu,
+            finRate:s.financeRate,
+            scenarioApplied:s.key
+          };
+          var hraUpdates = {
+            ahPct:s.ahPct,
+            s106pu:s.s106pu,
+            finRate:s.financeRate,
+            scenarioApplied:s.key
+          };
+          var tenureUpdates = {
+            ahPct:s.ahPct,
+            scenarioApplied:s.key
+          };
+          // Capitalisation: bump target yield by scenario yieldAdj (penalty for higher-risk scenarios)
+          var capUpdates = {
+            scenarioApplied:s.key
+            // targetYield handled below — applied as adjustment to existing, not overwrite
+          };
           setData(function(prev){
             var prevPlanningUnits = num((prev.planning && prev.planning.units) || 0);
             var prevRlvUnits = num((prev.rlv && prev.rlv.units) || 0);
@@ -14509,11 +14623,26 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
             if(prevRlvUnits > 0 && !prevPlanningUnits){
               planningUpdatesFinal.units = prevRlvUnits;
             }
+            // v9.19 — Capitalisation yield adjustment (institutional buyers price risk)
+            var capUpdatesFinal = Object.assign({}, capUpdates);
+            var prevTargetYield = num((prev.cap && prev.cap.targetYield) || 0);
+            // If user has set a base yield, store the unmodified value first then add adjustment
+            if(prevTargetYield > 0 && s.yieldAdj > 0){
+              // Store the pre-scenario yield so we can restore it on clear
+              if(!(prev.cap && prev.cap._preScenarioYield)){
+                capUpdatesFinal._preScenarioYield = prevTargetYield;
+              }
+              capUpdatesFinal.targetYield = prevTargetYield + s.yieldAdj;
+            }
             return Object.assign({},prev,{
               land:Object.assign({},prev.land||{},landUpdates),
               planning:Object.assign({},prev.planning||{},planningUpdatesFinal),
               rlv:Object.assign({},prev.rlv||{},rlvUpdatesFinal),
               fin:Object.assign({},prev.fin||{},finUpdates),
+              sfh:Object.assign({},prev.sfh||{},sfhUpdates),
+              hra:Object.assign({},prev.hra||{},hraUpdates),
+              tenure:Object.assign({},prev.tenure||{},tenureUpdates),
+              cap:Object.assign({},prev.cap||{},capUpdatesFinal),
               _activeScenario:s.key,
               _activeScenarioLabel:s.label
             });
