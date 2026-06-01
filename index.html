@@ -1689,7 +1689,10 @@ function calcDealMetrics(data){
 
   // ── INPUTS (resolve to numbers safely) ────────────────────────────────
   var acres = num(l.acres);
-  var landPrice = num(l.price);
+  // Scenario-aware land cost: if a planning scenario is applied, use its modelled value;
+  // else use the asking/agreed price.
+  var landPrice = num(l.scenarioLandValue) || num(l.price);
+  var landPriceIsScenario = !!num(l.scenarioLandValue);  // for downstream awareness
   var units = num(p.units || rlvD.units || sfh.totalUnits || 0);
 
   // City for market lookups
@@ -1821,6 +1824,7 @@ function calcDealMetrics(data){
     units: units,
     avgSqft: avgSqft,
     landPrice: landPrice,
+    landPriceIsScenario: landPriceIsScenario,
     salePsf: salePsf,
     buildPsf: buildPsf,
     // GDV components
@@ -2541,7 +2545,10 @@ var JOURNEYS = {
   var gia=acres*43560*0.65;
   var buildPsf=num((data.fin&&data.fin.buildPsf)||m.build);
   var bc=gia*buildPsf;
-  var lc=num((data.land&&data.land.price)||0);
+  // Scenario-aware land cost: if a planning scenario is applied, use its modelled value;
+  // otherwise fall back to the user-entered asking/agreed price.
+  // This lets the user keep the asking price visible while modelling against scenario value.
+  var lc=num((data.land&&data.land.scenarioLandValue)||(data.land&&data.land.price)||0);
 
   // ── ASSET-TYPE AWARE GDV for dashboard ─────────────────────────────────
   var isSFHdash=(at==="sfh");
@@ -2729,6 +2736,91 @@ var JOURNEYS = {
     } else {
       alert("✓ Deal saved locally: "+name+"\n\nYour data auto-saves continuously.");
     }
+  }
+
+  // ── SAVE AS NEW DEAL ─────────────────────────────────────────────────
+  // Creates a duplicate of the current deal with a new name and new cloud ID,
+  // so the original is preserved and the new copy becomes the active deal.
+  // Use case: "Maldon SFH" → Save As → "Maldon PBSA" — same site, different end game.
+  function saveDealAs(){
+    // Build a smart suggested name based on current deal context
+    var currentName = data.dealName ||
+      (data.land&&data.land.address) ||
+      (data.scraper&&data.scraper.result&&data.scraper.result.address) ||
+      "Deal";
+    var scenario = (data.land&&data.land.appliedScenarioLabel) || "";
+    var schemeType = (data.assetType||"").toUpperCase();
+    // Suggest "{location} — {scheme}" or "{currentName} v2" if no clean variant available
+    var suggestedName;
+    if(currentName.indexOf(schemeType)<0 && schemeType){
+      suggestedName = currentName + " — " + schemeType + (scenario ? " ("+scenario+")" : "");
+    } else {
+      suggestedName = currentName + " — variant " + new Date().toLocaleDateString("en-GB");
+    }
+
+    var newName = window.prompt(
+      "💡 Save As New Deal\n\n"+
+      "This creates a copy of the current deal under a new name. The original deal stays unchanged.\n\n"+
+      "Useful for: testing different scheme types (SFH vs PBSA) on the same site, "+
+      "different planning scenarios, or alternative exit strategies.\n\n"+
+      "Name for the new copy:",
+      suggestedName
+    );
+    if(!newName) return;  // user cancelled
+    newName = String(newName).trim();
+    if(!newName) return;
+
+    // Build a fresh data copy with NEW cloud ID stripped (so backend creates a new row)
+    var freshData = JSON.parse(JSON.stringify(data));
+    delete freshData._cloudDealId;       // critical — forces new row on save
+    freshData.dealName = newName;
+    freshData.savedAt = new Date().toLocaleString("en-GB");
+    freshData._copiedFrom = data._cloudDealId || null;
+    freshData._copiedAt = new Date().toISOString();
+
+    // Push fresh copy to cloud
+    if(!user || !user.userId){
+      alert("⚠ You need to be signed in to save as a new deal.\nThis ensures the original isn't overwritten.");
+      return;
+    }
+
+    fetch(WEBHOOK, {
+      method:"POST",
+      headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify({
+        action:"save_deal",
+        userId:user.userId,
+        dealId:"",  // empty = create new row
+        payload:JSON.stringify(freshData)
+      })
+    })
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d && d.status==="ok"){
+        // Switch the active deal to the new copy
+        setData(function(prev){
+          var next = Object.assign({}, freshData, {_cloudDealId:d.dealId});
+          return next;
+        });
+        logEvent(user,"DEAL_SAVED_AS",{
+          newName:newName,
+          fromDealId:data._cloudDealId || null,
+          newDealId:d.dealId,
+          assetType:freshData.assetType||"btr",
+          scenario:scenario||null
+        });
+        alert("✓ New deal created: "+newName+"\n\n"+
+          "• Original deal preserved (return via Portfolio if needed)\n"+
+          "• You're now working in the new copy — changes save to this one\n"+
+          "• Change scheme type, scenario, or any input to remodel"
+        );
+      } else {
+        alert("⚠ Couldn't create the new copy: "+((d&&d.message)||"unknown error")+"\n\nYour original deal is unaffected.");
+      }
+    })
+    .catch(function(err){
+      alert("⚠ Network error creating new copy. Original deal is unaffected. Try again when online.");
+    });
   }
 
   function clearDeal(){
@@ -10944,6 +11036,22 @@ var JOURNEYS = {
     return e("div",null,
       e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Deal Dashboard"),
       e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:data.masterReport?8:12}},"Live overview — fill in the stages to see metrics update"),
+
+      // Active scenario banner — tells the user which planning world this deal is modelled in
+      data.land&&data.land.appliedScenario&&e("div",{style:{margin:"6px 0 14px",padding:"12px 16px",background:"linear-gradient(135deg,rgba(45,122,101,0.10),rgba(45,122,101,0.04))",border:"1px solid rgba(45,122,101,0.4)",borderRadius:8,fontSize:12,color:"#1d5446",lineHeight:1.5,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}},
+        e("div",null,
+          e("div",{style:{fontSize:10,letterSpacing:".15em",textTransform:"uppercase",fontWeight:700,color:"#2D7A65",marginBottom:3}},"Active planning scenario"),
+          e("div",{style:{fontWeight:700,fontSize:14,color:"#1d5446"}},data.land.appliedScenarioLabel||data.land.appliedScenario),
+          e("div",{style:{fontSize:11,color:"#3A6B5C",marginTop:3}},
+            "Land value: "+fmt(num(data.land.scenarioLandValue||0))+
+            " · AH: "+(num(data.land.scenarioAhPct||0))+"%"+
+            " · Timeline: "+(num(data.land.scenarioTimelineMo||0))+" months"+
+            " · Finance: "+(num(data.land.scenarioFinanceRate||0))+"%"
+          )
+        ),
+        e("button",{onClick:function(){navTo("land");},style:{padding:"7px 14px",background:"transparent",border:"1px solid #2D7A65",color:"#2D7A65",borderRadius:4,fontSize:10,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Change scenario →")
+      ),
+
       // Reconciliation note: explain why RLV's margin and Dashboard's margin look different
       gdv>0 && tc>0 && num((data.land&&data.land.price)||0) > 0 && e("div",{style:{margin:"6px 0 14px",padding:"10px 14px",background:"rgba(74,75,174,0.05)",border:"1px solid rgba(74,75,174,0.2)",borderRadius:6,fontSize:11,color:"#3A3D6A",lineHeight:1.6}},
         e("strong",{style:{color:"#1E1F5C"}},"ℹ Why does this differ from the RLV stage? "),
@@ -13592,12 +13700,69 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     var vm={proximity:{excellent:25,good:15,fair:8,poor:0},transport:{excellent:20,good:12,fair:6,poor:0},contamination:{clean:20,minor:10,major:0,unknown:4},tenure:{freehold:15,long_leasehold:10,short_leasehold:3},constraint:{none:20,minor:12,moderate:6,major:0}};
     Object.keys(vm).forEach(function(k){score+=(vm[k][l[k]]||0);});
     var sc=score>=70?"#2D7A65":score>=45?"#9A7B3E":"#B05A35";
-    var benchmark=m.land;
-    var benchmarkIsFallback = !MKT[city];  // true if we fell back to manchester default
     var askingPrice=num(l.price);
-    var diff=benchmark>0?((askingPrice-benchmark)/benchmark*100):null;
-    // Per-acre benchmark for SFH (more meaningful than total)
-    var benchmarkPerAcre = num(l.acres)>0 ? benchmark/num(l.acres) : null;
+    var acresVal = num(l.acres);
+    var benchmarkIsFallback = !MKT[city];  // true if we fell back to manchester default
+
+    // ──────────────────────────────────────────────────────────────
+    // ACREAGE + PLANNING-STATUS AWARE BENCHMARK (v9.12)
+    // The old single-figure benchmark (m.land) was a "typical total" for
+    // an undefined site size — comparing it to a 32-acre site was meaningless.
+    // Now we compute a £/acre band based on planning status, then multiply
+    // by the actual acreage to get a defensible range.
+    // ──────────────────────────────────────────────────────────────
+    var planStatusRaw = (data.planning && data.planning.status) || l.planningStatus || "";
+    var planStatusLc = String(planStatusRaw).toLowerCase();
+    // Classify planning into one of: full, outline, allocated, speculative, unknown
+    var planTier;
+    if(!planStatusRaw) planTier = "unknown";
+    else if(/full|granted|consented|detailed|approved/.test(planStatusLc)) planTier = "full";
+    else if(/outline/.test(planStatusLc)) planTier = "outline";
+    else if(/allocated|local plan|emerging|draft plan/.test(planStatusLc)) planTier = "allocated";
+    else if(/refused|withdrawn|stalled|recovery/.test(planStatusLc)) planTier = "stalled";
+    else if(/none|unallocated|speculative|hope|green/.test(planStatusLc)) planTier = "speculative";
+    else planTier = "unknown";
+
+    // Land-value-per-acre multipliers vs market reference (rough UK norms 2026)
+    // Each tier maps to {lo, mid, hi} multiplier of a "fully consented serviced" land value
+    var TIER_MULT = {
+      full:       {lo:0.85, mid:1.00, hi:1.20, label:"Full planning permission"},
+      outline:    {lo:0.65, mid:0.80, hi:1.00, label:"Outline planning"},
+      allocated:  {lo:0.35, mid:0.50, hi:0.70, label:"Allocated in Local Plan"},
+      speculative:{lo:0.10, mid:0.18, hi:0.30, label:"No planning — hope value only"},
+      stalled:    {lo:0.20, mid:0.35, hi:0.55, label:"Stalled / refused — recovery scenario"},
+      unknown:    {lo:0.10, mid:0.45, hi:1.00, label:"Planning status not stated — full range shown"}
+    };
+    var tierInfo = TIER_MULT[planTier];
+
+    // Derive fully-consented £/acre from MKT data (m.land is a typical total for an "average" 5-acre SFH site)
+    // So fullyConsentedPerAcre ≈ m.land / 5 (rough calibration; refine over time)
+    var TYPICAL_BENCHMARK_ACRES = 5;
+    var fullyConsentedPerAcre = m.land / TYPICAL_BENCHMARK_ACRES;
+
+    // Compute band per-acre for current tier
+    var perAcreLo = fullyConsentedPerAcre * tierInfo.lo;
+    var perAcreMid = fullyConsentedPerAcre * tierInfo.mid;
+    var perAcreHi = fullyConsentedPerAcre * tierInfo.hi;
+
+    // Scale to actual site size
+    var siteAcres = acresVal || TYPICAL_BENCHMARK_ACRES;
+    var totalLo = perAcreLo * siteAcres;
+    var totalMid = perAcreMid * siteAcres;
+    var totalHi = perAcreHi * siteAcres;
+
+    // Legacy variables retained for downstream code (kept for backwards compat)
+    var benchmark = totalMid;
+    var diff = benchmark>0 ? ((askingPrice-benchmark)/benchmark*100) : null;
+    var benchmarkPerAcre = perAcreMid;
+
+    // Status: is asking price within or outside the band?
+    var askingStatus = "unknown";
+    if(askingPrice > 0){
+      if(askingPrice >= totalLo && askingPrice <= totalHi) askingStatus = "within_range";
+      else if(askingPrice < totalLo) askingStatus = "below_range";
+      else askingStatus = "above_range";
+    }
 
     return e("div",null,
       e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
@@ -13669,27 +13834,362 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           )
         )
       ),
+
+      // ──────────────────────────────────────────────────────────────
+      // PLANNING SCENARIOS — v9.13
+      // For each of 5 planning scenarios, compute the land value range
+      // for THIS specific site, allow user to weight probabilities,
+      // compute expected value, and let user "Apply" a chosen scenario
+      // which then propagates to RLV / Planning / Fin / Exit.
+      // ──────────────────────────────────────────────────────────────
+      city&&m&&acresVal>0 && (function(){
+        // Use the same fullyConsentedPerAcre baseline as the benchmark above
+        // Scenarios = 5 distinct planning tiers, each with characteristic ranges
+        var SCENARIOS = [
+          {
+            key:"full",
+            label:"Full Planning Granted",
+            icon:"✓",
+            tone:"#2D7A65",
+            mult:{lo:0.85, mid:1.00, hi:1.20},
+            // Downstream assumptions per scenario:
+            ahPct:30, s106pu:8000, planningCostPu:0,
+            timelineMo:0, financeRate:7.5,
+            yieldAdj:0,  // no yield penalty — ready to fund
+            exitConfidence:"High",
+            verifyNeeded:"Existing consent + planning conditions discharged + reserved matters approved (if outline already moved through)",
+            defaultProb: planTier==="full" ? 70 : 5
+          },
+          {
+            key:"outline",
+            label:"Outline Planning",
+            icon:"◐",
+            tone:"#4A4BAE",
+            mult:{lo:0.65, mid:0.80, hi:1.00},
+            ahPct:30, s106pu:8000, planningCostPu:5000,
+            timelineMo:9, financeRate:8.0,
+            yieldAdj:0.0025,
+            exitConfidence:"Medium-High",
+            verifyNeeded:"Outline consent + housing numbers agreed + reserved matters timeline visible",
+            defaultProb: planTier==="outline" ? 60 : (planTier==="full"?15:10)
+          },
+          {
+            key:"allocated",
+            label:"Allocated in Local Plan",
+            icon:"○",
+            tone:"#9A7B3E",
+            mult:{lo:0.35, mid:0.50, hi:0.70},
+            ahPct:35, s106pu:12000, planningCostPu:18000,
+            timelineMo:18, financeRate:8.5,
+            yieldAdj:0.005,
+            exitConfidence:"Medium",
+            verifyNeeded:"Local Plan allocation confirmed + LPA officer support + pre-app feedback positive",
+            defaultProb: planTier==="allocated" ? 55 : 25
+          },
+          {
+            key:"likely",
+            label:"Likely Allocation (next plan)",
+            icon:"◯",
+            tone:"#B05A35",
+            mult:{lo:0.20, mid:0.30, hi:0.45},
+            ahPct:35, s106pu:14000, planningCostPu:30000,
+            timelineMo:36, financeRate:9.0,
+            yieldAdj:0.0075,
+            exitConfidence:"Speculative",
+            verifyNeeded:"Emerging plan inclusion + 5YHLS shortfall evidence + member-level political support",
+            defaultProb:20
+          },
+          {
+            key:"hope",
+            label:"Speculative / Hope Value",
+            icon:"·",
+            tone:"#8A3A1A",
+            mult:{lo:0.08, mid:0.18, hi:0.30},
+            ahPct:40, s106pu:18000, planningCostPu:60000,
+            timelineMo:60, financeRate:10.0,
+            yieldAdj:0.0125,
+            exitConfidence:"Strategic only",
+            verifyNeeded:"Strategic land play — 5-10 year horizon, willingness to fund planning promotion",
+            defaultProb:20
+          }
+        ];
+
+        // Apply per-scenario calculations
+        var scenarioCalcs = SCENARIOS.map(function(s){
+          var pa_lo = fullyConsentedPerAcre * s.mult.lo;
+          var pa_mid = fullyConsentedPerAcre * s.mult.mid;
+          var pa_hi = fullyConsentedPerAcre * s.mult.hi;
+          var t_lo = pa_lo * acresVal;
+          var t_mid = pa_mid * acresVal;
+          var t_hi = pa_hi * acresVal;
+          var pct = (l["scenProb_"+s.key] !== undefined && l["scenProb_"+s.key] !== "") ? num(l["scenProb_"+s.key]) : s.defaultProb;
+          return Object.assign({}, s, {
+            paLo:pa_lo, paMid:pa_mid, paHi:pa_hi,
+            tLo:t_lo, tMid:t_mid, tHi:t_hi,
+            probPct:pct,
+            weighted:t_mid*(pct/100)
+          });
+        });
+
+        var totalProb = scenarioCalcs.reduce(function(a,b){return a+b.probPct;},0);
+        var expectedValue = scenarioCalcs.reduce(function(a,b){return a+b.weighted;},0);
+        var activeScenario = l.appliedScenario || "";
+        var askingVsExpected = askingPrice>0 && expectedValue>0 ? ((askingPrice-expectedValue)/expectedValue*100) : null;
+
+        function applyScenario(scenKey){
+          var s = scenarioCalcs.find(function(x){return x.key===scenKey;});
+          if(!s) return;
+          if(!confirm("Apply '"+s.label+"' scenario?\n\nThis will update:\n• Land value (mid-point: "+fmt(s.tMid)+")\n• Planning status field\n• Expected AH% ("+s.ahPct+"%)\n• Expected S106 per unit (£"+s.s106pu.toLocaleString()+")\n• Finance rate ("+s.financeRate+"%)\n• Timeline to commit ("+s.timelineMo+" months)\n• Yield uplift ("+(s.yieldAdj*100).toFixed(2)+"% penalty)\n\nYou can change scenario at any time — but manual overrides made on RLV/Fin/Planning may be reset.")) return;
+          // Update land
+          var landUpdates = {
+            appliedScenario:s.key,
+            appliedScenarioLabel:s.label,
+            appliedAt:new Date().toISOString(),
+            planningStatus:s.label,
+            scenarioLandValue:Math.round(s.tMid),
+            scenarioPerAcre:Math.round(s.paMid),
+            scenarioAhPct:s.ahPct,
+            scenarioS106pu:s.s106pu,
+            scenarioFinanceRate:s.financeRate,
+            scenarioTimelineMo:s.timelineMo,
+            scenarioYieldAdj:s.yieldAdj
+          };
+          // Update planning
+          var planningUpdates = {
+            status:s.label,
+            ahPct:s.ahPct,
+            scenarioApplied:s.key
+          };
+          // Update RLV
+          var rlvUpdates = {
+            finRate:s.financeRate,
+            scenarioApplied:s.key
+          };
+          // Update Fin
+          var finUpdates = {
+            finRate:s.financeRate,
+            scenarioApplied:s.key
+          };
+          setData(function(prev){
+            return Object.assign({},prev,{
+              land:Object.assign({},prev.land||{},landUpdates),
+              planning:Object.assign({},prev.planning||{},planningUpdates),
+              rlv:Object.assign({},prev.rlv||{},rlvUpdates),
+              fin:Object.assign({},prev.fin||{},finUpdates),
+              _activeScenario:s.key,
+              _activeScenarioLabel:s.label
+            });
+          });
+        }
+
+        function clearScenario(){
+          if(!confirm("Clear applied scenario? This won't undo manual edits you've made since.")) return;
+          setData(function(prev){
+            var land = Object.assign({},prev.land||{});
+            delete land.appliedScenario;
+            delete land.appliedScenarioLabel;
+            delete land.appliedAt;
+            delete land.scenarioLandValue;
+            delete land.scenarioPerAcre;
+            delete land.scenarioAhPct;
+            delete land.scenarioS106pu;
+            delete land.scenarioFinanceRate;
+            delete land.scenarioTimelineMo;
+            delete land.scenarioYieldAdj;
+            return Object.assign({},prev,{
+              land:land,
+              _activeScenario:null,
+              _activeScenarioLabel:null
+            });
+          });
+        }
+
+        return e("div",{style:S.card},
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}},
+            e("div",{style:S.cardTitle},"Planning Scenarios — "+cityName(city)+" · "+acresVal.toFixed(1)+" acres"),
+            activeScenario && e("button",{onClick:clearScenario,style:{padding:"5px 11px",fontSize:10,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",background:"transparent",border:"1px solid #B05A35",color:"#B05A35",borderRadius:4,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Clear scenario")
+          ),
+
+          // Explainer
+          e("div",{style:{padding:"10px 14px",background:"rgba(74,75,174,0.06)",border:"1px solid rgba(74,75,174,0.25)",borderRadius:6,fontSize:11,color:"#3A3D6A",lineHeight:1.6,marginBottom:14}},
+            e("strong",{style:{color:"#2E2F8A"}},"How to use: "),
+            "Adjust the probability % for each scenario based on your evidence (defaults are illustrative). The Expected Value at the bottom is probability-weighted across all scenarios. ",
+            e("strong",null,"Click 'Apply' on the scenario you want to model in detail "),
+            "— Landform will propagate the planning, AH%, S106, finance rate and yield assumptions to RLV, Planning & Viability, Financial Modelling and Exit Strategy."
+          ),
+
+          // Active scenario banner
+          activeScenario && e("div",{style:{padding:"12px 14px",background:"rgba(45,122,101,0.10)",border:"1px solid rgba(45,122,101,0.4)",borderRadius:6,fontSize:12,color:"#1d5446",lineHeight:1.5,marginBottom:14}},
+            e("div",{style:{fontWeight:700,marginBottom:4}},"✓ Active scenario: "+(l.appliedScenarioLabel||activeScenario)),
+            e("div",null,"Downstream stages (RLV, Planning, Fin, Exit) are now modelling this scenario. Land value: "+fmt(l.scenarioLandValue||0)+" · AH%: "+(l.scenarioAhPct||0)+"% · Timeline to commit: "+(l.scenarioTimelineMo||0)+" months")
+          ),
+
+          // Scenario table
+          e("div",{style:{overflowX:"auto",marginBottom:14}},
+            e("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:11}},
+              e("thead",null,
+                e("tr",{style:{borderBottom:"2px solid #2E2F8A"}},
+                  e("th",{style:{padding:"8px 6px",textAlign:"left",fontSize:10,textTransform:"uppercase",letterSpacing:".08em",color:"#2E2F8A"}},"Scenario"),
+                  e("th",{style:{padding:"8px 6px",textAlign:"right",fontSize:10,textTransform:"uppercase",letterSpacing:".08em",color:"#2E2F8A"}},"£/Acre"),
+                  e("th",{style:{padding:"8px 6px",textAlign:"right",fontSize:10,textTransform:"uppercase",letterSpacing:".08em",color:"#2E2F8A"}},"Site Value (Mid)"),
+                  e("th",{style:{padding:"8px 6px",textAlign:"right",fontSize:10,textTransform:"uppercase",letterSpacing:".08em",color:"#2E2F8A"}},"Range"),
+                  e("th",{style:{padding:"8px 6px",textAlign:"center",fontSize:10,textTransform:"uppercase",letterSpacing:".08em",color:"#2E2F8A",width:90}},"Probability %"),
+                  e("th",{style:{padding:"8px 6px",textAlign:"right",fontSize:10,textTransform:"uppercase",letterSpacing:".08em",color:"#2E2F8A"}},"Weighted"),
+                  e("th",{style:{padding:"8px 6px",textAlign:"center",fontSize:10,textTransform:"uppercase",letterSpacing:".08em",color:"#2E2F8A",width:80}},"Apply")
+                )
+              ),
+              e("tbody",null,
+                scenarioCalcs.map(function(s){
+                  var isActive = activeScenario === s.key;
+                  return e("tr",{key:s.key,style:{borderBottom:"1px solid #E8E9F5",background:isActive?"rgba(45,122,101,0.05)":"transparent"}},
+                    e("td",{style:{padding:"10px 6px",verticalAlign:"top"}},
+                      e("div",{style:{display:"flex",alignItems:"center",gap:8}},
+                        e("span",{style:{display:"inline-block",width:22,height:22,borderRadius:"50%",background:s.tone,color:"#fff",textAlign:"center",lineHeight:"22px",fontSize:11,fontWeight:800,flexShrink:0}},s.icon),
+                        e("div",null,
+                          e("div",{style:{fontWeight:700,color:"#2E2F8A",fontSize:12}},s.label),
+                          e("div",{style:{fontSize:9,color:"#7278A0",marginTop:1}},s.exitConfidence+" exit · "+s.timelineMo+"mo timeline")
+                        )
+                      )
+                    ),
+                    e("td",{style:{padding:"10px 6px",textAlign:"right",verticalAlign:"top",color:"#3A3D6A",fontWeight:600}},"£"+Math.round(s.paMid).toLocaleString()),
+                    e("td",{style:{padding:"10px 6px",textAlign:"right",verticalAlign:"top",fontWeight:700,color:s.tone,fontSize:13}},fmt(s.tMid)),
+                    e("td",{style:{padding:"10px 6px",textAlign:"right",verticalAlign:"top",fontSize:10,color:"#7278A0"}},fmt(s.tLo)+" – "+fmt(s.tHi)),
+                    e("td",{style:{padding:"10px 6px",textAlign:"center",verticalAlign:"top"}},
+                      e("input",{type:"number",min:0,max:100,value:s.probPct,onChange:function(ev){up("land","scenProb_"+s.key,ev.target.value);},style:{width:60,padding:"5px 6px",border:"1px solid #DDE0ED",borderRadius:4,fontSize:11,textAlign:"center",fontFamily:"DM Sans,sans-serif",color:"#2E2F8A",fontWeight:600}})
+                    ),
+                    e("td",{style:{padding:"10px 6px",textAlign:"right",verticalAlign:"top",color:"#3A3D6A",fontStyle:s.probPct>0?"normal":"italic",fontWeight:s.probPct>0?600:400}},s.probPct>0?fmt(s.weighted):"—"),
+                    e("td",{style:{padding:"10px 6px",textAlign:"center",verticalAlign:"top"}},
+                      isActive
+                        ? e("span",{style:{display:"inline-block",padding:"4px 8px",background:"#2D7A65",color:"#fff",borderRadius:3,fontSize:9,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase"}},"✓ Active")
+                        : e("button",{onClick:function(){applyScenario(s.key);},style:{padding:"5px 12px",background:s.tone,color:"#fff",border:"none",borderRadius:3,fontSize:10,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Apply")
+                    )
+                  );
+                })
+              ),
+              e("tfoot",null,
+                e("tr",{style:{borderTop:"2px solid #2E2F8A",background:"#F4F5FB"}},
+                  e("td",{style:{padding:"12px 6px",fontWeight:800,color:"#2E2F8A",fontSize:11}},"Expected value (probability-weighted)"),
+                  e("td",{style:{padding:"12px 6px"}}),
+                  e("td",{style:{padding:"12px 6px",textAlign:"right",fontWeight:800,color:"#2E2F8A",fontSize:15}},fmt(expectedValue)),
+                  e("td",{style:{padding:"12px 6px",textAlign:"right",fontSize:10,color:"#7278A0"}},"Total prob: "+totalProb+"%"),
+                  e("td",{style:{padding:"12px 6px"}}),
+                  e("td",{style:{padding:"12px 6px",textAlign:"right",fontSize:10,color:"#7278A0",fontStyle:"italic"}},Math.abs(totalProb-100)>1?"⚠ Adjust probabilities to total 100%":"✓"),
+                  e("td",{style:{padding:"12px 6px"}})
+                )
+              )
+            )
+          ),
+
+          // Asking price comparison
+          askingPrice>0 && e("div",{style:{padding:"12px 14px",background:askingVsExpected>20?"rgba(176,90,53,0.08)":askingVsExpected<-20?"rgba(45,122,101,0.08)":"rgba(74,75,174,0.06)",border:"1px solid "+(askingVsExpected>20?"rgba(176,90,53,0.35)":askingVsExpected<-20?"rgba(45,122,101,0.35)":"rgba(74,75,174,0.25)"),borderRadius:6,fontSize:12,lineHeight:1.6,color:"#2E2F8A"}},
+            e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}},
+              e("div",{style:{fontWeight:700}},"Asking vs Expected Value"),
+              e("div",{style:{fontSize:14,fontWeight:800,color:askingVsExpected>20?"#B05A35":askingVsExpected<-20?"#1d5446":"#3A3D6A"}},
+                fmt(askingPrice)+" vs "+fmt(expectedValue)+" — "+(askingVsExpected>0?"+":"")+askingVsExpected.toFixed(0)+"%"
+              )
+            ),
+            e("div",{style:{fontSize:11,color:"#3A3D6A"}},
+              askingVsExpected>50 ? "Asking is materially above probability-weighted expectation. Vendor either has stronger planning evidence than you've assumed (adjust probabilities up on Full/Outline scenarios), or this is a hope-value bid. Decision depends on whether you believe their planning case." :
+              askingVsExpected>20 ? "Asking is above expectation but within negotiating range. Test the vendor's planning evidence — if they can substantiate higher-probability scenarios, the gap closes." :
+              askingVsExpected>-20 ? "Asking is close to your probability-weighted view. Reasonable basis to engage." :
+              "Asking is below probability-weighted expectation. Investigate why — possible distressed sale, encumbrance, or planning risk you haven't priced. If clean, this is potentially strong value."
+            )
+          )
+        );
+      })(),
+
       city&&m&&e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Market Benchmarks — "+cityName(city)+(benchmarkIsFallback?" (using national average — see note)":"")),
+
         benchmarkIsFallback && e("div",{style:{padding:"10px 14px",background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.3)",borderRadius:6,fontSize:11,color:"#B05A35",lineHeight:1.6,marginBottom:12}},
           e("strong",null,"⚠ Note on land value benchmark: "),
           "We don't have a specific land-value benchmark for "+cityName(city)+" yet. The figure shown is a UK-average fallback and should NOT be relied on. For accurate comparison: cross-reference Land Registry sold-prices for development sites in your specific postcode, or speak to a local agent. The figure is illustrative only."
         ),
-        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}},
-          [{l:"Market Land Value"+(benchmarkPerAcre&&!benchmarkIsFallback?" (£/acre: "+fmt(benchmarkPerAcre)+")":""),v:fmt(benchmark),s:benchmarkIsFallback?"⚠ UK average — not "+cityName(city):"Typical total for "+at.toUpperCase()+" site"},
-           {l:"Your Asking Price",v:askingPrice?fmt(askingPrice):"—",s:diff!==null&&!benchmarkIsFallback?"vs market: "+(diff>0?"+":"")+pct(diff):(benchmarkIsFallback?"Comparison unreliable — see note":"")},
-           {l:at==="pbsa"?"PBSA Rent/wk":"BTR Rent/mo",v:at==="pbsa"?"£"+m.pbsa+"/wk":"£"+m.btr+"/mo",s:benchmarkIsFallback?"UK average":"Market average"},
+
+        // Planning status awareness — explains the band logic
+        e("div",{style:{padding:"12px 14px",background:planTier==="unknown"?"rgba(154,123,62,0.08)":"rgba(74,75,174,0.06)",border:"1px solid "+(planTier==="unknown"?"rgba(154,123,62,0.35)":"rgba(74,75,174,0.25)"),borderRadius:6,fontSize:11,lineHeight:1.6,marginBottom:14,color:"#2E2F8A"}},
+          e("div",{style:{fontWeight:700,fontSize:10,letterSpacing:".1em",textTransform:"uppercase",marginBottom:4,color:planTier==="unknown"?"#9A7B3E":"#4A4BAE"}},
+            planTier==="unknown" ? "⚠ Planning status not set" : "📋 Planning context"
+          ),
+          e("div",{style:{color:planTier==="unknown"?"#7B6432":"#3A3D6A"}},
+            e("strong",null,tierInfo.label),
+            " · Site size: ",e("strong",null,siteAcres.toFixed(1)+" acres"),
+            planTier==="unknown" ? " · Land values vary 5-10× depending on planning. Set the Planning Status field below or in Planning & Viability for a sharper benchmark." : null
+          )
+        ),
+
+        // Three-tile band display
+        e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12}},
+          [
+            {tone:"low",label:"Low end of range",total:totalLo,perAcre:perAcreLo,sub:planTier==="unknown"?"if speculative":"conservative"},
+            {tone:"mid",label:"Mid-point benchmark",total:totalMid,perAcre:perAcreMid,sub:planTier==="unknown"?"planning unknown":"typical"},
+            {tone:"high",label:"High end of range",total:totalHi,perAcre:perAcreHi,sub:planTier==="unknown"?"if full planning":"premium / consented"}
+          ].map(function(b){
+            return e("div",{key:b.label,style:{background:b.tone==="mid"?"linear-gradient(135deg,#F0F1FA,#E4E4F4)":"#fff",border:"1px solid "+(b.tone==="mid"?"#4A4BAE":"#DDE0ED"),borderRadius:8,padding:12}},
+              e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}},b.label),
+              e("div",{style:{fontSize:18,fontWeight:700,color:"#2E2F8A",lineHeight:1.1}},fmt(b.total)),
+              e("div",{style:{fontSize:10,color:"#4A4BAE",fontWeight:600,marginTop:3}},"£"+Math.round(b.perAcre).toLocaleString()+"/acre"),
+              e("div",{style:{fontSize:9,color:"#7278A0",fontStyle:"italic",marginTop:2}},b.sub)
+            );
+          })
+        ),
+
+        // Asking price assessment relative to range
+        askingPrice>0 && e("div",{style:{padding:"10px 14px",background:askingStatus==="within_range"?"rgba(45,122,101,0.08)":askingStatus==="above_range"?"rgba(176,90,53,0.08)":"rgba(74,75,174,0.06)",border:"1px solid "+(askingStatus==="within_range"?"rgba(45,122,101,0.35)":askingStatus==="above_range"?"rgba(176,90,53,0.35)":"rgba(74,75,174,0.25)"),borderRadius:6,fontSize:11,lineHeight:1.6,marginBottom:6}},
+          e("div",{style:{fontWeight:700,fontSize:13,marginBottom:4,color:askingStatus==="within_range"?"#1d5446":askingStatus==="above_range"?"#B05A35":"#3A3D6A"}},
+            askingStatus==="within_range" ? "✓ Asking price within market range" :
+            askingStatus==="above_range" ? "⚠ Asking price above range" :
+            askingStatus==="below_range" ? "ℹ Asking price below range" : ""
+          ),
+          e("div",{style:{color:"#3A3D6A"}},
+            "Asking: ",e("strong",null,fmt(askingPrice))," (",e("strong",null,"£"+Math.round(askingPrice/siteAcres).toLocaleString()+"/acre"),")",
+            askingStatus==="above_range" ? " · "+Math.round((askingPrice/totalHi-1)*100)+"% above the top of the band for this planning tier. " :
+            askingStatus==="below_range" ? " · "+Math.round((1-askingPrice/totalLo)*100)+"% below the bottom of the band — potential opportunity, verify it's not distressed/encumbered. " :
+            askingStatus==="within_range" ? " · Sits naturally within the expected range for this planning tier. " : "",
+            planTier==="unknown" && askingStatus!=="unknown" ? "However: planning status is unknown, which changes everything. Confirm planning before drawing conclusions." : ""
+          )
+        ),
+
+        // BTR rent / yield secondary metrics (unchanged from before)
+        e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:8}},
+          [{l:at==="pbsa"?"PBSA Rent/wk":"BTR Rent/mo",v:at==="pbsa"?"£"+m.pbsa+"/wk":"£"+m.btr+"/mo",s:benchmarkIsFallback?"UK average":"Market average"},
            {l:"Exit Yield",v:pct(m.yield*100),s:"Institutional target"}].map(function(item){
-            return e("div",{key:item.l,style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,padding:14}},
+            return e("div",{key:item.l,style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,padding:12}},
               e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",marginBottom:5}},item.l),
-              e("div",{style:{fontSize:20,fontWeight:700,color:benchmarkIsFallback&&(item.l.indexOf("Land Value")>=0||item.l.indexOf("Asking")>=0)?"#9A7B3E":"#4A4BAE",marginBottom:3}},item.v),
+              e("div",{style:{fontSize:16,fontWeight:700,color:"#4A4BAE",marginBottom:3}},item.v),
               e("div",{style:{fontSize:10,color:"#7278A0"}},item.s)
             );
           })
         )
       ),
       e(AIPanel,{user:user,up:up,stage:"land",data:data,persistKey:"land_analyse_site",label:"Analyse Site",
-        prompt:"Evaluate this "+at.toUpperCase()+" development site in "+cityName(city)+". Location score: "+score+"/100. Asking: "+fmt(askingPrice)+", market benchmark: "+fmt(benchmark)+". Site: "+(l.acres||"?")+" acres, contamination: "+(l.contamination||"unknown")+", tenure: "+(l.tenure||"unknown")+". Provide: 1) Strengths and red flags, 2) Land value vs market assessment, 3) DD priorities in order, 4) Go/No-Go with conditions, 5) Negotiation strategy and opening bid recommendation."}),
+        prompt:"You are evaluating a "+at.toUpperCase()+" development site in "+cityName(city)+" for Cassidy Group (UK developer).\n\n"+
+          "SITE FACTS (only treat as known what is stated; refuse to invent missing values):\n"+
+          "- Location: "+cityName(city)+(l.postcode?", postcode "+l.postcode:"")+"\n"+
+          "- Site size: "+(acresVal?acresVal+" acres":"NOT STATED")+"\n"+
+          "- Asking price: "+(askingPrice>0?fmt(askingPrice)+" ("+(acresVal?"£"+Math.round(askingPrice/acresVal).toLocaleString()+"/acre":"acreage unknown so £/acre unknown")+")":"NOT STATED")+"\n"+
+          "- Tenure: "+(l.tenure||"NOT STATED")+"\n"+
+          "- Contamination: "+(l.contamination||"NOT STATED")+"\n"+
+          "- Planning status: "+(planStatusRaw||"NOT STATED — this is critical, see warning below")+"\n"+
+          "- Planning constraint: "+(l.constraint||"NOT STATED")+"\n"+
+          "- Location score (Landform): "+score+"/100\n\n"+
+          "LANDFORM'S ACREAGE & PLANNING-AWARE BENCHMARK (use these, not your own estimates):\n"+
+          "- Planning tier classified as: "+tierInfo.label+"\n"+
+          "- Per-acre range for this tier: £"+Math.round(perAcreLo).toLocaleString()+" (low) to £"+Math.round(perAcreHi).toLocaleString()+" (high), midpoint £"+Math.round(perAcreMid).toLocaleString()+"\n"+
+          "- Total site value range at "+siteAcres.toFixed(1)+" acres: "+fmt(totalLo)+" to "+fmt(totalHi)+", midpoint "+fmt(totalMid)+"\n"+
+          "- Asking vs range: "+(askingStatus==="within_range"?"WITHIN the band — reasonable":askingStatus==="above_range"?"ABOVE the band by "+Math.round((askingPrice/totalHi-1)*100)+"%":askingStatus==="below_range"?"BELOW the band by "+Math.round((1-askingPrice/totalLo)*100)+"%":"asking price not stated")+"\n\n"+
+          "CRITICAL GROUNDING RULES:\n"+
+          "1. DO NOT invent unit counts, GDV figures, build cost totals, or RLV — none of these have been entered yet.\n"+
+          "2. IF planning status is NOT STATED, your top recommendation must be 'confirm planning status before further analysis' — DO NOT issue a confident no-go or go.\n"+
+          "3. Compare asking price to the £/acre range above, NOT to a single midpoint. The range is wide on purpose.\n"+
+          "4. If the asking sits within the band given the planning tier, that is NOT a red flag. State so plainly.\n"+
+          "5. Use specific UK figures from BCIS / Land Registry / industry sources only where they are genuinely known UK norms. Do not fabricate."+(acresVal?"":"\n6. The site acreage is unknown — flag this as a top DD priority before any value-per-acre discussion.")+"\n\n"+
+          "Provide:\n"+
+          "1. Strengths and red flags (only those supported by the facts stated above)\n"+
+          "2. Land value vs market assessment (using the per-acre band, with planning tier as the key variable)\n"+
+          "3. DD priorities in order (planning status first if unknown)\n"+
+          "4. Go/No-Go with explicit conditions — and 'CANNOT DETERMINE without planning status' if that's the honest answer\n"+
+          "5. Negotiation strategy framed in terms of the £/acre band and planning-contingent valuations"}),
 
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Local Plan Explorer"),
@@ -15244,7 +15744,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
             e("span",{style:{width:18,height:2,background:"#2E2F8A",display:"block",borderRadius:2}})
           ),
           e("div",{className:"lf-stage-mobile-title",style:{fontSize:isMobile?14:15,fontWeight:700,color:"#2E2F8A",whiteSpace:"nowrap"}},curStage.label),
-          e("div",{title:"Build v9.11 — Full UK market data: 600+ postcodes, 280+ cities/towns",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v9.11"),
+          e("div",{title:"Build v9.14 — Save As New Deal (duplicate for testing alternative scheme types / scenarios on same site)",style:{fontSize:9,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"2px 6px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0}},"v9.14"),
           !isMobile&&e("div",{style:{fontSize:11,color:"#7278A0",marginLeft:6}},at.toUpperCase()+" · "+cityName(city))
         ),
 
@@ -15283,9 +15783,14 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
             style:{padding:isMobile?"8px 10px":"6px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#B05A35",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
             isMobile?"🖨":"🖨 Report"
           ),
-          e("button",{key:"save",onClick:saveDeal,title:"Save Deal",
+          e("button",{key:"save",onClick:saveDeal,title:"Save Deal — updates the current deal in place",
             style:{padding:isMobile?"8px 10px":"6px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#3A3D6A",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
             isMobile?"💾":"💾 Save Deal"
+          ),
+          // Save As — creates a duplicate with a new name (e.g. for testing different schemes on same site)
+          e("button",{key:"saveas",onClick:saveDealAs,title:"Save as new deal — duplicates current deal under a new name (e.g. test SFH vs PBSA on same site)",
+            style:{padding:isMobile?"8px 10px":"6px 12px",background:"#F4F5FB",border:"1px solid #C5C8E0",color:"#4A4BAE",borderRadius:5,fontSize:isMobile?14:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
+            isMobile?"🔀":"🔀 Save As"
           ),
           e("button",{key:"new",onClick:clearDeal,title:"New Deal — clears current data",
             style:{padding:isMobile?"8px 10px":"6px 12px",background:"#FFF5F0",border:"1px solid #E8C4B0",color:"#B05A35",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
