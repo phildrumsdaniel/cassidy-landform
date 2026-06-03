@@ -218,8 +218,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.38";
+var CURRENT_VERSION = "9.39";
 var VERSION_HISTORY = [
+  {v:"9.39", date:"Jun 2026", headline:"Capitalisation Pin + Drift Detection (Option C stabilisation work)",
+   affectsCalc:false,
+   changes:["Phil chose Option C: stabilise rather than refactor. Finishing Pin coverage across stages.","Capitalisation now has same Pin + drift pattern as RLV (v9.36)","Pin tracks: SFH plot total, market rent baseline, target yield, SFH mix hash (rows/routes)","If any of these drift after pinning, amber banner shows what changed with Re-sync / Keep / Unpin actions","Empty Cap fields get a 'Pin to current values' button to lock them in one click","Same UX as RLV so workflow is consistent across stages"]},
   {v:"9.38", date:"Jun 2026", headline:"Capitalisation bedroom mix: drift detection + scheme-purpose note",
    affectsCalc:false,
    changes:["Phil reported Capitalisation showing 70 units when SFH has 200 — the bedroom mix had stale saved values from when the SFH mix was smaller","Fixed bedroom classifier to handle 5-bed, executive variants, apartments — previously some house types fell to 2-bed default","Drift warning banner: if Cap bedroom totals don't match SFH House Mix, shows discrepancy + 'Sync from SFH' button","Scheme-purpose banner: clarifies that bedroom mix + yield calc is for retained PRS units only","For SFH schemes with no retained_prs route, the banner now says: 'This section is informational only — the Multi-Route Exit Value card above is your primary GDV'","If retained_prs > 0, green banner confirms it's correctly capitalising the retained portion"]},
@@ -8259,6 +8262,174 @@ var JOURNEYS = {
         )
       ),
       LiveMarketBanner(),
+
+      // ── v9.39 — CAPITALISATION PIN + DRIFT ─────────────────────────────────
+      // Same pattern as v9.36 RLV. Capitalisation has cascading dependencies:
+      // - SFH mix totals drive bedroom mix
+      // - Market rents from postcode/city drive base1bed
+      // - Target yield can be modified by scenario apply (yieldAdj)
+      // When pinned, snapshot tracks these. On drift, banner offers Re-sync / Keep / Unpin.
+      (function(){
+        // What can be pinned in Cap: rents, yield, deductions, bedroom mix
+        var emptyFields = [];
+        if(!num(cap.rent1)) emptyFields.push({k:"rent1", v:rent1, label:"1-bed rent £/mo"});
+        if(!num(cap.rent2)) emptyFields.push({k:"rent2", v:rent2, label:"2-bed rent £/mo"});
+        if(!num(cap.rent3)) emptyFields.push({k:"rent3", v:rent3, label:"3-bed rent £/mo"});
+        if(!num(cap.rent4)) emptyFields.push({k:"rent4", v:rent4, label:"4-bed rent £/mo"});
+        if(cap.beds1===undefined) emptyFields.push({k:"beds1", v:defaultMix[1], label:"1-bed units"});
+        if(cap.beds2===undefined) emptyFields.push({k:"beds2", v:defaultMix[2], label:"2-bed units"});
+        if(cap.beds3===undefined) emptyFields.push({k:"beds3", v:defaultMix[3], label:"3-bed units"});
+        if(cap.beds4===undefined) emptyFields.push({k:"beds4", v:(defaultMix[4]+(defaultMix[5]||0)), label:"4-bed units"});
+
+        // Drift check (only if pinned)
+        var drift = [];
+        if(cap._pinnedAt && cap._pinnedSnapshot){
+          var snap = cap._pinnedSnapshot;
+          var nowSfhTotal = defaultMixTotal;
+          var nowRentBase = rentMonthly1bed;
+          var nowTargetYield = num(cap.targetYield) || 0.045;
+          var nowSfhMixHash = sfhMix.map(function(r){return (r.type||"")+":"+(r.count||0)+":"+(r.tenure||"");}).join("|");
+
+          if(snap.sfh_total && nowSfhTotal && Math.abs(snap.sfh_total - nowSfhTotal) > 1)
+            drift.push({field:"SFH plot total", was:snap.sfh_total, now:nowSfhTotal});
+          if(snap.rent_base && nowRentBase && Math.abs(snap.rent_base - nowRentBase) > 5)
+            drift.push({field:"1-bed market rent", was:"£"+snap.rent_base, now:"£"+nowRentBase});
+          if(snap.target_yield && Math.abs(snap.target_yield - nowTargetYield) > 0.001)
+            drift.push({field:"Target yield", was:(snap.target_yield*100).toFixed(2)+"%", now:(nowTargetYield*100).toFixed(2)+"%"});
+          if(snap.sfh_mix_hash && snap.sfh_mix_hash !== nowSfhMixHash)
+            drift.push({field:"SFH House Mix (rows or routes changed)", was:"earlier", now:"different"});
+        }
+
+        // CASE 1: Drift detected on pinned Cap
+        if(drift.length > 0){
+          return e("div",{style:{padding:"12px 14px",background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.4)",borderRadius:8,marginBottom:14}},
+            e("div",{style:{marginBottom:10}},
+              e("div",{style:{fontSize:11,fontWeight:800,color:"#B05A35",letterSpacing:".05em",textTransform:"uppercase",marginBottom:6}},
+                "⚠ Upstream changed since Capitalisation was pinned"
+              ),
+              e("div",{style:{fontSize:11,color:"#3A3D6A",lineHeight:1.6}},
+                "Pinned ",new Date(cap._pinnedAt).toLocaleString("en-GB"),". ",
+                e("strong",null,drift.length+" upstream value"+(drift.length>1?"s have":" has")+" changed."),
+                " Decide whether to keep pinned values or re-sync."
+              )
+            ),
+            e("div",{style:{padding:"8px 10px",background:"#fff",borderRadius:5,border:"1px solid #F0DACA",marginBottom:10}},
+              drift.map(function(d, i){
+                return e("div",{key:i,style:{display:"grid",gridTemplateColumns:"1.4fr 90px 90px",fontSize:10,padding:"4px 0",borderBottom:i<drift.length-1?"1px solid #F8F1E8":"none",gap:8,alignItems:"center"}},
+                  e("span",{style:{color:"#3A3D6A",fontWeight:600}},d.field),
+                  e("span",{style:{color:"#7278A0"}},"was: ",e("strong",null,String(d.was))),
+                  e("span",{style:{color:"#B05A35"}},"now: ",e("strong",null,String(d.now)))
+                );
+              })
+            ),
+            e("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+              e("button",{
+                onClick:function(){
+                  if(!window.confirm("Re-sync Cap: clear pinned bedroom/rent/yield values so they recompute from current upstream?")) return;
+                  setData(function(prev){
+                    var capNext = Object.assign({},prev.capitalise||{});
+                    delete capNext.rent1; delete capNext.rent2; delete capNext.rent3; delete capNext.rent4;
+                    delete capNext.beds1; delete capNext.beds2; delete capNext.beds3; delete capNext.beds4;
+                    delete capNext._pinnedAt; delete capNext._pinnedSnapshot;
+                    return Object.assign({},prev,{capitalise:capNext});
+                  });
+                },
+                style:{padding:"7px 14px",background:"#B05A35",border:"none",color:"#fff",borderRadius:5,fontSize:10,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+              },"Re-sync to current →"),
+              e("button",{
+                onClick:function(){
+                  if(!window.confirm("Keep pinned Cap values? Snapshot refreshes to today, warning clears.")) return;
+                  setData(function(prev){
+                    var capNext = Object.assign({},prev.capitalise||{});
+                    capNext._pinnedSnapshot = {
+                      sfh_total: defaultMixTotal,
+                      rent_base: rentMonthly1bed,
+                      target_yield: num(prev.capitalise&&prev.capitalise.targetYield)||0.045,
+                      sfh_mix_hash: sfhMix.map(function(r){return (r.type||"")+":"+(r.count||0)+":"+(r.tenure||"");}).join("|")
+                    };
+                    capNext._pinnedAt = new Date().toISOString();
+                    return Object.assign({},prev,{capitalise:capNext});
+                  });
+                },
+                style:{padding:"7px 14px",background:"transparent",border:"1px solid #B05A35",color:"#B05A35",borderRadius:5,fontSize:10,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+              },"Keep my values"),
+              e("button",{
+                onClick:function(){
+                  setData(function(prev){
+                    var capNext = Object.assign({},prev.capitalise||{});
+                    delete capNext._pinnedAt; delete capNext._pinnedSnapshot;
+                    return Object.assign({},prev,{capitalise:capNext});
+                  });
+                },
+                style:{padding:"7px 14px",background:"transparent",border:"1px solid #C5C8E0",color:"#7278A0",borderRadius:5,fontSize:10,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+              },"Unpin entirely")
+            )
+          );
+        }
+
+        // CASE 2: Pinned & no drift — small green confirmation
+        if(cap._pinnedAt && cap._pinnedSnapshot){
+          var pinDate = new Date(cap._pinnedAt);
+          var hoursAgo = Math.round((Date.now() - pinDate.getTime()) / 3600000);
+          var timeLabel = hoursAgo < 1 ? "just now" : hoursAgo < 24 ? hoursAgo+"h ago" : Math.round(hoursAgo/24)+"d ago";
+          return e("div",{style:{padding:"10px 14px",background:"rgba(45,122,101,0.06)",border:"1px solid rgba(45,122,101,0.25)",borderRadius:8,marginBottom:14,display:"flex",alignItems:"center",gap:10}},
+            e("span",{style:{fontSize:14}},"🔒"),
+            e("div",{style:{flex:1}},
+              e("div",{style:{fontSize:11,fontWeight:700,color:"#2D7A65"}},"Capitalisation pinned · upstream unchanged"),
+              e("div",{style:{fontSize:10,color:"#7278A0",marginTop:2}},"Pinned "+timeLabel+". SFH totals, market rents, and target yield all match the snapshot.")
+            ),
+            e("button",{
+              onClick:function(){
+                if(!window.confirm("Clear pin? Cap will go back to using live auto-defaults.")) return;
+                setData(function(prev){
+                  var capNext = Object.assign({},prev.capitalise||{});
+                  delete capNext._pinnedAt; delete capNext._pinnedSnapshot;
+                  return Object.assign({},prev,{capitalise:capNext});
+                });
+              },
+              style:{padding:"5px 10px",background:"transparent",border:"1px solid rgba(45,122,101,0.4)",color:"#2D7A65",borderRadius:4,fontSize:9,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+            },"Unpin")
+          );
+        }
+
+        // CASE 3: Not pinned, fields are empty (using auto-defaults) — offer Pin
+        if(emptyFields.length === 0) return null;
+
+        return e("div",{style:{padding:"12px 14px",background:"rgba(154,123,62,0.06)",border:"1px solid rgba(154,123,62,0.3)",borderRadius:8,marginBottom:14}},
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}},
+            e("div",{style:{flex:1,minWidth:240}},
+              e("div",{style:{fontSize:11,fontWeight:800,color:"#9A7B3E",letterSpacing:".05em",textTransform:"uppercase",marginBottom:6}},
+                "⚠ "+emptyFields.length+" Cap field"+(emptyFields.length>1?"s":"")+" using upstream auto-defaults"
+              ),
+              e("div",{style:{fontSize:11,color:"#3A3D6A",lineHeight:1.6,marginBottom:6}},
+                "Bedroom mix derives from SFH, rents from postcode lookup. These will shift if upstream changes. Click 'Pin to current values' to lock them."
+              ),
+              e("div",{style:{fontSize:10,color:"#7278A0",lineHeight:1.5}},
+                "Empty fields: ",emptyFields.slice(0,6).map(function(f){return f.label;}).join(", "),
+                (emptyFields.length>6?" + "+(emptyFields.length-6)+" more":"")
+              )
+            ),
+            e("button",{
+              onClick:function(){
+                if(!window.confirm("Pin all "+emptyFields.length+" empty Cap fields to current auto-default values? After this, changing SFH/Land won't affect Cap.")) return;
+                setData(function(prev){
+                  var capNext = Object.assign({},prev.capitalise||{});
+                  emptyFields.forEach(function(f){ capNext[f.k] = String(f.v); });
+                  capNext._pinnedAt = new Date().toISOString();
+                  capNext._pinnedSnapshot = {
+                    sfh_total: defaultMixTotal,
+                    rent_base: rentMonthly1bed,
+                    target_yield: num(prev.capitalise&&prev.capitalise.targetYield)||0.045,
+                    sfh_mix_hash: sfhMix.map(function(r){return (r.type||"")+":"+(r.count||0)+":"+(r.tenure||"");}).join("|")
+                  };
+                  return Object.assign({},prev,{capitalise:capNext});
+                });
+              },
+              style:{padding:"9px 14px",background:"#9A7B3E",border:"none",color:"#fff",borderRadius:5,fontSize:11,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",flexShrink:0}
+            },"🔒 Pin to current values")
+          )
+        );
+      })(),
 
       // ── v9.30 — MULTI-ROUTE EXIT CAPITALISATION ────────────────────────────
       // Aggregates SFH mix by exit route (private retail / pension / AHP / PRS / First Homes)
