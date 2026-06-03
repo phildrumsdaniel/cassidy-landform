@@ -218,8 +218,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.25";
+var CURRENT_VERSION = "9.26";
 var VERSION_HISTORY = [
+  {v:"9.26", date:"Jun 2026", headline:"RLV sanity checks (zero-profit, low build cost, high £/acre)",
+   affectsCalc:false,
+   changes:["Critical warning when developer profit is exactly 0% — was a real bug surfaced by external audit","Build cost warning when user override is below BCIS lower-quartile benchmark for scheme type","RLV per-acre sanity check: warns >£500k/acre, errors >£750k/acre","Dev profit row in breakdown table now highlighted red when below 15%","Each warning explains the £ impact so user understands why it matters"]},
   {v:"9.25", date:"Jun 2026", headline:"Show/hide password toggle on login screen",
    affectsCalc:false,
    changes:["👁 Eye button in the password field — tap to reveal what you're typing","🙈 Tap again to hide","Helps avoid typos especially on mobile and when registering new accounts"]},
@@ -13191,9 +13194,13 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginTop:12,marginBottom:12}},
             e("div",{style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,padding:14}},
               e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:4}},"GDV Breakdown"),
-              [{l:"Build cost",v:rBc},{l:"Prof fees ("+Math.round(bt.fees*100)+"%)",v:rFees},{l:"Contingency ("+rCont+"%)",v:rContCost},{l:"Finance ("+rFin+"%)",v:rFinCost},{l:"S106/CIL",v:rS106},{l:"Planning fees",v:rPlan},{l:"Dev profit ("+rProfit+"%)",v:rDevProfit}].map(function(row){
-                return e("div",{key:row.l,style:{display:"flex",justifyContent:"space-between",fontSize:11,color:"#7278A0",padding:"3px 0",borderBottom:"1px solid #DDE0ED"}},
-                  e("span",null,row.l),e("span",null,"("+fmt(row.v)+")")
+              [{l:"Build cost",v:rBc},{l:"Prof fees ("+Math.round(bt.fees*100)+"%)",v:rFees},{l:"Contingency ("+rCont+"%)",v:rContCost},{l:"Finance ("+rFin+"%)",v:rFinCost},{l:"S106/CIL",v:rS106},{l:"Planning fees",v:rPlan},{l:"Dev profit ("+rProfit+"%)",v:rDevProfit,warn:rProfit<15}].map(function(row){
+                // v9.26 — Highlight rows that look wrong (e.g. 0% profit)
+                var rowColor = row.warn ? "#B05A35" : "#7278A0";
+                var rowBg = row.warn ? "rgba(176,90,53,0.06)" : "transparent";
+                return e("div",{key:row.l,style:{display:"flex",justifyContent:"space-between",fontSize:11,color:rowColor,padding:"3px 4px",borderBottom:"1px solid #DDE0ED",background:rowBg,fontWeight:row.warn?700:400}},
+                  e("span",null, row.warn ? "⚠ "+row.l : row.l),
+                  e("span",null,"("+fmt(row.v)+")"+(row.warn ? " ← below threshold" : ""))
                 );
               })
             ),
@@ -13497,8 +13504,38 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
               if(dph>80)warnings.push({sev:"warn",msg:"Density of "+Math.round(dph)+" dph is very high for this scheme type — check unit count and site area"});
               if(dph<10&&r.schType&&r.schType.indexOf("apart")<0)warnings.push({sev:"info",msg:"Density of "+Math.round(dph)+" dph is low — typical SFH is 25–40 dph. Consider whether higher density is achievable"});
             }
-            if(rProfit>0&&rProfit<15)warnings.push({sev:"error",msg:"Developer profit of "+rProfit+"% is below the viability threshold — most lenders require minimum 15–18% on GDV"});
+            // v9.26 — STRONG warning when developer profit is EXACTLY 0%
+            // This was the most serious finding in the ChatGPT audit: profit=0 produces an
+            // RLV that's inflated by ~17.5% of GDV (i.e. tens of millions on a typical scheme).
+            if(rProfit===0){
+              warnings.push({sev:"error",msg:"⚠ CRITICAL: Developer profit is 0% — the RLV calculation is excluding any return for the developer. This artificially inflates the land value by roughly "+fmt(rGdv*0.175)+" (17.5% of GDV). Set profit to 15–22% for a realistic RLV."});
+            } else if(rProfit>0&&rProfit<15){
+              warnings.push({sev:"error",msg:"Developer profit of "+rProfit+"% is below the viability threshold — most lenders require minimum 15–18% on GDV"});
+            }
             if(rProfit>30)warnings.push({sev:"info",msg:"Developer profit of "+rProfit+"% is above typical — majors target 18–22%. A lower target would increase the land value you can offer"});
+
+            // v9.26 — Build cost sanity check vs BCIS lo benchmark for the scheme type
+            // ChatGPT audit flagged build cost £155/sqft as below industry £215+ benchmark.
+            // bt.lo is the BCIS lower-quartile for this scheme type (e.g. 160 for SFH).
+            if(num(r.buildPsf)>0 && bt.lo && rBuild < bt.lo){
+              var deficitPct = Math.round((1 - rBuild/bt.lo) * 100);
+              warnings.push({sev:"error",msg:"Build cost £"+rBuild+"/sqft is "+deficitPct+"% below the BCIS lower benchmark of £"+bt.lo+"/sqft for "+schTypeResolved+". This artificially inflates RLV. Real-world UK build costs are typically £"+bt.lo+"–£"+bt.hi+"/sqft."});
+            }
+            if(num(r.buildPsf)>0 && bt.hi && rBuild > bt.hi*1.2){
+              warnings.push({sev:"info",msg:"Build cost £"+rBuild+"/sqft is above the BCIS upper benchmark of £"+bt.hi+"/sqft. Plausible for constrained urban sites but worth verifying."});
+            }
+
+            // v9.26 — Land value per acre sanity check
+            // ChatGPT audit: RLV of £51.6m / 32 acres = £1.6m/acre is far above typical residential land.
+            // Typical UK with full planning: £200k–£500k/acre. Above £500k/acre needs explaining.
+            if(rRlv>0 && data.land && num(data.land.acres)>0){
+              var rlvPerAcre = rRlv / num(data.land.acres);
+              if(rlvPerAcre > 750000){
+                warnings.push({sev:"error",msg:"RLV per acre of "+fmt(rlvPerAcre)+"/acre is exceptional — typical UK residential land with planning is £200–500k/acre, prime urban up to £750k/acre. Re-check build cost, sale PSF, and developer profit before accepting this number."});
+              } else if(rlvPerAcre > 500000){
+                warnings.push({sev:"info",msg:"RLV per acre of "+fmt(rlvPerAcre)+"/acre is high — prime planning consent territory. Verify build cost and sale PSF are realistic for this market."});
+              }
+            }
             // RLV vs asking price — require asking price >= £10k to avoid divide-by-zero nonsense
             var askingPrice=num(data.land&&data.land.price);
             if(rRlv>0&&askingPrice>=10000&&rRlv<askingPrice*0.7){
