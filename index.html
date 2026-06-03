@@ -218,8 +218,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.36";
+var CURRENT_VERSION = "9.37";
 var VERSION_HISTORY = [
+  {v:"9.37", date:"Jun 2026", headline:"Critical fix: Land Appraisal blank screen (rules-of-hooks violation)",
+   affectsCalc:false,
+   changes:["Reverted v9.35's useEffect inside renderLand — hooks can't be in conditionally-rendered functions, was blanking the page","Back to direct setData pattern but with a 'scraper imported' guard flag so auto-fill fires once per scraper result, doesn't refire on cleared fields","setData call deferred via setTimeout so it doesn't fire during render","Page renders normally again"]},
   {v:"9.36", date:"Jun 2026", headline:"Pin + Drift Detection — never hold stale data silently",
    affectsCalc:false,
    changes:["Phil's insight: pinning alone isn't enough — if upstream changes after pinning, the pinned values become false information","RLV Pin now saves a snapshot of upstream values (SFH base PSF, build PSF, profit %, finance %, S106, postcode, city, planning units, asset type)","On render, the snapshot is compared to current upstream values","If drift detected: amber banner lists each field that's changed (was X → now Y) with three actions","[Re-sync to current] clears the pinned RLV values and rebuilds from current upstream","[Keep my values] refreshes the snapshot to today, acknowledging the changes","[Unpin entirely] removes the pin and goes back to live cascade","If pinned and no drift: small green confirmation 'RLV pinned · upstream unchanged'","Same pattern can be extended to Land Appraisal, Planning, Capitalisation, Fin in v9.37+"]},
@@ -15847,24 +15850,62 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
   function renderLand(){
     var l=data.land||{};
     var sc3=data.scraper&&data.scraper.result||{};
-    // v9.35 — Auto-populate from scraper moved to useEffect to avoid setData-in-render
-    // (was firing on every render whenever a field was empty — could cause "values reappear after I clear them" feel)
-    useEffect(function(){
-      if(!sc3) return;
+    // v9.37 — Reverted the v9.35 useEffect because hooks can't live inside conditionally-rendered
+    // render functions (renderLand is only called when stage==="land"), which blanked the page.
+    // Back to direct setData calls — but with a "scraper imported" timestamp guard so the auto-fill
+    // only fires ONCE per scraper result (won't re-populate fields the user has cleared).
+    if(sc3 && sc3._fetchedAt && data._landScraperImportedFor !== sc3._fetchedAt){
       var updates = {};
-      if(!l.address && sc3.address) updates.address = sc3.address;
-      if(!l.acres && sc3.acreage) updates.acres = sc3.acreage+"";
-      if(!l.price && sc3.askingPrice) updates.price = sc3.askingPrice+"";
-      if(!l.localAuthority && sc3.localAuthority) updates.localAuthority = sc3.localAuthority;
+      var landUpd = {};
+      if(!l.address && sc3.address) landUpd.address = sc3.address;
+      if(!l.acres && sc3.acreage) landUpd.acres = sc3.acreage+"";
+      if(!l.price && sc3.askingPrice) landUpd.price = sc3.askingPrice+"";
+      if(!l.localAuthority && sc3.localAuthority) landUpd.localAuthority = sc3.localAuthority;
       if(!l.city && sc3.city){
-        updates.city = (sc3.city||"").toLowerCase().replace(/\s+/g,"_").replace(/-/g,"_");
+        landUpd.city = (sc3.city||"").toLowerCase().replace(/\s+/g,"_").replace(/-/g,"_");
       }
-      if(Object.keys(updates).length > 0){
-        setData(function(prev){
-          return Object.assign({},prev,{land:Object.assign({},prev.land||{},updates)});
-        });
+      if(Object.keys(landUpd).length > 0){
+        // Defer so we don't setData inside render
+        setTimeout(function(){
+          setData(function(prev){
+            return Object.assign({},prev,{
+              land:Object.assign({},prev.land||{},landUpd),
+              _landScraperImportedFor: sc3._fetchedAt
+            });
+          });
+        }, 0);
+      } else {
+        // No fields to update but still mark as imported
+        setTimeout(function(){
+          setData(function(prev){
+            return Object.assign({},prev,{_landScraperImportedFor: sc3._fetchedAt});
+          });
+        }, 0);
       }
-    }, [sc3.address, sc3.acreage, sc3.askingPrice, sc3.localAuthority, sc3.city]);
+    } else if(sc3 && !sc3._fetchedAt) {
+      // Legacy fallback for scraper results without timestamp — preserve old behaviour
+      // but with one-render-only guard via a flag check
+      var legacyFlag = "_landScrap_"+(sc3.address||"")+"_"+(sc3.acreage||"");
+      if(data[legacyFlag] !== true){
+        var lu = {};
+        if(!l.address && sc3.address) lu.address = sc3.address;
+        if(!l.acres && sc3.acreage) lu.acres = sc3.acreage+"";
+        if(!l.price && sc3.askingPrice) lu.price = sc3.askingPrice+"";
+        if(!l.localAuthority && sc3.localAuthority) lu.localAuthority = sc3.localAuthority;
+        if(!l.city && sc3.city){
+          lu.city = (sc3.city||"").toLowerCase().replace(/\s+/g,"_").replace(/-/g,"_");
+        }
+        if(Object.keys(lu).length > 0){
+          setTimeout(function(){
+            setData(function(prev){
+              var update = {land:Object.assign({},prev.land||{},lu)};
+              update[legacyFlag] = true;
+              return Object.assign({},prev,update);
+            });
+          }, 0);
+        }
+      }
+    }
     var score=0;
     var vm={proximity:{excellent:25,good:15,fair:8,poor:0},transport:{excellent:20,good:12,fair:6,poor:0},contamination:{clean:20,minor:10,major:0,unknown:4},tenure:{freehold:15,long_leasehold:10,short_leasehold:3},constraint:{none:20,minor:12,moderate:6,major:0}};
     Object.keys(vm).forEach(function(k){score+=(vm[k][l[k]]||0);});
