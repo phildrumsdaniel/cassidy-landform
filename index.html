@@ -218,8 +218,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.39";
+var CURRENT_VERSION = "9.40";
 var VERSION_HISTORY = [
+  {v:"9.40", date:"Jun 2026", headline:"CRITICAL: SFH RLV now uses blended GDV + cosmetic fixes",
+   affectsCalc:true,
+   changes:["CRITICAL FIX: SFH Development Appraisal RLV now uses Multi-Route blended GDV instead of full retail GDV. For schemes with AHP routes, this can shift RLV by tens of millions (previously OVERSTATED).","ROUTE_DISCOUNT lifted to module level so SFH and Cap use the same discount table","SFH Income column shows: per-row tenure label, full retail GDV, route discounts deducted, blended realisable","Fixed [object Object] rendering bug in multi-route exit per-route description (string-concat with React element)","Capitalisation headline now scheme-aware: shows Multi-Route blended GDV for SFH multi-tenure, BTR yield value for BTR/PRS schemes","Forward Funding Stack now has clear 'BTR-only — not your scheme' note for SFH multi-tenure deals","Capitalised Value by Buyer Type table also has 'BTR-only sensitivity' note","Phil's audit feedback: this fix addresses the multiple-sources-of-truth issue specifically for GDV"]},
   {v:"9.39", date:"Jun 2026", headline:"Capitalisation Pin + Drift Detection (Option C stabilisation work)",
    affectsCalc:false,
    changes:["Phil chose Option C: stabilise rather than refactor. Finishing Pin coverage across stages.","Capitalisation now has same Pin + drift pattern as RLV (v9.36)","Pin tracks: SFH plot total, market rent baseline, target yield, SFH mix hash (rows/routes)","If any of these drift after pinning, amber banner shows what changed with Re-sync / Keep / Unpin actions","Empty Cap fields get a 'Pin to current values' button to lock them in one click","Same UX as RLV so workflow is consistent across stages"]},
@@ -1513,6 +1516,22 @@ var BUILD_TYPES = {
   "Hotel (3-4 star)":{lo:220,mid:285,hi:380,fees:0.14,plan:18000},
   "Care home":{lo:210,mid:260,hi:330,fees:0.13,plan:12000},
   "Mixed use":{lo:200,mid:240,hi:300,fees:0.13,plan:12000},
+};
+
+// ──────────────────────────────────────────────────────────────────────
+// ROUTE_DISCOUNT (v9.40) — lifted to module level so SFH stage AND Capitalisation
+// both use the same values. Previously this lived inside Cap render only, so the
+// SFH Dev Appraisal was using full retail GDV — overstating residual land value
+// when scheme had AHP routes.
+// ──────────────────────────────────────────────────────────────────────
+var ROUTE_DISCOUNT = {
+  "private":         {pct:1.00, label:"Private retail sale",        col:"#2D7A65", note:"Full Market Value, individual buyers"},
+  "pension":         {pct:0.88, label:"Pension/SFR bulk sale",      col:"#9A7B3E", note:"12% institutional discount for scale + yield-based pricing"},
+  "ahp_social":      {pct:0.55, label:"AHP — Social Rent",          col:"#4A4BAE", note:"55% MV — sold to RP under AHP grant"},
+  "ahp_so":          {pct:0.70, label:"AHP — Shared Ownership",     col:"#4A4BAE", note:"70% MV — first tranche sale to occupier, equity retained"},
+  "ahp_affordable":  {pct:0.60, label:"AHP — Affordable Rent",      col:"#4A4BAE", note:"60% MV — sold to RP at affordable rent valuation"},
+  "first_homes":     {pct:0.70, label:"First Homes",                col:"#4A4BAE", note:"70% MV cap under First Homes scheme (planning policy)"},
+  "retained_prs":    {pct:0.85, label:"Retained PRS (yield-based)", col:"#B05A35", note:"NOTE: SFH Dev Appraisal uses 85% MV approximation. For exact yield-based value, see Capitalisation."}
 };
 
 var HOUSE_TYPES = {
@@ -8249,18 +8268,51 @@ var JOURNEYS = {
 
     return e("div",null,
       // HEADER
-      e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:12}},
-        e("div",null,
-          e("div",{style:{fontSize:11,color:"#7278A0",textTransform:"uppercase",letterSpacing:".12em",fontWeight:700,marginBottom:4}},"Capitalisation Calculator"),
-          e("h2",{style:{fontSize:22,fontWeight:800,color:"#2E2F8A",margin:"0 0 4px"}},"£ Income & Investment Value"),
-          e("p",{style:{fontSize:12,color:"#7278A0",lineHeight:1.7}},"What is the maximum selling price to a pension fund, BTR investor or family office? Set your bedroom mix and rents, then see the capitalised value at every yield.")
-        ),
-        e("div",{style:{textAlign:"right"}},
-          e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:2}},"Capitalised value at "+pct(selYield*100)+" yield"),
-          e("div",{style:{fontSize:28,fontWeight:800,color:"#2D7A65"}},fmt(capValue)),
-          e("div",{style:{fontSize:11,color:"#7278A0"}},fmt(capPerUnit)+" per unit")
-        )
-      ),
+      // v9.40 — Headline now scheme-aware: shows Multi-Route blended GDV for SFH schemes,
+      // BTR yield-based value for BTR/PRS schemes. Previously always showed BTR yield-based,
+      // which was irrelevant for SFH multi-tenure schemes.
+      (function(){
+        var sfhMixHere = (data.sfh && data.sfh.mix) || [];
+        var hasMultiRoute = sfhMixHere.some(function(r){ return r.tenure && r.tenure !== "private" && num(r.count)>0; });
+        var hasPrsRetained = sfhMixHere.some(function(r){ return r.tenure === "retained_prs" && num(r.count)>0; });
+        // For SFH schemes with no retained_prs: headline is the Multi-Route blended GDV
+        // For BTR/PBSA schemes or schemes with retained_prs: headline is BTR yield-based capValue
+        var headlineLabel, headlineValue, headlineSubtext;
+        if(hasMultiRoute && !hasPrsRetained){
+          // Pure SFH multi-tenure — use Multi-Route blended (read from data.cap if previously computed)
+          var mrGdv = num(data.cap && data.cap.multiRouteGdv);
+          if(mrGdv > 0){
+            headlineLabel = "Blended realisable GDV";
+            headlineValue = fmt(mrGdv);
+            headlineSubtext = "Multi-route exit (after AHP/route discounts)";
+          } else {
+            // Multi-route card hasn't computed yet — fall through
+            headlineLabel = "Capitalised value at "+pct(selYield*100)+" yield";
+            headlineValue = fmt(capValue);
+            headlineSubtext = fmt(capPerUnit)+" per unit";
+          }
+        } else {
+          headlineLabel = "Capitalised value at "+pct(selYield*100)+" yield";
+          headlineValue = fmt(capValue);
+          headlineSubtext = fmt(capPerUnit)+" per unit";
+        }
+        return e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:12}},
+          e("div",null,
+            e("div",{style:{fontSize:11,color:"#7278A0",textTransform:"uppercase",letterSpacing:".12em",fontWeight:700,marginBottom:4}},"Capitalisation Calculator"),
+            e("h2",{style:{fontSize:22,fontWeight:800,color:"#2E2F8A",margin:"0 0 4px"}},"£ Income & Investment Value"),
+            e("p",{style:{fontSize:12,color:"#7278A0",lineHeight:1.7}},
+              hasMultiRoute && !hasPrsRetained
+                ? "Multi-tenure SFH scheme — primary GDV is the Multi-Route Exit Value (below). BTR yield-based capitalisation also available for sensitivity."
+                : "What is the maximum selling price to a pension fund, BTR investor or family office? Set your bedroom mix and rents, then see the capitalised value at every yield."
+            )
+          ),
+          e("div",{style:{textAlign:"right"}},
+            e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:2}},headlineLabel),
+            e("div",{style:{fontSize:28,fontWeight:800,color:"#2D7A65"}},headlineValue),
+            e("div",{style:{fontSize:11,color:"#7278A0"}},headlineSubtext)
+          )
+        );
+      })(),
       LiveMarketBanner(),
 
       // ── v9.39 — CAPITALISATION PIN + DRIFT ─────────────────────────────────
@@ -8440,16 +8492,8 @@ var JOURNEYS = {
         var hasExitData = mix.some(function(r){return r.tenure && num(r.count)>0;});
         if(!hasExitData) return null;
 
-        // Route-specific discount table (% of full Market Value realised)
-        var ROUTE_DISCOUNT = {
-          "private":         {pct:1.00, label:"Private retail sale",        col:"#2D7A65", note:"Full Market Value, individual buyers"},
-          "pension":         {pct:0.88, label:"Pension/SFR bulk sale",      col:"#9A7B3E", note:"12% institutional discount for scale + yield-based pricing"},
-          "ahp_social":      {pct:0.55, label:"AHP — Social Rent",          col:"#4A4BAE", note:"55% MV — sold to RP under AHP grant"},
-          "ahp_so":          {pct:0.70, label:"AHP — Shared Ownership",     col:"#4A4BAE", note:"70% MV — first tranche sale to occupier, equity retained"},
-          "ahp_affordable":  {pct:0.60, label:"AHP — Affordable Rent",      col:"#4A4BAE", note:"60% MV — sold to RP at affordable rent valuation"},
-          "first_homes":     {pct:0.70, label:"First Homes",                col:"#4A4BAE", note:"70% MV cap under First Homes scheme (planning policy)"},
-          "retained_prs":    {pct:0,    label:"Retained PRS (yield-based)", col:"#B05A35", note:"Not sold — capitalised on rental yield (cap.targetYield)"}
-        };
+        // Route-specific discount table — v9.40: now defined at module level so SFH stage uses the same values.
+        // Cap render's retained_prs is handled separately by yield calc below (line ~8503 skips it).
 
         // Aggregate by tenure
         var byRoute = {};
@@ -8568,9 +8612,10 @@ var JOURNEYS = {
               e("div",null,
                 e("div",{style:{fontSize:11,fontWeight:700,color:rd.col}},rd.label),
                 e("div",{style:{fontSize:9,color:"#7278A0",marginTop:2}},rd.note),
-                // v9.33 — Profit breakdown line
+                // v9.33 / v9.40 — Profit breakdown line
+                // Fixed v9.40: removed string concatenation with React element which rendered as [object Object]
                 e("div",{style:{fontSize:9,color:profitCol,marginTop:4,fontWeight:600,lineHeight:1.5}},
-                  "Build £"+fmtCompact(r.buildCost)+" · Fees+S106+roads £"+fmtCompact(r.fees+r.s106+r.roads+r.contingency)+" · Finance £"+fmtCompact(r.financeCost)+
+                  "Build £"+fmtCompact(r.buildCost)+" · Fees+S106+roads £"+fmtCompact(r.fees+r.s106+r.roads+r.contingency)+" · Finance £"+fmtCompact(r.financeCost),
                   e("br",null),
                   e("span",{style:{fontWeight:800,color:profitCol}},"Profit "+(r.profit<0?"−":"")+"£"+fmtCompact(Math.abs(r.profit))+" · Margin "+Math.round(r.marginPct)+"%")
                 ),
@@ -8862,6 +8907,21 @@ var JOURNEYS = {
       // ── BUYER TYPE YIELD TABLE ─────────────────────────────────────────────
       e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",marginBottom:14}},
         e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:14}},"Capitalised Value by Buyer Type — What Each Would Pay"),
+        // v9.40 — BTR-only note for SFH multi-tenure schemes
+        (function(){
+          var sfhMixHere = (data.sfh && data.sfh.mix) || [];
+          var hasMulti = sfhMixHere.some(function(r){ return r.tenure && r.tenure !== "private" && num(r.count)>0; });
+          var hasPrs = sfhMixHere.some(function(r){ return r.tenure === "retained_prs" && num(r.count)>0; });
+          if(hasMulti && !hasPrs){
+            return e("div",{style:{padding:"10px 12px",background:"rgba(74,75,174,0.06)",borderLeft:"3px solid #4A4BAE",borderRadius:4,fontSize:11,color:"#3A3D6A",lineHeight:1.6,marginBottom:14}},
+              e("strong",{style:{color:"#2E2F8A"}},"ℹ Note: BTR-only sensitivity. "),
+              "This table assumes the whole scheme is sold to a single institutional buyer at one yield. ",
+              e("strong",null,"Your scheme exits via Private retail / AHP routes — not bulk institutional sale."),
+              " The Multi-Route Exit Value card above (and the SFH Development Appraisal) are the relevant GDV figures. This table is informational only."
+            );
+          }
+          return null;
+        })(),
         yieldTable.map(function(row,ri){
           var isBest=ri===0;
           var barW=yieldTable[0].baseVal>0?row.baseVal/yieldTable[0].baseVal*100:50;
@@ -8935,6 +8995,24 @@ var JOURNEYS = {
         var worstStack = stackByBuyer[stackByBuyer.length-1];
 
         return e("div",{style:{background:"linear-gradient(135deg,#F8F8FE 0%,#F0F1FA 100%)",border:"2px solid #2D7A65",borderRadius:10,padding:"20px 22px",marginBottom:14}},
+
+          // v9.40 — BTR-only note for SFH multi-tenure schemes
+          (function(){
+            var sfhMixHere = (data.sfh && data.sfh.mix) || [];
+            var hasMulti = sfhMixHere.some(function(r){ return r.tenure && r.tenure !== "private" && num(r.count)>0; });
+            var hasPrs = sfhMixHere.some(function(r){ return r.tenure === "retained_prs" && num(r.count)>0; });
+            if(hasMulti && !hasPrs){
+              return e("div",{style:{padding:"10px 12px",background:"rgba(74,75,174,0.08)",borderLeft:"3px solid #4A4BAE",borderRadius:4,fontSize:11,color:"#3A3D6A",lineHeight:1.6,marginBottom:14}},
+                e("strong",{style:{color:"#2E2F8A"}},"ℹ Note: BTR-only stack. "),
+                "This Forward Funding waterfall assumes the whole scheme exits to a single institutional buyer at the target yield. ",
+                e("strong",null,"Your scheme has Private retail + AHP routes — not bulk institutional sale."),
+                " For your actual RLV, refer to the ",
+                e("strong",null,"SFH Development Appraisal at the bottom of the SFH House Mix page"),
+                " — that uses your real Multi-Route blended GDV."
+              );
+            }
+            return null;
+          })(),
 
           // Header with verdict
           e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16,flexWrap:"wrap",gap:12}},
@@ -14858,11 +14936,21 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
       var unitPrice=num(row.unitPrice||0);
       var sp=unitPrice&&rowSqft?unitPrice/rowSqft:(num(row.psf)||(basePsf*(info.adj||1)));
       var beds=numOr(row.beds, info.beds||3);
-      return{type:row.type,beds:beds,count:cnt,sqft:rowSqft,sp:sp,unitPrice:unitPrice||rowSqft*sp,totalGdv:rowSqft*sp*cnt,build:rowSqft*sBuild*cnt};
+      // v9.40 — Include tenure so we can compute blended GDV with route discounts
+      var tenure=row.tenure||"private";
+      var routeDisc=(ROUTE_DISCOUNT[tenure]||ROUTE_DISCOUNT.private).pct;
+      var rowRetailGdv=rowSqft*sp*cnt;
+      var rowBlendedGdv=rowRetailGdv*routeDisc;
+      return{type:row.type,beds:beds,count:cnt,sqft:rowSqft,sp:sp,unitPrice:unitPrice||rowSqft*sp,tenure:tenure,routeDisc:routeDisc,totalGdv:rowRetailGdv,blendedGdv:rowBlendedGdv,build:rowSqft*sBuild*cnt};
     }).filter(Boolean);
 
     var totalUnits=houseCalcs.reduce(function(a,h){return a+h.count;},0);
-    var totalGdv=houseCalcs.reduce(function(a,h){return a+h.totalGdv;},0);
+    var retailGdv=houseCalcs.reduce(function(a,h){return a+h.totalGdv;},0);  // full retail (was: totalGdv)
+    var blendedGdv=houseCalcs.reduce(function(a,h){return a+h.blendedGdv;},0);  // v9.40 — after route discounts
+    var hasNonPrivateRoutes=houseCalcs.some(function(h){return h.tenure && h.tenure !== "private";});
+    // v9.40 — Use blended GDV for RLV calc when scheme has AHP/pension/etc routes
+    // CRITICAL: previously used retail GDV which overstated RLV by tens of £m for multi-tenure schemes
+    var totalGdv = hasNonPrivateRoutes ? blendedGdv : retailGdv;
     var totalBuild=houseCalcs.reduce(function(a,h){return a+h.build;},0);
     var fees=totalBuild*0.10; var contCost=totalBuild*(sCont/100);
     var finCost=(totalBuild+fees)*(sFin/100);
@@ -15105,11 +15193,22 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
               e("div",{style:{fontSize:9,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,marginBottom:10}},"INCOME"),
               houseCalcs.map(function(h){
                 return e("div",{key:h.type,style:{display:"flex",justifyContent:"space-between",fontSize:12,color:"#7278A0",padding:"4px 0",borderBottom:"1px solid #F0F0F0"}},
-                  e("span",null,h.count+"× "+h.type),e("span",null,fmt(h.totalGdv))
+                  e("span",null,h.count+"× "+h.type+(h.tenure&&h.tenure!=="private"?" ("+(ROUTE_DISCOUNT[h.tenure]||{}).label+")":"")),
+                  e("span",null,fmt(hasNonPrivateRoutes?h.blendedGdv:h.totalGdv))
                 );
               }),
+              // v9.40 — Show both retail and blended when non-private routes exist
+              hasNonPrivateRoutes && e("div",{style:{display:"flex",justifyContent:"space-between",fontSize:11,color:"#7278A0",padding:"6px 0 2px",fontStyle:"italic"}},
+                e("span",null,"Full retail (if all sold private)"),
+                e("span",null,fmt(retailGdv))
+              ),
+              hasNonPrivateRoutes && e("div",{style:{display:"flex",justifyContent:"space-between",fontSize:11,color:"#B05A35",padding:"2px 0",fontWeight:600}},
+                e("span",null,"− AHP/route discounts"),
+                e("span",null,"−"+fmt(retailGdv-blendedGdv))
+              ),
               e("div",{style:{display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:700,color:"#2E2F8A",padding:"8px 0",borderTop:"1px solid #DDE0ED",marginTop:4}},
-                e("span",null,"Total GDV ("+totalUnits+" plots)"),e("span",null,fmt(totalGdv))
+                e("span",null,hasNonPrivateRoutes?"Blended Realisable GDV":"Total GDV"+" ("+totalUnits+" plots)"),
+                e("span",null,fmt(totalGdv))
               )
             ),
             e("div",null,
