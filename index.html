@@ -218,8 +218,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.31";
+var CURRENT_VERSION = "9.32";
 var VERSION_HISTORY = [
+  {v:"9.32", date:"Jun 2026", headline:"Tenure Mix page no longer resets on revisit",
+   affectsCalc:false,
+   changes:["Removed setData-in-render anti-pattern on Tenure Mix (was causing constant re-render churn)","Fixed falsy-zero bug on header inputs — user-entered 0 no longer falls through to SFH default","Header fields now persist independently — once you type a value, it stays even when SFH changes","Added provenance note explaining which fields auto-fill from SFH","Other stages now compute blended GDV on-read instead of relying on stale data.tenure.blendedGdv"]},
   {v:"9.31", date:"Jun 2026", headline:"Stage Relevance indicator + 'What's incomplete' dashboard checklist",
    affectsCalc:false,
    changes:["Every stage in the sidebar now shows a small badge: REQ (required) / REC (recommended) / N/A (not applicable)","Context-aware: pension/PRS routes in SFH → Capitalisation becomes REQUIRED; AHP routes → Grants becomes REQUIRED; 2+ exit routes → Tenure Mix becomes REQUIRED","Completed required stages show ✓ instead of REQ in the sidebar","Dashboard has a new 'What you still need to fill' panel showing only the stages you actually need for your journey","Clicking any incomplete stage in the checklist jumps you straight there","Once all required stages are filled, panel turns green: 'All required stages complete'"]},
@@ -11806,10 +11809,13 @@ var JOURNEYS = {
     var pureMarketGdv = totalSchemeUnits * omsUnitPrice;
     var tenureDiscount = pureMarketGdv > 0 ? (1 - blendedGdv/pureMarketGdv) * 100 : 0;
 
-    // Write back the master blended GDV so other stages pick it up
-    if(blendedGdv > 0 && Math.abs(blendedGdv - num(t.blendedGdv)) > 100){
-      upt("blendedGdv", Math.round(blendedGdv));
-    }
+    // v9.32 — Removed the auto-writeback of blendedGdv that ran on every render.
+    // That pattern caused: each render triggered setData(blendedGdv) → re-render
+    // → recomputed blendedGdv with subtle floating-point differences → wrote
+    // again → infinite churn. Other stages that need the blended GDV should
+    // compute it on read using TENURE_TYPES + data.tenure.mix, NOT read
+    // data.tenure.blendedGdv (which is now stale/intentionally not maintained).
+    // The user's input fields persist normally via their own onChange handlers.
 
     // Styles
     var ipt = {width:"100%",padding:"8px 10px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:12,fontFamily:"DM Sans,sans-serif",color:"#2E2F8A",background:"#fff"};
@@ -11832,22 +11838,28 @@ var JOURNEYS = {
 
       // Scheme totals + input toggle
       e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:18,marginBottom:14}},
+        // v9.32 — Provenance note so user understands these defaults are SFH-derived
+        e("div",{style:{fontSize:10,color:"#7278A0",marginBottom:10,lineHeight:1.5,padding:"8px 10px",background:"#F8F9FC",borderLeft:"3px solid #4A4BAE",borderRadius:4}},
+          e("strong",{style:{color:"#3A3D6A"}},"Auto-filled from SFH where empty. "),
+          "Edit any field to override — your input is saved per-field. The fields below default from SFH House Mix on first visit; once you type a value here it persists independently."
+        ),
         e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:12,marginBottom:14}},
           e("div",null,
             e("label",{style:lbl},"Total scheme units"),
-            e("input",{type:"number",value:t.totalUnits||totalSchemeUnits||"",onChange:function(ev){upt("totalUnits",ev.target.value);},placeholder:"e.g. 100",style:ipt})
+            // v9.32 — Use explicit undefined check so user-entered 0 doesn't fall through to SFH default
+            e("input",{type:"number",value:(t.totalUnits!==undefined&&t.totalUnits!=="")?t.totalUnits:(totalSchemeUnits||""),onChange:function(ev){upt("totalUnits",ev.target.value);},placeholder:String(totalSchemeUnits||"e.g. 100"),style:ipt})
           ),
           e("div",null,
             e("label",{style:lbl},"Avg unit sqft"),
-            e("input",{type:"number",value:t.avgSqft||avgSqft||"",onChange:function(ev){upt("avgSqft",ev.target.value);},placeholder:"900",style:ipt})
+            e("input",{type:"number",value:(t.avgSqft!==undefined&&t.avgSqft!=="")?t.avgSqft:(avgSqft||""),onChange:function(ev){upt("avgSqft",ev.target.value);},placeholder:String(avgSqft||"900"),style:ipt})
           ),
           e("div",null,
             e("label",{style:lbl},"Open Market PSF (£)"),
-            e("input",{type:"number",value:t.basePsf||basePsf||"",onChange:function(ev){upt("basePsf",ev.target.value);},placeholder:"350",style:ipt})
+            e("input",{type:"number",value:(t.basePsf!==undefined&&t.basePsf!=="")?t.basePsf:(basePsf||""),onChange:function(ev){upt("basePsf",ev.target.value);},placeholder:String(basePsf||"350"),style:ipt})
           ),
           e("div",null,
             e("label",{style:lbl},"OMS unit price (calculated)"),
-            e("input",{type:"number",value:t.omsUnitPrice||Math.round(omsUnitPrice)||"",onChange:function(ev){upt("omsUnitPrice",ev.target.value);},placeholder:"315000",style:ipt})
+            e("input",{type:"number",value:(t.omsUnitPrice!==undefined&&t.omsUnitPrice!=="")?t.omsUnitPrice:Math.round(omsUnitPrice)||"",onChange:function(ev){upt("omsUnitPrice",ev.target.value);},placeholder:String(Math.round(omsUnitPrice)||"315000"),style:ipt})
           )
         ),
         // Mode toggle
