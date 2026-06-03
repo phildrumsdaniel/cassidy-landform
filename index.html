@@ -218,8 +218,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.27";
+var CURRENT_VERSION = "9.28";
 var VERSION_HISTORY = [
+  {v:"9.28", date:"Jun 2026", headline:"New-build PSF premium for new developments",
+   affectsCalc:true,
+   changes:["Sale £/sqft now applies a regional new-build premium when scheme is SFH/BTR/PBSA","Land Registry weighted average is for ALL housing stock — wrong baseline for new builds","Premium ranges from 10% (NI/Scotland rural) to 25% (London/prime commuter belt)","Both figures shown transparently: 'New-build estimate £363 (Land Registry £297 + 22% premium)'","SFH House Mix, RLV stage, and LiveMarketBanner all updated"]},
   {v:"9.27", date:"Jun 2026", headline:"In-app Share button (no more Google Sheets editing)",
    affectsCalc:false,
    changes:["👥 Share button on every deal card you own or can edit","Modal shows every registered Cassidy user with Can-view / Can-edit checkboxes","Owner always has full access (shown as ✓ — not editable)","Editor toggle implies viewer (editors can also view)","Saves directly to Access sheet — no manual Sheets editing","Backend: new endpoints list_users, get_access, update_access"]},
@@ -1951,6 +1954,71 @@ function lookupPostcode(pc){
   return null;
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// NEW-BUILD PREMIUM (v9.28)
+// Land Registry returns a weighted average across ALL housing stock — including
+// 100-year-old terraces and mid-century semis. For NEW-BUILD development
+// viability, you need the new-build comparable price, which carries a premium
+// for: EPC A/B rating, NHBC warranty, modern layouts, no chain, lower running
+// costs. Source: Savills/Knight Frank/JLL annual new-build premium reports.
+// ──────────────────────────────────────────────────────────────────────────
+var NEW_BUILD_PREMIUM = {
+  // London + prime commuter belt — highest premium
+  "EC":0.25,"WC":0.25,"E ":0.22,"N ":0.22,"NW":0.22,"SE":0.22,"SW":0.22,"W ":0.22,
+  // South East
+  "TW":0.22,"KT":0.22,"SM":0.20,"CR":0.20,"BR":0.20,"DA":0.20,"RM":0.18,"IG":0.18,
+  "EN":0.20,"HA":0.20,"UB":0.20,"WD":0.22,"AL":0.22,"HP":0.22,"SL":0.22,
+  // Home Counties + commuter
+  "GU":0.20,"RG":0.20,"OX":0.20,"MK":0.18,"LU":0.18,"SG":0.20,"CM":0.20,"SS":0.18,
+  "CO":0.18,"IP":0.16,"NR":0.16,"PE":0.16,"CB":0.20,"CT":0.18,"ME":0.18,"TN":0.20,
+  "BN":0.20,"PO":0.18,"RH":0.20,"SO":0.18,"BH":0.18,"DT":0.16,"BA":0.16,"SP":0.16,
+  // South West
+  "EX":0.16,"PL":0.15,"TQ":0.16,"TR":0.16,"TA":0.15,"BS":0.18,"GL":0.18,"NP":0.15,
+  "CF":0.15,"SA":0.13,"LL":0.12,"LD":0.12,"SY":0.13,
+  // Midlands
+  "B ":0.16,"CV":0.16,"WS":0.15,"WV":0.15,"DY":0.15,"NN":0.16,"LE":0.15,"DE":0.15,
+  "NG":0.15,"LN":0.14,"DN":0.14,"S ":0.14,"ST":0.14,"TF":0.14,"WR":0.16,"HR":0.14,
+  // Yorkshire + NE
+  "LS":0.15,"BD":0.13,"WF":0.14,"HD":0.13,"HX":0.13,"HG":0.15,"YO":0.15,"HU":0.13,
+  "DL":0.13,"DH":0.13,"NE":0.14,"SR":0.13,"TS":0.13,
+  // North West
+  "M ":0.18,"BL":0.14,"WN":0.14,"OL":0.14,"SK":0.16,"WA":0.16,"L ":0.16,"PR":0.14,
+  "BB":0.13,"FY":0.13,"LA":0.13,"CA":0.13,"CW":0.15,"CH":0.16,
+  // Scotland
+  "EH":0.16,"G ":0.15,"KA":0.13,"PA":0.13,"ML":0.13,"FK":0.14,"KY":0.13,"DD":0.14,
+  "AB":0.14,"IV":0.12,"PH":0.13,"PA1":0.13,"PA2":0.13,
+  // N Ireland
+  "BT":0.12
+};
+var NEW_BUILD_PREMIUM_DEFAULT = 0.17;  // UK average if region not matched
+
+// Returns the expected NEW BUILD sale £/sqft based on Land Registry baseline
+// + a region-specific premium. Returns {existing, newBuild, premiumPct, source}.
+function newBuildPsf(pc, baseSalePsf){
+  if(!baseSalePsf || baseSalePsf <= 0) return null;
+  var clean = String(pc||"").toUpperCase().replace(/\s/g,"");
+  var premium = NEW_BUILD_PREMIUM_DEFAULT;
+  // Try longer prefixes first for accuracy
+  for(var len=3;len>=1;len--){
+    var key = clean.substring(0,len);
+    // Also try with trailing space for single-letter areas (e.g. "B " for Birmingham)
+    if(NEW_BUILD_PREMIUM[key] !== undefined){ premium = NEW_BUILD_PREMIUM[key]; break; }
+    if(NEW_BUILD_PREMIUM[key+" "] !== undefined){ premium = NEW_BUILD_PREMIUM[key+" "]; break; }
+  }
+  return {
+    existing: Math.round(baseSalePsf),
+    newBuild: Math.round(baseSalePsf * (1 + premium)),
+    premiumPct: Math.round(premium * 100),
+    source: "Land Registry weighted average + regional new-build premium"
+  };
+}
+
+// Returns true if the scheme produces NEW housing stock (vs refurb / existing asset)
+function isNewBuildScheme(assetType){
+  var at = (assetType||"").toLowerCase();
+  return at === "sfh" || at === "btr" || at === "pbsa";
+}
+
 function logEvent(user,event,details){
   try{
     var detailStr=typeof details==="object"?JSON.stringify(details).substring(0,400):String(details).substring(0,400);
@@ -2749,11 +2817,21 @@ var JOURNEYS = {
     if(!num(mkt.lrPsf))return null;
     var ago=mkt.lrUpdatedAt?Math.round((Date.now()-new Date(mkt.lrUpdatedAt).getTime())/60000):0;
     var fresh=ago<60;
+    // v9.28 — Show new-build adjusted PSF for new developments (SFH/BTR/PBSA)
+    var pc = (data.land&&data.land.postcode) || mkt.lrPostcode || "";
+    var nb = isNewBuildScheme(data.assetType) ? newBuildPsf(pc, num(mkt.lrPsf)) : null;
     return e("div",{style:{background:"linear-gradient(135deg,#2D7A65 0%,#2E5F4E 100%)",color:"#fff",borderRadius:8,padding:"10px 14px",marginBottom:14,display:"flex",alignItems:"center",gap:10,fontSize:11,flexWrap:"wrap"}},
       e("span",{style:{fontSize:13}},"📡"),
       e("div",{style:{flex:1,minWidth:200}},
-        e("div",{style:{fontWeight:800,fontSize:12,marginBottom:2}},"Live Land Registry: £"+mkt.lrPsf+"/sqft"),
-        e("div",{style:{opacity:0.9,fontSize:10}},(mkt.lrTotalTx||0)+" sales · "+(mkt.lrSector||mkt.lrPostcode||"area")+" · "+(fresh?"fresh ("+ago+"m ago)":"refresh recommended"))
+        nb ? e("div",null,
+          e("div",{style:{fontWeight:800,fontSize:12,marginBottom:2}},"New-build estimate: £"+nb.newBuild+"/sqft",
+            e("span",{style:{fontWeight:400,opacity:0.85,fontSize:10,marginLeft:8}},"(Land Registry £"+nb.existing+"/sqft + "+nb.premiumPct+"% new-build premium)")
+          ),
+          e("div",{style:{opacity:0.9,fontSize:10}},(mkt.lrTotalTx||0)+" existing-stock sales · "+(mkt.lrSector||mkt.lrPostcode||"area")+" · "+(fresh?"fresh ("+ago+"m ago)":"refresh recommended"))
+        ) : e("div",null,
+          e("div",{style:{fontWeight:800,fontSize:12,marginBottom:2}},"Live Land Registry: £"+mkt.lrPsf+"/sqft"),
+          e("div",{style:{opacity:0.9,fontSize:10}},(mkt.lrTotalTx||0)+" sales · "+(mkt.lrSector||mkt.lrPostcode||"area")+" · "+(fresh?"fresh ("+ago+"m ago)":"refresh recommended"))
+        )
       ),
       e("button",{
         onClick:function(){navTo("rlv");},
@@ -12986,7 +13064,13 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     }
     var bt=BUILD_TYPES[schTypeResolved]||BUILD_TYPES["Residential houses"];
     var rUnits=num(r.units); var rSqft=numOr(r.avgSqft, 850);
-    var rSalePsf=num(r.salePsf)||(pcData&&pcData.salePsf)||(rm.btr*8.5/12)||(m&&m.btr*8.5/12)||260;
+    // v9.28 — Apply new-build premium when scheme is new development (SFH/BTR/PBSA)
+    // Land Registry returns ALL housing stock; for new-build viability we need the
+    // new-build comparable. Show both figures in the input label.
+    var rRawPsf = num(pcData&&pcData.salePsf) || (rm.btr*8.5/12) || (m&&m.btr*8.5/12) || 260;
+    var rNbInfo = isNewBuildScheme(data.assetType) ? newBuildPsf(r.postcode||(data.land&&data.land.postcode)||"", rRawPsf) : null;
+    var rDefaultPsf = rNbInfo ? rNbInfo.newBuild : rRawPsf;
+    var rSalePsf=num(r.salePsf)||rDefaultPsf;
     // v9.15 — use postcode-resolved city's build cost (rm.build) before outer-scope m.build
     // The old code used m.build which is from `(city&&MKT[city])||MKT.manchester` (outer scope),
     // which may not match the postcode the user just entered into RLV.
@@ -13312,7 +13396,12 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
 
         e("div",{style:S.grid2},
           e(Inp,{label:"Avg Unit Size (sqft)",type:"number",value:r.avgSqft,onChange:function(v){up("rlv","avgSqft",v);},placeholder:"850"}),
-          e(Inp,{label:"Sale £/sqft"+(m?" — auto from "+cityName(city)+": £"+Math.round((pcData&&pcData.salePsf)||(m.btr*8.5/12)||260):""),type:"number",value:r.salePsf,onChange:function(v){up("rlv","salePsf",v);},placeholder:"£"+Math.round(rSalePsf)}),
+          e(Inp,{
+            label: rNbInfo
+              ? "Sale £/sqft — new-build estimate £"+rNbInfo.newBuild+" (Land Registry existing £"+rNbInfo.existing+" + "+rNbInfo.premiumPct+"% new-build premium)"
+              : "Sale £/sqft"+(m?" — auto from "+cityName(city)+": £"+Math.round((pcData&&pcData.salePsf)||(m.btr*8.5/12)||260):""),
+            type:"number",value:r.salePsf,onChange:function(v){up("rlv","salePsf",v);},placeholder:"£"+Math.round(rSalePsf)
+          }),
           e(Inp,{label:"Build £/sqft"+(m?" — auto from "+cityName(city)+": £"+m.build+" · BCIS £"+bt.lo+"–£"+bt.hi:" — BCIS £"+bt.lo+"–£"+bt.hi),type:"number",value:r.buildPsf,onChange:function(v){up("rlv","buildPsf",v);},placeholder:"£"+Math.round(rBuild)}),
           e(Inp,{label:"Developer Profit % GDV — UK norm 15-18%",type:"number",value:r.profitPct,onChange:function(v){up("rlv","profitPct",v);},placeholder:"17.5"}),
           e(Inp,{label:"Finance Rate %",type:"number",value:r.finRate,onChange:function(v){up("rlv","finRate",v);},placeholder:"7.5"}),
@@ -13780,7 +13869,11 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
       if(pcPsfVal>0)return {src:"postcode lookup "+sc.toUpperCase(),col:"#4A4BAE"};
       return {src:"city average "+cityName(sfhCity),col:"#9A7B3E"};
     })();
-    var basePsf=num(s.basePsf)||mktPsf;
+    // v9.28 — Apply new-build premium to existing-stock baseline (SFH is always new build)
+    var sfhPc = (data.land&&data.land.postcode) || sfhCity || "";
+    var nbInfo = newBuildPsf(sfhPc, mktPsf);
+    var newBuildPsfEstimate = nbInfo ? nbInfo.newBuild : Math.round(mktPsf * 1.17);  // fallback default
+    var basePsf=num(s.basePsf)||newBuildPsfEstimate;  // default to new-build figure, not existing
     var sBuild=num(s.buildPsf)||(sm&&sm.build)||195;
     var sProfit=numOr(s.profitPct, 17.5);
     var sFin=numOr(s.finRate, 7.5);
@@ -13909,7 +14002,12 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           e(Inp,{label:"Site Area (acres)",type:"number",value:s.acres,onChange:function(v){up("sfh","acres",v);},placeholder:"e.g. 5.0"}),
           e(Inp,{label:"Density (dph)",type:"number",value:s.dph,onChange:function(v){up("sfh","dph",v);},placeholder:"30"}),
           e(Inp,{label:"Affordable Housing %",type:"number",value:s.ahPct,onChange:function(v){up("sfh","ahPct",v);},placeholder:"e.g. 25"}),
-          e(Inp,{label:"Base Sale £/sqft — "+psfSource.src+": £"+Math.round(mktPsf),type:"number",value:s.basePsf,onChange:function(v){up("sfh","basePsf",v);},placeholder:"£"+Math.round(basePsf)}),
+          e(Inp,{
+            label: nbInfo
+              ? "Base Sale £/sqft — new-build estimate £"+nbInfo.newBuild+" (Land Registry existing £"+nbInfo.existing+" + "+nbInfo.premiumPct+"% new-build premium)"
+              : "Base Sale £/sqft — "+psfSource.src+": £"+Math.round(mktPsf),
+            type:"number",value:s.basePsf,onChange:function(v){up("sfh","basePsf",v);},placeholder:"£"+Math.round(basePsf)
+          }),
           e(Inp,{label:"Build £/sqft"+(sm?" — auto from "+cityName(sfhCity)+": £"+sm.build:" — typical £180-250 for houses"),type:"number",value:s.buildPsf,onChange:function(v){up("sfh","buildPsf",v);},placeholder:"£"+Math.round(sBuild)}),
           e(Inp,{label:"Developer Profit % — UK SFH norm 15-17.5%",type:"number",value:s.profitPct,onChange:function(v){up("sfh","profitPct",v);},placeholder:"17.5"}),
           e(Inp,{label:"S106 per Plot (£)",type:"number",value:s.s106pu,onChange:function(v){up("sfh","s106pu",v);},placeholder:"8000"}),
