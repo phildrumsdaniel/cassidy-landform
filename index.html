@@ -218,8 +218,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.37";
+var CURRENT_VERSION = "9.38";
 var VERSION_HISTORY = [
+  {v:"9.38", date:"Jun 2026", headline:"Capitalisation bedroom mix: drift detection + scheme-purpose note",
+   affectsCalc:false,
+   changes:["Phil reported Capitalisation showing 70 units when SFH has 200 — the bedroom mix had stale saved values from when the SFH mix was smaller","Fixed bedroom classifier to handle 5-bed, executive variants, apartments — previously some house types fell to 2-bed default","Drift warning banner: if Cap bedroom totals don't match SFH House Mix, shows discrepancy + 'Sync from SFH' button","Scheme-purpose banner: clarifies that bedroom mix + yield calc is for retained PRS units only","For SFH schemes with no retained_prs route, the banner now says: 'This section is informational only — the Multi-Route Exit Value card above is your primary GDV'","If retained_prs > 0, green banner confirms it's correctly capitalising the retained portion"]},
   {v:"9.37", date:"Jun 2026", headline:"Critical fix: Land Appraisal blank screen (rules-of-hooks violation)",
    affectsCalc:false,
    changes:["Reverted v9.35's useEffect inside renderLand — hooks can't be in conditionally-rendered functions, was blanking the page","Back to direct setData pattern but with a 'scraper imported' guard flag so auto-fill fires once per scraper result, doesn't refire on cleared fields","setData call deferred via setTimeout so it doesn't fire during render","Page renders normally again"]},
@@ -8118,16 +8121,23 @@ var JOURNEYS = {
     var units2=num(p.units||rlvD.units||0)||50;
 
     // ── Bedroom mix input (default from SFH mix if available) ─────────────
+    // v9.38 — Improved derivation: handle 1-bed apartment, 4-bed semi, 5-bed detached,
+    // executive variants, bungalows. Previously the catch-all fell to 2-bed by default,
+    // and 5-bed was completely missing — meant Cap totals didn't match SFH.
     var sfhMix=s2.mix||[];
-    var defaultMix={1:0,2:0,3:0,4:0};
+    var defaultMix={1:0,2:0,3:0,4:0,5:0};
     if(sfhMix.length>0){
       sfhMix.forEach(function(row){
-        var t=row.type||"";
-        if(t.indexOf("1 bed")>=0||t.indexOf("1-bed")>=0||t.indexOf("Studio")>=0)defaultMix[1]+=num(row.count||0);
-        else if(t.indexOf("2 bed")>=0||t.indexOf("2-bed")>=0)defaultMix[2]+=num(row.count||0);
-        else if(t.indexOf("3 bed")>=0||t.indexOf("3-bed")>=0)defaultMix[3]+=num(row.count||0);
-        else if(t.indexOf("4 bed")>=0||t.indexOf("4 bed+")>=0)defaultMix[4]+=num(row.count||0);
-        else defaultMix[2]+=num(row.count||0); // default 2-bed
+        var t=String(row.type||"").toLowerCase();
+        var n = num(row.count||0);
+        if(n <= 0) return;
+        // Classify by bed count — check most specific first
+        if(/^5[\s-]?bed/.test(t) || /\b5[\s-]?bed/.test(t)) defaultMix[5] += n;
+        else if(/^4[\s-]?bed/.test(t) || /\b4[\s-]?bed/.test(t) || /executive/.test(t)) defaultMix[4] += n;
+        else if(/^3[\s-]?bed/.test(t) || /\b3[\s-]?bed/.test(t)) defaultMix[3] += n;
+        else if(/^2[\s-]?bed/.test(t) || /\b2[\s-]?bed/.test(t)) defaultMix[2] += n;
+        else if(/^1[\s-]?bed/.test(t) || /\b1[\s-]?bed/.test(t) || /studio/.test(t)) defaultMix[1] += n;
+        else defaultMix[3] += n; // fallback (changed from 2 to 3 — more typical mid-market default)
       });
     } else {
       // Default mix: 10% 1bed, 40% 2bed, 35% 3bed, 15% 4bed
@@ -8136,6 +8146,7 @@ var JOURNEYS = {
       defaultMix[3]=Math.round(units2*0.35);
       defaultMix[4]=Math.round(units2*0.15);
     }
+    var defaultMixTotal = defaultMix[1]+defaultMix[2]+defaultMix[3]+defaultMix[4]+defaultMix[5];
 
     var beds1=num(cap.beds1!==undefined?cap.beds1:defaultMix[1]);
     var beds2=num(cap.beds2!==undefined?cap.beds2:defaultMix[2]);
@@ -8490,6 +8501,78 @@ var JOURNEYS = {
       // ── BEDROOM MIX & RENTS ────────────────────────────────────────────────
       e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",marginBottom:14}},
         e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:14}},"Bedroom Mix & Market Rents"),
+
+        // v9.38 — Scheme-purpose banner
+        // Phil's confusion: this section showed 70 units when his SFH has 200. The bedroom mix +
+        // yield calc here is only meaningful for retained-PRS units. For schemes that exit via
+        // private retail / pension bulk / AHP, the Multi-Route Exit Value card above is the real GDV.
+        (function(){
+          var prsUnits = 0;
+          if(sfhMix.length > 0){
+            sfhMix.forEach(function(r){
+              if(r.tenure === "retained_prs") prsUnits += num(r.count||0);
+            });
+          }
+          var hasOtherRoutes = sfhMix.some(function(r){ return r.tenure && r.tenure !== "retained_prs" && num(r.count||0) > 0; });
+          if(prsUnits === 0 && hasOtherRoutes){
+            return e("div",{style:{marginBottom:14,padding:"10px 12px",background:"rgba(74,75,174,0.06)",borderLeft:"3px solid #4A4BAE",borderRadius:4,fontSize:11,color:"#3A3D6A",lineHeight:1.6}},
+              e("strong",{style:{color:"#2E2F8A"}},"ℹ Note: This section is for capitalising RETAINED PRS units (rental-yield basis). "),
+              "Your SFH scheme has ",e("strong",null,"0 retained PRS units")," — all units exit via Private retail / Pension / AHP routes. ",
+              e("strong",null,"The Multi-Route Exit Value card above is your primary GDV calculation."),
+              " The figures below are informational only and won't affect your scheme value."
+            );
+          }
+          if(prsUnits > 0){
+            return e("div",{style:{marginBottom:14,padding:"10px 12px",background:"rgba(45,122,101,0.06)",borderLeft:"3px solid #2D7A65",borderRadius:4,fontSize:11,color:"#3A3D6A",lineHeight:1.6}},
+              e("strong",{style:{color:"#2D7A65"}},"✓ Your scheme has "+prsUnits+" units retained for PRS. "),
+              "This section capitalises that portion on rental yield. The Multi-Route card above uses the result for the PRS row."
+            );
+          }
+          return null;
+        })(),
+
+        // v9.38 — Drift detection: cap.beds vs SFH-derived totals
+        (function(){
+          if(sfhMix.length === 0) return null;
+          var sfhTotal = defaultMixTotal;
+          var capTotal = beds1+beds2+beds3+beds4;
+          if(sfhTotal === 0 || capTotal === sfhTotal) return null;
+          var diff = Math.abs(sfhTotal - capTotal);
+          if(diff < 2) return null;  // ignore tiny rounding
+          return e("div",{style:{marginBottom:14,padding:"12px 14px",background:"rgba(176,90,53,0.07)",border:"1px solid rgba(176,90,53,0.35)",borderRadius:6}},
+            e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}},
+              e("div",{style:{flex:1,minWidth:240}},
+                e("div",{style:{fontSize:11,fontWeight:800,color:"#B05A35",textTransform:"uppercase",letterSpacing:".05em",marginBottom:4}},"⚠ Bedroom mix out of sync with SFH House Mix"),
+                e("div",{style:{fontSize:11,color:"#3A3D6A",lineHeight:1.6,marginBottom:6}},
+                  "Cap shows ",e("strong",null,capTotal+" units"),
+                  " across the 4 bedroom boxes, but your SFH House Mix has ",
+                  e("strong",null,sfhTotal+" plots"),
+                  ". Click sync to refresh from SFH."
+                ),
+                e("div",{style:{fontSize:10,color:"#7278A0"}},
+                  "SFH totals: 1-bed ",defaultMix[1],", 2-bed ",defaultMix[2],", 3-bed ",defaultMix[3],", 4-bed ",defaultMix[4],
+                  (defaultMix[5] > 0 ? ", 5-bed "+defaultMix[5]+" (will roll into 4-bed)" : "")
+                )
+              ),
+              e("button",{
+                onClick:function(){
+                  if(!window.confirm("Sync bedroom mix to current SFH House Mix?\n\n• 1-bed: "+defaultMix[1]+"\n• 2-bed: "+defaultMix[2]+"\n• 3-bed: "+defaultMix[3]+"\n• 4-bed: "+(defaultMix[4]+defaultMix[5])+(defaultMix[5]>0?" (incl. "+defaultMix[5]+" 5-bed)":""))) return;
+                  setData(function(prev){
+                    var capNext = Object.assign({},prev.capitalise||{},{
+                      beds1: String(defaultMix[1]),
+                      beds2: String(defaultMix[2]),
+                      beds3: String(defaultMix[3]),
+                      beds4: String(defaultMix[4]+defaultMix[5])
+                    });
+                    return Object.assign({},prev,{capitalise:capNext});
+                  });
+                },
+                style:{padding:"8px 12px",background:"#B05A35",border:"none",color:"#fff",borderRadius:5,fontSize:10,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}
+              },"Sync from SFH →")
+            )
+          );
+        })(),
+
         e("div",{style:{fontSize:10,color:"#7278A0",marginBottom:12}},
           "Rents auto-populated from "+rentSourceLabel+". Adjust to match your scheme. Market benchmark: 1-bed £"+base1bed+"/month, 2-bed £"+Math.round(base1bed*BED_MULT[2])+", 3-bed £"+Math.round(base1bed*BED_MULT[3])+", 4-bed £"+Math.round(base1bed*BED_MULT[4])+"/month."
         ),
