@@ -218,8 +218,17 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.33";
+var CURRENT_VERSION = "9.36";
 var VERSION_HISTORY = [
+  {v:"9.36", date:"Jun 2026", headline:"Pin + Drift Detection — never hold stale data silently",
+   affectsCalc:false,
+   changes:["Phil's insight: pinning alone isn't enough — if upstream changes after pinning, the pinned values become false information","RLV Pin now saves a snapshot of upstream values (SFH base PSF, build PSF, profit %, finance %, S106, postcode, city, planning units, asset type)","On render, the snapshot is compared to current upstream values","If drift detected: amber banner lists each field that's changed (was X → now Y) with three actions","[Re-sync to current] clears the pinned RLV values and rebuilds from current upstream","[Keep my values] refreshes the snapshot to today, acknowledging the changes","[Unpin entirely] removes the pin and goes back to live cascade","If pinned and no drift: small green confirmation 'RLV pinned · upstream unchanged'","Same pattern can be extended to Land Appraisal, Planning, Capitalisation, Fin in v9.37+"]},
+  {v:"9.35", date:"Jun 2026", headline:"Land Appraisal stability — fix scraper auto-fill anti-pattern + provenance",
+   affectsCalc:false,
+   changes:["Fixed setData-in-render anti-pattern at top of Land Appraisal (auto-fill from scraper) — was potentially causing 'values reappear after I clear them' feel","Moved scraper auto-fill into useEffect with proper dependency tracking — runs once when scraper data changes, not on every render","Same provenance + 🔒 Pin pattern as RLV: shows when fields are auto-filled from scraper, with one-click lock","Each input label shows 'saved' suffix once you've entered a value","Pre-population from scraper/Process Navigator still works as before — just now properly bounded to one-time effect"]},
+  {v:"9.34", date:"Jun 2026", headline:"RLV stability: provenance + 🔒 Pin to current values",
+   affectsCalc:false,
+   changes:["Phil reported RLV figures changing when editing SFH/Tenure — this is the fallback chain working as designed but confusingly","Added 'X RLV fields using upstream auto-defaults' warning banner that lists each empty field with its current auto-default value","🔒 Pin to current values button: one click saves all auto-defaults to data.rlv so upstream changes no longer affect RLV","Each input now shows 'saved' or 'auto-default' suffix in its label so you know which fields are user-set vs derived","Underlying calc unchanged — this is purely transparency + a way to lock values in"]},
   {v:"9.33", date:"Jun 2026", headline:"Capitalisation: profit by route + £225 build benchmark + postcode rents",
    affectsCalc:true,
    changes:["BCIS Residential houses build cost benchmark updated: mid £225/sqft (was £195), hi £270/sqft (was £240) — reflects 2025 Tier-1 delivered SE England SFH costs","Multi-route exit card now shows Build cost · Fees+S106+roads · Finance · Profit · Margin for EACH route","New 'Deal Evolution' summary panel: Revenue / Costs / Pre-Land Profit / Blended Margin","'Private sales spotlight' panel highlights specifically how much profit comes from private retail units (Phil's specific request)","Market rents now derive from postcode lookup first (CM9 → Maldon → £/month), with city/regional fallback","Rent provenance shown clearly: 'Rents auto-populated from postcode CM9 → Maldon market'"]},
@@ -13879,18 +13888,223 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           return null;
         })(),
 
+        // v9.34 — RLV input status + lock button
+        // Phil reported "RLV figures change when changing SFH/Tenure" — this is the fallback chain
+        // working as designed but confusingly. This banner makes the dependency visible and gives
+        // a one-click way to "pin" current auto-defaults so upstream changes stop affecting RLV.
+        (function(){
+          var emptyFields = [];
+          if(!num(r.salePsf)) emptyFields.push({k:"salePsf", v:Math.round(rSalePsf), label:"Sale £/sqft"});
+          if(!num(r.buildPsf)) emptyFields.push({k:"buildPsf", v:Math.round(rBuild), label:"Build £/sqft"});
+          if(!num(r.units)) emptyFields.push({k:"units", v:num(data.planning&&data.planning.units)||0, label:"Units"});
+          if(!num(r.avgSqft)) emptyFields.push({k:"avgSqft", v:rSqft, label:"Avg sqft"});
+          if(!num(r.profitPct)) emptyFields.push({k:"profitPct", v:rProfit, label:"Profit %"});
+          if(!num(r.finRate)) emptyFields.push({k:"finRate", v:rFin, label:"Finance %"});
+          if(!num(r.s106pu)) emptyFields.push({k:"s106pu", v:numOr(r.s106pu, 8000), label:"S106/CIL"});
+
+          if(emptyFields.length === 0) return null;  // all locked, no warning needed
+
+          return e("div",{style:{padding:"12px 14px",background:"rgba(154,123,62,0.06)",border:"1px solid rgba(154,123,62,0.3)",borderRadius:8,marginBottom:14}},
+            e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}},
+              e("div",{style:{flex:1,minWidth:240}},
+                e("div",{style:{fontSize:11,fontWeight:800,color:"#9A7B3E",letterSpacing:".05em",textTransform:"uppercase",marginBottom:6}},
+                  "⚠ "+emptyFields.length+" RLV field"+(emptyFields.length>1?"s":"")+" using upstream auto-defaults"
+                ),
+                e("div",{style:{fontSize:11,color:"#3A3D6A",lineHeight:1.6,marginBottom:6}},
+                  "These fields are empty, so RLV derives them from postcode/city/BCIS data. ",
+                  e("strong",null,"Changing SFH city or postcode will shift the RLV result"),
+                  " until you either type a value here or click 'Pin to current values' below."
+                ),
+                e("div",{style:{fontSize:10,color:"#7278A0",lineHeight:1.5}},
+                  "Current auto-defaults: ",
+                  emptyFields.map(function(f, i){
+                    return [
+                      i>0 && e("span",{key:"sep"+i},", "),
+                      e("strong",{key:"k"+i,style:{color:"#3A3D6A"}},f.label+" "+(f.k==="salePsf"||f.k==="buildPsf"?"£":"")+f.v+(f.k==="profitPct"||f.k==="finRate"?"%":""))
+                    ];
+                  })
+                )
+              ),
+              e("button",{
+                onClick:function(){
+                  if(!window.confirm("Pin all "+emptyFields.length+" empty RLV fields to their current auto-default values? After this, changing SFH/Tenure/Land won't affect RLV.")) return;
+                  setData(function(prev){
+                    var rlvNext = Object.assign({},prev.rlv||{});
+                    emptyFields.forEach(function(f){ rlvNext[f.k] = String(f.v); });
+                    rlvNext._pinnedAt = new Date().toISOString();
+                    // v9.36 — Snapshot of upstream values at time of pin.
+                    // Used for drift detection: if any of these change later, we surface a warning.
+                    rlvNext._pinnedSnapshot = {
+                      sfh_basePsf: num(prev.sfh&&prev.sfh.basePsf) || 0,
+                      sfh_buildPsf: num(prev.sfh&&prev.sfh.buildPsf) || 0,
+                      sfh_profitPct: num(prev.sfh&&prev.sfh.profitPct) || 0,
+                      sfh_finRate: num(prev.sfh&&prev.sfh.finRate) || 0,
+                      sfh_s106pu: num(prev.sfh&&prev.sfh.s106pu) || 0,
+                      land_postcode: String((prev.land&&prev.land.postcode)||"").toUpperCase(),
+                      land_city: String((prev.land&&prev.land.city)||""),
+                      planning_units: num(prev.planning&&prev.planning.units) || 0,
+                      assetType: String(prev.assetType||"")
+                    };
+                    return Object.assign({},prev,{rlv:rlvNext});
+                  });
+                },
+                style:{padding:"9px 14px",background:"#9A7B3E",border:"none",color:"#fff",borderRadius:5,fontSize:11,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",flexShrink:0}
+              },"🔒 Pin to current values")
+            )
+          );
+        })(),
+
+        // v9.36 — Drift detection for pinned RLV
+        // Phil's insight: pinning isn't enough. If upstream values change after pinning,
+        // the pinned RLV is stale and "no good having false information further back".
+        // This banner detects drift and offers Re-sync / Keep / Unpin.
+        (function(){
+          if(!r._pinnedAt || !r._pinnedSnapshot) return null;
+          var snap = r._pinnedSnapshot;
+          var drift = [];
+          var nowSfh_basePsf = num(data.sfh&&data.sfh.basePsf) || 0;
+          var nowSfh_buildPsf = num(data.sfh&&data.sfh.buildPsf) || 0;
+          var nowSfh_profitPct = num(data.sfh&&data.sfh.profitPct) || 0;
+          var nowSfh_finRate = num(data.sfh&&data.sfh.finRate) || 0;
+          var nowSfh_s106pu = num(data.sfh&&data.sfh.s106pu) || 0;
+          var nowLand_postcode = String((data.land&&data.land.postcode)||"").toUpperCase();
+          var nowLand_city = String((data.land&&data.land.city)||"");
+          var nowPlanning_units = num(data.planning&&data.planning.units) || 0;
+          var nowAssetType = String(data.assetType||"");
+
+          if(snap.sfh_basePsf && nowSfh_basePsf && Math.abs(snap.sfh_basePsf - nowSfh_basePsf) > 1)
+            drift.push({field:"SFH base sale £/sqft", was:"£"+snap.sfh_basePsf, now:"£"+nowSfh_basePsf});
+          if(snap.sfh_buildPsf && nowSfh_buildPsf && Math.abs(snap.sfh_buildPsf - nowSfh_buildPsf) > 1)
+            drift.push({field:"SFH build £/sqft", was:"£"+snap.sfh_buildPsf, now:"£"+nowSfh_buildPsf});
+          if(snap.sfh_profitPct && nowSfh_profitPct && Math.abs(snap.sfh_profitPct - nowSfh_profitPct) > 0.5)
+            drift.push({field:"SFH developer profit", was:snap.sfh_profitPct+"%", now:nowSfh_profitPct+"%"});
+          if(snap.sfh_finRate && nowSfh_finRate && Math.abs(snap.sfh_finRate - nowSfh_finRate) > 0.25)
+            drift.push({field:"SFH finance rate", was:snap.sfh_finRate+"%", now:nowSfh_finRate+"%"});
+          if(snap.sfh_s106pu && nowSfh_s106pu && Math.abs(snap.sfh_s106pu - nowSfh_s106pu) > 100)
+            drift.push({field:"SFH S106/plot", was:"£"+snap.sfh_s106pu.toLocaleString(), now:"£"+nowSfh_s106pu.toLocaleString()});
+          if(snap.land_postcode && nowLand_postcode && snap.land_postcode !== nowLand_postcode)
+            drift.push({field:"Postcode", was:snap.land_postcode, now:nowLand_postcode});
+          if(snap.land_city && nowLand_city && snap.land_city !== nowLand_city)
+            drift.push({field:"City", was:cityName(snap.land_city), now:cityName(nowLand_city)});
+          if(snap.planning_units && nowPlanning_units && Math.abs(snap.planning_units - nowPlanning_units) > 0)
+            drift.push({field:"Planning units", was:snap.planning_units, now:nowPlanning_units});
+          if(snap.assetType && nowAssetType && snap.assetType !== nowAssetType)
+            drift.push({field:"Asset type", was:snap.assetType.toUpperCase(), now:nowAssetType.toUpperCase()});
+
+          if(drift.length === 0){
+            // Pinned and no drift — small confirmation
+            var pinDate = new Date(r._pinnedAt);
+            var hoursAgo = Math.round((Date.now() - pinDate.getTime()) / 3600000);
+            var timeLabel = hoursAgo < 1 ? "just now" : hoursAgo < 24 ? hoursAgo+"h ago" : Math.round(hoursAgo/24)+"d ago";
+            return e("div",{style:{padding:"10px 14px",background:"rgba(45,122,101,0.06)",border:"1px solid rgba(45,122,101,0.25)",borderRadius:8,marginBottom:14,display:"flex",alignItems:"center",gap:10}},
+              e("span",{style:{fontSize:14}},"🔒"),
+              e("div",{style:{flex:1}},
+                e("div",{style:{fontSize:11,fontWeight:700,color:"#2D7A65"}},"RLV pinned · upstream unchanged"),
+                e("div",{style:{fontSize:10,color:"#7278A0",marginTop:2}},"Pinned "+timeLabel+". All tracked upstream values match the pin snapshot.")
+              ),
+              e("button",{
+                onClick:function(){
+                  if(!window.confirm("Clear pin? RLV will go back to using live auto-defaults from upstream.")) return;
+                  setData(function(prev){
+                    var rlvNext = Object.assign({},prev.rlv||{});
+                    delete rlvNext._pinnedAt;
+                    delete rlvNext._pinnedSnapshot;
+                    return Object.assign({},prev,{rlv:rlvNext});
+                  });
+                },
+                style:{padding:"5px 10px",background:"transparent",border:"1px solid rgba(45,122,101,0.4)",color:"#2D7A65",borderRadius:4,fontSize:9,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+              },"Unpin")
+            );
+          }
+
+          // Drift detected — show warning with options
+          return e("div",{style:{padding:"12px 14px",background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.4)",borderRadius:8,marginBottom:14}},
+            e("div",{style:{marginBottom:10}},
+              e("div",{style:{fontSize:11,fontWeight:800,color:"#B05A35",letterSpacing:".05em",textTransform:"uppercase",marginBottom:6}},
+                "⚠ Upstream changed since RLV was pinned"
+              ),
+              e("div",{style:{fontSize:11,color:"#3A3D6A",lineHeight:1.6}},
+                "Your RLV figures may be stale. The values below were pinned ",new Date(r._pinnedAt).toLocaleString("en-GB"),
+                ". Since then, ",e("strong",null,drift.length+" upstream value"+(drift.length>1?"s have":" has")+" changed."),
+                " Decide whether to keep your pinned RLV or re-sync to current upstream defaults."
+              )
+            ),
+            e("div",{style:{padding:"8px 10px",background:"#fff",borderRadius:5,border:"1px solid #F0DACA",marginBottom:10}},
+              drift.map(function(d, i){
+                return e("div",{key:i,style:{display:"grid",gridTemplateColumns:"1.4fr 90px 90px",fontSize:10,padding:"4px 0",borderBottom:i<drift.length-1?"1px solid #F8F1E8":"none",gap:8,alignItems:"center"}},
+                  e("span",{style:{color:"#3A3D6A",fontWeight:600}},d.field),
+                  e("span",{style:{color:"#7278A0"}},"was: ",e("strong",null,String(d.was))),
+                  e("span",{style:{color:"#B05A35"}},"now: ",e("strong",null,String(d.now)))
+                );
+              })
+            ),
+            e("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+              e("button",{
+                onClick:function(){
+                  if(!window.confirm("Re-sync RLV: clear pinned values so they recompute from current upstream defaults?")) return;
+                  setData(function(prev){
+                    var rlvNext = Object.assign({},prev.rlv||{});
+                    delete rlvNext.salePsf;
+                    delete rlvNext.buildPsf;
+                    delete rlvNext.profitPct;
+                    delete rlvNext.finRate;
+                    delete rlvNext.s106pu;
+                    delete rlvNext._pinnedAt;
+                    delete rlvNext._pinnedSnapshot;
+                    return Object.assign({},prev,{rlv:rlvNext});
+                  });
+                },
+                style:{padding:"7px 14px",background:"#B05A35",border:"none",color:"#fff",borderRadius:5,fontSize:10,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+              },"Re-sync to current →"),
+              e("button",{
+                onClick:function(){
+                  if(!window.confirm("Keep your current pinned RLV values? The snapshot will update to today so the warning disappears.")) return;
+                  setData(function(prev){
+                    var rlvNext = Object.assign({},prev.rlv||{});
+                    rlvNext._pinnedSnapshot = {
+                      sfh_basePsf: nowSfh_basePsf,
+                      sfh_buildPsf: nowSfh_buildPsf,
+                      sfh_profitPct: nowSfh_profitPct,
+                      sfh_finRate: nowSfh_finRate,
+                      sfh_s106pu: nowSfh_s106pu,
+                      land_postcode: nowLand_postcode,
+                      land_city: nowLand_city,
+                      planning_units: nowPlanning_units,
+                      assetType: nowAssetType
+                    };
+                    rlvNext._pinnedAt = new Date().toISOString();
+                    return Object.assign({},prev,{rlv:rlvNext});
+                  });
+                },
+                style:{padding:"7px 14px",background:"transparent",border:"1px solid #B05A35",color:"#B05A35",borderRadius:5,fontSize:10,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+              },"Keep my values"),
+              e("button",{
+                onClick:function(){
+                  setData(function(prev){
+                    var rlvNext = Object.assign({},prev.rlv||{});
+                    delete rlvNext._pinnedAt;
+                    delete rlvNext._pinnedSnapshot;
+                    return Object.assign({},prev,{rlv:rlvNext});
+                  });
+                },
+                style:{padding:"7px 14px",background:"transparent",border:"1px solid #C5C8E0",color:"#7278A0",borderRadius:5,fontSize:10,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+              },"Unpin entirely")
+            )
+          );
+        })(),
+
         e("div",{style:S.grid2},
-          e(Inp,{label:"Avg Unit Size (sqft)",type:"number",value:r.avgSqft,onChange:function(v){up("rlv","avgSqft",v);},placeholder:"850"}),
+          e(Inp,{label:"Avg Unit Size (sqft)"+(num(r.avgSqft)?" · saved":" · auto-default"),type:"number",value:r.avgSqft,onChange:function(v){up("rlv","avgSqft",v);},placeholder:"850"}),
           e(Inp,{
-            label: rNbInfo
-              ? "Sale £/sqft — new-build estimate £"+rNbInfo.newBuild+" (Land Registry existing £"+rNbInfo.existing+" + "+rNbInfo.premiumPct+"% new-build premium)"
-              : "Sale £/sqft"+(m?" — auto from "+cityName(city)+": £"+Math.round((pcData&&pcData.salePsf)||(m.btr*8.5/12)||260):""),
+            label: (num(r.salePsf)?"Sale £/sqft · saved":(rNbInfo
+              ? "Sale £/sqft · auto-default — new-build estimate £"+rNbInfo.newBuild+" (existing £"+rNbInfo.existing+" + "+rNbInfo.premiumPct+"% premium)"
+              : "Sale £/sqft · auto-default"+(m?" from "+cityName(city)+": £"+Math.round((pcData&&pcData.salePsf)||(m.btr*8.5/12)||260):""))),
             type:"number",value:r.salePsf,onChange:function(v){up("rlv","salePsf",v);},placeholder:"£"+Math.round(rSalePsf)
           }),
-          e(Inp,{label:"Build £/sqft"+(m?" — auto from "+cityName(city)+": £"+m.build+" · BCIS £"+bt.lo+"–£"+bt.hi:" — BCIS £"+bt.lo+"–£"+bt.hi),type:"number",value:r.buildPsf,onChange:function(v){up("rlv","buildPsf",v);},placeholder:"£"+Math.round(rBuild)}),
-          e(Inp,{label:"Developer Profit % GDV — UK norm 15-18%",type:"number",value:r.profitPct,onChange:function(v){up("rlv","profitPct",v);},placeholder:"17.5"}),
-          e(Inp,{label:"Finance Rate %",type:"number",value:r.finRate,onChange:function(v){up("rlv","finRate",v);},placeholder:"7.5"}),
-          e(Inp,{label:"S106/CIL per Unit (£)",type:"number",value:r.s106pu,onChange:function(v){up("rlv","s106pu",v);},placeholder:"8000"})
+          e(Inp,{label:(num(r.buildPsf)?"Build £/sqft · saved":"Build £/sqft · auto-default"+(m?" from "+cityName(city)+": £"+m.build+" · BCIS £"+bt.lo+"–£"+bt.hi:" · BCIS £"+bt.lo+"–£"+bt.hi)),type:"number",value:r.buildPsf,onChange:function(v){up("rlv","buildPsf",v);},placeholder:"£"+Math.round(rBuild)}),
+          e(Inp,{label:"Developer Profit % GDV"+(num(r.profitPct)?" · saved":" · auto-default 17.5%"),type:"number",value:r.profitPct,onChange:function(v){up("rlv","profitPct",v);},placeholder:"17.5"}),
+          e(Inp,{label:"Finance Rate %"+(num(r.finRate)?" · saved":" · auto-default 7.5%"),type:"number",value:r.finRate,onChange:function(v){up("rlv","finRate",v);},placeholder:"7.5"}),
+          e(Inp,{label:"S106/CIL per Unit (£)"+(num(r.s106pu)?" · saved":" · auto-default £8,000"),type:"number",value:r.s106pu,onChange:function(v){up("rlv","s106pu",v);},placeholder:"8000"})
         ),
 
         // ── Build:Sale ratio diagnostic ─────────────────────────────────────
@@ -15633,15 +15847,24 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
   function renderLand(){
     var l=data.land||{};
     var sc3=data.scraper&&data.scraper.result||{};
-    // Auto-populate from scraper result if land fields are empty
-    if(!l.address&&sc3.address)up("land","address",sc3.address);
-    if(!l.acres&&sc3.acreage)up("land","acres",sc3.acreage+"");
-    if(!l.price&&sc3.askingPrice)up("land","price",sc3.askingPrice+"");
-    if(!l.localAuthority&&sc3.localAuthority)up("land","localAuthority",sc3.localAuthority);
-    if(!l.city&&sc3.city){
-      var rawC=(sc3.city||"").toLowerCase().replace(/\s+/g,"_").replace(/-/g,"_");
-      up("land","city",rawC);
-    }
+    // v9.35 — Auto-populate from scraper moved to useEffect to avoid setData-in-render
+    // (was firing on every render whenever a field was empty — could cause "values reappear after I clear them" feel)
+    useEffect(function(){
+      if(!sc3) return;
+      var updates = {};
+      if(!l.address && sc3.address) updates.address = sc3.address;
+      if(!l.acres && sc3.acreage) updates.acres = sc3.acreage+"";
+      if(!l.price && sc3.askingPrice) updates.price = sc3.askingPrice+"";
+      if(!l.localAuthority && sc3.localAuthority) updates.localAuthority = sc3.localAuthority;
+      if(!l.city && sc3.city){
+        updates.city = (sc3.city||"").toLowerCase().replace(/\s+/g,"_").replace(/-/g,"_");
+      }
+      if(Object.keys(updates).length > 0){
+        setData(function(prev){
+          return Object.assign({},prev,{land:Object.assign({},prev.land||{},updates)});
+        });
+      }
+    }, [sc3.address, sc3.acreage, sc3.askingPrice, sc3.localAuthority, sc3.city]);
     var score=0;
     var vm={proximity:{excellent:25,good:15,fair:8,poor:0},transport:{excellent:20,good:12,fair:6,poor:0},contamination:{clean:20,minor:10,major:0,unknown:4},tenure:{freehold:15,long_leasehold:10,short_leasehold:3},constraint:{none:20,minor:12,moderate:6,major:0}};
     Object.keys(vm).forEach(function(k){score+=(vm[k][l[k]]||0);});
@@ -15740,9 +15963,64 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
 
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Site Details"),
+
+        // v9.35 — Land Appraisal stability: same pattern as v9.34 RLV
+        // Phil reported "figures change automatically" when editing SFH/Tenure.
+        // Land Appraisal fields are mostly user-entered, but some can be auto-filled
+        // from scraper / Process Navigator. This banner makes that visible + offers a Pin.
+        (function(){
+          var autoSources = [];
+          if(sc3.address && l.address === sc3.address) autoSources.push("address (from scraper)");
+          if(sc3.acreage && Number(l.acres) === Number(sc3.acreage)) autoSources.push("acres (from scraper)");
+          if(sc3.askingPrice && Number(l.price) === Number(sc3.askingPrice)) autoSources.push("price (from scraper)");
+          if(sc3.localAuthority && l.localAuthority === sc3.localAuthority) autoSources.push("LPA (from scraper)");
+
+          // Also flag any fields that are EMPTY but have a scraper value waiting
+          var emptyWithSource = [];
+          if(!l.address && sc3.address) emptyWithSource.push({k:"address", v:sc3.address, label:"Site Address"});
+          if(!l.acres && sc3.acreage) emptyWithSource.push({k:"acres", v:String(sc3.acreage), label:"Acres"});
+          if(!l.price && sc3.askingPrice) emptyWithSource.push({k:"price", v:String(sc3.askingPrice), label:"Asking Price"});
+
+          if(autoSources.length === 0 && emptyWithSource.length === 0) return null;
+
+          return e("div",{style:{padding:"12px 14px",background:"rgba(154,123,62,0.06)",border:"1px solid rgba(154,123,62,0.3)",borderRadius:8,marginBottom:14}},
+            e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}},
+              e("div",{style:{flex:1,minWidth:240}},
+                e("div",{style:{fontSize:11,fontWeight:800,color:"#9A7B3E",letterSpacing:".05em",textTransform:"uppercase",marginBottom:6}},
+                  autoSources.length>0
+                    ? "ℹ "+autoSources.length+" field"+(autoSources.length>1?"s":"")+" auto-populated from Land Finder/Scraper"
+                    : "⚠ "+emptyWithSource.length+" empty field"+(emptyWithSource.length>1?"s":"")+" — scraper data available"
+                ),
+                e("div",{style:{fontSize:11,color:"#3A3D6A",lineHeight:1.6,marginBottom:6}},
+                  autoSources.length>0
+                    ? "These values came from the upstream scraper. They won't change automatically once you've reviewed them — but if you clear a field, the scraper value will re-populate. Click 'Pin' to lock all values explicitly."
+                    : "Found scraper data for these fields. Click Pin to copy them in, or type your own values."
+                ),
+                e("div",{style:{fontSize:10,color:"#7278A0",lineHeight:1.5}},
+                  autoSources.length>0
+                    ? "Auto-filled: "+autoSources.join(", ")
+                    : "Available: "+emptyWithSource.map(function(f){return f.label+" ("+f.v.substring(0,30)+(f.v.length>30?"...":"")+")";}).join(", ")
+                )
+              ),
+              e("button",{
+                onClick:function(){
+                  setData(function(prev){
+                    var landNext = Object.assign({},prev.land||{});
+                    emptyWithSource.forEach(function(f){ landNext[f.k] = f.v; });
+                    landNext._pinnedAt = new Date().toISOString();
+                    return Object.assign({},prev,{land:landNext});
+                  });
+                },
+                title: autoSources.length>0 ? "Mark current values as pinned" : "Copy scraper values into the form and pin them",
+                style:{padding:"9px 14px",background:"#9A7B3E",border:"none",color:"#fff",borderRadius:5,fontSize:11,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",flexShrink:0}
+              }, l._pinnedAt ? "🔒 Pinned" : "🔒 Pin values")
+            )
+          );
+        })(),
+
         e("div",{style:S.grid2},
-          e(Inp,{label:"Site Address",value:l.address,onChange:function(v){up("land","address",v);},placeholder:"e.g. Former Factory, Birmingham B1",full:true}),
-          e(Inp,{label:"Postcode",value:l.postcode,onChange:function(v){up("land","postcode",v.toUpperCase());},placeholder:"e.g. CV35 0DB"}),
+          e(Inp,{label:"Site Address"+(l.address?" · saved":""),value:l.address,onChange:function(v){up("land","address",v);},placeholder:"e.g. Former Factory, Birmingham B1",full:true}),
+          e(Inp,{label:"Postcode"+(l.postcode?" · saved":""),value:l.postcode,onChange:function(v){up("land","postcode",v.toUpperCase());},placeholder:"e.g. CV35 0DB"}),
           l.postcode&&l.postcode.length>=5&&!num((data.market||{}).lrPsf)&&e("div",{style:{gridColumn:"span 1"}},
             e("button",{
               onClick:function(){
@@ -15754,8 +16032,8 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
             },"📡 Fetch Live Land Registry → All Stages")
           ),
           e(CitySelect,{value:l.city,onChange:function(v){up("land","city",v);}}),
-          e(Inp,{label:"Site Area (acres)",type:"number",value:l.acres,onChange:function(v){up("land","acres",v);},placeholder:"e.g. 2.5"}),
-          e(Inp,{label:"Asking Price (£)",type:"number",value:l.price,onChange:function(v){up("land","price",v);},placeholder:"e.g. 4500000"}),
+          e(Inp,{label:"Site Area (acres)"+(l.acres?" · saved":""),type:"number",value:l.acres,onChange:function(v){up("land","acres",v);},placeholder:"e.g. 2.5"}),
+          e(Inp,{label:"Asking Price (£)"+(l.price?" · saved":""),type:"number",value:l.price,onChange:function(v){up("land","price",v);},placeholder:"e.g. 4500000"}),
           e(Sel,{label:"Proximity to Demand",value:l.proximity,onChange:function(v){up("land","proximity",v);},
             options:[{value:"",label:"Select..."},{value:"excellent",label:"Excellent — <10 min walk (+25)"},{value:"good",label:"Good — <20 min / 5 min cycle (+15)"},{value:"fair",label:"Fair — public transport needed (+8)"},{value:"poor",label:"Poor — car dependent (0)"}]}),
           e(Sel,{label:"Transport Connectivity",value:l.transport,onChange:function(v){up("land","transport",v);},
