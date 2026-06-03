@@ -218,8 +218,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.32";
+var CURRENT_VERSION = "9.33";
 var VERSION_HISTORY = [
+  {v:"9.33", date:"Jun 2026", headline:"Capitalisation: profit by route + £225 build benchmark + postcode rents",
+   affectsCalc:true,
+   changes:["BCIS Residential houses build cost benchmark updated: mid £225/sqft (was £195), hi £270/sqft (was £240) — reflects 2025 Tier-1 delivered SE England SFH costs","Multi-route exit card now shows Build cost · Fees+S106+roads · Finance · Profit · Margin for EACH route","New 'Deal Evolution' summary panel: Revenue / Costs / Pre-Land Profit / Blended Margin","'Private sales spotlight' panel highlights specifically how much profit comes from private retail units (Phil's specific request)","Market rents now derive from postcode lookup first (CM9 → Maldon → £/month), with city/regional fallback","Rent provenance shown clearly: 'Rents auto-populated from postcode CM9 → Maldon market'"]},
   {v:"9.32", date:"Jun 2026", headline:"Tenure Mix page no longer resets on revisit",
    affectsCalc:false,
    changes:["Removed setData-in-render anti-pattern on Tenure Mix (was causing constant re-render churn)","Fixed falsy-zero bug on header inputs — user-entered 0 no longer falls through to SFH default","Header fields now persist independently — once you type a value, it stays even when SFH changes","Added provenance note explaining which fields auto-fill from SFH","Other stages now compute blended GDV on-read instead of relying on stale data.tenure.blendedGdv"]},
@@ -1474,8 +1477,13 @@ var PC_PSF = {
 };
 
 var BUILD_TYPES = {
+  // v9.33 — Updated SFH benchmark per Phil/Cassidy: mid £225/sqft, hi £270/sqft (Tier 1).
+  // Reflects current 2025 build costs for Tier-1 delivered SFH schemes in SE England:
+  // - Volume housebuilder (Barratt/Persimmon scale, repeat designs): £160-180/sqft (lo)
+  // - Mid-market developer with Tier 1 contractor: £210-240/sqft (mid £225 benchmark)
+  // - Higher spec / urban / fabric-first energy / smaller scale: £250-290/sqft (hi)
   "Residential apartments":{lo:185,mid:220,hi:280,fees:0.12,plan:8000},
-  "Residential houses":{lo:160,mid:195,hi:240,fees:0.10,plan:5000},
+  "Residential houses":{lo:165,mid:225,hi:270,fees:0.10,plan:5000},
   "BTR (Build to Rent)":{lo:200,mid:235,hi:300,fees:0.13,plan:10000},
   "PBSA (Student)":{lo:175,mid:210,hi:265,fees:0.12,plan:8500},
   "Later Living":{lo:195,mid:230,hi:290,fees:0.13,plan:9000},
@@ -1570,6 +1578,14 @@ function fmt(n){
   if(a>=1000000)return(v<0?"-":"")+"£"+(a/1000000).toFixed(2)+"m";
   if(a>=1000)return(v<0?"-":"")+"£"+Math.round(a/1000)+"k";
   return(v<0?"-":"")+"£"+Math.round(a).toLocaleString();
+}
+// v9.33 — Compact currency without leading £ (for inline use where context is clear)
+function fmtCompact(n){
+  if(n===null||n===undefined||n===""||isNaN(Number(n)))return"—";
+  var v=Number(n), a=Math.abs(v);
+  if(a>=1000000)return(v<0?"-":"")+(a/1000000).toFixed(1)+"m";
+  if(a>=1000)return(v<0?"-":"")+Math.round(a/1000)+"k";
+  return(v<0?"-":"")+Math.round(a).toLocaleString();
 }
 function pct(n){
   if(n===null||n===undefined||n===""||isNaN(Number(n)))return"—";
@@ -8115,12 +8131,41 @@ var JOURNEYS = {
     var beds4=num(cap.beds4!==undefined?cap.beds4:defaultMix[4]);
     var totalUnitsCalc=beds1+beds2+beds3+beds4;
 
-    // ── Rent inputs (defaulting to market data) ────────────────────────────
-    var base1bed=num(cap.rent1||cityMkt.btr||1000);
+    // ── v9.33 — Postcode-aware market rent baseline ────────────────────────
+    // Previously: only used cityMkt (works if user picked city, fails on postcode-only deals).
+    // Now: try postcode → city lookup first, then direct city, then fallback.
+    // Provenance shown so user knows where the rent figure came from.
+    var rentSourceLabel = "default";
+    var rentMonthly1bed = 1000;  // fallback
+    (function(){
+      // 1. Try postcode lookup first — most specific
+      var postcode = (data.land && data.land.postcode) || (data.rlv && data.rlv.postcode) || "";
+      if(postcode){
+        var pcData = lookupPostcode(postcode);
+        if(pcData && pcData.city && MKT[pcData.city] && MKT[pcData.city].btr){
+          rentMonthly1bed = MKT[pcData.city].btr;
+          rentSourceLabel = "postcode "+postcode.toUpperCase()+" → "+cityName(pcData.city)+" market";
+          return;
+        }
+      }
+      // 2. Try city directly
+      if(city && MKT[city] && MKT[city].btr){
+        rentMonthly1bed = MKT[city].btr;
+        rentSourceLabel = cityName(city)+" market data";
+        return;
+      }
+      // 3. Fall back to cityMkt (which itself fell back to manchester)
+      if(cityMkt && cityMkt.btr){
+        rentMonthly1bed = cityMkt.btr;
+        rentSourceLabel = "regional fallback";
+      }
+    })();
+
+    var base1bed=num(cap.rent1!==undefined && cap.rent1!=="" ? cap.rent1 : rentMonthly1bed);
     var rent1=base1bed;
-    var rent2=num(cap.rent2||Math.round(base1bed*BED_MULT[2]));
-    var rent3=num(cap.rent3||Math.round(base1bed*BED_MULT[3]));
-    var rent4=num(cap.rent4||Math.round(base1bed*BED_MULT[4]));
+    var rent2=num(cap.rent2!==undefined && cap.rent2!=="" ? cap.rent2 : Math.round(base1bed*BED_MULT[2]));
+    var rent3=num(cap.rent3!==undefined && cap.rent3!=="" ? cap.rent3 : Math.round(base1bed*BED_MULT[3]));
+    var rent4=num(cap.rent4!==undefined && cap.rent4!=="" ? cap.rent4 : Math.round(base1bed*BED_MULT[4]));
 
     // ── Gross annual rent ──────────────────────────────────────────────────
     var grossMonthly=(beds1*rent1)+(beds2*rent2)+(beds3*rent3)+(beds4*rent4);
@@ -8259,6 +8304,45 @@ var JOURNEYS = {
         var totalRealised = Object.keys(byRoute).reduce(function(sum,k){return sum + (byRoute[k].realised||0);},0);
         var blendedDiscount = mvAtFullRetail > 0 ? (1 - totalRealised/mvAtFullRetail) : 0;
 
+        // ── v9.33 — Per-route profit calc ──────────────────────────────────
+        // For each route, compute apportioned build + soft costs and resulting profit.
+        // Especially important for PRIVATE retail — Phil wants to see how the deal evolves
+        // route by route, not just one blended GDV.
+        var s2 = data.sfh || {};
+        var routeBuildPsf = num(s2.buildPsf) || 225;  // v9.33 default
+        var routeProfitTargetPct = numOr(s2.profitPct, 17.5) / 100;
+        var routeFeesPct = numOr(s2.feesPct, 10) / 100;  // typical 10% prof fees
+        var routeContPct = numOr(s2.contingency, 5) / 100;
+        var routeFinPct = numOr(s2.finRate, 7.5) / 100;
+        var routeS106Pu = numOr(s2.s106pu, 11000);
+        var routeRoadsPu = numOr(s2.roads, 12000);
+
+        var totalCostsAcross = 0;
+        var totalProfitAcross = 0;
+        Object.keys(byRoute).forEach(function(route){
+          var r = byRoute[route];
+          // Build cost = sqft × £/sqft
+          var buildCost = r.sqft * routeBuildPsf;
+          var fees = buildCost * routeFeesPct;
+          var contingency = (buildCost + fees) * routeContPct;
+          var s106 = r.units * routeS106Pu;
+          var roads = r.units * routeRoadsPu;
+          var financeCost = (buildCost + fees + s106 + roads) * routeFinPct;  // simplified
+          var totalCost = buildCost + fees + contingency + s106 + roads + financeCost;
+          r.buildCost = buildCost;
+          r.fees = fees;
+          r.contingency = contingency;
+          r.s106 = s106;
+          r.roads = roads;
+          r.financeCost = financeCost;
+          r.totalCost = totalCost;
+          r.profit = r.realised - totalCost;
+          r.marginPct = r.realised > 0 ? (r.profit / r.realised) * 100 : 0;
+          totalCostsAcross += totalCost;
+          totalProfitAcross += r.profit;
+        });
+        var blendedMarginPct = totalRealised > 0 ? (totalProfitAcross / totalRealised) * 100 : 0;
+
         // Sort routes by # units desc
         var routeOrder = Object.keys(byRoute).sort(function(a,b){return byRoute[b].units - byRoute[a].units;});
 
@@ -8284,10 +8368,18 @@ var JOURNEYS = {
             var rd = ROUTE_DISCOUNT[route] || ROUTE_DISCOUNT.private;
             var pctOfScheme = totalUnits > 0 ? Math.round(r.units / totalUnits * 100) : 0;
             var discPct = route === "retained_prs" ? "yield-based" : Math.round((1 - rd.pct) * 100) + "%";
+            // v9.33 — Route-level cost & profit colour
+            var profitCol = r.profit > 0 ? "#2D7A65" : (r.profit < -1000 ? "#B05A35" : "#9A7B3E");
             return e("div",{key:route,style:{display:"grid",gridTemplateColumns:"1.8fr 60px 70px 100px 100px 100px",padding:"10px 12px",borderBottom:"1px solid #DDE0ED",gap:8,alignItems:"center",fontSize:11}},
               e("div",null,
                 e("div",{style:{fontSize:11,fontWeight:700,color:rd.col}},rd.label),
                 e("div",{style:{fontSize:9,color:"#7278A0",marginTop:2}},rd.note),
+                // v9.33 — Profit breakdown line
+                e("div",{style:{fontSize:9,color:profitCol,marginTop:4,fontWeight:600,lineHeight:1.5}},
+                  "Build £"+fmtCompact(r.buildCost)+" · Fees+S106+roads £"+fmtCompact(r.fees+r.s106+r.roads+r.contingency)+" · Finance £"+fmtCompact(r.financeCost)+
+                  e("br",null),
+                  e("span",{style:{fontWeight:800,color:profitCol}},"Profit "+(r.profit<0?"−":"")+"£"+fmtCompact(Math.abs(r.profit))+" · Margin "+Math.round(r.marginPct)+"%")
+                ),
                 route === "retained_prs" && r.prsAnnualRent && e("div",{style:{fontSize:9,color:"#9A7B3E",marginTop:3,fontStyle:"italic"}},
                   "Rent £"+Math.round(r.prsAnnualRent/1000)+"k/yr · NOI £"+Math.round(r.prsNoi/1000)+"k · cap @ "+(targetYield*100).toFixed(2)+"%"
                 )
@@ -8300,13 +8392,63 @@ var JOURNEYS = {
             );
           }),
           // Total row
-          e("div",{style:{display:"grid",gridTemplateColumns:"1.8fr 60px 70px 100px 100px 100px",padding:"12px",background:"#F4F5FB",borderTop:"2px solid #2E2F8A",gap:8,alignItems:"center",fontSize:12,fontWeight:700,color:"#2E2F8A",borderRadius:"0 0 5px 5px"}},
+          e("div",{style:{display:"grid",gridTemplateColumns:"1.8fr 60px 70px 100px 100px 100px",padding:"12px",background:"#F4F5FB",borderTop:"2px solid #2E2F8A",gap:8,alignItems:"center",fontSize:12,fontWeight:700,color:"#2E2F8A"}},
             e("span",null,"BLENDED REALISABLE GDV"),
             e("span",null,totalUnits),
             e("span",null,"100%"),
             e("span",{style:{color:"#7278A0"}},fmt(mvAtFullRetail)),
             e("span",{style:{color:blendedDiscount>0?"#B05A35":"#7278A0"}},Math.round(blendedDiscount*100)+"% blended"),
             e("span",{style:{color:"#2D7A65",fontWeight:800}},fmt(totalRealised))
+          ),
+
+          // v9.33 — DEAL EVOLUTION SUMMARY
+          // Phil's specific request: "i want the profit of the private sales added so we know how the whole deal would evolve"
+          e("div",{style:{marginTop:14,padding:"14px 16px",background:"linear-gradient(135deg,#F8F9FC,#FBFCFF)",border:"1px solid #C5C8E0",borderRadius:8}},
+            e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}},
+              e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em"}},"Deal evolution — full P&L across all routes"),
+              e("div",{style:{fontSize:9,color:"#7278A0"}},"Build £"+routeBuildPsf+"/sqft · Profit target "+Math.round(routeProfitTargetPct*100)+"% · From SFH inputs")
+            ),
+            e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginTop:8}},
+              // Total Revenue (Realised)
+              e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:6,padding:"10px 12px"}},
+                e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".06em",fontWeight:700}},"Revenue"),
+                e("div",{style:{fontSize:16,fontWeight:800,color:"#2D7A65",marginTop:3}},fmt(totalRealised)),
+                e("div",{style:{fontSize:9,color:"#7278A0",marginTop:2}},"Blended realisable GDV")
+              ),
+              // Total Costs
+              e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:6,padding:"10px 12px"}},
+                e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".06em",fontWeight:700}},"Total Costs"),
+                e("div",{style:{fontSize:16,fontWeight:800,color:"#B05A35",marginTop:3}},fmt(totalCostsAcross)),
+                e("div",{style:{fontSize:9,color:"#7278A0",marginTop:2}},"Build + fees + S106 + roads + finance")
+              ),
+              // Total Profit
+              e("div",{style:{background:"#fff",border:"2px solid "+(totalProfitAcross>0?"#2D7A65":"#B05A35"),borderRadius:6,padding:"10px 12px"}},
+                e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".06em",fontWeight:700}},"Pre-Land Profit"),
+                e("div",{style:{fontSize:16,fontWeight:800,color:totalProfitAcross>0?"#2D7A65":"#B05A35",marginTop:3}},(totalProfitAcross<0?"−":"")+fmt(Math.abs(totalProfitAcross))),
+                e("div",{style:{fontSize:9,color:"#7278A0",marginTop:2}},"Revenue minus all costs (excl. land)")
+              ),
+              // Blended Margin
+              e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:6,padding:"10px 12px"}},
+                e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".06em",fontWeight:700}},"Blended Margin"),
+                e("div",{style:{fontSize:16,fontWeight:800,color:blendedMarginPct>=15?"#2D7A65":blendedMarginPct>=10?"#9A7B3E":"#B05A35",marginTop:3}},Math.round(blendedMarginPct)+"%"),
+                e("div",{style:{fontSize:9,color:"#7278A0",marginTop:2}},(blendedMarginPct>=17.5?"Above target ✓":blendedMarginPct>=15?"Near target":blendedMarginPct>=10?"Below target":"Loss-making"))
+              )
+            ),
+            // Private-sales specific spotlight
+            byRoute.private && e("div",{style:{marginTop:10,padding:"10px 12px",background:"rgba(45,122,101,0.06)",borderLeft:"3px solid #2D7A65",borderRadius:4}},
+              e("div",{style:{fontSize:10,fontWeight:700,color:"#2D7A65",marginBottom:4,textTransform:"uppercase",letterSpacing:".08em"}},"Private sales spotlight"),
+              e("div",{style:{fontSize:11,color:"#3A3D6A",lineHeight:1.6}},
+                e("strong",null,byRoute.private.units+" units"),
+                " sold private retail at full MV: revenue ",
+                e("strong",null,fmt(byRoute.private.realised)),
+                ", costs ",fmt(byRoute.private.totalCost),
+                " → ",
+                e("strong",{style:{color:byRoute.private.profit>0?"#2D7A65":"#B05A35"}},
+                  "private-sales profit "+(byRoute.private.profit<0?"−":"")+fmt(Math.abs(byRoute.private.profit))
+                ),
+                " ("+Math.round(byRoute.private.marginPct)+"% margin)"
+              )
+            )
           ),
 
           // Save total for downstream use
@@ -8337,7 +8479,7 @@ var JOURNEYS = {
       e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",marginBottom:14}},
         e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:14}},"Bedroom Mix & Market Rents"),
         e("div",{style:{fontSize:10,color:"#7278A0",marginBottom:12}},
-          "Rents auto-populated from "+cityName(city||"")+" market data. Adjust to match your scheme. Market benchmark: 1-bed £"+base1bed+"/month, 2-bed £"+Math.round(base1bed*BED_MULT[2])+", 3-bed £"+Math.round(base1bed*BED_MULT[3])+", 4-bed £"+Math.round(base1bed*BED_MULT[4])+"/month."
+          "Rents auto-populated from "+rentSourceLabel+". Adjust to match your scheme. Market benchmark: 1-bed £"+base1bed+"/month, 2-bed £"+Math.round(base1bed*BED_MULT[2])+", 3-bed £"+Math.round(base1bed*BED_MULT[3])+", 4-bed £"+Math.round(base1bed*BED_MULT[4])+"/month."
         ),
         e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}},
           [{beds:1,k:"beds1",rk:"rent1",def:defaultMix[1],defR:rent1,col:"#4A4BAE"},
