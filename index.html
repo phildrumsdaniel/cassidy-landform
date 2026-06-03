@@ -218,8 +218,17 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.28";
+var CURRENT_VERSION = "9.31";
 var VERSION_HISTORY = [
+  {v:"9.31", date:"Jun 2026", headline:"Stage Relevance indicator + 'What's incomplete' dashboard checklist",
+   affectsCalc:false,
+   changes:["Every stage in the sidebar now shows a small badge: REQ (required) / REC (recommended) / N/A (not applicable)","Context-aware: pension/PRS routes in SFH → Capitalisation becomes REQUIRED; AHP routes → Grants becomes REQUIRED; 2+ exit routes → Tenure Mix becomes REQUIRED","Completed required stages show ✓ instead of REQ in the sidebar","Dashboard has a new 'What you still need to fill' panel showing only the stages you actually need for your journey","Clicking any incomplete stage in the checklist jumps you straight there","Once all required stages are filled, panel turns green: 'All required stages complete'"]},
+  {v:"9.30", date:"Jun 2026", headline:"Capitalisation now aggregates by Exit Route",
+   affectsCalc:true,
+   changes:["New 'Multi-route exit value' card at top of Capitalisation stage","Aggregates SFH plot mix by Exit Route (private/pension/AHP/PRS/First Homes)","Applies route-specific discounts: 12% pension bulk, 55% AHP social, 70% AHP shared ownership, 60% AHP affordable rent, 70% First Homes","Retained PRS valued via yield-based NPV using target yield + monthly rents from Cap stage","Blended realisable GDV shown vs. full-retail baseline with blended discount %","Saves multiRouteGdv to data.cap for downstream reports"]},
+  {v:"9.29", date:"Jun 2026", headline:"House type expansion + multi-route exit + Tier 1 build",
+   affectsCalc:true,
+   changes:["Added 1-bed terrace, 1-bed apartment, 2-bed apartment, 4-bed semi to HOUSE_TYPES (used everywhere)","SFH default mix now includes 1-bed terrace (8%) and 4-bed semi (12%)","SFH mix table now has Exit Route column: Private retail / Pension fund bulk / AHP Social Rent / AHP Shared Ownership / AHP Affordable / Retained PRS / First Homes","Rows visually tinted by exit route — pension amber, AHP green, PRS blue, retail green","🏗 Tier 1 contractor toggle on SFH: auto-uplifts build cost to BCIS upper-quartile when subcontracting","Note: capitalisation route-aware aggregation comes in v9.30"]},
   {v:"9.28", date:"Jun 2026", headline:"New-build PSF premium for new developments",
    affectsCalc:true,
    changes:["Sale £/sqft now applies a regional new-build premium when scheme is SFH/BTR/PBSA","Land Registry weighted average is for ALL housing stock — wrong baseline for new builds","Premium ranges from 10% (NI/Scotland rural) to 25% (London/prime commuter belt)","Both figures shown transparently: 'New-build estimate £363 (Land Registry £297 + 22% premium)'","SFH House Mix, RLV stage, and LiveMarketBanner all updated"]},
@@ -1478,11 +1487,15 @@ var BUILD_TYPES = {
 };
 
 var HOUSE_TYPES = {
+  "1-bed terrace":{sqft:550,adj:0.75},
+  "1-bed apartment":{sqft:520,adj:0.72},
   "2-bed terrace":{sqft:720,adj:0.88},
+  "2-bed apartment":{sqft:680,adj:0.85},
   "2-bed semi":{sqft:820,adj:0.90},
   "3-bed terrace":{sqft:920,adj:0.95},
   "3-bed semi":{sqft:1020,adj:1.00},
   "3-bed detached":{sqft:1150,adj:1.08},
+  "4-bed semi":{sqft:1300,adj:1.14},
   "4-bed detached":{sqft:1500,adj:1.18},
   "4-bed executive":{sqft:1900,adj:1.28},
   "5-bed detached":{sqft:2400,adj:1.40},
@@ -2613,6 +2626,125 @@ var ALL_STAGES = [
   // ── 7. AUDIT ─────────────────────────────────────────────────────────────
   {id:"propagation", label:"Propagation Audit",    icon:"🔬", group:"7. Audit",    journeys:["all"]},
 ];
+
+// ──────────────────────────────────────────────────────────────────────
+// STAGE RELEVANCE (v9.31)
+// For a given deal context (asset type + active exit routes + planning state),
+// classify each stage as REQUIRED / RECOMMENDED / OPTIONAL / N_A.
+// Drives the sidebar badges and dashboard "what's incomplete" checklist.
+// ──────────────────────────────────────────────────────────────────────
+var STAGE_RELEVANCE = {
+  // Always required regardless of journey
+  navigator:    {required:["all"],                  recommended:[]},
+  land:         {required:["land","sfh","btr","pbsa"], recommended:["property"]},
+  rlv:          {required:["land","sfh","btr","pbsa"], recommended:["property"]},
+  planning:     {required:["land","sfh","btr","pbsa","recovery"], recommended:["property"]},
+  fin:          {required:["sfh","btr","pbsa","recovery"], recommended:["property"]},
+  exit:         {required:["sfh","btr","pbsa"],     recommended:["land","property","recovery"]},
+
+  // Scheme-specific value stages
+  sfh:          {required:["sfh"],                  recommended:[]},
+  hra:          {required:["btr","pbsa"],           recommended:[]},
+  tenure:       {required:[],                        recommended:["sfh","btr"]},
+  capitalise:   {required:["btr","pbsa"],           recommended:["sfh","land"]},  // becomes REQUIRED for SFH if pension/PRS routes used
+  grants:       {required:[],                        recommended:["sfh","btr","pbsa"]},  // becomes REQUIRED if any AHP route used
+
+  // Find stages
+  placona:      {required:[],                        recommended:["land","sfh","btr","pbsa"]},
+  monitor:      {required:[],                        recommended:["land","sfh","btr","pbsa"]},
+  constraint:   {required:[],                        recommended:["land","sfh","btr","pbsa"]},
+  scraper:      {required:[],                        recommended:["land","sfh","btr","pbsa"]},
+  epe:          {required:["property"],              recommended:[]},
+
+  // Develop stages
+  viability:    {required:[],                        recommended:["sfh","btr","pbsa"]},
+  dd:           {required:["sfh","btr","pbsa"],     recommended:["land","property"]},
+  risks:        {required:[],                        recommended:["sfh","btr","pbsa","land","property"]},
+
+  // Exit / Reports
+  recovery:     {required:["recovery"],              recommended:[]},
+  scorecard:    {required:[],                        recommended:["sfh","btr","pbsa"]},
+  teaser:       {required:[],                        recommended:["sfh","btr","pbsa","land"]},
+  im:           {required:[],                        recommended:["sfh","btr","pbsa","land"]},
+  dataroom:     {required:[],                        recommended:["sfh","btr","pbsa","land"]},
+  investor:     {required:[],                        recommended:["sfh","btr","pbsa","land"]},
+  summary:      {required:[],                        recommended:["sfh","btr","pbsa"]},
+  assetOptimiser: {required:["asset"],              recommended:[]},
+
+  // Records — always available
+  meetings:     {required:[],                        recommended:[]},
+  portfolio:    {required:[],                        recommended:[]},
+  dashboard:    {required:[],                        recommended:["sfh","btr","pbsa","land","property"]},
+  propagation:  {required:[],                        recommended:[]}
+};
+
+// Compute relevance for one stage given current deal state
+// Returns "required" | "recommended" | "optional" | "na"
+function getStageRelevance(stageId, deal){
+  var stage = ALL_STAGES.find(function(s){return s.id===stageId;});
+  if(!stage) return "na";
+  var at = ((deal&&deal.assetType)||"").toLowerCase() || "all";
+
+  // First check if this stage even applies to the journey at all
+  if(stage.journeys.indexOf("all") < 0 && stage.journeys.indexOf(at) < 0){
+    return "na";
+  }
+
+  var rel = STAGE_RELEVANCE[stageId];
+  if(!rel) return "optional";  // default to optional if undefined
+
+  // Hard-required by journey
+  if(rel.required.indexOf(at) >= 0 || rel.required.indexOf("all") >= 0){
+    return "required";
+  }
+
+  // Context-driven upgrades — features used promote a stage from optional → required
+  if(deal && deal.sfh && deal.sfh.mix){
+    var mix = deal.sfh.mix;
+    var hasPension = mix.some(function(r){return r.tenure==="pension" && num(r.count)>0;});
+    var hasPrs = mix.some(function(r){return r.tenure==="retained_prs" && num(r.count)>0;});
+    var hasAhp = mix.some(function(r){return (r.tenure==="ahp_social"||r.tenure==="ahp_so"||r.tenure==="ahp_affordable"||r.tenure==="first_homes") && num(r.count)>0;});
+
+    // Capitalisation becomes REQUIRED if any pension or PRS retained routes are used
+    if(stageId==="capitalise" && (hasPension || hasPrs)) return "required";
+    // Grants becomes REQUIRED if any AHP route is used
+    if(stageId==="grants" && hasAhp) return "required";
+    // Tenure Mix becomes REQUIRED if mix has 2+ exit routes
+    if(stageId==="tenure"){
+      var routes = {};
+      mix.forEach(function(r){if(num(r.count)>0 && r.tenure) routes[r.tenure] = true;});
+      if(Object.keys(routes).length >= 2) return "required";
+    }
+  }
+
+  // Recommended by journey
+  if(rel.recommended.indexOf(at) >= 0 || rel.recommended.indexOf("all") >= 0){
+    return "recommended";
+  }
+
+  return "optional";
+}
+
+// Lightweight completeness check — true if the stage has key fields filled
+function isStageComplete(stageId, deal){
+  if(!deal) return false;
+  switch(stageId){
+    case "land":       return !!(deal.land && (num(deal.land.acres) || deal.land.postcode || deal.land.city));
+    case "rlv":        return !!(deal.rlv && num(deal.rlv.units));
+    case "sfh":        return !!(deal.sfh && deal.sfh.mix && deal.sfh.mix.some(function(r){return num(r.count)>0;}));
+    case "hra":        return !!(deal.hra && num(deal.hra.units));
+    case "planning":   return !!(deal.planning && num(deal.planning.units));
+    case "fin":        return !!(deal.fin && (num(deal.fin.gdv) || num(deal.fin.totalCost)));
+    case "capitalise": return !!(deal.cap && (num(deal.cap.targetYield) || num(deal.cap.multiRouteGdv)));
+    case "tenure":     return !!(deal.tenure && deal.tenure.rows && deal.tenure.rows.length>0);
+    case "exit":       return !!(deal.exit && (deal.exit.strategy || num(deal.exit.planningMo)));
+    case "dd":         return !!(deal.dd && Object.keys(deal.dd).length>3);
+    case "grants":     return !!(deal.grants && (num(deal.grants.ahpTotal) || num(deal.grants.helpToBuild) || num(deal.grants.brownfield)));
+    case "navigator":  return !!(deal.assetType);
+    case "dashboard":  return true;  // dashboard is a view, not a fillable stage
+    default:           return false;
+  }
+}
 
 // Journey display labels (used by Deal Dashboard and elsewhere)
 var JOURNEYS = {
@@ -8057,6 +8189,147 @@ var JOURNEYS = {
       ),
       LiveMarketBanner(),
 
+      // ── v9.30 — MULTI-ROUTE EXIT CAPITALISATION ────────────────────────────
+      // Aggregates SFH mix by exit route (private retail / pension / AHP / PRS / First Homes)
+      // and applies route-specific discounts to derive realisable GDV per route.
+      (function(){
+        var mix = (data.sfh && data.sfh.mix) || [];
+        if(mix.length === 0) return null;
+        var hasExitData = mix.some(function(r){return r.tenure && num(r.count)>0;});
+        if(!hasExitData) return null;
+
+        // Route-specific discount table (% of full Market Value realised)
+        var ROUTE_DISCOUNT = {
+          "private":         {pct:1.00, label:"Private retail sale",        col:"#2D7A65", note:"Full Market Value, individual buyers"},
+          "pension":         {pct:0.88, label:"Pension/SFR bulk sale",      col:"#9A7B3E", note:"12% institutional discount for scale + yield-based pricing"},
+          "ahp_social":      {pct:0.55, label:"AHP — Social Rent",          col:"#4A4BAE", note:"55% MV — sold to RP under AHP grant"},
+          "ahp_so":          {pct:0.70, label:"AHP — Shared Ownership",     col:"#4A4BAE", note:"70% MV — first tranche sale to occupier, equity retained"},
+          "ahp_affordable":  {pct:0.60, label:"AHP — Affordable Rent",      col:"#4A4BAE", note:"60% MV — sold to RP at affordable rent valuation"},
+          "first_homes":     {pct:0.70, label:"First Homes",                col:"#4A4BAE", note:"70% MV cap under First Homes scheme (planning policy)"},
+          "retained_prs":    {pct:0,    label:"Retained PRS (yield-based)", col:"#B05A35", note:"Not sold — capitalised on rental yield (cap.targetYield)"}
+        };
+
+        // Aggregate by tenure
+        var byRoute = {};
+        var totalUnits = 0;
+        var mvAtFullRetail = 0;
+        mix.forEach(function(row){
+          var cnt = num(row.count);
+          if(cnt <= 0) return;
+          var info = HOUSE_TYPES[row.type] || HOUSE_TYPES["3-bed semi"];
+          var basePsf2 = num((data.sfh&&data.sfh.basePsf)) || 297;
+          var sp = num(row.psf) || (basePsf2 * (info.adj || 1));
+          var revenuePerUnit = (info.sqft || num(row.sqft) || 850) * sp;
+          var unitOverride = num(row.unitPrice);
+          if(unitOverride > 0) revenuePerUnit = unitOverride;
+          var route = row.tenure || "private";
+          if(!byRoute[route]) byRoute[route] = {units:0, fullMv:0, sqft:0};
+          byRoute[route].units += cnt;
+          byRoute[route].fullMv += revenuePerUnit * cnt;
+          byRoute[route].sqft += (info.sqft || 850) * cnt;
+          totalUnits += cnt;
+          mvAtFullRetail += revenuePerUnit * cnt;
+        });
+
+        // For retained PRS: compute capitalised value from yield
+        var targetYield = num(cap.targetYield) || 0.045;
+        if(targetYield > 1) targetYield = targetYield / 100;  // accept 4.5 or 0.045
+        if(byRoute.retained_prs){
+          // Use the user-set monthly rents from this stage, weighted by bed mix per sqft
+          var prsSqft = byRoute.retained_prs.sqft;
+          var prsUnits = byRoute.retained_prs.units;
+          // Estimate annual rent: average rent across bed types weighted by units in PRS retained
+          var avgMonthly = grossMonthly && totalUnitsCalc ? grossMonthly / totalUnitsCalc : (base1bed * 1.4);
+          var prsAnnualRent = avgMonthly * 12 * prsUnits;
+          var prsNoi = prsAnnualRent * (1 - totalDed);
+          var prsCapValue = targetYield > 0 ? prsNoi / targetYield : 0;
+          byRoute.retained_prs.realised = prsCapValue;
+          byRoute.retained_prs.prsAnnualRent = prsAnnualRent;
+          byRoute.retained_prs.prsNoi = prsNoi;
+        }
+        // Apply discount for non-PRS routes
+        Object.keys(byRoute).forEach(function(route){
+          if(route === "retained_prs") return;
+          var disc = (ROUTE_DISCOUNT[route] || ROUTE_DISCOUNT.private).pct;
+          byRoute[route].realised = byRoute[route].fullMv * disc;
+        });
+        var totalRealised = Object.keys(byRoute).reduce(function(sum,k){return sum + (byRoute[k].realised||0);},0);
+        var blendedDiscount = mvAtFullRetail > 0 ? (1 - totalRealised/mvAtFullRetail) : 0;
+
+        // Sort routes by # units desc
+        var routeOrder = Object.keys(byRoute).sort(function(a,b){return byRoute[b].units - byRoute[a].units;});
+
+        return e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",marginBottom:14}},
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:14,flexWrap:"wrap",gap:8}},
+            e("div",null,
+              e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}},"Multi-route exit value"),
+              e("div",{style:{fontSize:10,color:"#7278A0"}},"Aggregating "+totalUnits+" units from SFH House Mix by Exit Route, with route-specific discounts.")
+            ),
+            e("div",{style:{textAlign:"right"}},
+              e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".08em"}},"Blended realisable"),
+              e("div",{style:{fontSize:22,fontWeight:800,color:"#2D7A65"}},fmt(totalRealised)),
+              e("div",{style:{fontSize:10,color:"#7278A0",marginTop:2}},"vs. "+fmt(mvAtFullRetail)+" if all sold private ("+Math.round(blendedDiscount*100)+"% blended discount)")
+            )
+          ),
+
+          // Per-route breakdown table
+          e("div",{style:{display:"grid",gridTemplateColumns:"1.8fr 60px 70px 100px 100px 100px",padding:"8px 12px",background:"#2E2F8A",fontSize:9,color:"#fff",textTransform:"uppercase",letterSpacing:".08em",fontWeight:700,gap:8,borderRadius:"5px 5px 0 0"}},
+            e("span",null,"Route"),e("span",null,"Units"),e("span",null,"% of scheme"),e("span",null,"@ Full MV"),e("span",null,"Discount %"),e("span",null,"Realised")
+          ),
+          routeOrder.map(function(route){
+            var r = byRoute[route];
+            var rd = ROUTE_DISCOUNT[route] || ROUTE_DISCOUNT.private;
+            var pctOfScheme = totalUnits > 0 ? Math.round(r.units / totalUnits * 100) : 0;
+            var discPct = route === "retained_prs" ? "yield-based" : Math.round((1 - rd.pct) * 100) + "%";
+            return e("div",{key:route,style:{display:"grid",gridTemplateColumns:"1.8fr 60px 70px 100px 100px 100px",padding:"10px 12px",borderBottom:"1px solid #DDE0ED",gap:8,alignItems:"center",fontSize:11}},
+              e("div",null,
+                e("div",{style:{fontSize:11,fontWeight:700,color:rd.col}},rd.label),
+                e("div",{style:{fontSize:9,color:"#7278A0",marginTop:2}},rd.note),
+                route === "retained_prs" && r.prsAnnualRent && e("div",{style:{fontSize:9,color:"#9A7B3E",marginTop:3,fontStyle:"italic"}},
+                  "Rent £"+Math.round(r.prsAnnualRent/1000)+"k/yr · NOI £"+Math.round(r.prsNoi/1000)+"k · cap @ "+(targetYield*100).toFixed(2)+"%"
+                )
+              ),
+              e("span",{style:{fontWeight:700,color:"#2E2F8A"}},r.units),
+              e("span",{style:{color:"#7278A0"}},pctOfScheme+"%"),
+              e("span",{style:{color:"#7278A0"}},fmt(r.fullMv)),
+              e("span",{style:{color:route==="retained_prs"?"#B05A35":(rd.pct===1?"#7278A0":"#B05A35"),fontWeight:600}},discPct),
+              e("span",{style:{fontWeight:700,color:rd.col}},fmt(r.realised))
+            );
+          }),
+          // Total row
+          e("div",{style:{display:"grid",gridTemplateColumns:"1.8fr 60px 70px 100px 100px 100px",padding:"12px",background:"#F4F5FB",borderTop:"2px solid #2E2F8A",gap:8,alignItems:"center",fontSize:12,fontWeight:700,color:"#2E2F8A",borderRadius:"0 0 5px 5px"}},
+            e("span",null,"BLENDED REALISABLE GDV"),
+            e("span",null,totalUnits),
+            e("span",null,"100%"),
+            e("span",{style:{color:"#7278A0"}},fmt(mvAtFullRetail)),
+            e("span",{style:{color:blendedDiscount>0?"#B05A35":"#7278A0"}},Math.round(blendedDiscount*100)+"% blended"),
+            e("span",{style:{color:"#2D7A65",fontWeight:800}},fmt(totalRealised))
+          ),
+
+          // Save total for downstream use
+          (function(){
+            // Persist multi-route blended GDV for IM/teaser/dashboard to reference
+            var existing = num(data.cap && data.cap.multiRouteGdv);
+            if(Math.abs(existing - totalRealised) > 1000){
+              setTimeout(function(){
+                setData(function(prev){
+                  var capNext = Object.assign({},prev.cap||{},{multiRouteGdv:Math.round(totalRealised), multiRouteFullMv:Math.round(mvAtFullRetail), multiRouteBlendedDiscount:Math.round(blendedDiscount*1000)/10});
+                  return Object.assign({},prev,{cap:capNext});
+                });
+              },0);
+            }
+            return null;
+          })(),
+
+          // Footer note
+          e("div",{style:{marginTop:12,padding:"10px 12px",background:"#F8F9FC",borderLeft:"3px solid #2D7A65",borderRadius:4,fontSize:10,color:"#7278A0",lineHeight:1.6}},
+            e("strong",{style:{color:"#3A3D6A"}},"Discount sources: "),
+            "Pension/SFR bulk = 12% institutional (Savills/Knight Frank benchmarks). AHP discounts = Homes England valuation methodology. First Homes = National Planning Policy cap. Retained PRS = NPV of rent stream at target yield. ",
+            "Override any unit price by entering it manually in SFH House Mix."
+          )
+        );
+      })(),
+
       // ── BEDROOM MIX & RENTS ────────────────────────────────────────────────
       e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",marginBottom:14}},
         e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:14}},"Bedroom Mix & Market Rents"),
@@ -12087,6 +12360,64 @@ var JOURNEYS = {
       e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Deal Dashboard"),
       e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:data.masterReport?8:12}},"Live overview — fill in the stages to see metrics update"),
 
+      // v9.31 — "What you still need to fill" — incomplete REQUIRED stages
+      (function(){
+        if(!data.assetType) return null;  // need a journey to evaluate against
+        var incompleteRequired = [];
+        var incompleteRecommended = [];
+        ALL_STAGES.forEach(function(s){
+          var rel = getStageRelevance(s.id, data);
+          var complete = isStageComplete(s.id, data);
+          if(complete) return;
+          if(s.id==="dashboard"||s.id==="portfolio"||s.id==="propagation") return;  // skip non-input stages
+          if(rel==="required") incompleteRequired.push(s);
+          else if(rel==="recommended") incompleteRecommended.push(s);
+        });
+
+        if(incompleteRequired.length===0 && incompleteRecommended.length===0){
+          // All required filled
+          return e("div",{style:{padding:"12px 16px",background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.3)",borderRadius:8,marginBottom:14,display:"flex",alignItems:"center",gap:10}},
+            e("span",{style:{fontSize:18}},"✓"),
+            e("div",{style:{flex:1}},
+              e("div",{style:{fontSize:12,fontWeight:700,color:"#2D7A65"}},"All required stages complete"),
+              e("div",{style:{fontSize:10,color:"#7278A0",marginTop:2}},"This deal has all the essentials filled in. Optional stages are available in the sidebar if you want extra detail.")
+            )
+          );
+        }
+
+        return e("div",{style:{padding:"14px 16px",background:"rgba(176,90,53,0.05)",border:"1px solid rgba(176,90,53,0.25)",borderRadius:8,marginBottom:14}},
+          e("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:10}},
+            e("span",{style:{fontSize:14}},"📋"),
+            e("div",{style:{fontSize:12,fontWeight:800,color:"#B05A35",letterSpacing:".05em",textTransform:"uppercase"}},
+              "What you still need to fill"
+            )
+          ),
+          incompleteRequired.length>0 && e("div",{style:{marginBottom:incompleteRecommended.length>0?10:0}},
+            e("div",{style:{fontSize:10,fontWeight:700,color:"#B05A35",marginBottom:6,textTransform:"uppercase",letterSpacing:".08em"}},"Required ("+incompleteRequired.length+")"),
+            e("div",{style:{display:"flex",flexDirection:"column",gap:4}},
+              incompleteRequired.map(function(s){
+                return e("div",{key:s.id,onClick:function(){navTo(s.id);},style:{display:"flex",alignItems:"center",gap:9,padding:"7px 10px",background:"#fff",border:"1px solid rgba(176,90,53,0.2)",borderRadius:5,cursor:"pointer",transition:"all .12s"}},
+                  e("span",{style:{fontSize:14,width:16}},s.icon),
+                  e("span",{style:{flex:1,fontSize:12,color:"#3A3D6A",fontWeight:600}},s.label),
+                  e("span",{style:{fontSize:10,color:"#B05A35",fontWeight:700}},"Open →")
+                );
+              })
+            )
+          ),
+          incompleteRecommended.length>0 && e("div",null,
+            e("div",{style:{fontSize:10,fontWeight:700,color:"#9A7B3E",marginBottom:6,textTransform:"uppercase",letterSpacing:".08em"}},"Recommended ("+incompleteRecommended.length+")"),
+            e("div",{style:{display:"flex",flexWrap:"wrap",gap:6}},
+              incompleteRecommended.slice(0,8).map(function(s){
+                return e("div",{key:s.id,onClick:function(){navTo(s.id);},style:{display:"inline-flex",alignItems:"center",gap:6,padding:"5px 9px",background:"#fff",border:"1px solid rgba(154,123,62,0.25)",borderRadius:4,cursor:"pointer",fontSize:11,color:"#3A3D6A"}},
+                  e("span",null,s.icon),e("span",null,s.label)
+                );
+              }),
+              incompleteRecommended.length>8 && e("span",{style:{fontSize:11,color:"#7278A0",alignSelf:"center"}},"+ "+(incompleteRecommended.length-8)+" more")
+            )
+          )
+        );
+      })(),
+
       // v9.16 — Auto-migration result banner
       // After loadDeal/cloud load runs migrateLoadedDeal(), this banner surfaces
       // what was auto-fixed and what may need user review. User can restore the
@@ -13882,10 +14213,15 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     var roads=numOr(s.roads, 12000);
     var totalUa=Math.max(4,Math.floor(sAcres*0.404686*(numOr(s.dph, 30))));
     var autoMix=[
-      {type:"2-bed semi",beds:"2",count:String(Math.round(totalUa*0.10)),sqft:"820",unitPrice:String(Math.round(820*basePsf*0.88)),psf:"",tenure:"private",ahPct:"0"},
-      {type:"3-bed semi",beds:"3",count:String(Math.round(totalUa*0.35)),sqft:"1020",unitPrice:String(Math.round(1020*basePsf)),psf:"",tenure:"private",ahPct:"0"},
-      {type:"3-bed detached",beds:"3",count:String(Math.round(totalUa*0.30)),sqft:"1150",unitPrice:String(Math.round(1150*basePsf*1.08)),psf:"",tenure:"private",ahPct:"0"},
-      {type:"4-bed detached",beds:"4",count:String(Math.round(totalUa*0.25)),sqft:"1500",unitPrice:String(Math.round(1500*basePsf*1.22)),psf:"",tenure:"private",ahPct:"0"},
+      // v9.29 — Expanded mix with 1-bed terrace and 4-bed semi
+      // Mix percentages target a balanced family-housing scheme suitable for AHP + private
+      {type:"1-bed terrace",beds:"1",count:String(Math.round(totalUa*0.08)),sqft:"550",unitPrice:String(Math.round(550*basePsf*0.75)),psf:"",tenure:"private",ahPct:"0"},
+      {type:"2-bed terrace",beds:"2",count:String(Math.round(totalUa*0.12)),sqft:"720",unitPrice:String(Math.round(720*basePsf*0.88)),psf:"",tenure:"private",ahPct:"0"},
+      {type:"2-bed semi",beds:"2",count:String(Math.round(totalUa*0.10)),sqft:"820",unitPrice:String(Math.round(820*basePsf*0.90)),psf:"",tenure:"private",ahPct:"0"},
+      {type:"3-bed semi",beds:"3",count:String(Math.round(totalUa*0.25)),sqft:"1020",unitPrice:String(Math.round(1020*basePsf)),psf:"",tenure:"private",ahPct:"0"},
+      {type:"3-bed detached",beds:"3",count:String(Math.round(totalUa*0.18)),sqft:"1150",unitPrice:String(Math.round(1150*basePsf*1.08)),psf:"",tenure:"private",ahPct:"0"},
+      {type:"4-bed semi",beds:"4",count:String(Math.round(totalUa*0.12)),sqft:"1300",unitPrice:String(Math.round(1300*basePsf*1.14)),psf:"",tenure:"private",ahPct:"0"},
+      {type:"4-bed detached",beds:"4",count:String(Math.round(totalUa*0.15)),sqft:"1500",unitPrice:String(Math.round(1500*basePsf*1.18)),psf:"",tenure:"private",ahPct:"0"},
     ];
     var mix=s.mix&&s.mix.some(function(r){return num(r.count)>0;})?s.mix:autoMix;
     function updMix(i,k,v){var m=mix.slice();m[i]=Object.assign({},m[i]);m[i][k]=v;up("sfh","mix",m);}
@@ -13994,6 +14330,38 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
         );
       })(),
 
+      // v9.29 — Tier 1 subcontractor model
+      // When Cassidy subs the build to a tier-1 main contractor (Bouygues, Mace, Wates etc),
+      // build cost should sit at BCIS upper-quartile (margin baked in) and we add a bond cost line.
+      (function(){
+        var t1 = !!(s.tier1Build);
+        var btRef = BUILD_TYPES["Residential houses"];
+        return e("div",{style:{margin:"-8px 0 14px",padding:"12px 14px",background:t1?"rgba(74,75,174,0.06)":"rgba(243,244,248,0.6)",border:"1px solid "+(t1?"rgba(74,75,174,0.3)":"#E0E2EC"),borderRadius:6,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}},
+          e("label",{style:{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,color:"#3A3D6A",fontWeight:600}},
+            e("input",{type:"checkbox",checked:t1,onChange:function(ev){
+              setData(function(prev){
+                var next = Object.assign({},prev.sfh||{},{tier1Build:ev.target.checked});
+                if(ev.target.checked && (!num(prev.sfh&&prev.sfh.buildPsf) || num(prev.sfh.buildPsf)===btRef.mid)){
+                  next.buildPsf = btRef.hi;
+                }
+                return Object.assign({},prev,{sfh:next});
+              });
+            },style:{width:16,height:16,cursor:"pointer",accentColor:"#4A4BAE"}}),
+            "🏗 Build subcontracted to Tier 1 main contractor"
+          ),
+          e("div",{style:{flex:1,minWidth:220,fontSize:10,color:t1?"#3A3D6A":"#7278A0",lineHeight:1.5}},
+            t1
+              ? e("span",null,
+                  e("strong",null,"Active. "),
+                  "Build cost defaulting to BCIS upper-quartile £"+btRef.hi+"/sqft (contractor margin baked in). "+
+                  "Bond cost (~1.5% contract value) and 5% retention should be added to the cost stack. "+
+                  "Programme certainty higher, variation risk still with Cassidy."
+                )
+              : "Tick if Cassidy is sponsor/developer with a Tier 1 main contractor delivering the build (typical for £20m+ schemes). Otherwise leaves the model assuming Cassidy is self-delivering."
+          )
+        );
+      })(),
+
       LiveMarketBanner(),
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Site Details"),
@@ -14047,8 +14415,9 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
               up("sfh","mix",newMix);
             },style:{padding:"5px 12px",background:"#2D7A65",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",flexShrink:0}},"⚡ Auto-fill Typical Mix")
           ),
-          e("div",{style:{display:"grid",gridTemplateColumns:"1.8fr 55px 70px 75px 100px 100px 110px 28px",padding:"8px 12px",background:"#2E2F8A",fontSize:9,color:"#fff",textTransform:"uppercase",letterSpacing:".08em",fontWeight:700,borderBottom:"1px solid #DDE0ED",minWidth:640}},
-            e("span",null,"House Type Name"),e("span",null,"Beds"),e("span",null,"Plots"),e("span",null,"Sqft"),e("span",null,"£/sqft"),e("span",null,"Unit Price"),e("span",null,"Revenue"),e("span",null,"")
+          // v9.29 — Single header row with Exit Route column added
+          e("div",{style:{display:"grid",gridTemplateColumns:"1.5fr 60px 60px 80px 90px 100px 140px",padding:"8px 12px",background:"#2E2F8A",fontSize:9,color:"#fff",textTransform:"uppercase",letterSpacing:".08em",fontWeight:700,borderBottom:"1px solid #DDE0ED",minWidth:680,gap:8}},
+            e("span",null,"House Type"),e("span",null,"Plots"),e("span",null,"Sqft"),e("span",null,"£/sqft"),e("span",null,"Unit £"),e("span",null,"Revenue"),e("span",null,"Exit Route")
           ),
           mix.map(function(row,i){
             var info=HOUSE_TYPES[row.type]||HOUSE_TYPES["3-bed semi"];
@@ -14056,7 +14425,15 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
             var unitPrice=num(row.unitPrice||0);
             var effSp=unitPrice&&num(row.sqft||info&&info.sqft||850)?unitPrice/num(row.sqft||info&&info.sqft||850):sp;
             var cnt=num(row.count);
-            return e("div",{key:i,style:{display:"grid",gridTemplateColumns:"1.8fr 80px 80px 90px 100px 110px",padding:"8px 12px",borderBottom:"1px solid #DDE0ED",gap:8,alignItems:"center",background:cnt>0?"#FAFDF9":"#fff",minWidth:600}},
+            // v9.29 — Exit-route-aware row colour: pension/AHP rows tinted differently
+            var rowTint = cnt>0 ? (
+              row.tenure==="pension" ? "#FFF8EC" :
+              row.tenure==="ahp_social" ? "#F0F8F0" :
+              row.tenure==="ahp_so" ? "#F4F9F4" :
+              row.tenure==="retained_prs" ? "#F0F4FB" :
+              "#FAFDF9"
+            ) : "#fff";
+            return e("div",{key:i,style:{display:"grid",gridTemplateColumns:"1.5fr 60px 60px 80px 90px 100px 140px",padding:"8px 12px",borderBottom:"1px solid #DDE0ED",gap:8,alignItems:"center",background:rowTint,minWidth:680}},
               e("select",{value:row.type,onChange:function(ev){updMix(i,"type",ev.target.value);},style:Object.assign({},S.select,{fontSize:11,padding:"5px 6px"})},
                 Object.keys(HOUSE_TYPES).map(function(t){return e("option",{key:t,value:t},t);})
               ),
@@ -14064,12 +14441,28 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
               e("span",{style:{fontSize:12,color:"#7278A0"}},info.sqft),
               e("input",{type:"number",value:row.psf||"",onChange:function(ev){updMix(i,"psf",ev.target.value);},placeholder:"£"+Math.round(sp),style:Object.assign({},S.input,{fontSize:12,padding:"5px 6px"})}),
               e("span",{style:{fontSize:12,fontWeight:600,color:"#2E2F8A"}},cnt>0?fmt(info.sqft*sp):"—"),
-              e("span",{style:{fontSize:13,fontWeight:700,color:cnt>0?"#4A4BAE":"#7278A0"}},cnt>0?fmt(info.sqft*sp*cnt):"—")
+              e("span",{style:{fontSize:13,fontWeight:700,color:cnt>0?"#4A4BAE":"#7278A0"}},cnt>0?fmt(info.sqft*sp*cnt):"—"),
+              // v9.29 — Exit Route dropdown drives capitalisation in v9.30
+              e("select",{
+                value:row.tenure||"private",
+                onChange:function(ev){updMix(i,"tenure",ev.target.value);},
+                title:"Where these units go on exit. Affects capitalisation valuation per route.",
+                style:Object.assign({},S.select,{fontSize:10,padding:"5px 6px"})
+              },
+                e("option",{value:"private"},"Private retail sale"),
+                e("option",{value:"pension"},"Pension/SFR bulk sale"),
+                e("option",{value:"ahp_social"},"AHP — Social Rent (55% MV)"),
+                e("option",{value:"ahp_so"},"AHP — Shared Ownership (70% MV)"),
+                e("option",{value:"ahp_affordable"},"AHP — Affordable Rent (60% MV)"),
+                e("option",{value:"retained_prs"},"Retained PRS (yield-based)"),
+                e("option",{value:"first_homes"},"First Homes (70% MV cap)")
+              )
             );
           }),
-          totalUnits>0&&e("div",{style:{display:"grid",gridTemplateColumns:"1.8fr 80px 80px 90px 100px 110px",padding:"10px 12px",background:"#F7F8FC",borderTop:"2px solid #DDE0ED",fontSize:12,fontWeight:700,color:"#2E2F8A",minWidth:600}},
+          totalUnits>0&&e("div",{style:{display:"grid",gridTemplateColumns:"1.5fr 60px 60px 80px 90px 100px 140px",padding:"10px 12px",background:"#F7F8FC",borderTop:"2px solid #DDE0ED",fontSize:12,fontWeight:700,color:"#2E2F8A",minWidth:680,gap:8}},
             e("span",null,"TOTAL"),e("span",null,totalUnits+" plots"),e("span",null,""),e("span",null,""),e("span",null,""),
-            e("span",{style:{color:"#4A4BAE",fontWeight:800}},fmt(totalGdv))
+            e("span",{style:{color:"#4A4BAE",fontWeight:800}},fmt(totalGdv)),
+            e("span",{style:{fontSize:9,color:"#7278A0",fontWeight:600}},"see Cap →")
           ),
           e("datalist",{id:"house-type-list"},
           Object.keys(HOUSE_TYPES).map(function(ht){return e("option",{key:ht,value:ht});})
@@ -17250,9 +17643,23 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
                 e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.3)",letterSpacing:".15em",textTransform:"uppercase",padding:"10px 16px 3px",fontWeight:700}},g),
                 activeStages.filter(function(s){return s.group===g;}).map(function(s){
                   var active=stage===s.id;
-                  return e("div",{key:s.id,onClick:function(){navTo(s.id);},style:{display:"flex",alignItems:"center",gap:9,padding:"8px 16px",cursor:"pointer",background:active?"rgba(237,232,74,0.12)":"transparent",borderLeft:"3px solid "+(active?"#EDE84A":"transparent"),transition:"all .12s"}},
+                  // v9.31 — Stage relevance badge (REQUIRED / RECOMMENDED / OPTIONAL / N/A)
+                  var rel = getStageRelevance(s.id, data);
+                  var complete = isStageComplete(s.id, data);
+                  // Visual config per relevance level
+                  var relBadge = {
+                    required:    {label:"REQ", bg:complete?"rgba(45,122,101,0.85)":"rgba(176,90,53,0.85)", color:"#fff", title:complete?"Required — completed ✓":"Required — not yet filled in"},
+                    recommended: {label:"REC", bg:"rgba(154,123,62,0.55)",  color:"rgba(255,255,255,0.95)", title:"Recommended for your journey"},
+                    optional:    {label:"",    bg:"transparent",             color:"transparent",            title:"Optional"},
+                    na:          {label:"N/A", bg:"rgba(255,255,255,0.06)",  color:"rgba(255,255,255,0.3)",  title:"Not applicable for your journey"}
+                  }[rel] || {label:"",bg:"transparent",color:"transparent",title:""};
+                  return e("div",{key:s.id,onClick:function(){navTo(s.id);},title:relBadge.title,style:{display:"flex",alignItems:"center",gap:9,padding:"8px 16px",cursor:"pointer",background:active?"rgba(237,232,74,0.12)":"transparent",borderLeft:"3px solid "+(active?"#EDE84A":"transparent"),transition:"all .12s",opacity:rel==="na"?0.55:1}},
                     e("span",{style:{fontSize:10,color:active?"#EDE84A":"rgba(255,255,255,0.3)",width:14}},s.icon),
-                    e("span",{style:{fontSize:12,color:active?"#fff":"rgba(255,255,255,0.5)"}},s.label)
+                    e("span",{style:{fontSize:12,color:active?"#fff":"rgba(255,255,255,0.5)",flex:1}},s.label),
+                    // Relevance badge (small pill on the right)
+                    relBadge.label && e("span",{style:{fontSize:7,fontWeight:800,padding:"2px 5px",background:relBadge.bg,color:relBadge.color,borderRadius:3,letterSpacing:".05em",lineHeight:1.2,flexShrink:0}},
+                      complete&&rel==="required" ? "✓" : relBadge.label
+                    )
                   );
                 })
               );
