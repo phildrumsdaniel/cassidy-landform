@@ -218,8 +218,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.24";
+var CURRENT_VERSION = "9.25";
 var VERSION_HISTORY = [
+  {v:"9.25", date:"Jun 2026", headline:"Show/hide password toggle on login screen",
+   affectsCalc:false,
+   changes:["👁 Eye button in the password field — tap to reveal what you're typing","🙈 Tap again to hide","Helps avoid typos especially on mobile and when registering new accounts"]},
   {v:"9.24", date:"Jun 2026", headline:"Per-deal access control (viewers + editors)",
    affectsCalc:false,
    changes:["New 'Access' sheet in Google Sheet: dealId | viewers (read) | editors (edit)","Two settings: globalPortfolio (admin override) + defaultPrivacy ('private' / 'team')","Portfolio cards show OWNER / EDITOR / VIEW badge","View-only users see '🔒 View only' instead of Save Deal","Delete hidden for viewers","Use '*' in viewers for whole-team share","Creator always has full access regardless of Access sheet"]},
@@ -2289,6 +2292,8 @@ function AccessGate(props){
   var cs=useState(""); var company=cs[0]; var setCompany=cs[1];
   var emS=useState(""); var email=emS[0]; var setEmail=emS[1];
   var ps=useState(""); var pwd=ps[0]; var setPwd=ps[1];
+  // v9.25 — Password visibility toggle (eye icon)
+  var pvS=useState(false); var showPwd=pvS[0]; var setShowPwd=pvS[1];
   var es=useState(""); var error=es[0]; var setError=es[1];
   var ls=useState(false); var loading=ls[0]; var setLoading=ls[1];
 
@@ -2384,7 +2389,38 @@ function AccessGate(props){
         ),
         e("div",{style:{display:"flex",flexDirection:"column",gap:4}},
           e("label",{style:S.label},"Password"+(mode==="register"?" (6+ characters)":"")),
-          e("input",{type:"password",value:pwd,onChange:function(ev){setPwd(ev.target.value);},onKeyDown:function(ev){if(ev.key==="Enter")onSubmit();},placeholder:mode==="register"?"Choose a password":"Your password",style:Object.assign({},S.input,{borderColor:error?"#B05A35":"#C8CDE0"}),autoComplete:mode==="login"?"current-password":"new-password"})
+          // v9.25 — Password field with eye toggle (tap to show/hide what's being typed)
+          e("div",{style:{position:"relative"}},
+            e("input",{
+              type:showPwd?"text":"password",
+              value:pwd,
+              onChange:function(ev){setPwd(ev.target.value);},
+              onKeyDown:function(ev){if(ev.key==="Enter")onSubmit();},
+              placeholder:mode==="register"?"Choose a password":"Your password",
+              style:Object.assign({},S.input,{borderColor:error?"#B05A35":"#C8CDE0",paddingRight:42}),
+              autoComplete:mode==="login"?"current-password":"new-password"
+            }),
+            e("button",{
+              type:"button",
+              onClick:function(){setShowPwd(!showPwd);},
+              title:showPwd?"Hide password":"Show password",
+              "aria-label":showPwd?"Hide password":"Show password",
+              style:{
+                position:"absolute",
+                right:8,
+                top:"50%",
+                transform:"translateY(-50%)",
+                background:"transparent",
+                border:"none",
+                cursor:"pointer",
+                padding:"6px 8px",
+                fontSize:16,
+                lineHeight:1,
+                color:"#7278A0",
+                fontFamily:"DM Sans,sans-serif"
+              }
+            }, showPwd?"🙈":"👁")
+          )
         ),
         error&&e("div",{style:{background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.3)",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#B05A35"}},error),
         e("button",{onClick:onSubmit,disabled:loading,style:{padding:12,background:loading?"#8889C8":"#4A4BAE",border:"none",borderRadius:7,color:"#fff",fontSize:14,fontWeight:700,cursor:loading?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif"}},
