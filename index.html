@@ -218,8 +218,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.40";
+var CURRENT_VERSION = "9.41";
 var VERSION_HISTORY = [
+  {v:"9.41", date:"Jun 2026", headline:"CRITICAL: RLV stage blended GDV + RICS AI prompt rewrite + amber banner",
+   affectsCalc:true,
+   changes:["CRITICAL FIX: RLV stage now uses blended GDV when SFH House Mix has non-private routes. Previously used full retail GDV — same bug as SFH Dev Appraisal had before v9.40. For Maldon scheme, RLV figure shifts from ~£6.89m to ~-£3.7m (deal doesn't stack).","RLV now reads SFH mix and computes a blendedFactor = blendedGDV/retailGDV, applied to RLV's simple units×sqft×psf model","Multi-route banner above GDV breakdown shows: route mix, units per route, MV% per route, and the blended adjustment","Summary card now shows retail GDV, route discount deduction, and blended GDV separately","RICS AI prompt completely rewritten — was letting the AI invent numbers from market benchmarks. Now passes ALL Landform inputs (sale £/sqft, build £/sqft, sqft/unit, all costs, blended GDV, calculated RLV) with explicit instruction 'DO NOT INVENT FIGURES'","Previous AI report said RLV was £17.65m vs Landform's £6.89m — could have caused £10m+ bidding errors","Banner colour: amber when RLV is positive but below 15% margin threshold (was misleadingly green). Red still for negative. Green only when truly viable.","Verdict text: '✓ Viable' (green) / '⚠ Below 15% threshold' (amber) / '✗ Negative — does not stack' (red)"]},
   {v:"9.40", date:"Jun 2026", headline:"CRITICAL: SFH RLV now uses blended GDV + cosmetic fixes",
    affectsCalc:true,
    changes:["CRITICAL FIX: SFH Development Appraisal RLV now uses Multi-Route blended GDV instead of full retail GDV. For schemes with AHP routes, this can shift RLV by tens of millions (previously OVERSTATED).","ROUTE_DISCOUNT lifted to module level so SFH and Cap use the same discount table","SFH Income column shows: per-row tenure label, full retail GDV, route discounts deducted, blended realisable","Fixed [object Object] rendering bug in multi-route exit per-route description (string-concat with React element)","Capitalisation headline now scheme-aware: shows Multi-Route blended GDV for SFH multi-tenure, BTR yield value for BTR/PRS schemes","Forward Funding Stack now has clear 'BTR-only — not your scheme' note for SFH multi-tenure deals","Capitalised Value by Buyer Type table also has 'BTR-only sensitivity' note","Phil's audit feedback: this fix addresses the multiple-sources-of-truth issue specifically for GDV"]},
@@ -2166,6 +2169,7 @@ var S={
   select:{padding:"8px 11px",border:"1px solid #C8CDE0",borderRadius:6,fontSize:13,fontFamily:"DM Sans,sans-serif",background:"#fff",color:"#1A1A3E",outline:"none",width:"100%"},
   btn:{padding:"9px 18px",background:"rgba(74,75,174,0.08)",border:"1px solid #4A4BAE",color:"#4A4BAE",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",display:"flex",alignItems:"center",gap:7},
   resultGreen:{background:"rgba(45,122,101,0.08)",border:"2px solid #2D7A65",borderRadius:8,padding:16,textAlign:"center"},
+  resultAmber:{background:"rgba(154,123,62,0.08)",border:"2px solid #9A7B3E",borderRadius:8,padding:16,textAlign:"center"},
   resultRed:{background:"rgba(176,90,53,0.08)",border:"2px solid #B05A35",borderRadius:8,padding:16,textAlign:"center"},
   tag:{fontSize:9,textTransform:"uppercase",letterSpacing:".1em",fontWeight:700},
   bigNum:{fontSize:32,fontWeight:800,lineHeight:1,marginBottom:6},
@@ -13906,7 +13910,55 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     var rBuild=num(r.buildPsf)||(rm&&rm.build)||(m&&m.build)||bt.mid;
     var rProfit=numOr(r.profitPct, 17.5); var rFin=numOr(r.finRate, 7.5);
     var rCont=numOr(r.contingency, 5);
-    var rGdv=rUnits*rSqft*rSalePsf;
+
+    // ─────────────────────────────────────────────────────────────────────
+    // v9.41 — Apply blended GDV factor when SFH mix has non-private routes
+    // Fixes the financial bug Phil spotted: RLV stage was using full retail GDV
+    // (units × sqft × salePsf), ignoring that the SFH mix has AHP routes which
+    // sell at 55%-70% MV. Previously RLV showed positive when real RLV was negative.
+    // ─────────────────────────────────────────────────────────────────────
+    var rRetailGdv = rUnits*rSqft*rSalePsf;
+    var rBlendedGdv = rRetailGdv;
+    var rBlendFactor = 1.0;
+    var rHasMultiRoute = false;
+    var rRouteSummary = [];
+    (function(){
+      var sfhMixForRlv = (data.sfh && data.sfh.mix) || [];
+      if(sfhMixForRlv.length === 0) return;
+      var mixTotalRetail = 0, mixTotalBlended = 0;
+      var routeCounts = {};
+      var routeFullMv = {};
+      sfhMixForRlv.forEach(function(row){
+        var cnt = num(row.count); if(!cnt || !row.type) return;
+        var info = HOUSE_TYPES[row.type] || {sqft:900, adj:1.0};
+        var rowSqft = numOr(row.sqft, info.sqft);
+        var unitPrice = num(row.unitPrice || 0);
+        var sp = unitPrice && rowSqft ? unitPrice/rowSqft : (num(row.psf) || (rSalePsf * (info.adj||1.0)));
+        var rowRetail = rowSqft * sp * cnt;
+        var tenure = row.tenure || "private";
+        var disc = (ROUTE_DISCOUNT[tenure] || ROUTE_DISCOUNT.private).pct;
+        if(tenure !== "private") rHasMultiRoute = true;
+        mixTotalRetail += rowRetail;
+        mixTotalBlended += rowRetail * disc;
+        routeCounts[tenure] = (routeCounts[tenure] || 0) + cnt;
+        routeFullMv[tenure] = (routeFullMv[tenure] || 0) + rowRetail;
+      });
+      if(mixTotalRetail > 0 && rHasMultiRoute){
+        rBlendFactor = mixTotalBlended / mixTotalRetail;
+        rBlendedGdv = rRetailGdv * rBlendFactor;
+        rRouteSummary = Object.keys(routeCounts).map(function(t){
+          return {
+            tenure: t,
+            count: routeCounts[t],
+            label: (ROUTE_DISCOUNT[t]||{}).label || t,
+            discount: (ROUTE_DISCOUNT[t]||ROUTE_DISCOUNT.private).pct
+          };
+        });
+      }
+    })();
+    // Use blended GDV for downstream calc when scheme is multi-route
+    var rGdv = rHasMultiRoute ? rBlendedGdv : rRetailGdv;
+
     var rBc=rUnits*rSqft*rBuild;
     var rFees=rBc*bt.fees; var rContCost=rBc*(rCont/100);
     var rFinCost=(rBc+rFees)*(rFin/100);
@@ -13921,7 +13973,10 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     }
     var rlvPu=rUnits>0?rRlv/rUnits:0;
     var rlvPctGdv=rGdv>0?(rRlv/rGdv)*100:0;
-    var sc=rRlv>0?"#2D7A65":"#B05A35";
+    // v9.41 — Use amber when RLV is positive but below 15% margin threshold (was misleadingly green)
+    var rViable = rRlv > 0 && rlvPctGdv >= 15;
+    var sc = rRlv > 0 ? (rViable ? "#2D7A65" : "#9A7B3E") : "#B05A35";
+    var rResultStyle = rRlv > 0 ? (rViable ? S.resultGreen : S.resultAmber) : S.resultRed;
 
     var lrData=r.lrData||null;
     var lrLoading=r.lrLoading||false;
@@ -14482,6 +14537,27 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
         e("div",{style:{margin:"10px 0",padding:"8px 12px",background:"rgba(74,75,174,0.06)",border:"1px solid rgba(74,75,174,0.18)",borderRadius:5,fontSize:10,color:"#4A4BAE",lineHeight:1.6}},
           "ℹ ",e("strong",null,"Screening estimate. "),"Finance cost shown is a simple % of build+fees (not phased S-curve). For institutional-grade output use ",e("strong",{style:{cursor:"pointer",textDecoration:"underline"},onClick:function(){navTo("viability");}},"Detailed Appraisal")," — full RICS-format residual with phased finance modelling."
         ),
+
+        // v9.41 — Multi-route GDV transparency banner
+        // Phil's audit: RLV was using full retail GDV. Now shows the blended adjustment.
+        rHasMultiRoute && e("div",{style:{margin:"10px 0",padding:"12px 14px",background:"rgba(154,123,62,0.08)",border:"1px solid rgba(154,123,62,0.35)",borderRadius:6,fontSize:11,color:"#3A3D6A",lineHeight:1.6}},
+          e("div",{style:{fontSize:10,fontWeight:800,color:"#7B6432",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}},"⚠ Multi-route exit detected — GDV adjusted from SFH House Mix"),
+          e("div",{style:{marginBottom:8}},
+            "Your SFH House Mix has units exiting via AHP / non-private routes. RLV now uses the ",
+            e("strong",null,"blended realisable GDV "+fmt(rBlendedGdv)),
+            " (",pct((1-rBlendFactor)*100)," reduction from retail ",fmt(rRetailGdv),") instead of full retail. This is the figure Cassidy can actually realise."
+          ),
+          e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(140px, 1fr))",gap:6,fontSize:10}},
+            rRouteSummary.map(function(rs){
+              return e("div",{key:rs.tenure,style:{padding:"6px 8px",background:"#fff",border:"1px solid #F0DACA",borderRadius:4}},
+                e("div",{style:{color:"#7278A0",fontSize:9}},rs.label),
+                e("div",{style:{color:"#3A3D6A",fontWeight:700}},rs.count+" units"),
+                e("div",{style:{color:rs.discount===1?"#2D7A65":"#B05A35",fontSize:9}},pct(rs.discount*100)+" MV")
+              );
+            })
+          )
+        ),
+
         rUnits>0&&rGdv>0&&e("div",null,
           e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginTop:12,marginBottom:12}},
             e("div",{style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,padding:14}},
@@ -14498,9 +14574,12 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
             ),
             e("div",{style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,padding:14}},
               e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:4}},"Summary"),
-              [{l:"GDV",v:rGdv},{l:"Total Costs + Profit",v:rGdv-rRlv}].map(function(row){
-                return e("div",{key:row.l,style:{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:600,color:"#2E2F8A",padding:"4px 0",borderBottom:"1px solid #DDE0ED"}},
-                  e("span",null,row.l),e("span",null,fmt(row.v))
+              (rHasMultiRoute
+                ? [{l:"GDV (retail)",v:rRetailGdv,muted:true},{l:"− Route discounts",v:-(rRetailGdv-rBlendedGdv),muted:true,red:true},{l:"GDV (blended realisable)",v:rGdv,bold:true},{l:"Total Costs + Profit",v:rGdv-rRlv}]
+                : [{l:"GDV",v:rGdv,bold:true},{l:"Total Costs + Profit",v:rGdv-rRlv}]
+              ).map(function(row){
+                return e("div",{key:row.l,style:{display:"flex",justifyContent:"space-between",fontSize:row.muted?11:12,fontWeight:row.bold?700:600,color:row.red?"#B05A35":(row.muted?"#7278A0":"#2E2F8A"),padding:"4px 0",borderBottom:"1px solid #DDE0ED"}},
+                  e("span",null,row.l),e("span",null,(row.v<0?"−":"")+fmt(Math.abs(row.v)))
                 );
               }),
               e("div",{style:{display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:700,color:sc,padding:"8px 0",borderTop:"2px solid #DDE0ED",marginTop:4}},
@@ -14508,13 +14587,13 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
               )
             )
           ),
-          e("div",{style:Object.assign({},rRlv>0?S.resultGreen:S.resultRed)},
+          e("div",{style:rResultStyle},
             e("div",{style:Object.assign({},S.tag,{color:sc,marginBottom:6})},"Maximum Residual Land Value"),
             e("div",{style:Object.assign({},S.bigNum,{color:sc})},fmt(rRlv)),
             e("div",{style:{fontSize:12,color:"#7278A0",display:"flex",gap:16,justifyContent:"center",flexWrap:"wrap"}},
               e("span",null,fmt(rlvPu)+" per unit"),
               e("span",null,"Land: "+pct(rlvPctGdv)+" of GDV"),
-              e("span",{style:{color:sc,fontWeight:700}},rRlv>0&&rlvPctGdv>=15?"✓ Viable":"✗ Below threshold")
+              e("span",{style:{color:sc,fontWeight:700}},rViable?"✓ Viable":(rRlv>0?"⚠ Below 15% threshold":"✗ Negative — does not stack"))
             )
           ),
 
@@ -14863,7 +14942,53 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           })(),
 
           e(AIPanel,{user:user,up:up,stage:"rlv",data:data,persistKey:"rics",label:"RICS Land Valuation Report",
-            prompt:"Provide a professional RICS-style residual land valuation report. Postcode: "+(r.postcode||"not given")+", scheme: "+(r.schType||"residential")+", "+rUnits+" units. LR data: "+(lrData?"£"+lrData.wPsf+"/sqft ("+lrData.totalTx+" transactions)":"not fetched")+". GDV: "+fmt(rGdv)+", RLV: "+fmt(rRlv)+" ("+pct(rlvPctGdv)+" of GDV). Provide: 1) RICS valuation summary, 2) Price per sqft validation, 3) Negotiation strategy (opening bid vs max), 4) Key risks, 5) What would change the valuation."})
+            // v9.41 — Prompt rewritten to FORCE the AI to use Landform's exact figures
+            // Previous version let the AI invent its own numbers based on market benchmarks
+            // (e.g. used £297/sqft LR average and 1,415 sqft/unit, producing £17.65m RLV
+            // when Landform's actual calc said £6.89m).
+            prompt:"You are producing a RICS-style residual land valuation report for an internal developer working file. You MUST use the EXACT figures provided below — do NOT invent alternative figures from market benchmarks. If you disagree with an assumption, flag it as a risk; do not silently substitute it.\n\n"+
+              "═══ LANDFORM CALCULATED FIGURES (use these verbatim) ═══\n"+
+              "Postcode: "+(r.postcode||"not given")+"\n"+
+              "Scheme type: "+(r.schType||data.assetType||"residential")+"\n"+
+              "Units: "+rUnits+"\n"+
+              "Avg unit size: "+rSqft+" sqft\n"+
+              "Sale £/sqft (USER INPUT): £"+rSalePsf+"/sqft\n"+
+              "Build £/sqft (USER INPUT): £"+rBuild+"/sqft\n"+
+              "Developer profit % GDV: "+rProfit+"%\n"+
+              "Finance rate %: "+rFin+"%\n"+
+              "S106/CIL per unit: £"+(numOr(r.s106pu, 8000)).toLocaleString()+"\n"+
+              (rHasMultiRoute
+                ? "GDV (retail, if all sold private): "+fmt(rRetailGdv)+"\n"+
+                  "GDV (blended realisable — after AHP/route discounts): "+fmt(rBlendedGdv)+" ← USE THIS\n"+
+                  "Blended discount factor: "+pct((1-rBlendFactor)*100)+"\n"+
+                  "Route mix: "+rRouteSummary.map(function(rs){return rs.count+" "+rs.label+" ("+pct(rs.discount*100)+" MV)";}).join("; ")+"\n"
+                : "GDV: "+fmt(rGdv)+"\n"
+              )+
+              "Build cost: "+fmt(rBc)+"\n"+
+              "Prof fees ("+Math.round(bt.fees*100)+"%): "+fmt(rFees)+"\n"+
+              "Contingency ("+rCont+"%): "+fmt(rContCost)+"\n"+
+              "Finance cost: "+fmt(rFinCost)+"\n"+
+              "S106 total: "+fmt(rS106)+"\n"+
+              "Planning fees: "+fmt(rPlan)+"\n"+
+              "Developer profit: "+fmt(rDevProfit)+"\n"+
+              "═══ LANDFORM RESIDUAL LAND VALUE: "+fmt(rRlv)+" ═══\n"+
+              "Land as % GDV: "+pct(rlvPctGdv)+"\n"+
+              "Land per plot: £"+Math.round(rlvPu).toLocaleString()+"\n"+
+              "Verdict: "+(rViable?"Viable (≥15% land:GDV)":(rRlv>0?"Below 15% threshold — stretched":"NEGATIVE — does not stack"))+"\n\n"+
+              "═══ Land Registry context (reference only — do not override the user's sale £/sqft above) ═══\n"+
+              "LR weighted average: "+(lrData?"£"+lrData.wPsf+"/sqft from "+lrData.totalTx+" transactions":"not fetched")+"\n"+
+              "Local benchmark: £"+(num(rm.btr*8.5/12)||0).toFixed(0)+"/sqft\n\n"+
+              "═══ Asking price ═══\n"+
+              "Farmer asking: "+(num(data.land&&data.land.price)>0?fmt(num(data.land.price)):"not entered")+"\n\n"+
+              "═══ Your task ═══\n"+
+              "Produce a RICS-style report with these sections:\n"+
+              "1) RICS Valuation Summary — use the LANDFORM RLV figure of "+fmt(rRlv)+", not your own estimate. State the verdict honestly.\n"+
+              "2) Price per sqft validation — note if user's £"+rSalePsf+"/sqft is above the LR benchmark of "+(lrData?"£"+lrData.wPsf:"local")+"/sqft and how much risk that creates. Do not substitute the LR benchmark for the user's number.\n"+
+              "3) Negotiation strategy — opening bid, walk-away, target. Anchor on the LANDFORM RLV "+fmt(rRlv)+", NOT a market-derived number.\n"+
+              "4) Key risks — planning, AHP, build cost, sales velocity, market sensitivity. Quantify each risk in £m impact on the LANDFORM RLV of "+fmt(rRlv)+".\n"+
+              "5) What would change the valuation — table of drivers vs RLV impact, anchored on the LANDFORM RLV baseline.\n\n"+
+              "DO NOT INVENT FIGURES. If a number isn't supplied above, say 'not provided by developer — should be confirmed' rather than estimating."
+          })
         )
       )
     );
@@ -14962,7 +15087,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     var rlvPu=totalUnits>0?rlv/totalUnits:0;
     var rlvAcre=sAcres>0?rlv/sAcres:0;
     var sMargin=totalGdv>0?(devProfit/totalGdv)*100:0;
-    var sc=rlv>0?"#2D7A65":"#B05A35";
+    var sc=rlv>0 ? (sMargin>=15 ? "#2D7A65" : "#9A7B3E") : "#B05A35";
     var viable=rlv>0&&sMargin>=15;
 
     // AH scenarios
@@ -15220,14 +15345,14 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
               })
             )
           ),
-          e("div",{style:Object.assign({},rlv>0?S.resultGreen:S.resultRed)},
+          e("div",{style:rlv>0 ? (viable ? S.resultGreen : S.resultAmber) : S.resultRed},
             e("div",{style:Object.assign({},S.tag,{color:sc,marginBottom:6})},"Residual Land Value"),
             e("div",{style:Object.assign({},S.bigNum,{color:sc})},fmt(rlv)),
             e("div",{style:{fontSize:12,color:"#7278A0",display:"flex",gap:16,justifyContent:"center",flexWrap:"wrap"}},
               e("span",null,fmt(rlvPu)+" per plot"),
               sAcres>0&&e("span",null,fmt(rlvAcre)+" per acre"),
               e("span",null,"Margin: "+pct(sMargin)),
-              e("span",{style:{color:sc,fontWeight:700}},viable?"✓ Viable":"✗ Below threshold")
+              e("span",{style:{color:sc,fontWeight:700}},viable?"✓ Viable":(rlv>0?"⚠ Below 15% threshold":"✗ Negative — does not stack"))
             )
           )
         ),
