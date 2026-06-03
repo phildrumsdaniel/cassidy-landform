@@ -218,8 +218,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.42";
+var CURRENT_VERSION = "9.43";
 var VERSION_HISTORY = [
+  {v:"9.43", date:"Jun 2026", headline:"Your figures are locked once entered — AI fills blanks only, never overwrites",
+   affectsCalc:false,
+   changes:["CRITICAL FIX: AI panels no longer silently overwrite your inputs. The old behaviour auto-applied AI corrections (AI knows best) and could replace a saved figure — e.g. asking price 14m overwritten with an AI-guessed 21.5m.","New rule: any field that already holds a value (typed by you OR auto-filled once) is the source of truth and is never changed by AI or by another page. AI may only fill genuinely EMPTY fields.","To change a locked figure, edit it manually on its own page. Forward-fill of blank fields still works, so the Main Appraisal still flows into RLV / Fin / Exit.","Toast and result card now honestly state how many blanks were filled and how many of your existing figures were kept untouched.","Groundwork for an explicit per-page Lock toggle (data._locks): locked pages reject all programmatic writes."]},
   {v:"9.42", date:"Jun 2026", headline:"Honest AI Wrapper across all AI panels — grounds every prompt in Landform's own figures",
    affectsCalc:false,
    changes:["Every AI panel prompt now routed through buildHonestPrompt(data, task): injects Landform's OWN calculated deal state (GDV, total cost, RLV, margin, build:sale) as the ground truth so the AI stops inventing headline numbers.","Adds non-negotiable honesty rules: no invented fund/buyer/agent names, no fabricated comparables or planning refs, no sycophancy, challenge the inputs rather than validate them, label any default as [ASSUMPTION].","Injects market benchmarks (Land Registry weighted avg + new-build premium estimate, regional build/rent/yield) for the AI to cross-check against — labelled as benchmarks, not the deal's figures.","Auto-flags input deviations the AI must address: e.g. sale £/sqft vs Land Registry, build cost vs regional benchmark, negative RLV, land price above RLV, sub-15% margin, unviable build:sale ratio, yield above the 5% institutional ceiling.","Context for the £420/sqft question: a sale input well above the Land Registry weighted average is now surfaced to the AI as UNVERIFIED until backed by dated new-build comps or a written agent opinion.","RICS Land Valuation panel left on its bespoke v9.41 honest prompt (already grounded) and not double-wrapped."]},
@@ -2440,21 +2443,33 @@ function AIPanel(props){
     setAiLoad(false);
   }
 
+  // v9.43 — Your data is the source of truth.
+  // A field is "locked" if it already holds a value (you typed it OR it auto-filled
+  // once) or if its page has been explicitly locked. The AI may FILL BLANKS, but it
+  // can NEVER overwrite a value that is already there. Only a manual edit changes it.
+  function isLockedStage(stage){
+    try{ return !!(props.data && props.data._locks && props.data._locks[stage]); }catch(e){ return false; }
+  }
+  function isEmptyVal(v){ return v===undefined||v===null||(typeof v==="string"&&v.trim()===""); }
   function autoApply(corrections){
-    var applied=[];
-    var skipped=[];
+    var applied=[];      // blank fields we filled
+    var kept=[];         // existing/locked fields we refused to overwrite
     corrections.forEach(function(c){
       if(!c.field||!c.stage||c.value===undefined||c.value===null||c.value===""){
-        skipped.push(c);
         return;
       }
-      // Overwrite: AI knows best
+      var cur=(props.data&&props.data[c.stage])?props.data[c.stage][c.field]:undefined;
+      // NEVER overwrite a populated field or a locked page — protect the user's figures.
+      if(isLockedStage(c.stage)||!isEmptyVal(cur)){
+        kept.push({field:c.field,stage:c.stage,value:c.value,existing:cur,reason:c.reason||""});
+        return;
+      }
       props.up(c.stage,c.field,typeof c.value==="number"?c.value:String(c.value));
       applied.push({field:c.field,stage:c.stage,value:c.value,reason:c.reason||""});
     });
-    if(applied.length>0){
-      setToast({count:applied.length,items:applied});
-      logEvent(props.user,"AI_AUTOFILL",{stage:props.stage,fieldsApplied:applied.length});
+    if(applied.length>0||kept.length>0){
+      setToast({count:applied.length,items:applied,keptCount:kept.length,keptItems:kept});
+      logEvent(props.user,"AI_AUTOFILL",{stage:props.stage,fieldsApplied:applied.length,fieldsKept:kept.length});
     }
   }
 
@@ -2473,8 +2488,8 @@ function AIPanel(props){
     toast&&e("div",{style:{position:"fixed",bottom:24,right:24,zIndex:9999,maxWidth:420,background:"#fff",border:"1px solid #2D7A65",borderLeft:"5px solid #2D7A65",borderRadius:10,boxShadow:"0 10px 40px rgba(0,0,0,0.15)",padding:"14px 16px",animation:"pulse 0.4s ease-out"}},
       e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,marginBottom:8}},
         e("div",null,
-          e("div",{style:{fontSize:12,fontWeight:800,color:"#2D7A65"}},"✓ AI populated "+toast.count+" field"+(toast.count!==1?"s":"")+" across the tool"),
-          e("div",{style:{fontSize:10,color:"#7278A0",marginTop:2}},"Data flows to every stage automatically")
+          e("div",{style:{fontSize:12,fontWeight:800,color:"#2D7A65"}},toast.count>0?("✓ AI filled "+toast.count+" blank field"+(toast.count!==1?"s":"")):"✓ Nothing changed — all fields already had values"),
+          e("div",{style:{fontSize:10,color:"#7278A0",marginTop:2}},toast.keptCount>0?(toast.keptCount+" of your existing figure"+(toast.keptCount!==1?"s were":" was")+" kept — AI never overwrites what you've entered"):"AI only fills empty fields; your entries are never changed")
         ),
         e("button",{onClick:function(){setToast(null);},style:{background:"none",border:"none",fontSize:18,color:"#7278A0",cursor:"pointer",lineHeight:1,padding:0}},"×")
       ),
@@ -2508,7 +2523,7 @@ function AIPanel(props){
         )
       ),
       aiJson&&aiJson.corrections&&aiJson.corrections.length>0&&e("div",{style:{background:"rgba(45,122,101,0.08)",borderBottom:"1px solid rgba(45,122,101,0.2)",padding:"10px 16px"}},
-        e("div",{style:{fontSize:11,fontWeight:700,color:"#2D7A65",marginBottom:6}},"✓ AI extracted & applied "+aiJson.corrections.length+" facts to the tool:"),
+        e("div",{style:{fontSize:11,fontWeight:700,color:"#2D7A65",marginBottom:6}},"AI suggested "+aiJson.corrections.length+" figure"+(aiJson.corrections.length!==1?"s":"")+" — only blank fields were filled; your existing entries were kept:"),
         e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:6}},
           aiJson.corrections.map(function(c,i){
             return e("div",{key:i,style:{background:"#fff",border:"1px solid rgba(45,122,101,0.3)",borderRadius:5,padding:"6px 10px",fontSize:11}},
