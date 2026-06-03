@@ -218,8 +218,20 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.20";
+var CURRENT_VERSION = "9.24";
 var VERSION_HISTORY = [
+  {v:"9.24", date:"Jun 2026", headline:"Per-deal access control (viewers + editors)",
+   affectsCalc:false,
+   changes:["New 'Access' sheet in Google Sheet: dealId | viewers (read) | editors (edit)","Two settings: globalPortfolio (admin override) + defaultPrivacy ('private' / 'team')","Portfolio cards show OWNER / EDITOR / VIEW badge","View-only users see '🔒 View only' instead of Save Deal","Delete hidden for viewers","Use '*' in viewers for whole-team share","Creator always has full access regardless of Access sheet"]},
+  {v:"9.23", date:"Jun 2026", headline:"Global portfolio toggle (backend setting)",
+   affectsCalc:false,
+   changes:["New 'Settings' sheet in Google Sheet backend with toggleable globalPortfolio flag","When ON: all signed-in users see all deals — team-wide visibility","When OFF (default): each user sees only their own deals","Portfolio header shows 'Team Portfolio · Global mode active' when on","Deal cards show 'By: [user]' so creator is always visible","Audit log records who deleted what, including global-mode flag at time of action"]},
+  {v:"9.22", date:"Jun 2026", headline:"Deal export / import for team sharing",
+   affectsCalc:false,
+   changes:["⬇ Export button: download any deal as a portable JSON file","⬆ Import button: load a deal exported from another account","Identity-bound fields stripped on export so deals land cleanly in target account","Migration runs on import so deals from older versions auto-update","Enables team workflow: shared Cassidy account where everyone imports/exports deals"]},
+  {v:"9.21", date:"Jun 2026", headline:"Propagation Audit diagnostic stage",
+   affectsCalc:false,
+   changes:["New 'Propagation Audit' stage (group 7) lists every shared field across stages","Drift / partial / sync / empty status per field","One-click 'Sync' per row + 'Auto-fix all propagation' button","Covers: site facts, units, AH%, S106, finance, build cost, sale PSF, timeline, yield, grants, GDV"]},
   {v:"9.20", date:"Jun 2026", headline:"Scenario drift detection + one-click re-sync",
    affectsCalc:false,
    changes:["SFH and Planning scenario banners now detect when stage values drift from the active scenario","Amber 'Drift detected' indicator lists which fields don't match","One-click 'Re-sync from scenario' button to fix drift without overwriting manual entries elsewhere","Pre-action confirmation dialog shows exactly what will change"]},
@@ -2488,6 +2500,8 @@ var ALL_STAGES = [
   {id:"meetings",    label:"Meeting Transcripts",  icon:"📝", group:"6. Records",  journeys:["all"]},
   {id:"portfolio",   label:"Deal Portfolio",       icon:"📊", group:"6. Records",  journeys:["all"]},
   {id:"dashboard",   label:"Deal Dashboard",       icon:"◈",  group:"6. Records",  journeys:["land","sfh","btr","pbsa","property","recovery","all"]},
+  // ── 7. AUDIT ─────────────────────────────────────────────────────────────
+  {id:"propagation", label:"Propagation Audit",    icon:"🔬", group:"7. Audit",    journeys:["all"]},
 ];
 
 // Journey display labels (used by Deal Dashboard and elsewhere)
@@ -2881,6 +2895,99 @@ var JOURNEYS = {
     .catch(function(err){
       alert("⚠ Network error creating new copy. Original deal is unaffected. Try again when online.");
     });
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // EXPORT / IMPORT (v9.22)
+  // Move deals between accounts (e.g. personal → team shared account).
+  // Strips identity-bound fields (_cloudDealId, _migrationLog, _preMigrationBackup)
+  // so the deal lands cleanly in the target account.
+  // ──────────────────────────────────────────────────────────────────────
+  function exportDeal(){
+    if(!data || (!data.dealName && !data.land)){
+      alert("No deal data to export. Open or create a deal first.");
+      return;
+    }
+    // Strip identity-bound and bulky fields so file is portable & small
+    var exportData = JSON.parse(JSON.stringify(data));
+    delete exportData._cloudDealId;
+    delete exportData._preMigrationBackup;
+    delete exportData._migrationLog;
+    delete exportData._migrationFrom;
+    delete exportData._migrationTo;
+    delete exportData._migrationAt;
+    delete exportData._migrationReviewRecommended;
+    delete exportData._migrationDismissed;
+    delete exportData._migrationBannerDismissed;
+    delete exportData._migrationRolledBack;
+    exportData._exportedAt = new Date().toISOString();
+    exportData._exportedFrom = (user && user.email) || "unknown";
+    exportData._exportedFromVersion = CURRENT_VERSION;
+    exportData._exportFormat = "landform-deal-v1";
+
+    var dealName = data.dealName || (data.land && data.land.city) || "deal";
+    var safeName = dealName.replace(/[^a-zA-Z0-9\-_]/g, "_").substring(0, 50);
+    var filename = "landform-" + safeName + "-" + new Date().toISOString().slice(0,10) + ".json";
+    var json = JSON.stringify(exportData, null, 2);
+    var blob = new Blob([json], {type:"application/json"});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    try{ logEvent(user,"DEAL_EXPORTED",{dealName:dealName,size:json.length}); }catch(e){}
+  }
+
+  function importDeal(){
+    // Use a hidden file input to pick the JSON
+    var fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = "application/json,.json";
+    fileInput.onchange = function(ev){
+      var file = ev.target.files[0];
+      if(!file) return;
+      var reader = new FileReader();
+      reader.onload = function(e){
+        try{
+          var imported = JSON.parse(e.target.result);
+          // Validate it looks like a Landform export
+          if(imported._exportFormat !== "landform-deal-v1" && !imported.land && !imported.dealName){
+            if(!confirm("This file doesn't look like a standard Landform export. Try to import anyway?\n\n(Risk: data may be incomplete or wrongly structured.)")) return;
+          }
+          // Strip identity from previous account
+          delete imported._cloudDealId;
+          delete imported._preMigrationBackup;
+          delete imported._migrationLog;
+          delete imported._migrationBannerDismissed;
+          delete imported._migrationDismissed;
+          // Stamp imported metadata
+          imported._importedAt = new Date().toISOString();
+          imported._importedBy = (user && user.email) || "unknown";
+          imported._importedFromAccount = imported._exportedFrom || "unknown";
+
+          var sourceName = imported.dealName || (imported.land && imported.land.city) || "Imported Deal";
+          var suggested = "[Imported] " + sourceName;
+          var finalName = window.prompt("Name for the imported deal in your portfolio:", suggested);
+          if(!finalName) return;
+          imported.dealName = finalName.trim();
+          imported.savedAt = new Date().toLocaleString("en-GB");
+
+          // Run migration to bring it up to current version
+          var migrated = migrateLoadedDeal(imported);
+          setData(migrated.data);
+          if(migrated.changed) logMigration(migrated);
+          navTo("dashboard");
+          alert("✓ Deal imported. Click 'Save Deal' to add it to your portfolio.");
+          try{ logEvent(user,"DEAL_IMPORTED",{dealName:finalName,fromAccount:imported._importedFromAccount}); }catch(e){}
+        }catch(err){
+          alert("⚠ Could not import file: "+(err.message||err)+"\n\nMake sure the file is a valid Landform export JSON.");
+        }
+      };
+      reader.readAsText(file);
+    };
+    document.body.appendChild(fileInput);
+    fileInput.click();
+    document.body.removeChild(fileInput);
   }
 
   function clearDeal(){
@@ -9006,7 +9113,7 @@ var JOURNEYS = {
       .then(function(d){
         setData(function(prev){
           var nextPort = (d&&d.status==="ok")
-            ? {deals:d.deals||[], loaded:true, loading:false, error:"", fetchedAt:Date.now()}
+            ? {deals:d.deals||[], loaded:true, loading:false, error:"", fetchedAt:Date.now(), global:!!d.global}
             : {deals:[], loaded:true, loading:false, error:(d&&d.message)||"Failed to load deals"};
           return Object.assign({},prev,{portfolio:nextPort});
         });
@@ -9044,6 +9151,9 @@ var JOURNEYS = {
               throw new Error("not an object");
             }
             dealData._cloudDealId = d.dealId;
+            // v9.24 — Capture role + creator from backend response
+            dealData._userRole = d.role || "viewer";
+            dealData._dealCreator = d.createdBy || "";
             // Auto-migrate stale data from older versions before showing it
             var migrated = migrateLoadedDeal(dealData);
             setData(migrated.data);
@@ -9094,8 +9204,9 @@ var JOURNEYS = {
       // Header
       e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,flexWrap:"wrap",gap:10}},
         e("div",null,
-          e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"My Portfolio"),
-          e("p",{style:{fontSize:12,color:"#7278A0"}},"All deals saved to your account — accessible from any device")
+          e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},pd.global ? "Team Portfolio" : "My Portfolio"),
+          e("p",{style:{fontSize:12,color:"#7278A0"}},pd.global ? "Global view — all Cassidy team deals visible to every signed-in user" : "All deals saved to your account — accessible from any device"),
+          pd.global && e("div",{style:{display:"inline-block",marginTop:6,padding:"3px 9px",background:"rgba(45,122,101,0.10)",border:"1px solid rgba(45,122,101,0.3)",borderRadius:3,fontSize:9,fontWeight:700,color:"#2D7A65",letterSpacing:".08em",textTransform:"uppercase"}},"🌐 Global mode active")
         ),
         e("div",{style:{display:"flex",gap:8,alignItems:"center"}},
           loading && e("div",{style:{fontSize:11,color:"#7278A0",display:"flex",alignItems:"center",gap:6}},
@@ -9126,12 +9237,23 @@ var JOURNEYS = {
         cloudDeals.map(function(deal){
           var schemeIcon = {sfh:"🏡",btr:"🏢",pbsa:"🎓",land:"🔍",property:"🏠",recovery:"⚖"}[deal.scheme] || "◆";
           var schemeLabel = {sfh:"SFH",btr:"BTR",pbsa:"PBSA",land:"Land",property:"Property",recovery:"Recovery"}[deal.scheme] || (deal.scheme||"—").toUpperCase();
-          return e("div",{key:deal.dealId,style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:16,position:"relative",transition:"all .15s"}},
+          // v9.24 — Per-deal access control: role comes from backend (owner/editor/viewer)
+          var role = deal.role || (deal.createdBy && user && deal.createdBy === user.userId ? "owner" : "viewer");
+          var creatorLabel = role==="owner" ? "You" : (deal.createdBy || "Unknown").split("@")[0].replace(/[._]/g," ");
+          var roleBadge = {
+            owner:  {label:"OWNER",  bg:"rgba(74,75,174,0.10)",  color:"#4A4BAE"},
+            editor: {label:"EDITOR", bg:"rgba(45,122,101,0.10)",  color:"#2D7A65"},
+            viewer: {label:"VIEW",   bg:"rgba(154,123,62,0.10)",  color:"#9A7B3E"}
+          }[role] || {label:"VIEW", bg:"#F7F8FC", color:"#7278A0"};
+          return e("div",{key:deal.dealId,style:{background:"#fff",border:"1px solid "+(role==="owner"?"#C5C8E0":"#DDE0ED"),borderRadius:10,padding:16,position:"relative",transition:"all .15s"}},
             // Header row
             e("div",{style:{display:"flex",alignItems:"start",gap:10,marginBottom:10}},
               e("div",{style:{fontSize:28,flexShrink:0,lineHeight:1}},schemeIcon),
               e("div",{style:{flex:1,minWidth:0}},
-                e("div",{style:{fontSize:13,fontWeight:800,color:"#1E1F5C",marginBottom:2,wordBreak:"break-word"}},deal.dealName||"Untitled"),
+                e("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:2,flexWrap:"wrap"}},
+                  e("div",{style:{fontSize:13,fontWeight:800,color:"#1E1F5C",wordBreak:"break-word"}},deal.dealName||"Untitled"),
+                  e("span",{style:{fontSize:8,fontWeight:800,padding:"2px 6px",background:roleBadge.bg,color:roleBadge.color,borderRadius:3,letterSpacing:".08em"}},roleBadge.label)
+                ),
                 e("div",{style:{fontSize:10,color:"#7278A0"}},deal.address||"No address")
               )
             ),
@@ -9146,12 +9268,17 @@ var JOURNEYS = {
                 e("div",{style:{fontSize:12,fontWeight:700,color:"#2E2F8A",marginTop:2}},deal.gdv>0?fmt(deal.gdv):"—")
               )
             ),
-            // Last modified
-            e("div",{style:{fontSize:9,color:"#A0A4C0",marginBottom:12}},"Last saved: "+relTime(deal.lastModified)),
-            // Actions
+            // Creator + last modified row
+            e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:9,color:"#A0A4C0",marginBottom:12,gap:8}},
+              e("span",null,"By: ",e("strong",{style:{color:role==="owner"?"#4A4BAE":"#7278A0"}},creatorLabel)),
+              e("span",null,relTime(deal.lastModified))
+            ),
+            // Actions — delete hidden if user can't edit
             e("div",{style:{display:"flex",gap:6}},
-              e("button",{onClick:function(){loadCloudDeal(deal.dealId);},style:{flex:1,padding:"7px 10px",background:"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Open →"),
-              e("button",{onClick:function(){deleteCloudDeal(deal.dealId,deal.dealName);},title:"Delete deal",style:{padding:"7px 10px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:5,color:"#B05A35",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"🗑")
+              e("button",{onClick:function(){loadCloudDeal(deal.dealId);},style:{flex:1,padding:"7px 10px",background:"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
+                role==="viewer" ? "View →" : "Open →"
+              ),
+              (role==="owner"||role==="editor") && e("button",{onClick:function(){deleteCloudDeal(deal.dealId,deal.dealName);},title:"Delete deal",style:{padding:"7px 10px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:5,color:"#B05A35",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"🗑")
             )
           );
         })
@@ -9381,7 +9508,7 @@ var JOURNEYS = {
         if(!stageGroups[s.group]) stageGroups[s.group] = [];
         stageGroups[s.group].push(s);
       });
-      var groupOrder = ["1. Find","2. Value","3. Develop","4. Exit","5. Report","6. Records"];
+      var groupOrder = ["1. Find","2. Value","3. Develop","4. Exit","5. Report","6. Records","7. Audit"];
 
       // Helper — return stage status: "not_started" / "in_progress" / "completed"
       // Each stage has its own "required fields" map — stage is completed
@@ -11373,6 +11500,284 @@ var JOURNEYS = {
     );
   }
 
+
+  // ──────────────────────────────────────────────────────────────────────
+  // PROPAGATION AUDIT (v9.21)
+  // Lists every shared field across stages and surfaces where they disagree.
+  // The systematic diagnostic page for "does the data flow correctly?"
+  // ──────────────────────────────────────────────────────────────────────
+  function renderPropagationAudit(){
+    // Field map: each row describes a logical field, where it lives in each stage, and how to fix drift
+    // Read paths use dot notation. Write paths are pairs of (stage, key) for `up()` calls.
+    var FIELD_MAP = [
+      // ── CORE SITE FACTS ──────────────────────────────────────
+      {group:"Site facts (set in Land Appraisal, used everywhere)", rows:[
+        {field:"Postcode",                paths:[["land","postcode"]]},
+        {field:"City",                    paths:[["land","city"], ["hra","city"], ["sfh","city"]], canonical:"land.city"},
+        {field:"Acres",                   paths:[["land","acres"], ["sfh","acres"]], canonical:"land.acres"},
+        {field:"Asking price (£)",        paths:[["land","price"]]},
+        {field:"Scenario land value (£)", paths:[["land","scenarioLandValue"]]},
+        {field:"Planning status",         paths:[["land","planningStatus"], ["planning","status"]], canonical:"land.planningStatus"},
+      ]},
+      // ── UNITS ────────────────────────────────────────────────
+      {group:"Unit count (most common cross-stage gap)", rows:[
+        {field:"Units (Planning)",        paths:[["planning","units"]]},
+        {field:"Units (RLV)",             paths:[["rlv","units"]]},
+        {field:"Total units (SFH)",       paths:[["sfh","totalUnits"]]},
+        {field:"Units (HRA / BTR-PBSA)",  paths:[["hra","units"]]},
+      ]},
+      // ── AFFORDABLE HOUSING ──────────────────────────────────
+      {group:"Affordable Housing %", rows:[
+        {field:"Scenario AH%",            paths:[["land","scenarioAhPct"]]},
+        {field:"Planning ahPct",          paths:[["planning","ahPct"]],   syncFrom:"land.scenarioAhPct"},
+        {field:"Planning afhPct",         paths:[["planning","afhPct"]],  syncFrom:"land.scenarioAhPct"},
+        {field:"SFH ahPct",               paths:[["sfh","ahPct"]],         syncFrom:"land.scenarioAhPct"},
+        {field:"HRA ahPct",               paths:[["hra","ahPct"]],         syncFrom:"land.scenarioAhPct"},
+        {field:"Tenure ahPct",            paths:[["tenure","ahPct"]],      syncFrom:"land.scenarioAhPct"},
+      ]},
+      // ── S106 ────────────────────────────────────────────────
+      {group:"S106 per unit (£)", rows:[
+        {field:"Scenario S106pu",         paths:[["land","scenarioS106pu"]]},
+        {field:"Planning s106pu",         paths:[["planning","s106pu"]],   syncFrom:"land.scenarioS106pu"},
+        {field:"RLV s106pu",              paths:[["rlv","s106pu"]],         syncFrom:"land.scenarioS106pu"},
+        {field:"SFH s106pu",              paths:[["sfh","s106pu"]],         syncFrom:"land.scenarioS106pu"},
+        {field:"HRA s106pu",              paths:[["hra","s106pu"]],         syncFrom:"land.scenarioS106pu"},
+        {field:"Fin s106pu",              paths:[["fin","s106pu"]],         syncFrom:"land.scenarioS106pu"},
+      ]},
+      // ── FINANCE ─────────────────────────────────────────────
+      {group:"Finance rate %", rows:[
+        {field:"Scenario finance rate",   paths:[["land","scenarioFinanceRate"]]},
+        {field:"RLV finRate",             paths:[["rlv","finRate"]],        syncFrom:"land.scenarioFinanceRate"},
+        {field:"Fin finRate",             paths:[["fin","finRate"]],        syncFrom:"land.scenarioFinanceRate"},
+        {field:"SFH finRate",             paths:[["sfh","finRate"]],        syncFrom:"land.scenarioFinanceRate"},
+        {field:"HRA finRate",             paths:[["hra","finRate"]],        syncFrom:"land.scenarioFinanceRate"},
+      ]},
+      // ── BUILD COST ──────────────────────────────────────────
+      {group:"Build cost £/sqft", rows:[
+        {field:"RLV buildPsf",            paths:[["rlv","buildPsf"]]},
+        {field:"SFH base build",          paths:[["sfh","buildPsf"]]},
+        {field:"HRA buildPsf",            paths:[["hra","buildPsf"]]},
+        {field:"Fin buildPsf",            paths:[["fin","buildPsf"]]},
+      ]},
+      // ── SALE PSF ────────────────────────────────────────────
+      {group:"Sale £/sqft", rows:[
+        {field:"RLV salePsf",             paths:[["rlv","salePsf"]]},
+        {field:"SFH basePsf",             paths:[["sfh","basePsf"]]},
+        {field:"HRA salePsf",             paths:[["hra","salePsf"]]},
+      ]},
+      // ── TIMELINE ────────────────────────────────────────────
+      {group:"Timeline (months to commit)", rows:[
+        {field:"Scenario timelineMo",     paths:[["land","scenarioTimelineMo"]]},
+        {field:"Exit timeline (planning months)", paths:[["exit","planningMo"]], syncFrom:"land.scenarioTimelineMo"},
+        {field:"Exit build duration",     paths:[["exit","buildMo"]]},
+      ]},
+      // ── YIELD ───────────────────────────────────────────────
+      {group:"Yield (institutional cap rate)", rows:[
+        {field:"Scenario yieldAdj",       paths:[["land","scenarioYieldAdj"]]},
+        {field:"Capitalisation targetYield", paths:[["cap","targetYield"]]},
+        {field:"Cap pre-scenario baseline", paths:[["cap","_preScenarioYield"]]},
+      ]},
+      // ── GRANTS ──────────────────────────────────────────────
+      {group:"Grants & funding (NOT propagated — known gap)", rows:[
+        {field:"AHP grant total",         paths:[["grants","ahpTotal"]]},
+        {field:"Brownfield grant",        paths:[["grants","brownfield"]]},
+        {field:"Help to Build",           paths:[["grants","helpToBuild"]]},
+        {field:"LA capital programme",    paths:[["grants","laCapital"]]},
+        {field:"Fin: grants deducted",    paths:[["fin","grantsTotal"]]},
+      ]},
+      // ── GDV ─────────────────────────────────────────────────
+      {group:"GDV / outputs (calculated, should be consistent)", rows:[
+        {field:"SFH calculated GDV",      paths:[["sfh","totalGDV"]]},
+        {field:"HRA calculated GDV",      paths:[["hra","totalGDV"]]},
+        {field:"Tenure blended GDV",      paths:[["tenure","blendedGDV"]]},
+        {field:"Fin GDV override",        paths:[["fin","gdvOverride"]]},
+      ]},
+    ];
+
+    function readPath(obj, path){
+      if(!obj || !path) return null;
+      var parts = path.split(".");
+      var cur = obj;
+      for(var i=0;i<parts.length;i++){
+        if(cur === null || cur === undefined) return null;
+        cur = cur[parts[i]];
+      }
+      return cur === undefined ? null : cur;
+    }
+
+    function valOf(stagePath){
+      var obj = data[stagePath[0]];
+      return obj ? obj[stagePath[1]] : undefined;
+    }
+
+    function formatVal(v){
+      if(v === null || v === undefined || v === "") return "—";
+      if(typeof v === "number") return v.toLocaleString();
+      return String(v);
+    }
+
+    function rowStatus(row){
+      var vals = row.paths.map(function(p){return valOf(p);});
+      var nonEmpty = vals.filter(function(v){return v !== null && v !== undefined && v !== "" && v !== 0;});
+      if(nonEmpty.length === 0) return {tone:"empty", values:vals};
+      // Unique non-empty values
+      var unique = [];
+      nonEmpty.forEach(function(v){
+        if(unique.indexOf(String(v)) === -1) unique.push(String(v));
+      });
+      if(unique.length === 1 && nonEmpty.length === vals.length) return {tone:"sync", values:vals};
+      if(unique.length === 1 && nonEmpty.length < vals.length) return {tone:"partial", values:vals};
+      return {tone:"drift", values:vals};
+    }
+
+    // Tally
+    var totals = {drift:0, partial:0, sync:0, empty:0};
+    FIELD_MAP.forEach(function(grp){
+      grp.rows.forEach(function(r){
+        var s = rowStatus(r);
+        totals[s.tone]++;
+      });
+    });
+
+    function autoFixAll(){
+      if(!confirm("Auto-fix all detectable propagation drift?\n\nThis will:\n• Copy land.scenarioAhPct → Planning, SFH, HRA, Tenure where empty or different\n• Copy land.scenarioS106pu → Planning, RLV, SFH, HRA, Fin where empty or different\n• Copy land.scenarioFinanceRate → RLV, Fin, SFH, HRA where empty or different\n• Copy land.scenarioTimelineMo → Exit.planningMo where empty\n\nWill NOT touch: GDV figures, build cost overrides, sale PSF overrides, or any field clearly set as a manual override.\n\nProceed?")) return;
+      setData(function(prev){
+        var next = Object.assign({}, prev);
+        function setIf(stage, key, value){
+          if(value === null || value === undefined || value === "" || value === 0) return;
+          if(!next[stage]) next[stage] = Object.assign({}, prev[stage] || {});
+          else next[stage] = Object.assign({}, next[stage]);
+          next[stage][key] = value;
+        }
+        var ah = num((prev.land && prev.land.scenarioAhPct) || 0);
+        var s106 = num((prev.land && prev.land.scenarioS106pu) || 0);
+        var fin = num((prev.land && prev.land.scenarioFinanceRate) || 0);
+        var time = num((prev.land && prev.land.scenarioTimelineMo) || 0);
+        if(ah > 0){
+          setIf("planning","ahPct",ah); setIf("planning","afhPct",ah);
+          setIf("sfh","ahPct",ah); setIf("hra","ahPct",ah); setIf("tenure","ahPct",ah);
+        }
+        if(s106 > 0){
+          setIf("planning","s106pu",s106); setIf("rlv","s106pu",s106);
+          setIf("sfh","s106pu",s106); setIf("hra","s106pu",s106); setIf("fin","s106pu",s106);
+        }
+        if(fin > 0){
+          setIf("rlv","finRate",fin); setIf("fin","finRate",fin);
+          setIf("sfh","finRate",fin); setIf("hra","finRate",fin);
+        }
+        if(time > 0){
+          if(!num((prev.exit && prev.exit.planningMo) || 0)) setIf("exit","planningMo",time);
+        }
+        return next;
+      });
+      alert("✓ Auto-fix complete. Refreshing audit table.");
+    }
+
+    function fixRow(row){
+      // Sync this row's path to its declared syncFrom value
+      var sourcePath = row.syncFrom;
+      if(!sourcePath) return;
+      var sourceVal = readPath(data, sourcePath);
+      if(sourceVal === null || sourceVal === undefined || sourceVal === "" || sourceVal === 0) return;
+      var target = row.paths[0];
+      up(target[0], target[1], sourceVal);
+    }
+
+    return e("div",null,
+      e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Propagation Audit"),
+      e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:14}},"Cross-stage field map — surfaces every gap where data isn't flowing between stages."),
+
+      // Summary tiles
+      e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:18}},
+        [
+          {label:"In sync",   value:totals.sync,    color:"#2D7A65"},
+          {label:"Partial (some stages empty)", value:totals.partial, color:"#9A7B3E"},
+          {label:"Drift (values disagree)", value:totals.drift, color:"#B05A35"},
+          {label:"Empty (no data yet)", value:totals.empty, color:"#7278A0"},
+        ].map(function(t){
+          return e("div",{key:t.label,style:{background:"#fff",border:"1px solid #DDE0ED",borderLeft:"4px solid "+t.color,borderRadius:6,padding:"12px 14px"}},
+            e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}},t.label),
+            e("div",{style:{fontSize:22,fontWeight:800,color:t.color}},t.value)
+          );
+        })
+      ),
+
+      // Auto-fix CTA
+      (totals.drift + totals.partial > 0) && e("div",{style:{padding:"12px 16px",background:"linear-gradient(135deg,rgba(45,122,101,0.10),rgba(45,122,101,0.04))",border:"1px solid rgba(45,122,101,0.4)",borderRadius:8,marginBottom:18,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}},
+        e("div",{style:{flex:1,minWidth:200,fontSize:12,color:"#1d5446"}},
+          e("strong",null,(totals.drift+totals.partial)+" propagation gaps detected. "),
+          "Click Auto-fix to push scenario values to all downstream stages where they're empty or different."
+        ),
+        e("button",{onClick:autoFixAll,style:{padding:"9px 16px",background:"#2D7A65",border:"none",color:"#fff",borderRadius:5,fontSize:11,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"Auto-fix all propagation →")
+      ),
+
+      // Field map by group
+      FIELD_MAP.map(function(grp,gi){
+        return e("div",{key:gi,style:{marginBottom:18,background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,overflow:"hidden"}},
+          e("div",{style:{padding:"10px 14px",background:"#F4F5FB",borderBottom:"1px solid #DDE0ED",fontSize:11,fontWeight:700,color:"#2E2F8A",letterSpacing:".05em",textTransform:"uppercase"}},grp.group),
+          e("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:11}},
+            e("thead",null,
+              e("tr",{style:{background:"#F8F9FC",borderBottom:"1px solid #E8E9F5"}},
+                e("th",{style:{padding:"8px 12px",textAlign:"left",fontSize:9,textTransform:"uppercase",letterSpacing:".08em",color:"#7278A0",fontWeight:700,width:200}},"Field"),
+                e("th",{style:{padding:"8px 12px",textAlign:"left",fontSize:9,textTransform:"uppercase",letterSpacing:".08em",color:"#7278A0",fontWeight:700}},"Value(s)"),
+                e("th",{style:{padding:"8px 12px",textAlign:"center",fontSize:9,textTransform:"uppercase",letterSpacing:".08em",color:"#7278A0",fontWeight:700,width:100}},"Status"),
+                e("th",{style:{padding:"8px 12px",textAlign:"right",fontSize:9,textTransform:"uppercase",letterSpacing:".08em",color:"#7278A0",fontWeight:700,width:80}},"Action")
+              )
+            ),
+            e("tbody",null,
+              grp.rows.map(function(row,ri){
+                var s = rowStatus(row);
+                var toneColor = s.tone === "drift" ? "#B05A35"
+                  : s.tone === "partial" ? "#9A7B3E"
+                  : s.tone === "sync" ? "#2D7A65"
+                  : "#7278A0";
+                var toneBg = s.tone === "drift" ? "rgba(176,90,53,0.05)"
+                  : s.tone === "partial" ? "rgba(154,123,62,0.04)"
+                  : s.tone === "sync" ? "rgba(45,122,101,0.04)"
+                  : "transparent";
+                var toneLabel = s.tone === "drift" ? "⚠ Drift"
+                  : s.tone === "partial" ? "◐ Partial"
+                  : s.tone === "sync" ? "✓ Sync"
+                  : "○ Empty";
+                return e("tr",{key:ri,style:{borderBottom:"1px solid #F0F1F8",background:toneBg}},
+                  e("td",{style:{padding:"10px 12px",color:"#3A3D6A",fontWeight:600}},row.field),
+                  e("td",{style:{padding:"10px 12px"}},
+                    row.paths.map(function(p,pi){
+                      var v = s.values[pi];
+                      var isEmpty = v === null || v === undefined || v === "" || v === 0;
+                      return e("span",{key:pi,style:{display:"inline-block",marginRight:10,fontSize:10,color:isEmpty?"#7278A0":"#2E2F8A",fontFamily:"monospace"}},
+                        p[0]+"."+p[1]+": ",
+                        e("strong",{style:{color:isEmpty?"#9A7B3E":"#2E2F8A"}},formatVal(v))
+                      );
+                    })
+                  ),
+                  e("td",{style:{padding:"10px 12px",textAlign:"center"}},
+                    e("span",{style:{fontSize:10,fontWeight:700,color:toneColor,letterSpacing:".05em",textTransform:"uppercase"}},toneLabel)
+                  ),
+                  e("td",{style:{padding:"10px 12px",textAlign:"right"}},
+                    row.syncFrom && (s.tone==="drift" || s.tone==="partial") ? e("button",{
+                      onClick:function(){fixRow(row);},
+                      style:{padding:"4px 10px",background:"transparent",border:"1px solid #4A4BAE",color:"#4A4BAE",borderRadius:3,fontSize:9,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+                    },"Sync") : null
+                  )
+                );
+              })
+            )
+          )
+        );
+      }),
+
+      // Legend
+      e("div",{style:{marginTop:18,padding:"12px 14px",background:"#F8F9FC",border:"1px solid #E8E9F5",borderRadius:6,fontSize:10,color:"#7278A0",lineHeight:1.6}},
+        e("strong",{style:{color:"#2E2F8A"}},"How to read this: "),
+        e("span",{style:{color:"#2D7A65",fontWeight:700}},"✓ Sync")," = all stages agree · ",
+        e("span",{style:{color:"#9A7B3E",fontWeight:700}},"◐ Partial")," = some stages have it, others are empty · ",
+        e("span",{style:{color:"#B05A35",fontWeight:700}},"⚠ Drift")," = stages have different values (most concerning) · ",
+        e("span",{style:{color:"#7278A0",fontWeight:700}},"○ Empty")," = no stage has this populated yet. ",
+        "Use 'Sync' on individual rows for surgical fixes, or 'Auto-fix all' to resolve everything at once."
+      )
+    );
+  }
 
   function renderDashboard(){
     try{
@@ -16399,6 +16804,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
     if(stage==="monitor")return renderPlanningMonitor();
     if(stage==="constraint")return renderConstraintCheck();
     if(stage==="dashboard")return renderDashboard();
+    if(stage==="propagation")return renderPropagationAudit();
     if(stage==="epeworkflow")return renderEPEWorkflow();
     if(stage==="landworkflow")return renderLandWorkflow();
     if(stage==="recovery")return renderRecovery();
@@ -16591,14 +16997,28 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
             style:{padding:isMobile?"8px 10px":"6px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#B05A35",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
             isMobile?"🖨":"🖨 Report"
           ),
-          e("button",{key:"save",onClick:saveDeal,title:"Save Deal — updates the current deal in place",
-            style:{padding:isMobile?"8px 10px":"6px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#3A3D6A",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
-            isMobile?"💾":"💾 Save Deal"
+          e("button",{key:"save",
+            onClick: data._userRole==="viewer" ? function(){
+              alert("You have view-only access to this deal.\n\nTo edit, ask the deal owner ("+(data._dealCreator||"the creator")+") to add you to the editors list in the Access sheet.");
+            } : saveDeal,
+            title: data._userRole==="viewer" ? "View-only — contact owner to be added as editor" : "Save Deal — updates the current deal in place",
+            style:{padding:isMobile?"8px 10px":"6px 12px",background:data._userRole==="viewer"?"#F4F5FB":"#F7F8FC",border:"1px solid "+(data._userRole==="viewer"?"#E0C5A0":"#DDE0ED"),color:data._userRole==="viewer"?"#9A7B3E":"#3A3D6A",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0,opacity:data._userRole==="viewer"?0.7:1}},
+            data._userRole==="viewer" ? (isMobile?"🔒":"🔒 View only") : (isMobile?"💾":"💾 Save Deal")
           ),
           // Save As — creates a duplicate with a new name (e.g. for testing different schemes on same site)
           e("button",{key:"saveas",onClick:saveDealAs,title:"Save as new deal — duplicates current deal under a new name (e.g. test SFH vs PBSA on same site)",
             style:{padding:isMobile?"8px 10px":"6px 12px",background:"#F4F5FB",border:"1px solid #C5C8E0",color:"#4A4BAE",borderRadius:5,fontSize:isMobile?14:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
             isMobile?"🔀":"🔀 Save As"
+          ),
+          // v9.22 — Export deal to JSON file (for moving between accounts / sharing with team)
+          e("button",{key:"export",onClick:exportDeal,title:"Export this deal as a JSON file — download to share with a teammate or transfer to another Landform account",
+            style:{padding:isMobile?"8px 10px":"6px 12px",background:"#F4F5FB",border:"1px solid #C5C8E0",color:"#2D7A65",borderRadius:5,fontSize:isMobile?14:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
+            isMobile?"⬇":"⬇ Export"
+          ),
+          // v9.22 — Import deal from JSON file (from another account / teammate)
+          e("button",{key:"import",onClick:importDeal,title:"Import a deal from a JSON file — load a deal exported from another Landform account",
+            style:{padding:isMobile?"8px 10px":"6px 12px",background:"#F4F5FB",border:"1px solid #C5C8E0",color:"#2D7A65",borderRadius:5,fontSize:isMobile?14:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
+            isMobile?"⬆":"⬆ Import"
           ),
           e("button",{key:"new",onClick:clearDeal,title:"New Deal — clears current data",
             style:{padding:isMobile?"8px 10px":"6px 12px",background:"#FFF5F0",border:"1px solid #E8C4B0",color:"#B05A35",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
