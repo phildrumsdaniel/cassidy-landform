@@ -218,8 +218,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.26";
+var CURRENT_VERSION = "9.27";
 var VERSION_HISTORY = [
+  {v:"9.27", date:"Jun 2026", headline:"In-app Share button (no more Google Sheets editing)",
+   affectsCalc:false,
+   changes:["👥 Share button on every deal card you own or can edit","Modal shows every registered Cassidy user with Can-view / Can-edit checkboxes","Owner always has full access (shown as ✓ — not editable)","Editor toggle implies viewer (editors can also view)","Saves directly to Access sheet — no manual Sheets editing","Backend: new endpoints list_users, get_access, update_access"]},
   {v:"9.26", date:"Jun 2026", headline:"RLV sanity checks (zero-profit, low build cost, high £/acre)",
    affectsCalc:false,
    changes:["Critical warning when developer profit is exactly 0% — was a real bug surfaced by external audit","Build cost warning when user override is below BCIS lower-quartile benchmark for scheme type","RLV per-acre sanity check: warns >£500k/acre, errors >£750k/acre","Dev profit row in breakdown table now highlighted red when below 15%","Each warning explains the £ impact so user understands why it matters"]},
@@ -9224,6 +9227,36 @@ var JOURNEYS = {
       });
     }
 
+    // v9.27 — Open share dialog: fetch users + current ACL, then show modal
+    function openShareDialog(dealId, dealName){
+      setData(function(prev){
+        return Object.assign({},prev,{shareDialog:{open:true, dealId:dealId, dealName:dealName, loading:true, users:[], viewers:[], editors:[], creator:""}});
+      });
+      // Parallel fetch: users + current ACL
+      Promise.all([
+        fetch(WEBHOOK+"?action=list_users&userId="+encodeURIComponent(user.userId)).then(function(r){return r.json();}),
+        fetch(WEBHOOK+"?action=get_access&userId="+encodeURIComponent(user.userId)+"&dealId="+encodeURIComponent(dealId)).then(function(r){return r.json();})
+      ]).then(function(results){
+        var usersResp = results[0];
+        var accessResp = results[1];
+        setData(function(prev){
+          if(!prev.shareDialog || !prev.shareDialog.open) return prev;
+          return Object.assign({},prev,{shareDialog:Object.assign({},prev.shareDialog,{
+            loading:false,
+            users: (usersResp&&usersResp.users) || [],
+            viewers: (accessResp&&accessResp.viewers) || [],
+            editors: (accessResp&&accessResp.editors) || [],
+            creator: (accessResp&&accessResp.creator) || ""
+          })});
+        });
+      }).catch(function(err){
+        setData(function(prev){
+          if(!prev.shareDialog || !prev.shareDialog.open) return prev;
+          return Object.assign({},prev,{shareDialog:Object.assign({},prev.shareDialog,{loading:false, error:"Couldn't load sharing data: "+err.message})});
+        });
+      });
+    }
+
     // Format relative time
     function relTime(iso){
       if(!iso) return "—";
@@ -9312,11 +9345,17 @@ var JOURNEYS = {
               e("span",null,"By: ",e("strong",{style:{color:role==="owner"?"#4A4BAE":"#7278A0"}},creatorLabel)),
               e("span",null,relTime(deal.lastModified))
             ),
-            // Actions — delete hidden if user can't edit
+            // Actions — delete + share hidden if user can't edit
             e("div",{style:{display:"flex",gap:6}},
               e("button",{onClick:function(){loadCloudDeal(deal.dealId);},style:{flex:1,padding:"7px 10px",background:"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
                 role==="viewer" ? "View →" : "Open →"
               ),
+              // v9.27 — Share button: in-app sharing dialog (no more editing Google Sheets)
+              (role==="owner"||role==="editor") && e("button",{
+                onClick:function(){openShareDialog(deal.dealId, deal.dealName);},
+                title:"Share with teammates",
+                style:{padding:"7px 10px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:5,color:"#2D7A65",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+              },"👥"),
               (role==="owner"||role==="editor") && e("button",{onClick:function(){deleteCloudDeal(deal.dealId,deal.dealName);},title:"Delete deal",style:{padding:"7px 10px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:5,color:"#B05A35",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"🗑")
             )
           );
@@ -9326,7 +9365,137 @@ var JOURNEYS = {
       // Footer info
       cloudDeals.length>0 && e("div",{style:{marginTop:18,padding:"10px 14px",background:"#F8F8FE",borderLeft:"3px solid #4A4BAE",borderRadius:6,fontSize:11,color:"#3A3D6A",lineHeight:1.6}},
         e("strong",null,"☁ Cloud-synced. "),"All deals are saved to your account ("+user.email+"). Open this page on any device after logging in — you'll see the same list."
-      )
+      ),
+
+      // v9.27 — Share Dialog Modal
+      data.shareDialog && data.shareDialog.open && (function(){
+        var sd = data.shareDialog;
+        function close(){
+          setData(function(prev){return Object.assign({},prev,{shareDialog:null});});
+        }
+        function toggleViewer(email){
+          var lower = String(email).toLowerCase();
+          var arr = (sd.viewers||[]).slice();
+          var i = arr.map(function(v){return String(v).toLowerCase();}).indexOf(lower);
+          if(i>=0) arr.splice(i,1); else arr.push(lower);
+          setData(function(prev){return Object.assign({},prev,{shareDialog:Object.assign({},prev.shareDialog,{viewers:arr})});});
+        }
+        function toggleEditor(email){
+          var lower = String(email).toLowerCase();
+          var arr = (sd.editors||[]).slice();
+          var i = arr.map(function(v){return String(v).toLowerCase();}).indexOf(lower);
+          if(i>=0) arr.splice(i,1); else arr.push(lower);
+          // If they're now an editor, also ensure they're not in viewers (editor > viewer)
+          if(i<0){
+            var vArr = (sd.viewers||[]).filter(function(v){return String(v).toLowerCase() !== lower;});
+            setData(function(prev){return Object.assign({},prev,{shareDialog:Object.assign({},prev.shareDialog,{editors:arr,viewers:vArr})});});
+          } else {
+            setData(function(prev){return Object.assign({},prev,{shareDialog:Object.assign({},prev.shareDialog,{editors:arr})});});
+          }
+        }
+        function isViewer(email){return (sd.viewers||[]).map(function(v){return String(v).toLowerCase();}).indexOf(String(email).toLowerCase())>=0;}
+        function isEditor(email){return (sd.editors||[]).map(function(v){return String(v).toLowerCase();}).indexOf(String(email).toLowerCase())>=0;}
+        function isCreator(email){return String(email).toLowerCase() === String(sd.creator||"").toLowerCase();}
+
+        function save(){
+          setData(function(prev){return Object.assign({},prev,{shareDialog:Object.assign({},prev.shareDialog,{saving:true})});});
+          var body = {
+            action:"update_access",
+            userId:user.userId,
+            dealId:sd.dealId,
+            viewers:sd.viewers||[],
+            editors:sd.editors||[]
+          };
+          fetch(WEBHOOK,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify(body)})
+            .then(function(r){return r.json();})
+            .then(function(d){
+              if(d && d.status==="ok"){
+                close();
+                refreshDeals();
+                alert("✓ Sharing updated. Affected users will see this deal on their next portfolio refresh.");
+              } else {
+                alert("Couldn't update sharing: "+((d&&d.message)||"unknown error"));
+                setData(function(prev){return Object.assign({},prev,{shareDialog:Object.assign({},prev.shareDialog,{saving:false})});});
+              }
+            })
+            .catch(function(err){
+              alert("Network error: "+err.message);
+              setData(function(prev){return Object.assign({},prev,{shareDialog:Object.assign({},prev.shareDialog,{saving:false})});});
+            });
+        }
+
+        return e("div",{
+          onClick:function(ev){if(ev.target===ev.currentTarget) close();},
+          style:{position:"fixed",inset:0,background:"rgba(30,31,92,0.45)",backdropFilter:"blur(2px)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}
+        },
+          e("div",{onClick:function(ev){ev.stopPropagation();},style:{background:"#fff",borderRadius:12,maxWidth:560,width:"100%",maxHeight:"85vh",overflow:"auto",boxShadow:"0 24px 60px rgba(30,31,92,0.25)"}},
+            // Header
+            e("div",{style:{padding:"20px 24px 12px",borderBottom:"1px solid #E8E9F5"}},
+              e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"start",gap:12}},
+                e("div",null,
+                  e("div",{style:{fontSize:10,color:"#7278A0",letterSpacing:".1em",textTransform:"uppercase",fontWeight:700,marginBottom:4}},"Share deal"),
+                  e("h3",{style:{fontSize:18,fontWeight:800,color:"#2E2F8A",margin:0}},sd.dealName||"Untitled"),
+                  sd.creator && e("div",{style:{fontSize:10,color:"#7278A0",marginTop:4}},"Owner: ",e("strong",null,sd.creator))
+                ),
+                e("button",{onClick:close,style:{background:"transparent",border:"none",fontSize:22,color:"#7278A0",cursor:"pointer",padding:4,lineHeight:1}},"×")
+              )
+            ),
+            // Body
+            e("div",{style:{padding:"16px 24px"}},
+              sd.loading ? e("div",{style:{padding:"40px 0",textAlign:"center",color:"#7278A0",fontSize:12}},"Loading users...") :
+              sd.error ? e("div",{style:{padding:"20px",background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.3)",borderRadius:6,color:"#8A3A1A",fontSize:12}},sd.error) :
+              e("div",null,
+                e("p",{style:{fontSize:12,color:"#3A3D6A",lineHeight:1.6,marginBottom:14}},
+                  "Choose who can see and edit this deal. ",e("strong",null,"Owners and editors")," can change all fields and save. ",e("strong",null,"Viewers")," see read-only data."
+                ),
+                // Header row
+                e("div",{style:{display:"grid",gridTemplateColumns:"1fr 80px 80px",gap:8,padding:"8px 10px",background:"#F4F5FB",borderRadius:5,fontSize:10,fontWeight:700,color:"#7278A0",textTransform:"uppercase",letterSpacing:".05em",marginBottom:4}},
+                  e("div",null,"User"),
+                  e("div",{style:{textAlign:"center"}},"Can view"),
+                  e("div",{style:{textAlign:"center"}},"Can edit")
+                ),
+                // User rows
+                (sd.users||[]).length === 0 ? e("div",{style:{padding:"30px 12px",textAlign:"center",color:"#7278A0",fontSize:12}},"No other registered users yet. Have your team sign up first.") :
+                (sd.users||[]).map(function(u){
+                  var isMe = u.email === user.email;
+                  var isOwn = isCreator(u.email);
+                  return e("div",{key:u.userId,style:{display:"grid",gridTemplateColumns:"1fr 80px 80px",gap:8,padding:"10px",borderBottom:"1px solid #F0F1F8",alignItems:"center"}},
+                    e("div",null,
+                      e("div",{style:{fontSize:12,color:"#2E2F8A",fontWeight:600}},
+                        u.email,
+                        isMe && e("span",{style:{marginLeft:6,fontSize:9,padding:"1px 5px",background:"rgba(74,75,174,0.10)",color:"#4A4BAE",borderRadius:3,fontWeight:700}},"YOU"),
+                        isOwn && e("span",{style:{marginLeft:6,fontSize:9,padding:"1px 5px",background:"rgba(45,122,101,0.10)",color:"#2D7A65",borderRadius:3,fontWeight:700}},"OWNER")
+                      ),
+                      u.name && e("div",{style:{fontSize:10,color:"#7278A0",marginTop:2}},u.name)
+                    ),
+                    e("div",{style:{textAlign:"center"}},
+                      isOwn ? e("span",{style:{fontSize:14,color:"#2D7A65"}},"✓") :
+                      e("input",{type:"checkbox",checked:isViewer(u.email)||isEditor(u.email),onChange:function(){toggleViewer(u.email);},style:{width:16,height:16,cursor:"pointer",accentColor:"#4A4BAE"}})
+                    ),
+                    e("div",{style:{textAlign:"center"}},
+                      isOwn ? e("span",{style:{fontSize:14,color:"#2D7A65"}},"✓") :
+                      e("input",{type:"checkbox",checked:isEditor(u.email),onChange:function(){toggleEditor(u.email);},style:{width:16,height:16,cursor:"pointer",accentColor:"#2D7A65"}})
+                    )
+                  );
+                }),
+                // Tip
+                e("div",{style:{marginTop:14,padding:"10px 12px",background:"#F8F9FC",borderLeft:"3px solid #4A4BAE",borderRadius:4,fontSize:10,color:"#7278A0",lineHeight:1.6}},
+                  e("strong",{style:{color:"#3A3D6A"}},"Tip: "),"Owner always has full access. Editors can save and delete. Viewers see read-only. To stop sharing entirely, uncheck both boxes for that person."
+                )
+              )
+            ),
+            // Footer
+            e("div",{style:{padding:"14px 24px",borderTop:"1px solid #E8E9F5",display:"flex",justifyContent:"flex-end",gap:8,background:"#F8F9FC"}},
+              e("button",{onClick:close,style:{padding:"8px 16px",background:"transparent",border:"1px solid #C5C8E0",color:"#3A3D6A",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",letterSpacing:".05em",textTransform:"uppercase"}},"Cancel"),
+              e("button",{
+                onClick:save,
+                disabled:sd.saving||sd.loading,
+                style:{padding:"8px 18px",background:sd.saving?"#9A9DC0":"#2D7A65",border:"none",color:"#fff",borderRadius:5,fontSize:11,fontWeight:700,cursor:sd.saving?"wait":"pointer",fontFamily:"DM Sans,sans-serif",letterSpacing:".05em",textTransform:"uppercase"}
+              },sd.saving?"Saving...":"Save sharing")
+            )
+          )
+        );
+      })()
     );
   }
 
