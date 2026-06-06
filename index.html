@@ -1948,8 +1948,10 @@ function calcDealMetrics(data){
 
 // BTR/PBSA GDV: capitalised value if rents + yield given
   var btrGdv = 0;
-  if (cap.targetYield && cap.netAnnualIncome) {
-    btrGdv = num(cap.netAnnualIncome) / num(cap.targetYield);
+  var capTargetYield = num(cap.targetYield);
+  var normalisedTargetYield = capTargetYield > 1 ? capTargetYield / 100 : capTargetYield;
+  if (normalisedTargetYield > 0 && cap.netAnnualIncome) {
+    btrGdv = num(cap.netAnnualIncome) / normalisedTargetYield;
   } else if (hra.gdv) {
     btrGdv = num(hra.gdv);
   }
@@ -1967,7 +1969,8 @@ function calcDealMetrics(data){
   else if (tenureBlendedGdv > 0) gdv = tenureBlendedGdv;  // mixed-tenure scheme
   else if (at === "sfh" && sfhGdv > 0) gdv = sfhGdv;
   else if ((at === "btr" || at === "pbsa") && btrGdv > 0) gdv = btrGdv;
-  else if (sfhGdv > 0) gdv = sfhGdv;
+  else if (at === "sfh" && sfhGdv > 0) gdv = sfhGdv;
+  else if (at !== "btr" && at !== "pbsa" && sfhGdv > 0) gdv = sfhGdv;
   else if (btrGdv > 0) gdv = btrGdv;
   else if (units > 0 && salePsf > 0 && avgSqft > 0) gdv = units * avgSqft * salePsf;
 
@@ -2053,7 +2056,8 @@ function calcDealMetrics(data){
     gdv: gdv,
     sfhGdv: sfhGdv,
     btrGdv: btrGdv,
-    gdvSource: manualGdv > 0 ? "manual" : (at === "sfh" && sfhGdv > 0) ? "sfh" : ((at === "btr" || at === "pbsa") && btrGdv > 0) ? "btr" : sfhGdv > 0 ? "sfh-fallback" : btrGdv > 0 ? "btr-fallback" : "derived",
+    gdvSource: manualGdv > 0 ? "manual" : (at === "sfh" && sfhGdv > 0) ? "sfh" : ((at === "btr" || at === "pbsa") && btrGdv > 0) ? "btr" : (at !== "btr" && at !== "pbsa" && sfhGdv > 0) ? "sfh-fallback" : btrGdv > 0 ? "btr-fallback" : "derived",
+    normalisedTargetYield: normalisedTargetYield,
     // Costs
     buildCost: buildCost,
     fees: fees, feesPct: feesPct,
@@ -2130,6 +2134,10 @@ function buildHonestPrompt(data, taskInstruction){
   if(m.rlv > 0 && m.landPrice > 0 && m.landPrice > m.rlv) flags.push("Asking/agreed land price " + fmt(m.landPrice) + " EXCEEDS the residual land value " + fmt(m.rlv) + " by " + fmt(m.landPrice - m.rlv) + " — overpaying at current assumptions.");
   if(m.gdv > 0 && m.marginPct < 15) flags.push("Implied developer margin is " + pct(m.marginPct) + " of GDV — below the 15% viability floor. Flag as thin or negative.");
   if(m.buildSaleVerdict === "unviable") flags.push("Build:sale ratio " + pct(m.buildSaleRatio) + " sits in the unviable band (>75%).");
+  var aiTargetYield = num(cap.targetYield);
+  var aiTargetYieldPct = aiTargetYield > 1 ? aiTargetYield : aiTargetYield * 100;
+  if(aiTargetYieldPct > 5.0) flags.push("Target/exit yield " + pct(aiTargetYieldPct) + " is above the ~5.0% institutional ceiling. A higher yield reduces capital value and should be checked against institutional appetite.");
+  cap = Object.assign({}, cap, {targetYield:""});
   if(num(cap.targetYield) > 0 && num(cap.targetYield) * 100 > 5.0) flags.push("Target/exit yield " + pct(num(cap.targetYield) * 100) + " is above the ~5.0% institutional ceiling — it implies a higher GDV than an institutional buyer would underwrite.");
 
   // ── Assemble ──────────────────────────────────────────────────────────────
