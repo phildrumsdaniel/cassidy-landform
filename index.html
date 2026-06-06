@@ -2997,6 +2997,7 @@ var JOURNEYS = {
   var showMoreMenuS=useState(false); var showMoreMenu=showMoreMenuS[0]; var setShowMoreMenu=showMoreMenuS[1];
   // Selected scheme types — multi-select array. Empty = show all stages/fields.
   var schemesS=useState(function(){
+    if(data && data.assetType && data.assetType !== "all") return [data.assetType];
     try{var s=localStorage.getItem("cassidy_schemes");return s?JSON.parse(s):[];}catch(e){return [];}
   }()); var schemes=schemesS[0]; var setSchemes=schemesS[1];
   // Selected exit routes — multi-select array. Empty = show all exit-related fields.
@@ -3012,17 +3013,23 @@ var JOURNEYS = {
   },[exits]);
   // Legacy 'journey' single-string kept for backwards compatibility with existing code paths.
   // It reflects the FIRST selected scheme, or "all" if none/multiple.
-  var journey = schemes.length===1 ? schemes[0] : "all";
+  var journey = schemes.length===1 ? schemes[0] : ((data&&data.assetType&&data.assetType!=="all") ? data.assetType : "all");
+  var FLOW_ASSET_TYPES = ["land","property","sfh","btr","pbsa","recovery","asset"];
+  function setFlowAssetType(j){
+    if(FLOW_ASSET_TYPES.indexOf(j)<0) return;
+    setData(function(prev){return Object.assign({},prev||{},{assetType:j});});
+  }
   function setJourney(j){
     // Shim — preserves the old setJourney() API while updating schemes array.
     if(j==="all")setSchemes([]);
-    else setSchemes([j]);
+    else {
+      setSchemes([j]);
+      setFlowAssetType(j);
+    }
   }
   function toggleScheme(j){
-    setSchemes(function(arr){
-      if(arr.indexOf(j)>=0)return arr.filter(function(x){return x!==j;});
-      return arr.concat([j]);
-    });
+    setSchemes([j]);
+    setFlowAssetType(j);
   }
   function toggleExit(j){
     setExits(function(arr){
@@ -3049,6 +3056,10 @@ var JOURNEYS = {
   // Which exit routes have ANY exit ticked?
   function exitUnlocksStage(stageId){
     if(exits.length===0)return false;
+    if(stageId==="hra"){
+      var flow = activeSchemeFilters();
+      if(flow.indexOf("btr")<0 && flow.indexOf("pbsa")<0) return false;
+    }
     for(var i=0;i<exits.length;i++){
       var arr=EXIT_UNLOCKS[exits[i]]||[];
       if(arr.indexOf(stageId)>=0)return true;
@@ -3252,8 +3263,8 @@ var JOURNEYS = {
 
     // Auto-add scheme only before the user has chosen an asset journey.
     if(stageInfo&&schemes.length===0&&!data.assetType){
-      if(id==="scraper"||id==="rlv"||id==="land"||id==="landworkflow"){setSchemes(["land"]);}
-      else if(id==="epe"||id==="epeworkflow"){setSchemes(["property"]);}
+      if(id==="scraper"||id==="rlv"||id==="land"||id==="landworkflow"){setSchemes(["land"]);setFlowAssetType("land");}
+      else if(id==="epe"||id==="epeworkflow"){setSchemes(["property"]);setFlowAssetType("property");}
     }
   }
   function saveDeal(){
@@ -3261,14 +3272,16 @@ var JOURNEYS = {
       (data.scraper&&data.scraper.result&&data.scraper.result.address)||
       "Deal "+new Date().toLocaleDateString("en-GB");
     var name=window.prompt("Name this deal:",autoName)||autoName;
+    var effectiveAssetType = schemes.length===1 ? schemes[0] : (data.assetType || "land");
+    var dataForSave = Object.assign({}, data, {assetType:effectiveAssetType});
     var snapshot={
       id:Date.now(),name:name,
       savedAt:new Date().toLocaleString("en-GB"),
-      assetType:data.assetType||"btr",
+      assetType:effectiveAssetType,
       city:(data.land&&data.land.city)||"—",
       acres:(data.land&&data.land.acres)||"",
       price:(data.land&&data.land.price)||"",
-      data:JSON.parse(JSON.stringify(data))
+      data:JSON.parse(JSON.stringify(dataForSave))
     };
     setHistory(function(h){
       var next=[snapshot].concat(h.slice(0,19));
@@ -3291,7 +3304,7 @@ var JOURNEYS = {
 
     // ── BACKEND SYNC ─────────────────────────────────────────────────────
     // Push to cloud so deal appears across all devices
-    var dealPayload = Object.assign({}, data, {dealName:name, savedAt:snapshot.savedAt, _savedVersion:CURRENT_VERSION});
+    var dealPayload = Object.assign({}, dataForSave, {dealName:name, savedAt:snapshot.savedAt, _savedVersion:CURRENT_VERSION});
     if(user && user.userId){
       // Use POST so the large JSON payload doesn't break URL length limits
       var existingId = (data._cloudDealId) || "";
@@ -3361,6 +3374,7 @@ var JOURNEYS = {
 
     // Build a fresh data copy with NEW cloud ID stripped (so backend creates a new row)
     var freshData = JSON.parse(JSON.stringify(data));
+    freshData.assetType = schemes.length===1 ? schemes[0] : (freshData.assetType || "land");
     delete freshData._cloudDealId;       // critical — forces new row on save
     freshData.dealName = newName;
     freshData.savedAt = new Date().toLocaleString("en-GB");
@@ -3396,7 +3410,7 @@ var JOURNEYS = {
           newName:newName,
           fromDealId:data._cloudDealId || null,
           newDealId:d.dealId,
-          assetType:freshData.assetType||"btr",
+          assetType:freshData.assetType||"land",
           scenario:scenario||null
         });
         alert("✓ New deal created: "+newName+"\n\n"+
@@ -3491,6 +3505,7 @@ var JOURNEYS = {
           // Run migration to bring it up to current version
           var migrated = migrateLoadedDeal(imported);
           setData(migrated.data);
+          if(migrated.data && migrated.data.assetType) setSchemes([migrated.data.assetType]);
           if(migrated.changed) logMigration(migrated);
           navTo("dashboard");
           alert("✓ Deal imported. Click 'Save Deal' to add it to your portfolio.");
@@ -3508,7 +3523,7 @@ var JOURNEYS = {
 
   function clearDeal(){
     if(!window.confirm("Clear all fields and start a new deal?"))return;
-    setData({assetType:"btr",risks:RISK_DEFAULTS.map(function(r){return Object.assign({},r);})});
+    setData({risks:RISK_DEFAULTS.map(function(r){return Object.assign({},r);})});
     setSchemes([]); setExits([]);
     setHot("");setMemo("");setStage("dashboard");
   }
@@ -3516,6 +3531,7 @@ var JOURNEYS = {
   function loadDeal(snap){
     var migrated = migrateLoadedDeal(snap.data);
     setData(migrated.data);
+    if(migrated.data && migrated.data.assetType) setSchemes([migrated.data.assetType]);
     if(migrated.changed) logMigration(migrated);
     setStage("dashboard");setShowHist(false);
   }
@@ -3556,7 +3572,18 @@ var JOURNEYS = {
     var atShield = String(data2.assetType || "").toLowerCase();
     var sfhMixShield = data2.sfh && data2.sfh.mix;
     var hasSfhMixShield = Array.isArray(sfhMixShield) ? sfhMixShield.length > 0 : !!(sfhMixShield && typeof sfhMixShield === "object" && Object.keys(sfhMixShield).length);
+    var hasBtrBlockShield = !!(data2.hra && (num(data2.hra.units) || num(data2.hra.beds) || num(data2.hra.storeys)));
     var capAssetShield = String(data2.capitalise && data2.capitalise.ffAssetType || "").toLowerCase();
+    if(atShield === "btr" && hasSfhMixShield && !hasBtrBlockShield){
+      data2.assetType = "sfh";
+      migrations.push({
+        field:"assetType",
+        from:"btr",
+        to:"sfh",
+        reason:"Portfolio shield: SFH house mix is present and no BTR/PBSA block evidence exists, so the deal should load and save as SFH"
+      });
+      atShield = "sfh";
+    }
     if(atShield === "btr" && hasSfhMixShield && capAssetShield.indexOf("sfh") >= 0){
       reviewRecommended.push({
         field:"assetType / sfh / capitalise.ffAssetType",
@@ -10669,6 +10696,7 @@ var JOURNEYS = {
             return e("div",{key:s.key,
               onClick:function(){
                 setSchemes([s.key]); // single-scheme selection from navigator
+                setFlowAssetType(s.key);
                 if(s.isExisting){
                   // Existing Asset path — skip exit picker, go straight to Optimiser
                   navTo("assetOptimiser");
@@ -10710,8 +10738,8 @@ var JOURNEYS = {
       return e("div",null,
         e("div",{style:{textAlign:"center",marginBottom:20}},
           e("div",{style:{fontSize:10,letterSpacing:".25em",textTransform:"uppercase",color:"#7278A0",marginBottom:8,fontWeight:700}},"Process Navigator · Step 2 of 3"),
-          e("h2",{style:{fontSize:26,fontWeight:800,color:"#2E2F8A",marginBottom:6}},"Who's the buyer?"),
-          e("p",{style:{fontSize:13,color:"#7278A0",maxWidth:560,margin:"0 auto"}},"Choose your most likely exit route. This shapes which institutional documents you'll need (IM, Teaser, Data Room) and which yield to model.")
+          e("h2",{style:{fontSize:26,fontWeight:800,color:"#2E2F8A",marginBottom:6}},"How will the scheme exit?"),
+          e("p",{style:{fontSize:13,color:"#7278A0",maxWidth:620,margin:"0 auto"}},"Tick every likely exit route. A scheme can split between private sale, HA/RP, retained rent, institutional bulk sale, pension/family office capital, or land sale.")
         ),
 
         // Breadcrumb: Scheme chosen
@@ -10725,7 +10753,7 @@ var JOURNEYS = {
             e("span",{onClick:function(){setStep(1);},style:{marginLeft:8,fontSize:10,color:"#4A4BAE",cursor:"pointer",textDecoration:"underline",fontWeight:700}},"change")
           ),
           e("div",{style:{fontSize:18,color:"#B5BAD6"}},"→"),
-          e("div",{style:{background:"#FFF8E5",border:"2px dashed #B05A35",borderRadius:8,padding:"8px 14px",fontSize:13,fontWeight:700,color:"#B05A35"}},"Pick exit route")
+          e("div",{style:{background:"#FFF8E5",border:"2px dashed #B05A35",borderRadius:8,padding:"8px 14px",fontSize:13,fontWeight:700,color:"#B05A35"}},"Tick exit routes")
         ),
 
         // Exit cards
@@ -10734,12 +10762,12 @@ var JOURNEYS = {
             var isPicked = isExitOn(ex.key);
             return e("div",{key:ex.key,
               onClick:function(){
-                setExits([ex.key]);
-                setStep(3);
+                toggleExit(ex.key);
               },
               style:Object.assign({},(isPicked?cardStyleActive:cardStyle),{padding:"14px 16px"})
             },
               isPicked&&e("div",{style:{position:"absolute",top:8,right:10,fontSize:14,color:"#2D7A65",fontWeight:800}},"✓"),
+              e("div",{style:{position:"absolute",top:10,right:12,width:20,height:20,borderRadius:4,border:"2px solid "+(isPicked?"#2D7A65":"#C5C8E0"),background:isPicked?"#2D7A65":"#fff",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:13,fontWeight:800}},isPicked?"✓":""),
               e("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:6}},
                 e("div",{style:{fontSize:24}},ex.icon),
                 e("div",{style:{fontSize:14,fontWeight:800,color:"#1E1F5C"}},ex.label)
@@ -10748,6 +10776,8 @@ var JOURNEYS = {
             );
           })
         ),
+
+        exits.length>0&&e("div",{style:{marginTop:16,textAlign:"right",fontSize:11,color:"#2D7A65",fontWeight:800}},exits.length+" exit route"+(exits.length>1?"s":"")+" selected - continue when ready"),
 
         // Back + Skip
         e("div",{style:{marginTop:20,display:"flex",justifyContent:"space-between",alignItems:"center"}},
@@ -10771,6 +10801,7 @@ var JOURNEYS = {
       var schemeDef3 = SCHEMES_NAV.find(function(s){return s.key===currentScheme3;}) || SCHEMES_NAV[0];
       var currentExit = exits[0];
       var exitDef = currentExit ? EXITS_NAV.find(function(x){return x.key===currentExit;}) : null;
+      var exitDefs = exits.map(function(k){return EXITS_NAV.find(function(x){return x.key===k;});}).filter(Boolean);
 
       // Get the filtered stage list — same logic as sidebar's activeStages
       var workflowStages = ALL_STAGES.filter(function(s){
@@ -10922,11 +10953,11 @@ var JOURNEYS = {
             )
           ),
           e("div",{style:{fontSize:16,color:"#B5BAD6"}},"+"),
-          exitDef?e("div",{onClick:function(){setStep(2);},style:{background:"rgba(154,123,62,0.1)",border:"2px solid #9A7B3E",borderRadius:8,padding:"8px 14px",display:"flex",alignItems:"center",gap:8,cursor:"pointer"}},
-            e("span",{style:{fontSize:18}},exitDef.icon),
+          exitDefs.length>0?e("div",{onClick:function(){setStep(2);},style:{background:"rgba(154,123,62,0.1)",border:"2px solid #9A7B3E",borderRadius:8,padding:"8px 14px",display:"flex",alignItems:"center",gap:8,cursor:"pointer",maxWidth:520}},
+            e("span",{style:{fontSize:18}},exitDefs.length>1?"✓":exitDefs[0].icon),
             e("div",null,
-              e("div",{style:{fontSize:8,color:"#9A7B3E",letterSpacing:".1em",textTransform:"uppercase",fontWeight:700}},"Exit"),
-              e("div",{style:{fontSize:12,fontWeight:800,color:"#1E1F5C"}},exitDef.label)
+              e("div",{style:{fontSize:8,color:"#9A7B3E",letterSpacing:".1em",textTransform:"uppercase",fontWeight:700}},"Exit routes"),
+              e("div",{style:{fontSize:12,fontWeight:800,color:"#1E1F5C"}},exitDefs.map(function(x){return x.label;}).join(" + "))
             )
           ):e("div",{onClick:function(){setStep(2);},style:{background:"#FFF8E5",border:"2px dashed #B05A35",borderRadius:8,padding:"8px 14px",fontSize:12,fontWeight:700,color:"#B05A35",cursor:"pointer"}},"+ Add exit route")
         ),
