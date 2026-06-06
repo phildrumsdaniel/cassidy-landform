@@ -1878,7 +1878,7 @@ function computeTenureMetrics(data){
   data = data || {};
   var t = data.tenure || {};
   var sfhMetrics = computeSFHMetrics(data);
-  var totalSchemeUnits = numOr(t.totalUnits, sfhMetrics.totalUnits || num(data.land&&data.land.units) || num(data.planning&&data.planning.units) || num(data.hra&&data.hra.units) || 0);
+  var totalSchemeUnits = numOr(t.totalUnits, num(data.land&&data.land.units) || num(data.planning&&data.planning.units) || sfhMetrics.totalUnits || num(data.hra&&data.hra.units) || 0);
   var basePsf = numOr(t.basePsf, num(data.sfh&&data.sfh.basePsf) || num(data.rlv&&data.rlv.salePsf) || 350);
   var avgSqft = numOr(t.avgSqft, sfhMetrics.avgSqft || num(data.sfh&&data.sfh.avgSqft) || 900);
   var omsUnitPrice = numOr(t.omsUnitPrice, basePsf * avgSqft);
@@ -1919,7 +1919,7 @@ function calcDealMetrics(data){
   var sfhMetrics = computeSFHMetrics(data);
   var tenureMetrics = computeTenureMetrics(data);
   var units = at === "sfh"
-    ? num(sfhMetrics.totalUnits || sfh.totalUnits || l.units || p.units || rlvD.units || tenureMetrics.totalUnits || 0)
+    ? num(l.units || p.units || sfh.totalUnits || rlvD.units || sfhMetrics.totalUnits || tenureMetrics.totalUnits || 0)
     : num(p.units || rlvD.units || l.units || sfhMetrics.totalUnits || sfh.totalUnits || tenureMetrics.totalUnits || 0);
 
   // City for market lookups
@@ -2138,6 +2138,15 @@ function buildHonestPrompt(data, taskInstruction){
   var aiTargetYieldPct = aiTargetYield > 1 ? aiTargetYield : aiTargetYield * 100;
   if(aiTargetYieldPct > 5.0) flags.push("Target/exit yield " + pct(aiTargetYieldPct) + " is above the ~5.0% institutional ceiling. A higher yield reduces capital value and should be checked against institutional appetite.");
   cap = Object.assign({}, cap, {targetYield:""});
+  var sfhMixUnitsForAudit = computeSFHMetrics(data).totalUnits;
+  var landUnitsForAudit = num(l.units);
+  var planningUnitsForAudit = num(p.units);
+  if(sfhMixUnitsForAudit > 0 && (landUnitsForAudit > 0 || planningUnitsForAudit > 0)){
+    var canonicalUnitsForAudit = landUnitsForAudit || planningUnitsForAudit;
+    if(canonicalUnitsForAudit > 0 && sfhMixUnitsForAudit !== canonicalUnitsForAudit){
+      flags.push("Unit count mismatch: Land/Planning scheme total is " + canonicalUnitsForAudit + " units but SFH House Mix rows total " + sfhMixUnitsForAudit + " units. Treat Land/Planning as the headline scheme quantum until the SFH mix is manually reconciled.");
+    }
+  }
   if(num(cap.targetYield) > 0 && num(cap.targetYield) * 100 > 5.0) flags.push("Target/exit yield " + pct(num(cap.targetYield) * 100) + " is above the ~5.0% institutional ceiling — it implies a higher GDV than an institutional buyer would underwrite.");
 
   // ── Assemble ──────────────────────────────────────────────────────────────
@@ -12497,8 +12506,9 @@ var JOURNEYS = {
     function upt(k,v){ up("tenure",k,v); }
 
     var totalSchemeUnits = numOr(t.totalUnits,
-      num(data.sfh&&data.sfh.totalUnits) ||
+      num(data.land&&data.land.units) ||
       num(data.planning&&data.planning.units) ||
+      num(data.sfh&&data.sfh.totalUnits) ||
       num(data.hra&&data.hra.units) || 0);
 
     var basePsf = numOr(t.basePsf,
