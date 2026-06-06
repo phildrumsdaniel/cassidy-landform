@@ -1878,7 +1878,7 @@ function computeTenureMetrics(data){
   data = data || {};
   var t = data.tenure || {};
   var sfhMetrics = computeSFHMetrics(data);
-  var totalSchemeUnits = numOr(t.totalUnits, sfhMetrics.totalUnits || num(data.planning&&data.planning.units) || num(data.hra&&data.hra.units) || 0);
+  var totalSchemeUnits = numOr(t.totalUnits, sfhMetrics.totalUnits || num(data.land&&data.land.units) || num(data.planning&&data.planning.units) || num(data.hra&&data.hra.units) || 0);
   var basePsf = numOr(t.basePsf, num(data.sfh&&data.sfh.basePsf) || num(data.rlv&&data.rlv.salePsf) || 350);
   var avgSqft = numOr(t.avgSqft, sfhMetrics.avgSqft || num(data.sfh&&data.sfh.avgSqft) || 900);
   var omsUnitPrice = numOr(t.omsUnitPrice, basePsf * avgSqft);
@@ -1918,7 +1918,9 @@ function calcDealMetrics(data){
   var landPriceIsScenario = !!num(l.scenarioLandValue);  // for downstream awareness
   var sfhMetrics = computeSFHMetrics(data);
   var tenureMetrics = computeTenureMetrics(data);
-  var units = num(p.units || rlvD.units || sfhMetrics.totalUnits || sfh.totalUnits || tenureMetrics.totalUnits || 0);
+  var units = at === "sfh"
+    ? num(sfhMetrics.totalUnits || sfh.totalUnits || l.units || p.units || rlvD.units || tenureMetrics.totalUnits || 0)
+    : num(p.units || rlvD.units || l.units || sfhMetrics.totalUnits || sfh.totalUnits || tenureMetrics.totalUnits || 0);
 
   // City for market lookups
   var cityKey = (l.city || sfh.city || rlvD.city || "").toLowerCase();
@@ -1938,7 +1940,7 @@ function calcDealMetrics(data){
   var buildPsf = num(rlvD.buildPsf) || num(f.buildPsf) || num(sfh.buildPsf) || (m && m.build) || 195;
 
   // Average sqft per unit (used for area calcs)
-  var avgSqft = num(rlvD.avgSqft) || num(sfh.avgSqft) || 850;
+  var avgSqft = num(rlvD.avgSqft) || num(sfh.avgSqft) || num(l.avgSqft) || 850;
 
   // ── SCHEME-AWARE GDV ──────────────────────────────────────────────────
   // SFH GDV: centralised plot-mix calculation, using live unitPrice/psf and route discounts.
@@ -16615,6 +16617,43 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     var acresVal = num(l.acres);
     var benchmarkIsFallback = !MKT[city];  // true if we fell back to manchester default
 
+    function updateLandWorkingScheme(key, value){
+      setData(function(prev){
+        prev = prev || {};
+        var oldLand = prev.land || {};
+        var oldValue = oldLand[key];
+        var completed = prev._completedStages || {};
+        var next = Object.assign({}, prev);
+        next.land = Object.assign({}, oldLand);
+        next.land[key] = value;
+
+        function canCarry(section, field){
+          if(completed[section]) return false;
+          var sec = prev[section] || {};
+          var cur = sec[field];
+          if((oldValue === undefined || oldValue === null || oldValue === "") && cur !== undefined && cur !== null && cur !== "") return true;
+          return cur === undefined || cur === null || cur === "" || String(cur) === String(oldValue || "");
+        }
+        function carry(section, field){
+          if(!canCarry(section, field)) return;
+          next[section] = Object.assign({}, next[section] || prev[section] || {});
+          next[section][field] = value;
+        }
+
+        if(key === "units"){
+          carry("planning", "units");
+          carry("rlv", "units");
+          carry("sfh", "totalUnits");
+        }
+        if(key === "avgSqft"){
+          carry("rlv", "avgSqft");
+          carry("sfh", "avgSqft");
+          carry("tenure", "avgSqft");
+        }
+        return next;
+      });
+    }
+
     // ──────────────────────────────────────────────────────────────
     // ACREAGE + PLANNING-STATUS AWARE BENCHMARK (v9.12)
     // The old single-figure benchmark (m.land) was a "typical total" for
@@ -16776,6 +16815,8 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           e(CitySelect,{value:l.city,onChange:function(v){up("land","city",v);}}),
           e(Inp,{label:"Site Area (acres)"+(l.acres?" · saved":""),type:"number",value:l.acres,onChange:function(v){up("land","acres",v);},placeholder:"e.g. 2.5"}),
           e(Inp,{label:"Asking Price (£)"+(l.price?" · saved":""),type:"number",value:l.price,onChange:function(v){up("land","price",v);},placeholder:"e.g. 4500000"}),
+          e(Inp,{label:"Proposed Units"+(l.units?" - carries forward":""),type:"number",value:l.units,onChange:function(v){updateLandWorkingScheme("units",v);},placeholder:"e.g. 200"}),
+          e(Inp,{label:"Average Unit Size (sqft)"+(l.avgSqft?" - carries forward":""),type:"number",value:l.avgSqft,onChange:function(v){updateLandWorkingScheme("avgSqft",v);},placeholder:"e.g. 950"}),
           e(Sel,{label:"Proximity to Demand",value:l.proximity,onChange:function(v){up("land","proximity",v);},
             options:[{value:"",label:"Select..."},{value:"excellent",label:"Excellent — <10 min walk (+25)"},{value:"good",label:"Good — <20 min / 5 min cycle (+15)"},{value:"fair",label:"Fair — public transport needed (+8)"},{value:"poor",label:"Poor — car dependent (0)"}]}),
           e(Sel,{label:"Transport Connectivity",value:l.transport,onChange:function(v){up("land","transport",v);},
