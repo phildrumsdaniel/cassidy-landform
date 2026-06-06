@@ -15,7 +15,6 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone@7.23.2/babel.min.js"></script>
 <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'DM Sans',sans-serif;background:#F4F5F9;color:#1A1A3E}#root{min-height:100vh}@keyframes pulse{0%{opacity:1}50%{opacity:0.7}100%{opacity:1}}
 
 /* ── MOBILE RESPONSIVE ─────────────────────────── */
@@ -205,7 +204,7 @@
 </head>
 <body>
 <div id="root"></div>
-<script type="text/babel" data-presets="react">
+<script>
 var useState = React.useState;
 var useEffect = React.useEffect;
 
@@ -218,8 +217,14 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.43";
+var CURRENT_VERSION = "9.45";
 var VERSION_HISTORY = [
+  {v:"9.45", date:"Jun 2026", headline:"Capitalisation bedroom-mix sync check now compares the split, not just the total",
+   affectsCalc:false,
+   changes:["Phil flagged the Capitalisation bedroom mix (12/96/32/60) looked mis-populated for an SFH scheme. Root cause: the out-of-sync safeguard only fired when the TOTAL differed from the SFH House Mix. With both at 200, a wrong per-bedroom split showed no warning and the values stayed as stale saved/pinned figures.","Sync check now compares each bedroom bucket (1/2/3/4-bed, with 5-bed rolled into 4) against the SFH House Mix. Any real mismatch shows the amber banner and the one-click 'Sync from SFH' button.","Banner now lists the Cap split vs the SFH split side by side so the mismatch is visible at a glance.","Reminder: this section is informational-only for SFH schemes (0 retained PRS) — it does not affect the blended GDV or land residual."]},
+  {v:"9.44", date:"Jun 2026", headline:"Fix: yield-compression figure in Capitalisation key insight was ~200x too high",
+   affectsCalc:false,
+   changes:["The Capitalised Value key insight read e.g. 'every 0.5% reduction in yield adds approximately 1539.96m' — the formula divided NOI by the yield band but omitted the 0.5% (0.005) step, overstating the figure by ~200x.","Corrected to NOI x 0.005 / ((yield-0.005) x yield). For the Maldon scheme this reads ~7-8m per 0.5%, not 1540m. Display-only — no effect on GDV, RLV or any appraisal calc.","Guarded against a sub-0.5% yield producing a nonsensical value."]},
   {v:"9.43", date:"Jun 2026", headline:"Your figures are locked once entered — AI fills blanks only, never overwrites",
    affectsCalc:false,
    changes:["CRITICAL FIX: AI panels no longer silently overwrite your inputs. The old behaviour auto-applied AI corrections (AI knows best) and could replace a saved figure — e.g. asking price 14m overwritten with an AI-guessed 21.5m.","New rule: any field that already holds a value (typed by you OR auto-filled once) is the source of truth and is never changed by AI or by another page. AI may only fill genuinely EMPTY fields.","To change a locked figure, edit it manually on its own page. Forward-fill of blank fields still works, so the Main Appraisal still flows into RLV / Fin / Exit.","Toast and result card now honestly state how many blanks were filled and how many of your existing figures were kept untouched.","Groundwork for an explicit per-page Lock toggle (data._locks): locked pages reject all programmatic writes."]},
@@ -1837,6 +1842,63 @@ var TENURE_PRESETS = {
 // Returns a normalised object regardless of scheme type (SFH vs BTR vs PBSA vs Mixed).
 // Never returns undefined — always returns a number (0 if unknown).
 // ═══════════════════════════════════════════════════════════════════════════
+function computeSFHMetrics(data){
+  data = data || {};
+  var sfh = data.sfh || {};
+  var l = data.land || {};
+  var cityKey = (sfh.city || l.city || "").toLowerCase();
+  var market = MKT[cityKey] || MKT.manchester;
+  var basePsf = num(sfh.basePsf) || (market && market.btr ? Math.max(150, Math.min(650, Math.round(market.btr * 8.5 / 12))) : 260);
+  var buildPsf = num(sfh.buildPsf) || (market && market.build) || 195;
+  var mix = sfh.mix || [];
+  var rows = [];
+  var totalUnits = 0, retailGdv = 0, blendedGdv = 0, buildCost = 0, totalSqft = 0;
+  mix.forEach(function(row){
+    var count = num(row.count); if(!count || !row.type) return;
+    var info = HOUSE_TYPES[row.type] || HOUSE_TYPES["3-bed semi"] || {sqft:900, adj:1};
+    var sqft = numOr(row.sqft, info.sqft || 900);
+    var unitPrice = num(row.unitPrice || row.salePrice || 0);
+    var psf = unitPrice && sqft ? unitPrice / sqft : (num(row.psf) || basePsf * (info.adj || 1));
+    var tenure = row.tenure || "private";
+    var disc = (ROUTE_DISCOUNT[tenure] || ROUTE_DISCOUNT.private).pct;
+    var rowRetail = sqft * psf * count;
+    var rowBlended = rowRetail * disc;
+    totalUnits += count;
+    totalSqft += sqft * count;
+    retailGdv += rowRetail;
+    blendedGdv += rowBlended;
+    buildCost += sqft * buildPsf * count;
+    rows.push({type:row.type,count:count,sqft:sqft,psf:psf,tenure:tenure,retailGdv:rowRetail,blendedGdv:rowBlended});
+  });
+  var hasNonPrivate = rows.some(function(r){return r.tenure && r.tenure !== "private";});
+  return {rows:rows,totalUnits:totalUnits,avgSqft:totalUnits>0?totalSqft/totalUnits:0,retailGdv:retailGdv,blendedGdv:blendedGdv,gdv:hasNonPrivate?blendedGdv:retailGdv,buildCost:buildCost,hasNonPrivate:hasNonPrivate,basePsf:basePsf,buildPsf:buildPsf};
+}
+
+function computeTenureMetrics(data){
+  data = data || {};
+  var t = data.tenure || {};
+  var sfhMetrics = computeSFHMetrics(data);
+  var totalSchemeUnits = numOr(t.totalUnits, sfhMetrics.totalUnits || num(data.planning&&data.planning.units) || num(data.hra&&data.hra.units) || 0);
+  var basePsf = numOr(t.basePsf, num(data.sfh&&data.sfh.basePsf) || num(data.rlv&&data.rlv.salePsf) || 350);
+  var avgSqft = numOr(t.avgSqft, sfhMetrics.avgSqft || num(data.sfh&&data.sfh.avgSqft) || 900);
+  var omsUnitPrice = numOr(t.omsUnitPrice, basePsf * avgSqft);
+  var omsRentPa = numOr(t.omsRentPa, omsUnitPrice * 0.04);
+  var inputMode = t.inputMode || "units";
+  var mix = t.mix || null;
+  if(!mix) return {rows:[],totalUnits:0,blendedGdv:0,annualIncome:0,pureMarketGdv:0,discountPct:0};
+  var rows = [];
+  TENURE_TYPES.forEach(function(td){
+    var v = num(mix[td.key]); if(!v) return;
+    var unitsForTenure = inputMode === "units" ? v : (totalSchemeUnits * v / 100);
+    var unitPrice = num(t[td.key+"_unitPrice"]) || (omsUnitPrice * td.pricingFactor);
+    var rentPerUnit = num(t[td.key+"_rentPa"]) || (td.incomeType !== "capital" || td.key==="ar" || td.key==="sr" || td.key==="btr" ? omsRentPa * (td.key==="sr" ? 0.6 : td.key==="ar" ? 0.8 : 1.0) : 0);
+    rows.push({td:td,units:unitsForTenure,unitPrice:unitPrice,capValue:unitsForTenure*unitPrice,annualRent:rentPerUnit*unitsForTenure});
+  });
+  var blendedGdv = rows.reduce(function(a,r){return a+r.capValue;},0);
+  var annualIncome = rows.reduce(function(a,r){return a+r.annualRent;},0);
+  var pureMarketGdv = totalSchemeUnits * omsUnitPrice;
+  return {rows:rows,totalUnits:rows.reduce(function(a,r){return a+r.units;},0),blendedGdv:blendedGdv,annualIncome:annualIncome,pureMarketGdv:pureMarketGdv,discountPct:pureMarketGdv>0?(1-blendedGdv/pureMarketGdv)*100:0};
+}
 function calcDealMetrics(data){
   data = data || {};
   var l = data.land || {};
@@ -1854,7 +1916,9 @@ function calcDealMetrics(data){
   // else use the asking/agreed price.
   var landPrice = num(l.scenarioLandValue) || num(l.price);
   var landPriceIsScenario = !!num(l.scenarioLandValue);  // for downstream awareness
-  var units = num(p.units || rlvD.units || sfh.totalUnits || 0);
+  var sfhMetrics = computeSFHMetrics(data);
+  var tenureMetrics = computeTenureMetrics(data);
+  var units = num(p.units || rlvD.units || sfhMetrics.totalUnits || sfh.totalUnits || tenureMetrics.totalUnits || 0);
 
   // City for market lookups
   var cityKey = (l.city || sfh.city || rlvD.city || "").toLowerCase();
@@ -1877,15 +1941,10 @@ function calcDealMetrics(data){
   var avgSqft = num(rlvD.avgSqft) || num(sfh.avgSqft) || 850;
 
   // ── SCHEME-AWARE GDV ──────────────────────────────────────────────────
-  // SFH GDV: sum house-mix sales if populated
-  var sfhGdv = 0;
-  if (sfh.mix && sfh.mix.length) {
-    sfh.mix.forEach(function(r){
-      sfhGdv += num(r.count) * num(r.salePrice);
-    });
-  }
+  // SFH GDV: centralised plot-mix calculation, using live unitPrice/psf and route discounts.
+  var sfhGdv = sfhMetrics.gdv;
 
-  // BTR/PBSA GDV: capitalised value if rents + yield given
+// BTR/PBSA GDV: capitalised value if rents + yield given
   var btrGdv = 0;
   if (cap.targetYield && cap.netAnnualIncome) {
     btrGdv = num(cap.netAnnualIncome) / num(cap.targetYield);
@@ -1894,11 +1953,11 @@ function calcDealMetrics(data){
   }
 
   // Manual override on Financial Modelling
-  var manualGdv = num(f.gdv);
+  var manualGdv = num(f.manualGdv || f.gdv || f.gdvOverride);
 
   // Blended GDV from Tenure Mix — takes priority over single-tenure SFH/BTR calcs
   // when the user has set up a tenure split
-  var tenureBlendedGdv = num((data.tenure&&data.tenure.blendedGdv)||0);
+  var tenureBlendedGdv = tenureMetrics.blendedGdv;
 
   // Choose the right GDV based on asset type / scheme
   var gdv = 0;
@@ -1911,9 +1970,9 @@ function calcDealMetrics(data){
   else if (units > 0 && salePsf > 0 && avgSqft > 0) gdv = units * avgSqft * salePsf;
 
   // ── COSTS ──────────────────────────────────────────────────────────────
-  var buildCost = num(f.buildCost);
+  var buildCost = num(f.manualBuildCost || f.buildCost);
   if (!buildCost && units > 0 && avgSqft > 0 && buildPsf > 0) {
-    buildCost = units * avgSqft * buildPsf;
+    buildCost = (at === "sfh" && sfhMetrics.buildCost > 0) ? sfhMetrics.buildCost : units * avgSqft * buildPsf;
   }
 
   var feesPct = num(f.feesPct || 12);
@@ -2705,7 +2764,7 @@ function Tool(props){
 
   // ── STATE DECLARATIONS ────────────────────────────────────────────────────
   var ds=useState(function(){
-    try{var s=localStorage.getItem("cassidy_deal");return s?JSON.parse(s):{};}catch(e){return {};}
+    try{var s=localStorage.getItem("cassidy_deal"); if(!s) return {}; var parsed=JSON.parse(s); return migrateLoadedDeal(parsed).data || parsed;}catch(e){return {};}
   }()); var data=ds[0]; var setData=ds[1];
   var ss=useState("navigator"); var stage=ss[0]; var setStage=ss[1];
   var mob=useState(false); var mobileMenuOpen=mob[0]; var setMobileMenuOpen=mob[1];
@@ -2904,7 +2963,7 @@ function isStageComplete(stageId, deal){
     case "hra":        return !!(deal.hra && num(deal.hra.units));
     case "planning":   return !!(deal.planning && num(deal.planning.units));
     case "fin":        return !!(deal.fin && (num(deal.fin.gdv) || num(deal.fin.totalCost)));
-    case "capitalise": return !!(deal.cap && (num(deal.cap.targetYield) || num(deal.cap.multiRouteGdv)));
+    case "capitalise": return !!(deal.capitalise && (num(deal.capitalise.targetYield) || num(deal.capitalise.multiRouteGdv)));
     case "tenure":     return !!(deal.tenure && deal.tenure.rows && deal.tenure.rows.length>0);
     case "exit":       return !!(deal.exit && (deal.exit.strategy || num(deal.exit.planningMo)));
     case "dd":         return !!(deal.dd && Object.keys(deal.dd).length>3);
@@ -3001,11 +3060,34 @@ var JOURNEYS = {
     return false;
   }
 
-  // showFor(...schemeNames) — true if NO filters set (show everything) OR any scheme/exit matches
+  function activeSchemeFilters(){
+    if(schemes.length>0)return schemes;
+    var chosen=(data&&data.assetType&&data.assetType!=="all") ? data.assetType : "";
+    return chosen ? [chosen] : [];
+  }
+
+  function isStageId(id){
+    return ALL_STAGES.some(function(s){return s.id===id;});
+  }
+
+  function stageVisibleForFlow(s){
+    if(!s || !s.journeys)return true;
+    var flowSchemes=activeSchemeFilters();
+    if(flowSchemes.length===0&&exits.length===0)return s.id==="navigator" || s.id==="portfolio" || s.id==="dashboard";
+    for(var sj=0;sj<flowSchemes.length;sj++){
+      if(s.journeys.indexOf(flowSchemes[sj])>=0)return true;
+    }
+    if(exitUnlocksStage(s.id))return true;
+    if(s.journeys.length===1&&s.journeys[0]==="all")return true;
+    return false;
+  }
+
+  // showFor(...schemeNames) follows the active journey. Empty filters now mean the selected asset journey, not every page.
   function showFor(){
-    if(schemes.length===0&&exits.length===0)return true;
+    var flowSchemes=activeSchemeFilters();
+    if(flowSchemes.length===0&&exits.length===0)return false;
     for(var i=0;i<arguments.length;i++){
-      if(schemes.indexOf(arguments[i])>=0)return true;
+      if(flowSchemes.indexOf(arguments[i])>=0)return true;
       if(exits.indexOf(arguments[i])>=0)return true;
     }
     return false;
@@ -3013,12 +3095,25 @@ var JOURNEYS = {
 
   function up(section,key,val){
     setData(function(d){
+      var completed=(d&&d._completedStages)||{};
+      var isCrossStage=section!==stage && isStageId(section);
+      if(isCrossStage && completed[section]) return d;
       var sec=Object.assign({},d[section]||{});
       sec[key]=val;
       var next=Object.assign({},d);
       next[section]=sec;
       return next;
     });
+  }
+
+  function mergeRespectingCompletedStages(prev, updates){
+    var next = Object.assign({}, prev);
+    var completed = (prev && prev._completedStages) || {};
+    Object.keys(updates || {}).forEach(function(key){
+      if(isStageId(key) && completed[key] && key !== stage) return;
+      next[key] = updates[key];
+    });
+    return next;
   }
 
   var city=(data.land&&data.land.city)||(data.hra&&data.hra.city)||(data.sfh&&data.sfh.city)||"";
@@ -3101,15 +3196,7 @@ var JOURNEYS = {
   var curStage=ALL_STAGES[idx]||ALL_STAGES[0];
 
   // Build the same filtered list the sidebar uses
-  var navFilteredStages = (schemes.length===0&&exits.length===0) ? ALL_STAGES : ALL_STAGES.filter(function(s){
-    if(!s.journeys)return true;
-    for(var sj=0;sj<schemes.length;sj++){
-      if(s.journeys.indexOf(schemes[sj])>=0)return true;
-    }
-    if(exitUnlocksStage(s.id))return true;
-    if(s.journeys.length===1&&s.journeys[0]==="all")return true;
-    return false;
-  });
+  var navFilteredStages = ALL_STAGES.filter(stageVisibleForFlow);
   var filteredIdx = navFilteredStages.findIndex(function(s){return s.id===stage;});
 
   // Reusable "Live Market Data" banner — shown on any stage where PSF matters
@@ -3142,10 +3229,24 @@ var JOURNEYS = {
   }
 
   function navTo(id){
+    var stageInfo=ALL_STAGES.find(function(s){return s.id===id;});
+    if(stageInfo && !stageVisibleForFlow(stageInfo)){
+      var firstAllowed=navFilteredStages[0] || ALL_STAGES[0];
+      id=firstAllowed.id;
+      stageInfo=firstAllowed;
+    }
+
     // Log time spent on previous stage before moving
     var timeSpent=Math.round((Date.now()-window._pageStart)/1000);
     if(window._currentStage&&timeSpent>2){
       logEvent(user,"TIME_ON_STAGE",{stage:window._currentStage,seconds:timeSpent,journey:journey});
+    }
+    if(window._currentStage && window._currentStage!==id && isStageComplete(window._currentStage,data)){
+      setData(function(prev){
+        var done=Object.assign({},prev._completedStages||{});
+        if(!done[window._currentStage]) done[window._currentStage]=new Date().toISOString();
+        return Object.assign({},prev,{_completedStages:done});
+      });
     }
     window._pageStart=Date.now();
     window._currentStage=id;
@@ -3153,14 +3254,12 @@ var JOURNEYS = {
     setStage(id);
     logEvent(user,"PAGE_VIEW",{stage:id,journey:journey,assetType:at});
 
-    // Auto-add scheme based on stage navigated to (ONLY if user hasn't manually picked any)
-    var stageInfo=ALL_STAGES.find(function(s){return s.id===id;});
-    if(stageInfo&&schemes.length===0){
+    // Auto-add scheme only before the user has chosen an asset journey.
+    if(stageInfo&&schemes.length===0&&!data.assetType){
       if(id==="scraper"||id==="rlv"||id==="land"||id==="landworkflow"){setSchemes(["land"]);}
       else if(id==="epe"||id==="epeworkflow"){setSchemes(["property"]);}
     }
   }
-
   function saveDeal(){
     var autoName=(data.land&&data.land.address)||
       (data.scraper&&data.scraper.result&&data.scraper.result.address)||
@@ -3440,13 +3539,41 @@ var JOURNEYS = {
     var data2 = JSON.parse(JSON.stringify(dealData));  // work on a copy
     var backup = JSON.parse(JSON.stringify(dealData));  // for restore
     var migrations = [];
+    var reviewRecommended = [];
     var savedV = data2._savedVersion;
 
-    // If saved on current version or newer, no migration needed
-    if(savedV && semverCompare(savedV, CURRENT_VERSION) >= 0){
-      return {data:data2, changed:false, migrations:[]};
+    // Always run namespace/schema guards, even for deals stamped on the current app version.
+    // Some portfolio records can contain old fields from earlier in the same release cycle.
+    if(data2.cap && typeof data2.cap === "object"){
+      var capLegacy = data2.cap;
+      var capNext = Object.assign({}, capLegacy, data2.capitalise || {});
+      data2.capitalise = capNext;
+      delete data2.cap;
+      migrations.push({
+        field:"cap -> capitalise",
+        from:"legacy cap object",
+        to:"capitalise",
+        reason:"Portfolio shield: retired namespace removed so old saved deals cannot repopulate Capitalisation incorrectly"
+      });
     }
 
+    var atShield = String(data2.assetType || "").toLowerCase();
+    var sfhMixShield = data2.sfh && data2.sfh.mix;
+    var hasSfhMixShield = Array.isArray(sfhMixShield) ? sfhMixShield.length > 0 : !!(sfhMixShield && typeof sfhMixShield === "object" && Object.keys(sfhMixShield).length);
+    var capAssetShield = String(data2.capitalise && data2.capitalise.ffAssetType || "").toLowerCase();
+    if(atShield === "btr" && hasSfhMixShield && capAssetShield.indexOf("sfh") >= 0){
+      reviewRecommended.push({
+        field:"assetType / sfh / capitalise.ffAssetType",
+        current:"assetType=btr with SFH mix and SFH capitalisation route",
+        expected:"Confirm whether this deal should be BTR or SFH",
+        reason:"Portfolio shield: older saved deal mixes BTR journey with SFH route data. Not auto-changed because this may be a genuine mixed-exit appraisal."
+      });
+    }
+
+    // If saved on current version or newer and schema guards found nothing, no migration needed
+    if(savedV && semverCompare(savedV, CURRENT_VERSION) >= 0 && migrations.length===0 && reviewRecommended.length===0){
+      return {data:data2, changed:false, migrations:[], reviewRecommended:[]};
+    }
     // ── Migration 1: schType mismatch (v9.15 fix) ────────────────────────
     // If assetType=sfh but schType is apartments/BTR/PBSA → wrong default
     // led to £220/sqft build cost being used for SFH (vs correct ~£195).
@@ -3515,7 +3642,6 @@ var JOURNEYS = {
     // a stale slider position. But we can't be sure — flag for review.
     // We DON'T auto-clear these because user may have intentionally entered them.
     // Just record as "review recommended" so the banner can surface it.
-    var reviewRecommended = [];
     if(data2.rlv && data2.land && data2.land.postcode){
       var pcD = lookupPostcode(data2.land.postcode);
       if(pcD && pcD.salePsf && num(data2.rlv.salePsf) > 0){
@@ -3693,7 +3819,7 @@ var JOURNEYS = {
       // Don't auto-resolve mismatches — surface them via the unit-sync warning instead
     }
 
-    var changed = migrations.length > 0;
+    var changed = migrations.length > 0 || reviewRecommended.length > 0;
     if(changed){
       data2._migrationFrom = savedV || "(unstamped)";
       data2._migrationTo = CURRENT_VERSION;
@@ -4780,7 +4906,7 @@ var JOURNEYS = {
                     }
                     updates.planning=Object.assign({},d.planning||{},{units:sc.units+"",lpa:lpa});
                     updates.fin=Object.assign({},d.fin||{});
-                    return Object.assign({},d,updates);
+                    return mergeRespectingCompletedStages(d,updates);
                   });
                   navTo(sc.stage);
                 },style:{width:"100%",padding:"9px",background:"#4A4BAE",border:"none",borderRadius:6,color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
@@ -4794,7 +4920,7 @@ var JOURNEYS = {
                       updates.hra=Object.assign({},d.hra||{},{city:lCity});
                     }
                     updates.planning=Object.assign({},d.planning||{},{units:sc.units+"",lpa:lpa});
-                    return Object.assign({},d,updates);
+                    return mergeRespectingCompletedStages(d,updates);
                   });
                   navTo(sc.type==="SFH"?"sfh":"hra");
                 },style:{width:"100%",padding:"7px",background:"transparent",border:"1px solid #4A4BAE",borderRadius:6,color:"#4A4BAE",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
@@ -4807,7 +4933,7 @@ var JOURNEYS = {
                     }
                     updates.planning=Object.assign({},d.planning||{},{units:sc.units+"",lpa:lpa});
                     updates.exit=Object.assign({},d.exit||{},{strategy:"stabilised"});
-                    return Object.assign({},d,updates);
+                    return mergeRespectingCompletedStages(d,updates);
                   });
                   navTo("exit");
                 },style:{width:"100%",padding:"7px",background:"transparent",border:"1px solid #2D7A65",borderRadius:6,color:"#2D7A65",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
@@ -5286,7 +5412,7 @@ var JOURNEYS = {
                       }
                       updates.planning=Object.assign({},d.planning||{},{units:sc.units+"",lpa:d.planning&&d.planning.lpa||""});
                       updates.fin=Object.assign({},d.fin||{});
-                      return Object.assign({},d,updates);
+                      return mergeRespectingCompletedStages(d,updates);
                     });
                     navTo(sc.stage);
                   },
@@ -5303,7 +5429,7 @@ var JOURNEYS = {
                       } else {
                         upd.hra=Object.assign({},d.hra||{});
                       }
-                      return Object.assign({},d,upd);
+                      return mergeRespectingCompletedStages(d,upd);
                     });
                     navTo(sc.assetType==="sfh"||sc.type==="SFH"?"sfh":"hra");
                   },
@@ -8392,8 +8518,8 @@ var JOURNEYS = {
         // For BTR/PBSA schemes or schemes with retained_prs: headline is BTR yield-based capValue
         var headlineLabel, headlineValue, headlineSubtext;
         if(hasMultiRoute && !hasPrsRetained){
-          // Pure SFH multi-tenure — use Multi-Route blended (read from data.cap if previously computed)
-          var mrGdv = num(data.cap && data.cap.multiRouteGdv);
+          // Pure SFH multi-tenure — use Multi-Route blended (read from data.capitalise if previously computed)
+          var mrGdv = num(data.capitalise && data.capitalise.multiRouteGdv);
           if(mrGdv > 0){
             headlineLabel = "Blended realisable GDV";
             headlineValue = fmt(mrGdv);
@@ -8806,12 +8932,12 @@ var JOURNEYS = {
           // Save total for downstream use
           (function(){
             // Persist multi-route blended GDV for IM/teaser/dashboard to reference
-            var existing = num(data.cap && data.cap.multiRouteGdv);
+            var existing = num(data.capitalise && data.capitalise.multiRouteGdv);
             if(Math.abs(existing - totalRealised) > 1000){
               setTimeout(function(){
                 setData(function(prev){
-                  var capNext = Object.assign({},prev.cap||{},{multiRouteGdv:Math.round(totalRealised), multiRouteFullMv:Math.round(mvAtFullRetail), multiRouteBlendedDiscount:Math.round(blendedDiscount*1000)/10});
-                  return Object.assign({},prev,{cap:capNext});
+                  var capNext = Object.assign({},prev.capitalise||{},{multiRouteGdv:Math.round(totalRealised), multiRouteFullMv:Math.round(mvAtFullRetail), multiRouteBlendedDiscount:Math.round(blendedDiscount*1000)/10});
+                  return Object.assign({},prev,{capitalise:capNext});
                 });
               },0);
             }
@@ -8865,22 +8991,24 @@ var JOURNEYS = {
           if(sfhMix.length === 0) return null;
           var sfhTotal = defaultMixTotal;
           var capTotal = beds1+beds2+beds3+beds4;
-          if(sfhTotal === 0 || capTotal === sfhTotal) return null;
-          var diff = Math.abs(sfhTotal - capTotal);
-          if(diff < 2) return null;  // ignore tiny rounding
+          if(sfhTotal === 0) return null;
+          // v9.45 — compare the PER-BEDROOM split, not just the total. A wrong split that
+          // happens to sum to the same total (e.g. both 200) previously slipped through
+          // because only totals were compared — so stale pinned values showed no warning.
+          var sfh4 = defaultMix[4]+defaultMix[5];
+          var bucketDiff = Math.abs(beds1-defaultMix[1])+Math.abs(beds2-defaultMix[2])+Math.abs(beds3-defaultMix[3])+Math.abs(beds4-sfh4);
+          if(bucketDiff < 2) return null;  // in sync (allow tiny rounding)
           return e("div",{style:{marginBottom:14,padding:"12px 14px",background:"rgba(176,90,53,0.07)",border:"1px solid rgba(176,90,53,0.35)",borderRadius:6}},
             e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}},
               e("div",{style:{flex:1,minWidth:240}},
                 e("div",{style:{fontSize:11,fontWeight:800,color:"#B05A35",textTransform:"uppercase",letterSpacing:".05em",marginBottom:4}},"⚠ Bedroom mix out of sync with SFH House Mix"),
                 e("div",{style:{fontSize:11,color:"#3A3D6A",lineHeight:1.6,marginBottom:6}},
-                  "Cap shows ",e("strong",null,capTotal+" units"),
-                  " across the 4 bedroom boxes, but your SFH House Mix has ",
-                  e("strong",null,sfhTotal+" plots"),
-                  ". Click sync to refresh from SFH."
+                  "Your bedroom split here doesn't match your SFH House Mix"+(capTotal===sfhTotal?" — the totals match ("+capTotal+"), but the per-bedroom breakdown differs":" (Cap "+capTotal+" vs SFH "+sfhTotal+")")+". These look like stale saved values. Click sync to refresh from SFH."
                 ),
                 e("div",{style:{fontSize:10,color:"#7278A0"}},
-                  "SFH totals: 1-bed ",defaultMix[1],", 2-bed ",defaultMix[2],", 3-bed ",defaultMix[3],", 4-bed ",defaultMix[4],
-                  (defaultMix[5] > 0 ? ", 5-bed "+defaultMix[5]+" (will roll into 4-bed)" : "")
+                  "Cap here: 1-bed ",beds1,", 2-bed ",beds2,", 3-bed ",beds3,", 4-bed ",beds4,
+                  " · SFH House Mix: 1-bed ",defaultMix[1],", 2-bed ",defaultMix[2],", 3-bed ",defaultMix[3],", 4-bed ",sfh4,
+                  (defaultMix[5] > 0 ? " (incl. "+defaultMix[5]+" 5-bed rolled in)" : "")
                 )
               ),
               e("button",{
@@ -9057,7 +9185,7 @@ var JOURNEYS = {
         }),
         e("div",{style:{marginTop:12,padding:"10px 14px",background:"rgba(45,122,101,0.05)",borderRadius:6,fontSize:11,color:"#2D7A65",lineHeight:1.7}},
           e("strong",null,"Key insight: "),
-          "Selling to a pension fund at "+pct(CAP_YIELDS["Pension / Sovereign Fund"].base*100)+" yield produces "+fmt(yieldTable.find(function(r){return r.buyer==="Pension / Sovereign Fund";})&&yieldTable.find(function(r){return r.buyer==="Pension / Sovereign Fund";}).baseVal||0)+" — vs "+fmt(yieldTable.find(function(r){return r.buyer==="BTR Institutional Fund";})&&yieldTable.find(function(r){return r.buyer==="BTR Institutional Fund";}).baseVal||0)+" to a BTR fund. The difference is yield compression: every 0.5% reduction in yield adds approximately "+fmt(netAnnualIncome/((selYield-0.005)*selYield))+" to the price."
+          "Selling to a pension fund at "+pct(CAP_YIELDS["Pension / Sovereign Fund"].base*100)+" yield produces "+fmt(yieldTable.find(function(r){return r.buyer==="Pension / Sovereign Fund";})&&yieldTable.find(function(r){return r.buyer==="Pension / Sovereign Fund";}).baseVal||0)+" — vs "+fmt(yieldTable.find(function(r){return r.buyer==="BTR Institutional Fund";})&&yieldTable.find(function(r){return r.buyer==="BTR Institutional Fund";}).baseVal||0)+" to a BTR fund. The difference is yield compression: every 0.5% reduction in yield adds approximately "+fmt(selYield>0.005?netAnnualIncome*0.005/((selYield-0.005)*selYield):0)+" to the price."
         )
       ),
 
@@ -12744,8 +12872,8 @@ var JOURNEYS = {
       // ── YIELD ───────────────────────────────────────────────
       {group:"Yield (institutional cap rate)", rows:[
         {field:"Scenario yieldAdj",       paths:[["land","scenarioYieldAdj"]]},
-        {field:"Capitalisation targetYield", paths:[["cap","targetYield"]]},
-        {field:"Cap pre-scenario baseline", paths:[["cap","_preScenarioYield"]]},
+        {field:"Capitalisation targetYield", paths:[["capitalise","targetYield"]]},
+        {field:"Cap pre-scenario baseline", paths:[["capitalise","_preScenarioYield"]]},
       ]},
       // ── GRANTS ──────────────────────────────────────────────
       {group:"Grants & funding (NOT propagated — known gap)", rows:[
@@ -13898,7 +14026,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
                             lpa:d.planning&&d.planning.lpa||"",
                           });
                           updates.fin=Object.assign({},d.fin||{});
-                          return Object.assign({},d,updates);
+                          return mergeRespectingCompletedStages(d,updates);
                         });
                         navTo(sc.scheme==="sfh"?"sfh":"hra");
                       },
@@ -15986,7 +16114,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
             updates.risks=existingRisks;
           }
 
-          return Object.assign({},d,updates);
+          return mergeRespectingCompletedStages(d,updates);
         });
 
         logEvent(user,"MASTER_ANALYSE",{address:addr,scheme:ai.recommendedScheme,units:ai.recommendedUnits,goNoGo:ai.goNoGo});
@@ -16174,7 +16302,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
         try{
           var ai=JSON.parse(clean);
           setData(function(d){
-            return Object.assign({},d,{
+            return mergeRespectingCompletedStages(d,{
               rlv:Object.assign({},d.rlv||{},{
                 units:ai.estimatedUnits?ai.estimatedUnits+"":d.rlv&&d.rlv.units||"",
                 buildPsf:ai.estimatedBuildPsf?ai.estimatedBuildPsf+"":d.rlv&&d.rlv.buildPsf||"",
@@ -16245,7 +16373,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
       }
 
       setData(function(d){
-        return Object.assign({},d,{
+        return mergeRespectingCompletedStages(d,{
           assetType: assetGuess,
           // Land Appraisal
           land: Object.assign({},d.land||{},{
@@ -16868,16 +16996,16 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
             }
             // v9.19 — Capitalisation yield adjustment (institutional buyers price risk)
             var capUpdatesFinal = Object.assign({}, capUpdates);
-            var prevTargetYield = num((prev.cap && prev.cap.targetYield) || 0);
+            var prevTargetYield = num((prev.capitalise && prev.capitalise.targetYield) || 0);
             // If user has set a base yield, store the unmodified value first then add adjustment
             if(prevTargetYield > 0 && s.yieldAdj > 0){
               // Store the pre-scenario yield so we can restore it on clear
-              if(!(prev.cap && prev.cap._preScenarioYield)){
+              if(!(prev.capitalise && prev.capitalise._preScenarioYield)){
                 capUpdatesFinal._preScenarioYield = prevTargetYield;
               }
               capUpdatesFinal.targetYield = prevTargetYield + s.yieldAdj;
             }
-            return Object.assign({},prev,{
+            return mergeRespectingCompletedStages(prev,{
               land:Object.assign({},prev.land||{},landUpdates),
               planning:Object.assign({},prev.planning||{},planningUpdatesFinal),
               rlv:Object.assign({},prev.rlv||{},rlvUpdatesFinal),
@@ -16885,7 +17013,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
               sfh:Object.assign({},prev.sfh||{},sfhUpdates),
               hra:Object.assign({},prev.hra||{},hraUpdates),
               tenure:Object.assign({},prev.tenure||{},tenureUpdates),
-              cap:Object.assign({},prev.cap||{},capUpdatesFinal),
+              capitalise:Object.assign({},prev.capitalise||{},capUpdatesFinal),
               _activeScenario:s.key,
               _activeScenarioLabel:s.label
             });
@@ -17354,57 +17482,24 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     var f=data.fin||{};
     var l=data.land||{};
     var sf=data.sfh||{};
-    // Calculate RLV for commercial split (mirrors SFH appraisal logic)
+    // Lightweight local inputs for finance UI. Final RLV/profit comes from calcDealMetrics below.
     var rlvAcres=num(l.acres||sf.acres||0);
     var rlvUnits=num(data.planning&&data.planning.units||f.units||0);
     var rlvBuild=num(f.buildPsf||m.build);
     var rlvSalePsf=num(f.salePsf||m.btr*8.5/12||280);
-    var rlvGdv=rlvUnits*900*rlvSalePsf;
-    var rlvBc=rlvUnits*900*rlvBuild;
-    var rlvFees=rlvBc*0.12; var rlvCont=rlvBc*0.05;
-    var rlvFin=(rlvBc+rlvFees)*(num(f.finRate||f.finRatePa||8))/100;
-    var rlvS106=rlvUnits*num(f.s106pu||8000);
-    var rlv=gdv2>0?(gdv2-tc4-gdv2*0.175):rlvGdv-rlvBc-rlvFees-rlvCont-rlvFin-rlvS106-rlvGdv*0.175;
-    var totalBuild=rlvBc>0?rlvBc:tc4*0.65;
     // ── ASSET-TYPE AWARE GDV CALCULATION ──────────────────────────────────────
     // SFH: GDV = sum of house sales (not yield-based)
     // BTR/PBSA: GDV = NOI / exit yield
     var isSFH = at==="sfh";
 
-    // Pull SFH figures from SFH appraisal if available
-    var sfhTotalGdv = (function(){
-      var mix = (data.sfh&&data.sfh.mix)||[];
-      var lm2 = MKT[city]||MKT.manchester;
-      var bPsf = num(data.sfh&&data.sfh.basePsf)||num(lm2.btr*8.5/12)||280;
-      var bBuild = num(data.sfh&&data.sfh.buildPsf)||num(lm2.build)||185;
-      var total = 0;
-      for(var mi=0;mi<mix.length;mi++){
-        var row=mix[mi]; var cnt=num(row.count);
-        if(!cnt||!row.type)continue;
-        var rowSqft=numOr(row.sqft, 900);
-        var unitP=num(row.unitPrice||0);
-        var sp=unitP&&rowSqft?unitP/rowSqft:(num(row.psf)||bPsf);
-        total += rowSqft*sp*cnt;
-      }
-      return total;
-    })();
-    var sfhTotalUnits = (function(){
-      var mix=(data.sfh&&data.sfh.mix)||[]; var t=0;
-      for(var mi=0;mi<mix.length;mi++){t+=num(mix[mi].count||0);}
-      return t||units;
-    })();
-    var sfhTotalBuildCost = (function(){
-      var mix=(data.sfh&&data.sfh.mix)||[];
-      var bBuild=num(data.sfh&&data.sfh.buildPsf)||(MKT[city]&&MKT[city].build)||185;
-      var t=0;
-      for(var mi=0;mi<mix.length;mi++){
-        t+=numOr(mix[mi].sqft, 900)*bBuild*num(mix[mi].count||0);
-      }
-      return t||bc;
-    })();
+    // Pull SFH figures from the central SFH calculator so finance matches SFH/RLV/Dashboard.
+    var sfhFinMetrics = computeSFHMetrics(data);
+    var sfhTotalGdv = sfhFinMetrics.gdv;
+    var sfhTotalUnits = sfhFinMetrics.totalUnits || units;
+    var sfhTotalBuildCost = sfhFinMetrics.buildCost || bc;
 
     // Manual GDV override from Financial Modelling inputs
-    var manualGdv = num(f.manualGdv||0);
+    var manualGdv = num(f.manualGdv||f.gdv||f.gdvOverride||0);
     var manualBuildCost = num(f.manualBuildCost||0);
 
     // BTR/PBSA yield-based GDV
@@ -17435,6 +17530,8 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
     var profit2 = DM.actualProfit !== 0 ? DM.actualProfit : (gdv2-tc4);
     var margin2 = DM.marginPct !== 0 ? DM.marginPct : (gdv2>0?(profit2/gdv2)*100:0);
     var roc = DM.roc !== 0 ? DM.roc : (tc4>0?(profit2/tc4)*100:0);
+    var rlv = DM.rlv || (gdv2>0 ? gdv2 - tc4 - gdv2*(DM.profitPctTarget/100) : 0);
+    var totalBuild = effBuildCost;
     var scV=margin2>=15?"#2D7A65":"#B05A35";
 
     var scens=[{l:"Bear",sm:-0.10,bm:+0.15},{l:"Base",sm:0,bm:0},{l:"Bull",sm:+0.08,bm:-0.05}].map(function(sc3){
@@ -18628,19 +18725,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
       e("div",{style:{padding:"8px 0",flex:1}},
         (function(){
           // Filter stages by selected scheme types (multi-select) AND exit routes (which can unlock additional stages)
-          var activeStages=(schemes.length===0&&exits.length===0)?ALL_STAGES:ALL_STAGES.filter(function(s){
-            if(!s.journeys)return true; // safety — stages with no journeys array always show
-            // Scheme-based match — does the stage's journeys array contain ANY ticked scheme?
-            for(var sj=0;sj<schemes.length;sj++){
-              if(s.journeys.indexOf(schemes[sj])>=0)return true;
-            }
-            // Exit-based unlock (e.g. Pension Fund unlocks Capitalisation regardless of scheme)
-            if(exitUnlocksStage(s.id))return true;
-            // Stages flagged as universal (e.g. Records / Atlas) — these have ONLY "all"
-            // i.e. they're not specific to any scheme and should always show
-            if(s.journeys.length===1&&s.journeys[0]==="all")return true;
-            return false;
-          });
+          var activeStages=ALL_STAGES.filter(stageVisibleForFlow);
 
           var groups=[]; var seen={};
           activeStages.forEach(function(s){if(!seen[s.group]){groups.push(s.group);seen[s.group]=true;}});
