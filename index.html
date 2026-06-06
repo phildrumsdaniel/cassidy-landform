@@ -2442,25 +2442,14 @@ function AIPanel(props){
     try{
       var corrInstr=
         "CRITICAL OUTPUT RULES:\n"+
-        "1. Keep prose analysis CONCISE — max ~800 words total. Use short bullets, not long paragraphs. Save your tokens for the CORRECTIONS block.\n"+
-        "2. At the END of your response, ALWAYS output CORRECTIONS_START on its own line, then a JSON object {\"corrections\":[...]}, then CORRECTIONS_END on its own line.\n"+
-        "3. The CORRECTIONS block is the MOST IMPORTANT output — populate it richly with every fact, figure, rating, or category you mentioned or deduced.\n\n"+
-        "Each correction: {\"field\":\"<name>\",\"stage\":\"<name>\",\"value\":<value>,\"reason\":\"<short>\"}.\n"+
-        "Be aggressive — if your analysis discusses transport links, contamination risk, planning status, build cost, sale PSF, density, AH%, profit %, S106, fees, finance rate, storeys, BNG, rent levels, yield, programme, or ANY specific figure or category, INCLUDE IT in corrections. Default reasonable UK figures when not stated (e.g. UK SFH build cost £165-200/sqft, BTR £210-260/sqft, finance 7-8%, contingency 5%, fees 12%, profit 15-17.5% on GDV).\n"+
-        "Allowed stages and fields:\n"+
-        " land: address, postcode, city, acres, price, county, localAuthority, planningStatus, agent, ownerType, proximity[excellent|good|fair|poor], transport[excellent|good|fair|poor], contamination[clean|minor|unknown|major], tenure[freehold|long_leasehold|short_leasehold], constraint[none|minor|moderate|major]\n"+
-        " planning: units, lpa, status, storeys, ahPct, bng, riskLevel[low|medium|high], gateway\n"+
-        " rlv: postcode, acres, units, salePsf, avgPsf, avgSqft, buildPsf, finRate, profitPct, schType\n"+
-        " sfh: acres, city, basePsf, buildPsf, finRate, profitPct, ahPct, contingency, dph, roads\n"+
-        " hra: city, sPsf, oPsf, tPsf, ssqft, osqft, tsqft, storeys, cores, eff, finRate, profitPct\n"+
-        " fin: buildPsf, finRate, finRatePa, contingency, programmeMths, salesRateWeek, rent, exitYield\n"+
-        " exit: strategy, investorType, exitYield, agent\n"+
-        " capitalise: targetYield, ffBuildPsf, ffSqftPerUnit, ffFeesPct, ffContPct, ffFinPct, ffProfitPct, ffS106pu\n"+
-        " epe: city, postcode, propType, bedrooms, condition, propSqft, newPsf, salePsf, buildPsf, finRate, profitPct, storeys\n"+
-        "Numeric fields: numbers only (no £ or %). Dropdown fields: ONLY exact listed values. ALL yields MUST be ≤5.0 (institutional pension/BTR ceiling).\n"+
-        "TARGET: minimum 10 corrections, ideally 20+. Skip a field ONLY if you genuinely have no basis for any value (not even a UK-typical default).";
-      var enhPrompt=props.prompt+"\n\n"+corrInstr+"\n\nREMEMBER: end with CORRECTIONS_START / CORRECTIONS_END block. The corrections matter more than long prose.";
-      var result=await callAI(props.user,props.stage,"You are a senior UK development finance director. Give analysis then ALWAYS end with CORRECTIONS_START...CORRECTIONS_END block populated with every fact you can extract.",enhPrompt);
+        "1. READ THE INPUTS ONLY. Do not output instructions to alter saved fields and do not provide an auto-fill corrections block.\n"+
+        "2. Give proper judgement analysis based on the user's actual inputs. Distinguish clearly between facts from the inputs, assumptions, market benchmarks, and recommendations.\n"+
+        "3. Do not invent missing values just to complete an appraisal. If a key input is missing, call it out as a DD gap and explain the commercial effect.\n"+
+        "4. Where figures look wrong, stale, contradictory, or outside market norms, flag them for manual review instead of replacing them.\n"+
+        "5. Keep the response concise and useful: risks first, then commercial judgement, then specific manual checks required.\n"+
+        "6. Do NOT include CORRECTIONS_START, CORRECTIONS_END, or JSON corrections unless the user explicitly asks to apply values.\n";
+      var enhPrompt=props.prompt+"\n\n"+corrInstr;
+      var result=await callAI(props.user,props.stage,"You are a senior UK development finance director. Analyse the supplied appraisal inputs only. Give judgement, risks, assumptions and manual review points. Do not change or auto-fill fields.",enhPrompt);
       // Extract corrections block
       var ci=result.indexOf("CORRECTIONS_START");
       var ce=result.indexOf("CORRECTIONS_END");
@@ -2494,10 +2483,7 @@ function AIPanel(props){
       }
       logEvent(props.user,"AI_RESULT",{stage:props.stage,result:result.substring(0,200)});
 
-      // ── AUTO-APPLY any corrections that came back ──
-      if(parsedCorrections&&parsedCorrections.corrections&&parsedCorrections.corrections.length>0){
-        autoApply(parsedCorrections.corrections);
-      }
+      // AI analysis is read-only by default. Suggestions may be shown for review, but are never applied automatically.
     }catch(err){setAiRes("Analysis failed — check connection");}
     setAiLoad(false);
   }
@@ -2570,7 +2556,7 @@ function AIPanel(props){
           aiJson&&aiJson.corrections&&aiJson.corrections.length>0&&e("button",{
             onClick:applyCorrections,
             style:{padding:"4px 12px",background:"#2D7A65",border:"none",borderRadius:4,color:"#fff",fontSize:10,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
-          },"✓ Re-apply "+aiJson.corrections.length+" insights"),
+          },"Apply "+aiJson.corrections.length+" suggested fields"),
           e("button",{
             onClick:function(){
               var el=document.createElement("textarea");
