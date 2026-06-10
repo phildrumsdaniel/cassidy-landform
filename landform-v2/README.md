@@ -51,9 +51,37 @@ Upload the whole `landform-v2/` folder (it uses relative paths). Open
 > Not yet exercised against the live backend + login in a browser — please smoke
 > test (log in, open a deal, run an AI panel, export) before switching over.
 
-## Phase 2 — next steps (not done yet)
+## Phase 2 — in progress
 
-1. Smoke test this version in the real environment.
-2. Extract `LiveMarketBanner`, then `S106Table`, then `FlowNode` out of `Tool`,
-   one at a time, threading their state through props — testing after each.
-3. Optionally split the appraisal stages inside `FlowNode` into per-stage files.
+`Tool` turned out to be a ~16,000-line component holding **~40 `render…()`
+functions** (one per screen) plus helpers. They're entangled: each reads `Tool`'s
+shared variables (`data`, `up()`, `stage`, ~30 state setters) through closure, and
+they call each other. A scope analysis (acorn AST) of all 64 nested functions found:
+
+- **none of them write back** to a `Tool` variable (they only read or call setters), and
+- only **3 functions reference *zero* of `Tool`'s variables**, making them
+  provably safe to lift out without changing behaviour.
+
+Those 3 are now in their own files (bodies unchanged):
+
+```
+js/lib-isStageComplete.js     pure predicate (19 lines)
+js/lib-migrateLoadedDeal.js   deal version-migration (308 lines)
+js/components-S106Table.js    pure table component (48 lines)
+```
+
+Verification for this step:
+- the full v2 program parses, and contains the **same 212 function declarations**
+  as the original — none lost, none duplicated
+- no global name is declared twice
+- every free variable in the 3 lifted functions resolves to a real global
+
+### Still to do (the harder, riskier part)
+
+The remaining ~37 render functions can't be lifted by copy-paste — they'd need
+their closure dependencies passed in as a context object, **and** every cross-call
+between them rewired to pass that context. That's a large change that must be
+**smoke-tested in the real app after each batch** (it can't be fully verified
+statically). Recommended order: smallest/most self-contained screens first
+(`renderDD`, `renderRisks`, `renderConstraintCheck`), leaving the big
+interdependent ones (`renderRLV`, `renderCapitalise`, `renderDashboard`) for last.
