@@ -14664,7 +14664,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
               style:{padding:"6px 14px",background:"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",flexShrink:0}
             },"⚡ Auto-fill S106 for "+(city?cityName(city):"your area"))
           ),
-          e(S106Table,{f:f,up:up,fmt:fmt,pct:pct,num:num,S:S})
+          e(S106Table,{f:f,up:up,fmt:fmt,pct:pct,num:num,S:S,units:rlvUnits})
         ),
         e("div",{style:{fontSize:10,color:"#7278A0",fontStyle:"italic"}},"Reference rates: Education £2.36m, NHS £909k, Bus £398k, Sports £799k, BNG (often challenged). S106 is negotiable — mark challenged items accordingly.")
       ),

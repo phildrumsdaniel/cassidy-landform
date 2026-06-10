@@ -3,7 +3,9 @@
 // Pure table component — props in, JSX out.
 function S106Table(props){
     var f2=props.f; var up2=props.up; var fmt2=props.fmt; var num2=props.num; var S2=props.S;
-    var totalU=num2(f2.units||0)||1;
+    // Per-unit divides by the deal's actual unit count (planning units), passed in
+    // as props.units by renderFin. Falls back to f.units, then 1, if not supplied.
+    var totalU=num2(props.units||f2.units||0)||1;
     var S106_KEYS=["s106edu","s106nhsgp","s106nhshosp","s106bus","s106busstop","s106transport","s106highways","s106bng","s106open","s106sports","s106disposal","s106other"];
     var S106_LBLS={s106edu:"Education",s106nhsgp:"NHS GP Surgery",s106nhshosp:"NHS Hospital",s106bus:"Bus Service Improvements",s106busstop:"Bus Stop Upgrades",s106transport:"Transport / Travel Plan",s106highways:"Highways / S278",s106bng:"Biodiversity Net Gain",s106open:"Open Space / Play",s106sports:"Sports Facilities",s106disposal:"AH Disposal Costs",s106other:"Other / Miscellaneous"};
     var S106_NOTES={s106edu:"Typically 5-8k/unit",s106nhsgp:"500-1,200/unit",s106nhshosp:"800-2,000/unit",s106bus:"Lump sum or per unit",s106busstop:"50-200/unit",s106transport:"Monitoring + vouchers",s106highways:"Off-site works",s106bng:"10% mandatory - can be challenged",s106open:"Commuted sum if management co",s106sports:"3G pitch, grass pitches",s106disposal:"Legal/admin per AH unit",s106other:"Footpaths, wayfinding etc"};

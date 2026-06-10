@@ -1,0 +1,6 @@
+# Keep line endings consistent (LF) for all landform-v2 sources so edits don't
+# produce spurious CRLF/LF diff noise.
+*.js   text eol=lf
+*.css  text eol=lf
+*.html text eol=lf
+*.md   text eol=lf
