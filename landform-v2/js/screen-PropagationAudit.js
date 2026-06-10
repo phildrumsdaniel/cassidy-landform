@@ -1,0 +1,275 @@
+// ── renderPropagationAudit  (params: data, setData, up)
+// Lifted out of Tool; body byte-unchanged. Takes the Tool variables it uses as
+// explicit params; all other names resolve to globals. Loaded before 05-tool.js.
+function renderPropagationAudit(data, setData, up){
+    // Field map: each row describes a logical field, where it lives in each stage, and how to fix drift
+    // Read paths use dot notation. Write paths are pairs of (stage, key) for `up()` calls.
+    var FIELD_MAP = [
+      // ── CORE SITE FACTS ──────────────────────────────────────
+      {group:"Site facts (set in Land Appraisal, used everywhere)", rows:[
+        {field:"Postcode",                paths:[["land","postcode"]]},
+        {field:"City",                    paths:[["land","city"], ["hra","city"], ["sfh","city"]], canonical:"land.city"},
+        {field:"Acres",                   paths:[["land","acres"], ["sfh","acres"]], canonical:"land.acres"},
+        {field:"Asking price (£)",        paths:[["land","price"]]},
+        {field:"Scenario land value (£)", paths:[["land","scenarioLandValue"]]},
+        {field:"Planning status",         paths:[["land","planningStatus"], ["planning","status"]], canonical:"land.planningStatus"},
+      ]},
+      // ── UNITS ────────────────────────────────────────────────
+      {group:"Unit count (most common cross-stage gap)", rows:[
+        {field:"Units (Planning)",        paths:[["planning","units"]]},
+        {field:"Units (RLV)",             paths:[["rlv","units"]]},
+        {field:"Total units (SFH)",       paths:[["sfh","totalUnits"]]},
+        {field:"Units (HRA / BTR-PBSA)",  paths:[["hra","units"]]},
+      ]},
+      // ── AFFORDABLE HOUSING ──────────────────────────────────
+      {group:"Affordable Housing %", rows:[
+        {field:"Scenario AH%",            paths:[["land","scenarioAhPct"]]},
+        {field:"Planning ahPct",          paths:[["planning","ahPct"]],   syncFrom:"land.scenarioAhPct"},
+        {field:"Planning afhPct",         paths:[["planning","afhPct"]],  syncFrom:"land.scenarioAhPct"},
+        {field:"SFH ahPct",               paths:[["sfh","ahPct"]],         syncFrom:"land.scenarioAhPct"},
+        {field:"HRA ahPct",               paths:[["hra","ahPct"]],         syncFrom:"land.scenarioAhPct"},
+        {field:"Tenure ahPct",            paths:[["tenure","ahPct"]],      syncFrom:"land.scenarioAhPct"},
+      ]},
+      // ── S106 ────────────────────────────────────────────────
+      {group:"S106 per unit (£)", rows:[
+        {field:"Scenario S106pu",         paths:[["land","scenarioS106pu"]]},
+        {field:"Planning s106pu",         paths:[["planning","s106pu"]],   syncFrom:"land.scenarioS106pu"},
+        {field:"RLV s106pu",              paths:[["rlv","s106pu"]],         syncFrom:"land.scenarioS106pu"},
+        {field:"SFH s106pu",              paths:[["sfh","s106pu"]],         syncFrom:"land.scenarioS106pu"},
+        {field:"HRA s106pu",              paths:[["hra","s106pu"]],         syncFrom:"land.scenarioS106pu"},
+        {field:"Fin s106pu",              paths:[["fin","s106pu"]],         syncFrom:"land.scenarioS106pu"},
+      ]},
+      // ── FINANCE ─────────────────────────────────────────────
+      {group:"Finance rate %", rows:[
+        {field:"Scenario finance rate",   paths:[["land","scenarioFinanceRate"]]},
+        {field:"RLV finRate",             paths:[["rlv","finRate"]],        syncFrom:"land.scenarioFinanceRate"},
+        {field:"Fin finRate",             paths:[["fin","finRate"]],        syncFrom:"land.scenarioFinanceRate"},
+        {field:"SFH finRate",             paths:[["sfh","finRate"]],        syncFrom:"land.scenarioFinanceRate"},
+        {field:"HRA finRate",             paths:[["hra","finRate"]],        syncFrom:"land.scenarioFinanceRate"},
+      ]},
+      // ── BUILD COST ──────────────────────────────────────────
+      {group:"Build cost £/sqft", rows:[
+        {field:"RLV buildPsf",            paths:[["rlv","buildPsf"]]},
+        {field:"SFH base build",          paths:[["sfh","buildPsf"]]},
+        {field:"HRA buildPsf",            paths:[["hra","buildPsf"]]},
+        {field:"Fin buildPsf",            paths:[["fin","buildPsf"]]},
+      ]},
+      // ── SALE PSF ────────────────────────────────────────────
+      {group:"Sale £/sqft", rows:[
+        {field:"RLV salePsf",             paths:[["rlv","salePsf"]]},
+        {field:"SFH basePsf",             paths:[["sfh","basePsf"]]},
+        {field:"HRA salePsf",             paths:[["hra","salePsf"]]},
+      ]},
+      // ── TIMELINE ────────────────────────────────────────────
+      {group:"Timeline (months to commit)", rows:[
+        {field:"Scenario timelineMo",     paths:[["land","scenarioTimelineMo"]]},
+        {field:"Exit timeline (planning months)", paths:[["exit","planningMo"]], syncFrom:"land.scenarioTimelineMo"},
+        {field:"Exit build duration",     paths:[["exit","buildMo"]]},
+      ]},
+      // ── YIELD ───────────────────────────────────────────────
+      {group:"Yield (institutional cap rate)", rows:[
+        {field:"Scenario yieldAdj",       paths:[["land","scenarioYieldAdj"]]},
+        {field:"Capitalisation targetYield", paths:[["capitalise","targetYield"]]},
+        {field:"Cap pre-scenario baseline", paths:[["capitalise","_preScenarioYield"]]},
+      ]},
+      // ── GRANTS ──────────────────────────────────────────────
+      {group:"Grants & funding (NOT propagated — known gap)", rows:[
+        {field:"AHP grant total",         paths:[["grants","ahpTotal"]]},
+        {field:"Brownfield grant",        paths:[["grants","brownfield"]]},
+        {field:"Help to Build",           paths:[["grants","helpToBuild"]]},
+        {field:"LA capital programme",    paths:[["grants","laCapital"]]},
+        {field:"Fin: grants deducted",    paths:[["fin","grantsTotal"]]},
+      ]},
+      // ── GDV ─────────────────────────────────────────────────
+      {group:"GDV / outputs (calculated, should be consistent)", rows:[
+        {field:"SFH calculated GDV",      paths:[["sfh","totalGDV"]]},
+        {field:"HRA calculated GDV",      paths:[["hra","totalGDV"]]},
+        {field:"Tenure blended GDV",      paths:[["tenure","blendedGDV"]]},
+        {field:"Fin GDV override",        paths:[["fin","gdvOverride"]]},
+      ]},
+    ];
+
+    function readPath(obj, path){
+      if(!obj || !path) return null;
+      var parts = path.split(".");
+      var cur = obj;
+      for(var i=0;i<parts.length;i++){
+        if(cur === null || cur === undefined) return null;
+        cur = cur[parts[i]];
+      }
+      return cur === undefined ? null : cur;
+    }
+
+    function valOf(stagePath){
+      var obj = data[stagePath[0]];
+      return obj ? obj[stagePath[1]] : undefined;
+    }
+
+    function formatVal(v){
+      if(v === null || v === undefined || v === "") return "—";
+      if(typeof v === "number") return v.toLocaleString();
+      return String(v);
+    }
+
+    function rowStatus(row){
+      var vals = row.paths.map(function(p){return valOf(p);});
+      var nonEmpty = vals.filter(function(v){return v !== null && v !== undefined && v !== "" && v !== 0;});
+      if(nonEmpty.length === 0) return {tone:"empty", values:vals};
+      // Unique non-empty values
+      var unique = [];
+      nonEmpty.forEach(function(v){
+        if(unique.indexOf(String(v)) === -1) unique.push(String(v));
+      });
+      if(unique.length === 1 && nonEmpty.length === vals.length) return {tone:"sync", values:vals};
+      if(unique.length === 1 && nonEmpty.length < vals.length) return {tone:"partial", values:vals};
+      return {tone:"drift", values:vals};
+    }
+
+    // Tally
+    var totals = {drift:0, partial:0, sync:0, empty:0};
+    FIELD_MAP.forEach(function(grp){
+      grp.rows.forEach(function(r){
+        var s = rowStatus(r);
+        totals[s.tone]++;
+      });
+    });
+
+    function autoFixAll(){
+      if(!confirm("Auto-fix all detectable propagation drift?\n\nThis will:\n• Copy land.scenarioAhPct → Planning, SFH, HRA, Tenure where empty or different\n• Copy land.scenarioS106pu → Planning, RLV, SFH, HRA, Fin where empty or different\n• Copy land.scenarioFinanceRate → RLV, Fin, SFH, HRA where empty or different\n• Copy land.scenarioTimelineMo → Exit.planningMo where empty\n\nWill NOT touch: GDV figures, build cost overrides, sale PSF overrides, or any field clearly set as a manual override.\n\nProceed?")) return;
+      setData(function(prev){
+        var next = Object.assign({}, prev);
+        function setIf(stage, key, value){
+          if(value === null || value === undefined || value === "" || value === 0) return;
+          if(!next[stage]) next[stage] = Object.assign({}, prev[stage] || {});
+          else next[stage] = Object.assign({}, next[stage]);
+          next[stage][key] = value;
+        }
+        var ah = num((prev.land && prev.land.scenarioAhPct) || 0);
+        var s106 = num((prev.land && prev.land.scenarioS106pu) || 0);
+        var fin = num((prev.land && prev.land.scenarioFinanceRate) || 0);
+        var time = num((prev.land && prev.land.scenarioTimelineMo) || 0);
+        if(ah > 0){
+          setIf("planning","ahPct",ah); setIf("planning","afhPct",ah);
+          setIf("sfh","ahPct",ah); setIf("hra","ahPct",ah); setIf("tenure","ahPct",ah);
+        }
+        if(s106 > 0){
+          setIf("planning","s106pu",s106); setIf("rlv","s106pu",s106);
+          setIf("sfh","s106pu",s106); setIf("hra","s106pu",s106); setIf("fin","s106pu",s106);
+        }
+        if(fin > 0){
+          setIf("rlv","finRate",fin); setIf("fin","finRate",fin);
+          setIf("sfh","finRate",fin); setIf("hra","finRate",fin);
+        }
+        if(time > 0){
+          if(!num((prev.exit && prev.exit.planningMo) || 0)) setIf("exit","planningMo",time);
+        }
+        return next;
+      });
+      alert("✓ Auto-fix complete. Refreshing audit table.");
+    }
+
+    function fixRow(row){
+      // Sync this row's path to its declared syncFrom value
+      var sourcePath = row.syncFrom;
+      if(!sourcePath) return;
+      var sourceVal = readPath(data, sourcePath);
+      if(sourceVal === null || sourceVal === undefined || sourceVal === "" || sourceVal === 0) return;
+      var target = row.paths[0];
+      up(target[0], target[1], sourceVal);
+    }
+
+    return e("div",null,
+      e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Propagation Audit"),
+      e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:14}},"Cross-stage field map — surfaces every gap where data isn't flowing between stages."),
+
+      // Summary tiles
+      e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:18}},
+        [
+          {label:"In sync",   value:totals.sync,    color:"#2D7A65"},
+          {label:"Partial (some stages empty)", value:totals.partial, color:"#9A7B3E"},
+          {label:"Drift (values disagree)", value:totals.drift, color:"#B05A35"},
+          {label:"Empty (no data yet)", value:totals.empty, color:"#7278A0"},
+        ].map(function(t){
+          return e("div",{key:t.label,style:{background:"#fff",border:"1px solid #DDE0ED",borderLeft:"4px solid "+t.color,borderRadius:6,padding:"12px 14px"}},
+            e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}},t.label),
+            e("div",{style:{fontSize:22,fontWeight:800,color:t.color}},t.value)
+          );
+        })
+      ),
+
+      // Auto-fix CTA
+      (totals.drift + totals.partial > 0) && e("div",{style:{padding:"12px 16px",background:"linear-gradient(135deg,rgba(45,122,101,0.10),rgba(45,122,101,0.04))",border:"1px solid rgba(45,122,101,0.4)",borderRadius:8,marginBottom:18,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}},
+        e("div",{style:{flex:1,minWidth:200,fontSize:12,color:"#1d5446"}},
+          e("strong",null,(totals.drift+totals.partial)+" propagation gaps detected. "),
+          "Click Auto-fix to push scenario values to all downstream stages where they're empty or different."
+        ),
+        e("button",{onClick:autoFixAll,style:{padding:"9px 16px",background:"#2D7A65",border:"none",color:"#fff",borderRadius:5,fontSize:11,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"Auto-fix all propagation →")
+      ),
+
+      // Field map by group
+      FIELD_MAP.map(function(grp,gi){
+        return e("div",{key:gi,style:{marginBottom:18,background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,overflow:"hidden"}},
+          e("div",{style:{padding:"10px 14px",background:"#F4F5FB",borderBottom:"1px solid #DDE0ED",fontSize:11,fontWeight:700,color:"#2E2F8A",letterSpacing:".05em",textTransform:"uppercase"}},grp.group),
+          e("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:11}},
+            e("thead",null,
+              e("tr",{style:{background:"#F8F9FC",borderBottom:"1px solid #E8E9F5"}},
+                e("th",{style:{padding:"8px 12px",textAlign:"left",fontSize:9,textTransform:"uppercase",letterSpacing:".08em",color:"#7278A0",fontWeight:700,width:200}},"Field"),
+                e("th",{style:{padding:"8px 12px",textAlign:"left",fontSize:9,textTransform:"uppercase",letterSpacing:".08em",color:"#7278A0",fontWeight:700}},"Value(s)"),
+                e("th",{style:{padding:"8px 12px",textAlign:"center",fontSize:9,textTransform:"uppercase",letterSpacing:".08em",color:"#7278A0",fontWeight:700,width:100}},"Status"),
+                e("th",{style:{padding:"8px 12px",textAlign:"right",fontSize:9,textTransform:"uppercase",letterSpacing:".08em",color:"#7278A0",fontWeight:700,width:80}},"Action")
+              )
+            ),
+            e("tbody",null,
+              grp.rows.map(function(row,ri){
+                var s = rowStatus(row);
+                var toneColor = s.tone === "drift" ? "#B05A35"
+                  : s.tone === "partial" ? "#9A7B3E"
+                  : s.tone === "sync" ? "#2D7A65"
+                  : "#7278A0";
+                var toneBg = s.tone === "drift" ? "rgba(176,90,53,0.05)"
+                  : s.tone === "partial" ? "rgba(154,123,62,0.04)"
+                  : s.tone === "sync" ? "rgba(45,122,101,0.04)"
+                  : "transparent";
+                var toneLabel = s.tone === "drift" ? "⚠ Drift"
+                  : s.tone === "partial" ? "◐ Partial"
+                  : s.tone === "sync" ? "✓ Sync"
+                  : "○ Empty";
+                return e("tr",{key:ri,style:{borderBottom:"1px solid #F0F1F8",background:toneBg}},
+                  e("td",{style:{padding:"10px 12px",color:"#3A3D6A",fontWeight:600}},row.field),
+                  e("td",{style:{padding:"10px 12px"}},
+                    row.paths.map(function(p,pi){
+                      var v = s.values[pi];
+                      var isEmpty = v === null || v === undefined || v === "" || v === 0;
+                      return e("span",{key:pi,style:{display:"inline-block",marginRight:10,fontSize:10,color:isEmpty?"#7278A0":"#2E2F8A",fontFamily:"monospace"}},
+                        p[0]+"."+p[1]+": ",
+                        e("strong",{style:{color:isEmpty?"#9A7B3E":"#2E2F8A"}},formatVal(v))
+                      );
+                    })
+                  ),
+                  e("td",{style:{padding:"10px 12px",textAlign:"center"}},
+                    e("span",{style:{fontSize:10,fontWeight:700,color:toneColor,letterSpacing:".05em",textTransform:"uppercase"}},toneLabel)
+                  ),
+                  e("td",{style:{padding:"10px 12px",textAlign:"right"}},
+                    row.syncFrom && (s.tone==="drift" || s.tone==="partial") ? e("button",{
+                      onClick:function(){fixRow(row);},
+                      style:{padding:"4px 10px",background:"transparent",border:"1px solid #4A4BAE",color:"#4A4BAE",borderRadius:3,fontSize:9,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+                    },"Sync") : null
+                  )
+                );
+              })
+            )
+          )
+        );
+      }),
+
+      // Legend
+      e("div",{style:{marginTop:18,padding:"12px 14px",background:"#F8F9FC",border:"1px solid #E8E9F5",borderRadius:6,fontSize:10,color:"#7278A0",lineHeight:1.6}},
+        e("strong",{style:{color:"#2E2F8A"}},"How to read this: "),
+        e("span",{style:{color:"#2D7A65",fontWeight:700}},"✓ Sync")," = all stages agree · ",
+        e("span",{style:{color:"#9A7B3E",fontWeight:700}},"◐ Partial")," = some stages have it, others are empty · ",
+        e("span",{style:{color:"#B05A35",fontWeight:700}},"⚠ Drift")," = stages have different values (most concerning) · ",
+        e("span",{style:{color:"#7278A0",fontWeight:700}},"○ Empty")," = no stage has this populated yet. ",
+        "Use 'Sync' on individual rows for surgical fixes, or 'Auto-fix all' to resolve everything at once."
+      )
+    );
+  }
