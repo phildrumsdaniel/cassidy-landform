@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="description" content="Landform — Land & Development Intelligence Platform. Built for Cassidy Group by Phil Daniel."/>
+<meta name="author" content="Phil Daniel"/>
+<title>Cassidy Group — Landform Intelligence Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+<!-- Styles, formerly the inline <style> block, now in one editable file -->
+<link rel="stylesheet" href="css/app.css"/>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- ──────────────────────────────────────────────────────────────────────────
+     Landform v2 — same app as the original index.html, split into readable
+     files. These plain (non-module) scripts share one global scope and MUST
+     load in this order, exactly as they appeared in the original single file:
+       01-config      constants, logo, logEvent, callAI, shared helpers (e, S)
+       02-primitives  Inp / Sel / CitySelect form controls
+       03-ai-panel    AIPanel
+       04-access-gate AccessGate (login / register)
+       05-tool        Tool — the main app (still large; carved up in Phase 2)
+       06-root        Root / PublicShareViewer + ReactDOM.render bootstrap
+     ────────────────────────────────────────────────────────────────────────── -->
+<script src="js/01-config.js"></script>
+<script src="js/02-primitives.js"></script>
+<script src="js/03-ai-panel.js"></script>
+<script src="js/04-access-gate.js"></script>
+<!-- Phase 2: pieces lifted out of Tool, unchanged (zero closure coupling). Must load before 05-tool. -->
+<script src="js/lib-isStageComplete.js"></script>
+<script src="js/lib-migrateLoadedDeal.js"></script>
+<script src="js/components-S106Table.js"></script>
+<script src="js/05-tool.js"></script>
+<script src="js/06-root.js"></script>
+</body>
+</html>
