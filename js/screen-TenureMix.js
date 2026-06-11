@@ -99,6 +99,7 @@ function renderTenureMix(data, up, user){
         e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:6}},"Mix tenures across the scheme"),
         e("p",{style:{fontSize:12,color:"#7278A0",maxWidth:680,lineHeight:1.6}},"Set how units are split across Open Market, Affordable, Shared Ownership, BTR, First Homes etc. Each tenure has its own pricing rule and buyer type. Blended GDV flows through to RLV, Fin, and Exit Strategy.")
       ),
+      LandReconciliationPanel(data, up),
 
       // Scheme totals + input toggle
       e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:18,marginBottom:14}},

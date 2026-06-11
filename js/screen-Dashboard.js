@@ -20,6 +20,7 @@ function renderDashboard(ALL_STAGES, JOURNEYS, at, city, data, effUnits, ey, gdv
     ];
     return e("div",null,
       e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Deal Dashboard"),
+      LandReconciliationPanel(data, up),
       e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:data.masterReport?8:12}},"Live overview — fill in the stages to see metrics update"),
 
       // v9.31 — "What you still need to fill" — incomplete REQUIRED stages

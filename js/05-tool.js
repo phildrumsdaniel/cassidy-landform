@@ -1159,6 +1159,9 @@ var JOURNEYS = {
         )
       ),
 
+      // Combined land value reconciliation (sale vs rental)
+      LandReconciliationPanel(data, up),
+
       // Completion tracker
       e("div",{style:S.card},
         e("div",{style:{display:"flex",alignItems:"center",gap:16,marginBottom:12}},
