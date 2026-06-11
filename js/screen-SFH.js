@@ -219,6 +219,12 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
           e(Inp,{label:"Site Area (acres)",type:"number",value:s.acres,onChange:function(v){up("sfh","acres",v);},placeholder:"e.g. 5.0"}),
           e(Inp,{label:"Density (dph)",type:"number",value:s.dph,onChange:function(v){up("sfh","dph",v);},placeholder:"30"}),
           e(Inp,{label:"Affordable Housing %",type:"number",value:s.ahPct,onChange:function(v){up("sfh","ahPct",v);},placeholder:"e.g. 25"}),
+          num(s.ahPct)>0 && e(Sel,{label:"AH tenure (sets the GDV haircut)",value:s.ahTenure||"ahp_affordable",onChange:function(v){up("sfh","ahTenure",v);},options:[
+            {value:"ahp_social",label:"Social Rent (55% MV)"},
+            {value:"ahp_affordable",label:"Affordable Rent (60% MV)"},
+            {value:"ahp_so",label:"Shared Ownership (70% MV)"},
+            {value:"first_homes",label:"First Homes (70% MV cap)"}
+          ]}),
           e(Inp,{
             label: nbInfo
               ? "Base Sale £/sqft — new-build estimate £"+nbInfo.newBuild+" (Land Registry existing £"+nbInfo.existing+" + "+nbInfo.premiumPct+"% new-build premium)"
