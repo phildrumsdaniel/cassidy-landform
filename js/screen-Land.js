@@ -705,7 +705,7 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
           "2. Land value vs market assessment (using the per-acre band, with planning tier as the key variable)\n"+
           "3. DD priorities in order (planning status first if unknown)\n"+
           "4. Go/No-Go with explicit conditions — and 'CANNOT DETERMINE without planning status' if that's the honest answer\n"+
-          "5. Negotiation strategy framed in terms of the £/acre band and planning-contingent valuations")}),
+          "5. Negotiation strategy framed in terms of the £/acre band and planning-contingent valuations","land")}),
 
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Local Plan Explorer"),

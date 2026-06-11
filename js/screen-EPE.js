@@ -488,7 +488,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
         },"Open Workflow →")
       ),
       e(AIPanel,{user:user,up:up,stage:"epe",data:data,persistKey:"epe_property___developme",label:"Property & Development Analysis",
-          prompt:buildHonestPrompt(data,"Analyse this property opportunity. Type: "+(ep.propType||"unknown")+" at "+(ep.postcode||"postcode not given")+", "+propSqft+"sqft, "+(ep.bedrooms||"?")+" bed, "+(ep.storeys||"?")+" storeys, condition: "+(ep.condition||"average")+". Current value: £"+currentVal.toLocaleString()+". Garden: "+gardenSqft+"sqft ("+((ep.aspect||"aspect unknown"))+"), premium: "+fmt(gVal)+". Proposed: "+newUnits+" new units, GDV: "+fmt(newGdv)+", dev RLV: "+fmt(devRlv)+", uplift: "+(currentVal>0?pct((uplift/currentVal)*100):"n/a")+". Provide: 1) Current value sense check, 2) Development feasibility, 3) Planning risk, 4) Best option recommendation, 5) What would change the recommendation.")})
+          prompt:buildHonestPrompt(data,"Analyse this property opportunity. Type: "+(ep.propType||"unknown")+" at "+(ep.postcode||"postcode not given")+", "+propSqft+"sqft, "+(ep.bedrooms||"?")+" bed, "+(ep.storeys||"?")+" storeys, condition: "+(ep.condition||"average")+". Current value: £"+currentVal.toLocaleString()+". Garden: "+gardenSqft+"sqft ("+((ep.aspect||"aspect unknown"))+"), premium: "+fmt(gVal)+". Proposed: "+newUnits+" new units, GDV: "+fmt(newGdv)+", dev RLV: "+fmt(devRlv)+", uplift: "+(currentVal>0?pct((uplift/currentVal)*100):"n/a")+". Provide: 1) Current value sense check, 2) Development feasibility, 3) Planning risk, 4) Best option recommendation, 5) What would change the recommendation.","epe")})
       )
     );
   }

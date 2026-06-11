@@ -207,7 +207,7 @@ function renderHRA(LiveMarketBanner, city, data, up, user){
           "⚠ Est. service charge: £"+(total*2400).toLocaleString()+"/year total (£2,400/unit). Sinking fund required under BSA 2022. High service charges reduce investor pricing by ~2%."
         ),
         e(AIPanel,{user:user,up:up,stage:"hra",data:data,persistKey:"hra_high_rise_analysis__",label:"High-Rise Analysis & BSA Compliance",
-          prompt:buildHonestPrompt(data,"Analyse this "+storeys+"-storey apartment scheme in "+cityName(hCity)+". "+total+" units ("+su+" studios, "+ou+" 1-bed, "+tu+" 2-bed), GDV: "+fmt(hGdv)+", RLV: "+fmt(hRlv)+", margin: "+pct(hMargin)+". Structure: "+(h.structure||"RC frame")+". "+(bsa?"Higher Risk Building under BSA 2022.":"")+". Provide: 1) Viability vs "+cityName(hCity)+" market benchmarks, 2) BSA 2022 compliance roadmap and Gateway 2/3 timeline, 3) EWS1 strategy and cladding risk, 4) Structural form recommendation for "+storeys+" storeys, 5) Service charge impact on exit pricing, 6) Mix optimisation for current demand.")})
+          prompt:buildHonestPrompt(data,"Analyse this "+storeys+"-storey apartment scheme in "+cityName(hCity)+". "+total+" units ("+su+" studios, "+ou+" 1-bed, "+tu+" 2-bed), GDV: "+fmt(hGdv)+", RLV: "+fmt(hRlv)+", margin: "+pct(hMargin)+". Structure: "+(h.structure||"RC frame")+". "+(bsa?"Higher Risk Building under BSA 2022.":"")+". Provide: 1) Viability vs "+cityName(hCity)+" market benchmarks, 2) BSA 2022 compliance roadmap and Gateway 2/3 timeline, 3) EWS1 strategy and cladding risk, 4) Structural form recommendation for "+storeys+" storeys, 5) Service charge impact on exit pricing, 6) Mix optimisation for current demand.","hra")})
       )
     );
   }

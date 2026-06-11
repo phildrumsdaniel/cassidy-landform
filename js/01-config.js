@@ -1893,7 +1893,18 @@ function calcDealMetrics(data){
 // inventing numbers, fund/buyer/agent names, or comparable sales.
 // Usage: prompt: buildHonestPrompt(data, "<the panel's task instruction>")
 // ──────────────────────────────────────────────────────────────────────────
-function buildHonestPrompt(data, taskInstruction){
+// STAGE_FOCUS — keeps each per-stage AI analysis centred on that stage's job,
+// even though the full deal state is always supplied for anti-hallucination.
+// Passed as the 3rd arg to buildHonestPrompt; omit it to keep the old whole-deal behaviour.
+var STAGE_FOCUS = {
+  land: "You are at the LAND APPRAISAL stage — the very start of the journey. Focus ONLY on the land itself: location quality, planning status and certainty, site size, tenure, contamination, and whether the ASKING PRICE is sensible versus the £/acre benchmark band for this planning tier. Do NOT analyse build cost, GDV, sale values, S106 or developer margin in detail — those inputs belong to later stages and may not even be set yet.",
+  fin:  "You are at the FINANCIAL MODELLING stage. Focus on the development-appraisal economics: build cost, fees, finance, contingency, S106, GDV, profit and margin versus benchmarks.",
+  land_deal: "You are advising on the LAND DEAL STRUCTURE. Focus on the acquisition: fair land price, deal structure (unconditional/conditional/option/promotion), overage, and the landowner split — not the build programme.",
+  exit: "You are at the EXIT STRATEGY stage. Focus on the exit/sale route, buyer type, yield, hold-vs-sell and refinancing — not the land acquisition price.",
+  hra:  "You are at the APARTMENT (HRA) appraisal stage. Focus on apartment-scheme viability, BSA 2022 / Gateway compliance, structural form for the storey count, and mix optimisation.",
+  epe:  "You are at the EXISTING PROPERTY EVALUATION stage. Focus on current value sense-check, development feasibility and the best option for THIS property."
+};
+function buildHonestPrompt(data, taskInstruction, focusKey){
   data = data || {};
   var m = calcDealMetrics(data);
   var l = data.land || {}, p = data.planning || {}, cap = data.capitalise || {};
@@ -1985,6 +1996,11 @@ function buildHonestPrompt(data, taskInstruction){
   }
 
   s += "=== YOUR TASK ===" + nl;
+  var focus = STAGE_FOCUS[focusKey];
+  if(focus){
+    s += focus + nl;
+    s += "The DEAL STATE above is context for cross-checking only — do NOT re-run the whole appraisal. Keep your answer centred on THIS stage. If a downstream figure (e.g. GDV, build cost, margin, unit mix, yield) clearly looks wrong, raise it in ONE short 'Watch-outs for later stages' line at the very end — do not lead with it or expand it into a full appraisal." + nl + nl;
+  }
   s += taskInstruction;
   return s;
 }

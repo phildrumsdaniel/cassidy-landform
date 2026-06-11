@@ -379,7 +379,7 @@ function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi,
         e(AIPanel,{user:user,up:up,stage:"exit",data:data,persistKey:"exit_intelligence",
           label:"🧠 AI Exit Strategy Recommendation",
           system:"You are a senior UK real estate investment director advising on exit strategy for a residential development. Be specific, numerate and commercially direct.",
-          prompt:buildHonestPrompt(data,"Analyse the optimal exit strategy for this site. Site: "+(data.land&&data.land.address||"development site")+", "+cityName(city||"")+". GDV: "+fmt(gdv)+". Units: "+units2+". AH%: "+ahPct2+"%. Asset type: "+at+". Market rent: £"+cityMkt.btr+"/month BTR. Yield benchmark: "+pct((cityMkt.yield||0.055)*100)+". Stabilised value: "+fmt(stabilisedValue)+". Refinance potential (65% LTV): "+fmt(refinanceValue)+". Buyer valuations: "+buyerValues.slice(0,3).map(function(b){return b.label+": "+fmt(b.value)+" ("+b.appetite+"% appetite)";}).join(", ")+". Provide: 1) Recommended primary exit route with rationale, 2) Recommended buyer type and why, 3) Hold vs sell recommendation with numbers, 4) Refinancing potential assessment, 5) Critical negotiation points and red flags."
+          prompt:buildHonestPrompt(data,"Analyse the optimal exit strategy for this site. Site: "+(data.land&&data.land.address||"development site")+", "+cityName(city||"")+". GDV: "+fmt(gdv)+". Units: "+units2+". AH%: "+ahPct2+"%. Asset type: "+at+". Market rent: £"+cityMkt.btr+"/month BTR. Yield benchmark: "+pct((cityMkt.yield||0.055)*100)+". Stabilised value: "+fmt(stabilisedValue)+". Refinance potential (65% LTV): "+fmt(refinanceValue)+". Buyer valuations: "+buyerValues.slice(0,3).map(function(b){return b.label+": "+fmt(b.value)+" ("+b.appetite+"% appetite)";}).join(", ")+". Provide: 1) Recommended primary exit route with rationale, 2) Recommended buyer type and why, 3) Hold vs sell recommendation with numbers, 4) Refinancing potential assessment, 5) Critical negotiation points and red flags.","exit"
         )})
       ),
 
@@ -536,6 +536,6 @@ function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi,
       ),
 
       e(AIPanel,{user:user,up:up,stage:"exit",data:data,persistKey:"exit_exit_strategy_analys",label:"Exit Strategy Analysis",
-        prompt:buildHonestPrompt(data,"Exit strategy for "+at.toUpperCase()+" in "+cityName(city)+". Strategy: "+(ex.strategy||"not set")+", GDV: "+fmt(gdv)+", NOI: "+fmt(noi)+" pa, yield: "+pct(ey*100)+", investor type: "+(ex.investorType||"not set")+". Provide: 1) Optimal exit route and timing recommendation, 2) Top 5 specific buyers to approach with rationale, 3) Key investor DD requirements and how to prepare, 4) Critical negotiation points and red lines, 5) Risk factors that could compress exit pricing by >10 bps.")})
+        prompt:buildHonestPrompt(data,"Exit strategy for "+at.toUpperCase()+" in "+cityName(city)+". Strategy: "+(ex.strategy||"not set")+", GDV: "+fmt(gdv)+", NOI: "+fmt(noi)+" pa, yield: "+pct(ey*100)+", investor type: "+(ex.investorType||"not set")+". Provide: 1) Optimal exit route and timing recommendation, 2) Top 5 specific buyers to approach with rationale, 3) Key investor DD requirements and how to prepare, 4) Critical negotiation points and red lines, 5) Risk factors that could compress exit pricing by >10 bps.","exit")})
     );
   }
