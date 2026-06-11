@@ -455,6 +455,14 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
         });
         var blendedMarginPct = totalRealised > 0 ? (totalProfitAcross / totalRealised) * 100 : 0;
 
+        // F1 — Combined residual land value across ALL exit routes:
+        //   blended realisable GDV (private sale + capitalised rental + AHP) − total dev costs − developer profit.
+        var landAsk = num(data.land && (data.land.scenarioLandValue || data.land.price));
+        var landAcres = num(data.land && data.land.acres);
+        var devProfitTaken = totalRealised * routeProfitTargetPct;
+        var combinedRLV = totalRealised - totalCostsAcross - devProfitTaken;
+        var rlvPerAcre = landAcres > 0 ? combinedRLV / landAcres : 0;
+
         // Sort routes by # units desc
         var routeOrder = Object.keys(byRoute).sort(function(a,b){return byRoute[b].units - byRoute[a].units;});
 
@@ -468,6 +476,24 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
               e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".08em"}},"Blended realisable"),
               e("div",{style:{fontSize:22,fontWeight:800,color:"#2D7A65"}},fmt(totalRealised)),
               e("div",{style:{fontSize:10,color:"#7278A0",marginTop:2}},"vs. "+fmt(mvAtFullRetail)+" if all sold private ("+Math.round(blendedDiscount*100)+"% blended discount)")
+            )
+          ),
+
+          // F1 — THE headline: what the land is worth on this whole mix (rental + sale combined)
+          e("div",{style:{background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",borderRadius:8,padding:"14px 18px",marginBottom:14,color:"#fff"}},
+            e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:10}},
+              e("div",null,
+                e("div",{style:{fontSize:9,letterSpacing:".1em",textTransform:"uppercase",opacity:.7,marginBottom:3}},"Total residual land value — all routes combined"),
+                e("div",{style:{fontSize:26,fontWeight:800,color:"#EDE84A"}},fmt(combinedRLV)),
+                e("div",{style:{fontSize:10,opacity:.8,marginTop:3}},"Blended GDV "+fmt(totalRealised)+" − costs "+fmt(totalCostsAcross)+" − "+Math.round(routeProfitTargetPct*100)+"% developer profit "+fmt(devProfitTaken))
+              ),
+              e("div",{style:{textAlign:"right",fontSize:11}},
+                landAcres>0 && e("div",{style:{marginBottom:4}},e("span",{style:{opacity:.7}},"Per acre: "),e("strong",null,fmt(rlvPerAcre)+" on "+landAcres+" ac")),
+                landAsk>0 && e("div",null,
+                  e("span",{style:{opacity:.7}},"vs land ask "+fmt(landAsk)+": "),
+                  e("strong",{style:{color:combinedRLV>=landAsk?"#7FE0B0":"#FF9B7A"}},(combinedRLV>=landAsk?"+":"")+fmt(combinedRLV-landAsk))
+                )
+              )
             )
           ),
 
