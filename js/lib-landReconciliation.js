@@ -56,7 +56,7 @@ function calcLandReconciliation(data){
   var rentWeight; // 0..1 weight applied to the rental RLV
   var unitShareAvailable = false;
   if(basis === "units"){
-    var mix = (data.sfh && data.sfh.mix) || [];
+    var mix = (data.sfh && Array.isArray(data.sfh.mix)) ? data.sfh.mix : [];
     var totalUnits = 0, rentUnits = 0;
     mix.forEach(function(row){
       var c = num(row.count); if(!c) return;
@@ -91,8 +91,18 @@ function calcLandReconciliation(data){
 }
 
 // Shared panel. Renders nothing if there is not enough to reconcile.
+// Fully guarded: a reporting widget must never be able to blank the screen that
+// hosts it, so any unexpected error falls back to rendering nothing.
 //   data — deal data;  up — section setter (up("recon", key, val))
 function LandReconciliationPanel(data, up){
+  try {
+    return _renderLandReconciliationPanel(data, up);
+  } catch(err) {
+    if(typeof console !== "undefined" && console.warn) console.warn("LandReconciliationPanel skipped:", err);
+    return null;
+  }
+}
+function _renderLandReconciliationPanel(data, up){
   var R = calcLandReconciliation(data);
   // Need at least one route with a value to say anything useful.
   if(R.saleRlv === null && R.rentRlv === null) return null;
