@@ -41,7 +41,12 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
     var beds2=num(cap.beds2!==undefined?cap.beds2:defaultMix[2]);
     var beds3=num(cap.beds3!==undefined?cap.beds3:defaultMix[3]);
     var beds4=num(cap.beds4!==undefined?cap.beds4:defaultMix[4]);
-    var totalUnitsCalc=beds1+beds2+beds3+beds4;
+    // F3 — extra editable rent cards for granular unit types (e.g. 4-bed detached at a higher rent)
+    var RENT_UNIT_TYPES = ["1-bed","2-bed","3-bed","4-bed terrace","4-bed semi","4-bed detached","4-bed executive","5-bed detached","Bungalow 2-bed","Bungalow 3-bed"];
+    var rentExtra = Array.isArray(cap.rentExtra) ? cap.rentExtra : [];
+    var extraMonthly = rentExtra.reduce(function(s,c){return s+num(c.count)*num(c.rent);},0);
+    var extraUnits = rentExtra.reduce(function(s,c){return s+num(c.count);},0);
+    var totalUnitsCalc=beds1+beds2+beds3+beds4+extraUnits;
 
     // ── v9.33 — Postcode-aware market rent baseline ────────────────────────
     // Previously: only used cityMkt (works if user picked city, fails on postcode-only deals).
@@ -80,7 +85,7 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
     var rent4=num(cap.rent4!==undefined && cap.rent4!=="" ? cap.rent4 : Math.round(base1bed*BED_MULT[4]));
 
     // ── Gross annual rent ──────────────────────────────────────────────────
-    var grossMonthly=(beds1*rent1)+(beds2*rent2)+(beds3*rent3)+(beds4*rent4);
+    var grossMonthly=(beds1*rent1)+(beds2*rent2)+(beds3*rent3)+(beds4*rent4)+extraMonthly;
     var grossAnnual=grossMonthly*12;
 
     // ── NOI calculation ────────────────────────────────────────────────────
@@ -689,6 +694,35 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
             );
           })
         ),
+
+        // F3 — custom unit-type rent cards (e.g. a 4-bed detached at a higher rent, separate from 4-bed semi)
+        rentExtra.length>0 && e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:12}},
+          rentExtra.map(function(c,ci){
+            var cMonthly=num(c.count)*num(c.rent);
+            return e("div",{key:"x"+ci,style:{background:"#FBFAF6",borderRadius:8,padding:"14px",borderTop:"3px solid #7278A0",position:"relative"}},
+              e("button",{onClick:function(){var a=rentExtra.slice();a.splice(ci,1);up("capitalise","rentExtra",a);},title:"Remove this unit type",style:{position:"absolute",top:6,right:8,background:"none",border:"none",color:"#B05A35",fontSize:15,fontWeight:700,cursor:"pointer",lineHeight:1}},"×"),
+              e("select",{value:c.type||"4-bed detached",onChange:function(ev){var a=rentExtra.slice();a[ci]=Object.assign({},a[ci],{type:ev.target.value});up("capitalise","rentExtra",a);},style:{width:"100%",padding:"5px 6px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:11,fontWeight:700,color:"#2E2F8A",marginBottom:8,fontFamily:"DM Sans,sans-serif"}},
+                RENT_UNIT_TYPES.map(function(t){return e("option",{key:t,value:t},t);})
+              ),
+              e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}},
+                e("div",null,
+                  e("label",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",display:"block",marginBottom:2}},"Units"),
+                  e("input",{type:"number",min:0,value:c.count||"",onChange:function(ev){var a=rentExtra.slice();a[ci]=Object.assign({},a[ci],{count:ev.target.value});up("capitalise","rentExtra",a);},
+                    style:{width:"100%",padding:"6px 8px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:12,fontFamily:"DM Mono,monospace",textAlign:"center"}})
+                ),
+                e("div",null,
+                  e("label",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",display:"block",marginBottom:2}},"Rent £/mo"),
+                  e("input",{type:"number",min:0,value:c.rent||"",onChange:function(ev){var a=rentExtra.slice();a[ci]=Object.assign({},a[ci],{rent:ev.target.value});up("capitalise","rentExtra",a);},
+                    style:{width:"100%",padding:"6px 8px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:12,fontFamily:"DM Mono,monospace",textAlign:"center"}})
+                )
+              ),
+              e("div",{style:{fontSize:10,color:"#7278A0"}},fmt(cMonthly*12)+" pa gross")
+            );
+          })
+        ),
+        e("button",{onClick:function(){var a=rentExtra.slice();a.push({type:"4-bed detached",count:"",rent:rent4||Math.round(base1bed*(BED_MULT[4]||2)*1.15)});up("capitalise","rentExtra",a);},
+          style:{padding:"6px 14px",background:"#F7F8FC",border:"1px dashed #C8CDE0",borderRadius:6,fontSize:11,fontWeight:700,color:"#4A4BAE",cursor:"pointer",fontFamily:"DM Sans,sans-serif",marginBottom:16}},
+          "+ Add unit type (e.g. 4-bed detached)"),
 
         // Totals bar
         e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,background:"rgba(74,75,174,0.05)",borderRadius:8,padding:"12px 14px"}},
