@@ -2,11 +2,24 @@
 
 **Cassidy Group's institutional-grade land, development and capital markets platform**
 
-A single-file web app that takes a property deal from raw land sourcing through to investor exit and capital raise — all in one tool, with cloud sync, AI-powered analysis, and a tiered investor marketing suite.
+A web app that takes a property deal from raw land sourcing through to investor exit and capital raise — all in one tool, with cloud sync, AI-powered analysis, and a tiered investor marketing suite.
 
 **Current version:** v9.8 (Frontend) · v9.5 (Backend, chunked storage)
 **Live URL:** `phildrumsdaniel.github.io/cassidy-landform/`
 **Workflow Atlas:** `phildrumsdaniel.github.io/cassidy-landform/flowchart.html`
+
+### Code layout
+
+The app is now served from a **modular** version (the former `landform-v2`, promoted
+to primary): `index.html` is a thin shell that loads `css/app.css` and the ordered
+`js/*.js` files (config, shared lib, UI primitives, and one file per screen). Same
+behaviour as before — just split out of the old 19k-line single file for
+maintainability. See `REFACTOR-NOTES.md` for the structure and how it was verified.
+
+- `index.html` — primary app shell (modular)
+- `css/`, `js/` — styles and the screen/lib modules
+- `index-legacy.html` — the previous single-file build, kept byte-for-byte as a
+  one-click fallback. To roll back, serve this file as `index.html`.
 
 ---
 

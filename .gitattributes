@@ -1,0 +1,9 @@
+# Keep the (now primary) modular sources at LF so edits don't create CRLF/LF
+# diff noise. Scope the rules so they do NOT touch the legacy monolith.
+/index.html         text eol=lf
+/css/*.css          text eol=lf
+/js/*.js            text eol=lf
+/REFACTOR-NOTES.md  text eol=lf
+
+# Preserve the legacy fallback exactly as it was (original CRLF line endings):
+/index-legacy.html  -text
