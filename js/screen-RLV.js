@@ -1114,7 +1114,7 @@ function renderRLV(city, data, m, navTo, setData, up, user){
               "Verdict: "+(rViable?"Viable (≥15% land:GDV)":(rRlv>0?"Below 15% threshold — stretched":"NEGATIVE — does not stack"))+"\n\n"+
               "═══ Land Registry context (reference only — do not override the user's sale £/sqft above) ═══\n"+
               "LR weighted average: "+(lrData?"£"+lrData.wPsf+"/sqft from "+lrData.totalTx+" transactions":"not fetched")+"\n"+
-              "Local benchmark: £"+(num(rm.btr*8.5/12)||0).toFixed(0)+"/sqft\n\n"+
+              "Local benchmark: "+(pcData&&num(pcData.salePsf)>0?"£"+Math.round(num(pcData.salePsf))+"/sqft (postcode-area new-build benchmark)":"not available — set a full postcode for a local £/sqft benchmark")+"\n\n"+
               "═══ Asking price ═══\n"+
               "Farmer asking: "+(num(data.land&&data.land.price)>0?fmt(num(data.land.price)):"not entered")+"\n\n"+
               "═══ Your task ═══\n"+
