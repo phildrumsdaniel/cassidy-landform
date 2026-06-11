@@ -807,6 +807,7 @@ var JOURNEYS = {
     var lcVal=lc>0?lc:0;
     var f2=data.fin||{};
     var s2=data.sfh||{};
+    var basePsf=num(s2.basePsf)||260; // fallback £/sqft for unit rows missing their own psf (was undefined -> threw)
     var p2=data.planning||{};
     var l2=data.land||{};
     var sfhMixHtml="";
@@ -1301,216 +1302,9 @@ var JOURNEYS = {
   // ══════════════════════════════════════════════════════════════════════════
   // PLACONA AGENT — Land Discovery & Site Inbox
   // ══════════════════════════════════════════════════════════════════════════
-  function renderPlacona(){
-    var pl=data.placona||{};
-    var inbox=(pl.inbox)||[];
-    var running=pl.running||false;
-    var lastRun=pl.lastRun||"";
-    var error=pl.error||"";
-    var loadingSheet=pl.loadingSheet||false;
-    var selectedSite=pl.selectedSite||null;
-    var view=pl.view||"search"; // "search" | "inbox" | "detail"
-
-    var COUNTIES=[
-      // ── NORTH EAST ENGLAND ───────────────────────────────────────────
-      {id:"tyne_wear",        label:"Tyne & Wear",        region:"North East"},
-      {id:"northumberland",   label:"Northumberland",     region:"North East"},
-      {id:"county_durham",    label:"County Durham",      region:"North East"},
-      {id:"tees_valley",      label:"Tees Valley",        region:"North East"},
-
-      // ── NORTH WEST ENGLAND ───────────────────────────────────────────
-      {id:"cumbria",          label:"Cumbria",            region:"North West"},
-      {id:"lancashire",       label:"Lancashire",         region:"North West"},
-      {id:"greater_manchester",label:"Greater Manchester",region:"North West"},
-      {id:"merseyside",       label:"Merseyside",         region:"North West"},
-      {id:"cheshire",         label:"Cheshire",           region:"North West"},
-
-      // ── YORKSHIRE & THE HUMBER ───────────────────────────────────────
-      {id:"north_yorkshire",  label:"North Yorkshire",    region:"Yorkshire"},
-      {id:"west_yorkshire",   label:"West Yorkshire",     region:"Yorkshire"},
-      {id:"south_yorkshire",  label:"South Yorkshire",    region:"Yorkshire"},
-      {id:"east_yorkshire",   label:"East Yorkshire",     region:"Yorkshire"},
-
-      // ── EAST MIDLANDS ────────────────────────────────────────────────
-      {id:"nottinghamshire",  label:"Nottinghamshire",    region:"East Midlands"},
-      {id:"derbyshire",       label:"Derbyshire",         region:"East Midlands"},
-      {id:"leicestershire",   label:"Leicestershire",     region:"East Midlands"},
-      {id:"lincolnshire",     label:"Lincolnshire",       region:"East Midlands"},
-      {id:"northamptonshire", label:"Northamptonshire",   region:"East Midlands"},
-      {id:"rutland",          label:"Rutland",            region:"East Midlands"},
-
-      // ── WEST MIDLANDS ────────────────────────────────────────────────
-      {id:"staffordshire",    label:"Staffordshire",      region:"West Midlands"},
-      {id:"warwickshire",     label:"Warwickshire",       region:"West Midlands"},
-      {id:"west_midlands",    label:"West Midlands",      region:"West Midlands"},
-      {id:"worcestershire",   label:"Worcestershire",     region:"West Midlands"},
-      {id:"herefordshire",    label:"Herefordshire",      region:"West Midlands"},
-      {id:"shropshire",       label:"Shropshire",         region:"West Midlands"},
-
-      // ── EAST OF ENGLAND ──────────────────────────────────────────────
-      {id:"norfolk",          label:"Norfolk",            region:"East of England"},
-      {id:"suffolk",          label:"Suffolk",            region:"East of England"},
-      {id:"cambridgeshire",   label:"Cambridgeshire",     region:"East of England"},
-      {id:"essex",            label:"Essex",              region:"East of England"},
-      {id:"hertfordshire",    label:"Hertfordshire",      region:"East of England"},
-      {id:"bedfordshire",     label:"Bedfordshire",       region:"East of England"},
-
-      // ── GREATER LONDON ───────────────────────────────────────────────
-      {id:"london_central",   label:"Central London",     region:"Greater London"},
-      {id:"london_north",     label:"North London",       region:"Greater London"},
-      {id:"london_east",      label:"East London",        region:"Greater London"},
-      {id:"london_south",     label:"South London",       region:"Greater London"},
-      {id:"london_west",      label:"West London",        region:"Greater London"},
-
-      // ── SOUTH EAST ENGLAND ───────────────────────────────────────────
-      {id:"berkshire",        label:"Berkshire",          region:"South East"},
-      {id:"buckinghamshire",  label:"Buckinghamshire",    region:"South East"},
-      {id:"oxfordshire",      label:"Oxfordshire",        region:"South East"},
-      {id:"surrey",           label:"Surrey",             region:"South East"},
-      {id:"kent",             label:"Kent",               region:"South East"},
-      {id:"east_sussex",      label:"East Sussex",        region:"South East"},
-      {id:"west_sussex",      label:"West Sussex",        region:"South East"},
-      {id:"hampshire",        label:"Hampshire",          region:"South East"},
-      {id:"isle_of_wight",    label:"Isle of Wight",      region:"South East"},
-
-      // ── SOUTH WEST ENGLAND ───────────────────────────────────────────
-      {id:"gloucestershire",  label:"Gloucestershire",    region:"South West"},
-      {id:"bristol",          label:"Bristol",            region:"South West"},
-      {id:"wiltshire",        label:"Wiltshire",          region:"South West"},
-      {id:"somerset",         label:"Somerset",           region:"South West"},
-      {id:"dorset",           label:"Dorset",             region:"South West"},
-      {id:"devon",            label:"Devon",              region:"South West"},
-      {id:"cornwall",         label:"Cornwall",           region:"South West"},
-
-      // ── WALES ────────────────────────────────────────────────────────
-      {id:"cardiff",          label:"Cardiff",            region:"Wales"},
-      {id:"swansea",          label:"Swansea & SW Wales", region:"Wales"},
-      {id:"newport",          label:"Newport & SE Wales", region:"Wales"},
-      {id:"north_wales",      label:"North Wales",        region:"Wales"},
-      {id:"mid_wales",        label:"Mid & West Wales",   region:"Wales"},
-      {id:"valleys",          label:"South Wales Valleys",region:"Wales"},
-
-      // ── SCOTLAND ─────────────────────────────────────────────────────
-      {id:"glasgow",          label:"Glasgow & Strathclyde",region:"Scotland"},
-      {id:"edinburgh",        label:"Edinburgh & Lothian",region:"Scotland"},
-      {id:"aberdeen",         label:"Aberdeen & Grampian",region:"Scotland"},
-      {id:"dundee",           label:"Dundee & Tayside",   region:"Scotland"},
-      {id:"highlands",        label:"Highlands & Islands",region:"Scotland"},
-      {id:"borders",          label:"Scottish Borders",   region:"Scotland"},
-      {id:"fife",             label:"Fife",               region:"Scotland"},
-      {id:"stirling",         label:"Stirling & Central", region:"Scotland"},
-      {id:"dumfries",         label:"Dumfries & Galloway",region:"Scotland"},
-
-      // ── NORTHERN IRELAND ─────────────────────────────────────────────
-      {id:"belfast",          label:"Belfast",            region:"Northern Ireland"},
-      {id:"derry",            label:"Derry / Londonderry",region:"Northern Ireland"},
-      {id:"antrim",           label:"Antrim",             region:"Northern Ireland"},
-      {id:"down",             label:"Down",               region:"Northern Ireland"},
-      {id:"armagh",           label:"Armagh",             region:"Northern Ireland"},
-      {id:"tyrone",           label:"Tyrone",             region:"Northern Ireland"},
-      {id:"fermanagh",        label:"Fermanagh",          region:"Northern Ireland"}
-    ];
-
-    // Build regional presets dynamically
-    var REGION_GROUPS = {};
-    COUNTIES.forEach(function(c){
-      if(!REGION_GROUPS[c.region]) REGION_GROUPS[c.region] = [];
-      REGION_GROUPS[c.region].push(c.id);
-    });
-
-    var PRESETS=[
-      {label:"North East",        ids:REGION_GROUPS["North East"]},
-      {label:"North West",        ids:REGION_GROUPS["North West"]},
-      {label:"Yorkshire",         ids:REGION_GROUPS["Yorkshire"]},
-      {label:"East Midlands",     ids:REGION_GROUPS["East Midlands"]},
-      {label:"West Midlands",     ids:REGION_GROUPS["West Midlands"]},
-      {label:"East of England",   ids:REGION_GROUPS["East of England"]},
-      {label:"Greater London",    ids:REGION_GROUPS["Greater London"]},
-      {label:"South East",        ids:REGION_GROUPS["South East"]},
-      {label:"South West",        ids:REGION_GROUPS["South West"]},
-      {label:"Wales",             ids:REGION_GROUPS["Wales"]},
-      {label:"Scotland",          ids:REGION_GROUPS["Scotland"]},
-      {label:"Northern Ireland",  ids:REGION_GROUPS["Northern Ireland"]},
-      {label:"Whole UK",          ids:COUNTIES.map(function(c){return c.id;})},
-      {label:"England Only",      ids:COUNTIES.filter(function(c){return ["North East","North West","Yorkshire","East Midlands","West Midlands","East of England","Greater London","South East","South West"].indexOf(c.region)>=0;}).map(function(c){return c.id;})},
-      {label:"M62 Corridor",      ids:["merseyside","greater_manchester","west_yorkshire","south_yorkshire","east_yorkshire"]},
-      {label:"M1/M6 Corridor",    ids:["bedfordshire","northamptonshire","leicestershire","warwickshire","west_midlands","staffordshire","cheshire","greater_manchester"]},
-      {label:"M4 Corridor",       ids:["london_west","berkshire","wiltshire","bristol","cardiff","swansea"]}
-    ];
-
-    var selected=pl.selectedCounties||[];
-    var minHomes=pl.minHomes||100;
-    var siteTypes=pl.siteTypes||["strategic land","Local Plan allocations","SHELAA sites","edge-of-settlement","brownfield land"];
-    var searchDepth=pl.searchDepth||"standard search";
-
-    var selectedLabels=selected.map(function(id){
-      var c=COUNTIES.find(function(c2){return c2.id===id;});
-      return c?c.label:id;
-    });
-
-    function toggleCounty(id){
-      var n=selected.indexOf(id)>=0?selected.filter(function(c){return c!==id;}):selected.concat([id]);
-      up("placona","selectedCounties",n);
-    }
-    function applyPreset(p){up("placona","selectedCounties",p.ids);}
-
-    // Load from Google Sheet
-    function loadFromSheet(){
-      up("placona","loadingSheet",true);
-      fetch(WEBHOOK+"?action=placona_read")
-      .then(function(r){return r.json();})
-      .then(function(d){
-        up("placona","loadingSheet",false);
-        if(d.status==="ok"&&d.sites&&d.sites.length>0){
-          up("placona","inbox",d.sites);
-          up("placona","view","inbox");
-        } else {
-          up("placona","error","No sites in the Google Sheet inbox yet. Run a search first.");
-        }
-      })
-      .catch(function(err){
-        up("placona","loadingSheet",false);
-        up("placona","error","Could not read from sheet: "+err.message);
-      });
-    }
-
-    // Run Placona search
-    function runPlacona(){
-      if(selected.length===0){alert("Please select at least one county.");return;}
-      up("placona","running",true);
-      up("placona","error","");
-      var pUrl=WEBHOOK+"?action=placona_run"+
-        "&counties="+encodeURIComponent(selectedLabels.join(","))+
-        "&min_homes="+encodeURIComponent(minHomes)+
-        "&depth="+encodeURIComponent(searchDepth)+
-        "&types="+encodeURIComponent(siteTypes.slice(0,3).join(","))+
-        "&user="+encodeURIComponent((user&&user.name)||"")+
-        "&company="+encodeURIComponent((user&&user.company)||"");
-      fetch(pUrl)
-      .then(function(r){return r.json();})
-      .then(function(d){
-        up("placona","running",false);
-        up("placona","lastRun",new Date().toLocaleString("en-GB"));
-        if(d.status==="ok"&&d.sites&&d.sites.length>0){
-          var existing=inbox||[];
-          var merged=existing.concat(d.sites.filter(function(ns){
-            return !existing.some(function(es){return es.site_name===ns.site_name;});
-          }));
-          up("placona","inbox",merged);
-          up("placona","view","inbox");
-          up("placona","error","");
-        } else {
-          up("placona","error",d.message||"No sites returned. Try different counties or deeper search.");
-        }
-      })
-      .catch(function(err){
-        up("placona","running",false);
-        up("placona","error","Connection error: "+err.message);
-      });
-    }
-
-    // Load site into deal
-    function loadSiteIntoDeal(site){
+  // ── loadSiteIntoDeal — lifted out of renderPlacona to Tool scope (fixes the
+// dashboard "Load Deal" button, which referenced it from a sibling scope).
+function loadSiteIntoDeal(site){
       // ── Helper: skip junk values that shouldn't overwrite real defaults ──
       function ok(v){return v&&v!=="Not found"&&v!=="N/A"&&v!=="Unknown"&&v!=="—";}
 
@@ -1779,6 +1573,217 @@ var JOURNEYS = {
         navTo("land");
       }
     }
+
+  function renderPlacona(){
+    var pl=data.placona||{};
+    var inbox=(pl.inbox)||[];
+    var running=pl.running||false;
+    var lastRun=pl.lastRun||"";
+    var error=pl.error||"";
+    var loadingSheet=pl.loadingSheet||false;
+    var selectedSite=pl.selectedSite||null;
+    var view=pl.view||"search"; // "search" | "inbox" | "detail"
+
+    var COUNTIES=[
+      // ── NORTH EAST ENGLAND ───────────────────────────────────────────
+      {id:"tyne_wear",        label:"Tyne & Wear",        region:"North East"},
+      {id:"northumberland",   label:"Northumberland",     region:"North East"},
+      {id:"county_durham",    label:"County Durham",      region:"North East"},
+      {id:"tees_valley",      label:"Tees Valley",        region:"North East"},
+
+      // ── NORTH WEST ENGLAND ───────────────────────────────────────────
+      {id:"cumbria",          label:"Cumbria",            region:"North West"},
+      {id:"lancashire",       label:"Lancashire",         region:"North West"},
+      {id:"greater_manchester",label:"Greater Manchester",region:"North West"},
+      {id:"merseyside",       label:"Merseyside",         region:"North West"},
+      {id:"cheshire",         label:"Cheshire",           region:"North West"},
+
+      // ── YORKSHIRE & THE HUMBER ───────────────────────────────────────
+      {id:"north_yorkshire",  label:"North Yorkshire",    region:"Yorkshire"},
+      {id:"west_yorkshire",   label:"West Yorkshire",     region:"Yorkshire"},
+      {id:"south_yorkshire",  label:"South Yorkshire",    region:"Yorkshire"},
+      {id:"east_yorkshire",   label:"East Yorkshire",     region:"Yorkshire"},
+
+      // ── EAST MIDLANDS ────────────────────────────────────────────────
+      {id:"nottinghamshire",  label:"Nottinghamshire",    region:"East Midlands"},
+      {id:"derbyshire",       label:"Derbyshire",         region:"East Midlands"},
+      {id:"leicestershire",   label:"Leicestershire",     region:"East Midlands"},
+      {id:"lincolnshire",     label:"Lincolnshire",       region:"East Midlands"},
+      {id:"northamptonshire", label:"Northamptonshire",   region:"East Midlands"},
+      {id:"rutland",          label:"Rutland",            region:"East Midlands"},
+
+      // ── WEST MIDLANDS ────────────────────────────────────────────────
+      {id:"staffordshire",    label:"Staffordshire",      region:"West Midlands"},
+      {id:"warwickshire",     label:"Warwickshire",       region:"West Midlands"},
+      {id:"west_midlands",    label:"West Midlands",      region:"West Midlands"},
+      {id:"worcestershire",   label:"Worcestershire",     region:"West Midlands"},
+      {id:"herefordshire",    label:"Herefordshire",      region:"West Midlands"},
+      {id:"shropshire",       label:"Shropshire",         region:"West Midlands"},
+
+      // ── EAST OF ENGLAND ──────────────────────────────────────────────
+      {id:"norfolk",          label:"Norfolk",            region:"East of England"},
+      {id:"suffolk",          label:"Suffolk",            region:"East of England"},
+      {id:"cambridgeshire",   label:"Cambridgeshire",     region:"East of England"},
+      {id:"essex",            label:"Essex",              region:"East of England"},
+      {id:"hertfordshire",    label:"Hertfordshire",      region:"East of England"},
+      {id:"bedfordshire",     label:"Bedfordshire",       region:"East of England"},
+
+      // ── GREATER LONDON ───────────────────────────────────────────────
+      {id:"london_central",   label:"Central London",     region:"Greater London"},
+      {id:"london_north",     label:"North London",       region:"Greater London"},
+      {id:"london_east",      label:"East London",        region:"Greater London"},
+      {id:"london_south",     label:"South London",       region:"Greater London"},
+      {id:"london_west",      label:"West London",        region:"Greater London"},
+
+      // ── SOUTH EAST ENGLAND ───────────────────────────────────────────
+      {id:"berkshire",        label:"Berkshire",          region:"South East"},
+      {id:"buckinghamshire",  label:"Buckinghamshire",    region:"South East"},
+      {id:"oxfordshire",      label:"Oxfordshire",        region:"South East"},
+      {id:"surrey",           label:"Surrey",             region:"South East"},
+      {id:"kent",             label:"Kent",               region:"South East"},
+      {id:"east_sussex",      label:"East Sussex",        region:"South East"},
+      {id:"west_sussex",      label:"West Sussex",        region:"South East"},
+      {id:"hampshire",        label:"Hampshire",          region:"South East"},
+      {id:"isle_of_wight",    label:"Isle of Wight",      region:"South East"},
+
+      // ── SOUTH WEST ENGLAND ───────────────────────────────────────────
+      {id:"gloucestershire",  label:"Gloucestershire",    region:"South West"},
+      {id:"bristol",          label:"Bristol",            region:"South West"},
+      {id:"wiltshire",        label:"Wiltshire",          region:"South West"},
+      {id:"somerset",         label:"Somerset",           region:"South West"},
+      {id:"dorset",           label:"Dorset",             region:"South West"},
+      {id:"devon",            label:"Devon",              region:"South West"},
+      {id:"cornwall",         label:"Cornwall",           region:"South West"},
+
+      // ── WALES ────────────────────────────────────────────────────────
+      {id:"cardiff",          label:"Cardiff",            region:"Wales"},
+      {id:"swansea",          label:"Swansea & SW Wales", region:"Wales"},
+      {id:"newport",          label:"Newport & SE Wales", region:"Wales"},
+      {id:"north_wales",      label:"North Wales",        region:"Wales"},
+      {id:"mid_wales",        label:"Mid & West Wales",   region:"Wales"},
+      {id:"valleys",          label:"South Wales Valleys",region:"Wales"},
+
+      // ── SCOTLAND ─────────────────────────────────────────────────────
+      {id:"glasgow",          label:"Glasgow & Strathclyde",region:"Scotland"},
+      {id:"edinburgh",        label:"Edinburgh & Lothian",region:"Scotland"},
+      {id:"aberdeen",         label:"Aberdeen & Grampian",region:"Scotland"},
+      {id:"dundee",           label:"Dundee & Tayside",   region:"Scotland"},
+      {id:"highlands",        label:"Highlands & Islands",region:"Scotland"},
+      {id:"borders",          label:"Scottish Borders",   region:"Scotland"},
+      {id:"fife",             label:"Fife",               region:"Scotland"},
+      {id:"stirling",         label:"Stirling & Central", region:"Scotland"},
+      {id:"dumfries",         label:"Dumfries & Galloway",region:"Scotland"},
+
+      // ── NORTHERN IRELAND ─────────────────────────────────────────────
+      {id:"belfast",          label:"Belfast",            region:"Northern Ireland"},
+      {id:"derry",            label:"Derry / Londonderry",region:"Northern Ireland"},
+      {id:"antrim",           label:"Antrim",             region:"Northern Ireland"},
+      {id:"down",             label:"Down",               region:"Northern Ireland"},
+      {id:"armagh",           label:"Armagh",             region:"Northern Ireland"},
+      {id:"tyrone",           label:"Tyrone",             region:"Northern Ireland"},
+      {id:"fermanagh",        label:"Fermanagh",          region:"Northern Ireland"}
+    ];
+
+    // Build regional presets dynamically
+    var REGION_GROUPS = {};
+    COUNTIES.forEach(function(c){
+      if(!REGION_GROUPS[c.region]) REGION_GROUPS[c.region] = [];
+      REGION_GROUPS[c.region].push(c.id);
+    });
+
+    var PRESETS=[
+      {label:"North East",        ids:REGION_GROUPS["North East"]},
+      {label:"North West",        ids:REGION_GROUPS["North West"]},
+      {label:"Yorkshire",         ids:REGION_GROUPS["Yorkshire"]},
+      {label:"East Midlands",     ids:REGION_GROUPS["East Midlands"]},
+      {label:"West Midlands",     ids:REGION_GROUPS["West Midlands"]},
+      {label:"East of England",   ids:REGION_GROUPS["East of England"]},
+      {label:"Greater London",    ids:REGION_GROUPS["Greater London"]},
+      {label:"South East",        ids:REGION_GROUPS["South East"]},
+      {label:"South West",        ids:REGION_GROUPS["South West"]},
+      {label:"Wales",             ids:REGION_GROUPS["Wales"]},
+      {label:"Scotland",          ids:REGION_GROUPS["Scotland"]},
+      {label:"Northern Ireland",  ids:REGION_GROUPS["Northern Ireland"]},
+      {label:"Whole UK",          ids:COUNTIES.map(function(c){return c.id;})},
+      {label:"England Only",      ids:COUNTIES.filter(function(c){return ["North East","North West","Yorkshire","East Midlands","West Midlands","East of England","Greater London","South East","South West"].indexOf(c.region)>=0;}).map(function(c){return c.id;})},
+      {label:"M62 Corridor",      ids:["merseyside","greater_manchester","west_yorkshire","south_yorkshire","east_yorkshire"]},
+      {label:"M1/M6 Corridor",    ids:["bedfordshire","northamptonshire","leicestershire","warwickshire","west_midlands","staffordshire","cheshire","greater_manchester"]},
+      {label:"M4 Corridor",       ids:["london_west","berkshire","wiltshire","bristol","cardiff","swansea"]}
+    ];
+
+    var selected=pl.selectedCounties||[];
+    var minHomes=pl.minHomes||100;
+    var siteTypes=pl.siteTypes||["strategic land","Local Plan allocations","SHELAA sites","edge-of-settlement","brownfield land"];
+    var searchDepth=pl.searchDepth||"standard search";
+
+    var selectedLabels=selected.map(function(id){
+      var c=COUNTIES.find(function(c2){return c2.id===id;});
+      return c?c.label:id;
+    });
+
+    function toggleCounty(id){
+      var n=selected.indexOf(id)>=0?selected.filter(function(c){return c!==id;}):selected.concat([id]);
+      up("placona","selectedCounties",n);
+    }
+    function applyPreset(p){up("placona","selectedCounties",p.ids);}
+
+    // Load from Google Sheet
+    function loadFromSheet(){
+      up("placona","loadingSheet",true);
+      fetch(WEBHOOK+"?action=placona_read")
+      .then(function(r){return r.json();})
+      .then(function(d){
+        up("placona","loadingSheet",false);
+        if(d.status==="ok"&&d.sites&&d.sites.length>0){
+          up("placona","inbox",d.sites);
+          up("placona","view","inbox");
+        } else {
+          up("placona","error","No sites in the Google Sheet inbox yet. Run a search first.");
+        }
+      })
+      .catch(function(err){
+        up("placona","loadingSheet",false);
+        up("placona","error","Could not read from sheet: "+err.message);
+      });
+    }
+
+    // Run Placona search
+    function runPlacona(){
+      if(selected.length===0){alert("Please select at least one county.");return;}
+      up("placona","running",true);
+      up("placona","error","");
+      var pUrl=WEBHOOK+"?action=placona_run"+
+        "&counties="+encodeURIComponent(selectedLabels.join(","))+
+        "&min_homes="+encodeURIComponent(minHomes)+
+        "&depth="+encodeURIComponent(searchDepth)+
+        "&types="+encodeURIComponent(siteTypes.slice(0,3).join(","))+
+        "&user="+encodeURIComponent((user&&user.name)||"")+
+        "&company="+encodeURIComponent((user&&user.company)||"");
+      fetch(pUrl)
+      .then(function(r){return r.json();})
+      .then(function(d){
+        up("placona","running",false);
+        up("placona","lastRun",new Date().toLocaleString("en-GB"));
+        if(d.status==="ok"&&d.sites&&d.sites.length>0){
+          var existing=inbox||[];
+          var merged=existing.concat(d.sites.filter(function(ns){
+            return !existing.some(function(es){return es.site_name===ns.site_name;});
+          }));
+          up("placona","inbox",merged);
+          up("placona","view","inbox");
+          up("placona","error","");
+        } else {
+          up("placona","error",d.message||"No sites returned. Try different counties or deeper search.");
+        }
+      })
+      .catch(function(err){
+        up("placona","running",false);
+        up("placona","error","Connection error: "+err.message);
+      });
+    }
+
+    // Load site into deal
+    /* loadSiteIntoDeal lifted to Tool scope (just above renderPlacona) so renderDashboard can call it too */
 
     // Category colour
     function catCol(cat){return cat==="A"?"#2D7A65":cat==="B"?"#4A4BAE":cat==="C"?"#9A7B3E":"#B05A35";}
