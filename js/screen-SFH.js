@@ -358,7 +358,7 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
             ),
             e("div",null,
               e("div",{style:{fontSize:9,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,marginBottom:10}},"COSTS"),
-              [["Build ("+totalBuild.toLocaleString()+" sqft @ £"+sBuild+"/sqft)",totalBuild],["Prof Fees (10%)",fees],["Contingency ("+sCont+"%)",contCost],["Finance ("+sFin+"%)",finCost],["S106/CIL",s106Total],["Roads & Sewers (S38/S104)",roadsTotal],["Site Infra & SuDS",infra],["Dev Profit ("+sProfit+"%)",devProfit]].map(function(row){
+              [["Build ("+houseCalcs.reduce(function(a,h){return a+h.sqft*h.count;},0).toLocaleString()+" sqft @ £"+sBuild+"/sqft)",totalBuild],["Prof Fees (10%)",fees],["Contingency ("+sCont+"%)",contCost],["Finance ("+sFin+"%)",finCost],["S106/CIL",s106Total],["Roads & Sewers (S38/S104)",roadsTotal],["Site Infra & SuDS",infra],["Dev Profit ("+sProfit+"%)",devProfit]].map(function(row){
                 return e("div",{key:row[0],style:{display:"flex",justifyContent:"space-between",fontSize:12,color:"#7278A0",padding:"4px 0",borderBottom:"1px solid #F0F0F0"}},
                   e("span",null,row[0]),e("span",null,"("+fmt(row[1])+")")
                 );
