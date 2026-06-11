@@ -705,7 +705,8 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
           "2. Land value vs market assessment (using the per-acre band, with planning tier as the key variable)\n"+
           "3. DD priorities in order (planning status first if unknown)\n"+
           "4. Go/No-Go with explicit conditions — and 'CANNOT DETERMINE without planning status' if that's the honest answer\n"+
-          "5. Negotiation strategy framed in terms of the £/acre band and planning-contingent valuations","land")}),
+          "5. Negotiation strategy framed in terms of the £/acre band and planning-contingent valuations\n"+
+          "6. SCENARIOS (land-stage only — do NOT model build cost, GDV or RLV): give a BASE case, an UPSIDE case and a DOWNSIDE case for the LAND decision, each driven purely by land-level variables — planning certainty (consent confirmed vs lapsed/conditional/none), where an agreed price lands in the £/acre band, acreage confirmation, and acquisition structure (unconditional vs conditional/option/promotion). For each scenario state the implication for the entry price and the recommended deal structure. Keep every scenario about acquiring the land well — leave build economics to the financial-modelling stage.","land")}),
 
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Local Plan Explorer"),
