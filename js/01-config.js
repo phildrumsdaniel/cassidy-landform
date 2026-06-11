@@ -1913,6 +1913,11 @@ function buildHonestPrompt(data, taskInstruction, focusKey){
   var cityKey = (l.city || (data.sfh && data.sfh.city) || (data.rlv && data.rlv.city) || "").toLowerCase();
   var bm = MKT[cityKey] || null;
   var nl = "\n";
+  // landOnly: at the LAND stage we deliberately WITHHOLD the development-appraisal
+  // figures (GDV/cost/RLV/margin/build:sale) from the prompt entirely — not just
+  // ask the model to ignore them. You cannot lead with a negative RLV that was
+  // never in the prompt. Land judgements run off planning, acreage and £/acre only.
+  var landOnly = (focusKey === "land");
 
   // ── Benchmarks ──────────────────────────────────────────────────────────
   var lrPsf = num(mkt.lrPsf);                       // Land Registry weighted avg (all stock)
@@ -1972,22 +1977,30 @@ function buildHonestPrompt(data, taskInstruction, focusKey){
   s += "Location: " + (l.address || "address not provided") + ", " + (cityKey ? cityName(cityKey) : "city not provided") + ", " + (l.postcode || "postcode not provided") + nl;
   s += "Planning: " + (p.status || "status not provided") + (p.lpa ? " — LPA " + p.lpa : "") + (num(p.units) ? " — " + num(p.units) + " units consented/proposed" : "") + nl;
   s += "Site: " + (num(m.acres) ? num(m.acres) + " acres" : "acreage not provided") + ", " + (num(m.units) ? num(m.units) + " units" : "unit count not provided") + ", avg " + (num(m.avgSqft) || "?") + " sqft/unit" + nl;
-  s += "Sale price input: £" + Math.round(num(m.salePsf)) + "/sqft" + nl;
-  s += "Build cost input: £" + Math.round(num(m.buildPsf)) + "/sqft" + nl;
-  s += "GDV (Landform): " + fmt(m.gdv) + " [source: " + m.gdvSource + "]" + nl;
-  s += "Total cost (Landform): " + fmt(m.totalCost) + " (build " + fmt(m.buildCost) + ", fees " + pct(m.feesPct) + ", contingency " + pct(m.contingencyPct) + ", S106 " + fmt(m.s106) + ", finance " + fmt(m.finance) + " @ " + pct(m.finRate) + ")" + nl;
-  s += "Target developer profit: " + fmt(m.profit) + " (" + pct(m.profitPctTarget) + " of GDV)" + nl;
-  s += "RESIDUAL LAND VALUE (Landform): " + fmt(m.rlv) + nl;
   s += "Land price asking/agreed: " + (num(m.landPrice) ? fmt(m.landPrice) : "not provided") + nl;
-  s += "Implied margin on GDV: " + pct(m.marginPct) + " | ROC: " + pct(m.roc) + " | build:sale " + pct(m.buildSaleRatio) + " (" + m.buildSaleVerdict + ")" + nl + nl;
+  if(landOnly){
+    s += "(STAGE SCOPE: this is the LAND APPRAISAL. The development-appraisal inputs — sale £/sqft, build cost, GDV, total cost, finance, S106, residual land value, developer margin/ROC and build:sale ratio — are OUT OF SCOPE here and have been deliberately withheld from this prompt. They are decided at later stages. Do NOT estimate, request, reconstruct or comment on any of them. Judge the LAND only: planning status/certainty, acreage, tenure, contamination, location and the asking price against the £/acre band in the task below.)" + nl + nl;
+  } else {
+    s += "Sale price input: £" + Math.round(num(m.salePsf)) + "/sqft" + nl;
+    s += "Build cost input: £" + Math.round(num(m.buildPsf)) + "/sqft" + nl;
+    s += "GDV (Landform): " + fmt(m.gdv) + " [source: " + m.gdvSource + "]" + nl;
+    s += "Total cost (Landform): " + fmt(m.totalCost) + " (build " + fmt(m.buildCost) + ", fees " + pct(m.feesPct) + ", contingency " + pct(m.contingencyPct) + ", S106 " + fmt(m.s106) + ", finance " + fmt(m.finance) + " @ " + pct(m.finRate) + ")" + nl;
+    s += "Target developer profit: " + fmt(m.profit) + " (" + pct(m.profitPctTarget) + " of GDV)" + nl;
+    s += "RESIDUAL LAND VALUE (Landform): " + fmt(m.rlv) + nl;
+    s += "Implied margin on GDV: " + pct(m.marginPct) + " | ROC: " + pct(m.roc) + " | build:sale " + pct(m.buildSaleRatio) + " (" + m.buildSaleVerdict + ")" + nl + nl;
+  }
 
-  s += "=== MARKET BENCHMARKS (for cross-check only — these are NOT the deal's figures) ===" + nl;
-  if(lrPsf > 0) s += "Land Registry weighted avg (ALL stock, this postcode): £" + Math.round(lrPsf) + "/sqft" + (nb ? "; new-build estimate £" + nb.newBuild + "/sqft (+" + nb.premiumPct + "% regional premium)" : "") + nl;
-  else s += "No Land Registry £/sqft on file for this location — treat sale-price assumptions as unverified against comparables." + nl;
-  if(bm) s += "Regional benchmark (" + cityName(cityKey) + "): build £" + bm.build + "/sqft, BTR rent ~£" + bm.btr + "/unit pcm, PBSA ~£" + bm.pbsa + "/bed/wk, market yield " + pct(bm.yield * 100) + nl;
-  s += "Reference defaults: institutional yield ceiling 5.0%; UK SFH build £165-200/sqft, BTR £210-260/sqft; fees ~12%, contingency ~5%, finance ~7-8%, target profit 15-17.5% on GDV." + nl + nl;
+  if(!landOnly){
+    s += "=== MARKET BENCHMARKS (for cross-check only — these are NOT the deal's figures) ===" + nl;
+    if(lrPsf > 0) s += "Land Registry weighted avg (ALL stock, this postcode): £" + Math.round(lrPsf) + "/sqft" + (nb ? "; new-build estimate £" + nb.newBuild + "/sqft (+" + nb.premiumPct + "% regional premium)" : "") + nl;
+    else s += "No Land Registry £/sqft on file for this location — treat sale-price assumptions as unverified against comparables." + nl;
+    if(bm) s += "Regional benchmark (" + cityName(cityKey) + "): build £" + bm.build + "/sqft, BTR rent ~£" + bm.btr + "/unit pcm, PBSA ~£" + bm.pbsa + "/bed/wk, market yield " + pct(bm.yield * 100) + nl;
+    s += "Reference defaults: institutional yield ceiling 5.0%; UK SFH build £165-200/sqft, BTR £210-260/sqft; fees ~12%, contingency ~5%, finance ~7-8%, target profit 15-17.5% on GDV." + nl + nl;
+  }
 
-  if(flags.length){
+  if(landOnly){
+    s += "=== AUTO-FLAGGED DEVIATIONS ===" + nl + "At the land stage the development appraisal (GDV / cost / RLV / margin) is NOT assessed, so no finance deviations are raised here. If planning status or site acreage is missing, make confirming it the headline DD priority before any value work." + nl + nl;
+  } else if(flags.length){
     s += "=== AUTO-FLAGGED DEVIATIONS (address each explicitly — do not skip) ===" + nl;
     flags.forEach(function(fl, i){ s += (i + 1) + ". " + fl + nl; });
     s += nl;
@@ -1999,7 +2012,11 @@ function buildHonestPrompt(data, taskInstruction, focusKey){
   var focus = STAGE_FOCUS[focusKey];
   if(focus){
     s += focus + nl;
-    s += "The DEAL STATE above is context for cross-checking only — do NOT re-run the whole appraisal. Keep your answer centred on THIS stage. If a downstream figure (e.g. GDV, build cost, margin, unit mix, yield) clearly looks wrong, raise it in ONE short 'Watch-outs for later stages' line at the very end — do not lead with it or expand it into a full appraisal." + nl + nl;
+    if(landOnly){
+      s += "Stay strictly at the land level. The development-appraisal figures have been withheld on purpose — do NOT estimate, reconstruct or ask for GDV, build cost, sale £/sqft, RLV, S106 or margin. Answer only the land question below." + nl + nl;
+    } else {
+      s += "The DEAL STATE above is context for cross-checking only — do NOT re-run the whole appraisal. Keep your answer centred on THIS stage. If a downstream figure (e.g. GDV, build cost, margin, unit mix, yield) clearly looks wrong, raise it in ONE short 'Watch-outs for later stages' line at the very end — do not lead with it or expand it into a full appraisal." + nl + nl;
+    }
   }
   s += taskInstruction;
   return s;
