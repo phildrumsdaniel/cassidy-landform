@@ -260,8 +260,8 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
             },style:{padding:"5px 12px",background:"#2D7A65",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",flexShrink:0}},"⚡ Auto-fill Typical Mix")
           ),
           // v9.29 — Single header row with Exit Route column added
-          e("div",{style:{display:"grid",gridTemplateColumns:"1.5fr 60px 60px 80px 90px 100px 140px",padding:"8px 12px",background:"#2E2F8A",fontSize:9,color:"#fff",textTransform:"uppercase",letterSpacing:".08em",fontWeight:700,borderBottom:"1px solid #DDE0ED",minWidth:680,gap:8}},
-            e("span",null,"House Type"),e("span",null,"Plots"),e("span",null,"Sqft"),e("span",null,"£/sqft"),e("span",null,"Unit £"),e("span",null,"Revenue"),e("span",null,"Exit Route")
+          e("div",{style:{display:"grid",gridTemplateColumns:"1.5fr 60px 60px 80px 90px 100px 140px 28px",padding:"8px 12px",background:"#2E2F8A",fontSize:9,color:"#fff",textTransform:"uppercase",letterSpacing:".08em",fontWeight:700,borderBottom:"1px solid #DDE0ED",minWidth:680,gap:8}},
+            e("span",null,"House Type"),e("span",null,"Plots"),e("span",null,"Sqft"),e("span",null,"£/sqft"),e("span",null,"Unit £"),e("span",null,"Revenue"),e("span",null,"Exit Route"),e("span",null,"")
           ),
           mix.map(function(row,i){
             var info=HOUSE_TYPES[row.type]||HOUSE_TYPES["3-bed semi"];
@@ -277,7 +277,7 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
               row.tenure==="retained_prs" ? "#F0F4FB" :
               "#FAFDF9"
             ) : "#fff";
-            return e("div",{key:i,style:{display:"grid",gridTemplateColumns:"1.5fr 60px 60px 80px 90px 100px 140px",padding:"8px 12px",borderBottom:"1px solid #DDE0ED",gap:8,alignItems:"center",background:rowTint,minWidth:680}},
+            return e("div",{key:i,style:{display:"grid",gridTemplateColumns:"1.5fr 60px 60px 80px 90px 100px 140px 28px",padding:"8px 12px",borderBottom:"1px solid #DDE0ED",gap:8,alignItems:"center",background:rowTint,minWidth:680}},
               e("select",{value:row.type,onChange:function(ev){updMix(i,"type",ev.target.value);},style:Object.assign({},S.select,{fontSize:11,padding:"5px 6px"})},
                 Object.keys(HOUSE_TYPES).map(function(t){return e("option",{key:t,value:t},t);})
               ),
@@ -300,13 +300,15 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
                 e("option",{value:"ahp_affordable"},"AHP — Affordable Rent (60% MV)"),
                 e("option",{value:"retained_prs"},"Retained PRS (yield-based)"),
                 e("option",{value:"first_homes"},"First Homes (70% MV cap)")
-              )
+              ),
+              e("button",{onClick:function(){up("sfh","mix",mix.filter(function(_,j){return j!==i;}));},title:"Remove this row",style:{background:"none",border:"none",color:"#B05A35",fontSize:16,fontWeight:700,cursor:"pointer",padding:0,lineHeight:1}},"×")
             );
           }),
-          totalUnits>0&&e("div",{style:{display:"grid",gridTemplateColumns:"1.5fr 60px 60px 80px 90px 100px 140px",padding:"10px 12px",background:"#F7F8FC",borderTop:"2px solid #DDE0ED",fontSize:12,fontWeight:700,color:"#2E2F8A",minWidth:680,gap:8}},
+          totalUnits>0&&e("div",{style:{display:"grid",gridTemplateColumns:"1.5fr 60px 60px 80px 90px 100px 140px 28px",padding:"10px 12px",background:"#F7F8FC",borderTop:"2px solid #DDE0ED",fontSize:12,fontWeight:700,color:"#2E2F8A",minWidth:680,gap:8}},
             e("span",null,"TOTAL"),e("span",null,totalUnits+" plots"),e("span",null,""),e("span",null,""),e("span",null,""),
             e("span",{style:{color:"#4A4BAE",fontWeight:800}},fmt(totalGdv)),
-            e("span",{style:{fontSize:9,color:"#7278A0",fontWeight:600}},"see Cap →")
+            e("span",{style:{fontSize:9,color:"#7278A0",fontWeight:600}},"see Cap →"),
+            e("span",null,"")
           ),
           e("datalist",{id:"house-type-list"},
           Object.keys(HOUSE_TYPES).map(function(ht){return e("option",{key:ht,value:ht});})

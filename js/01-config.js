@@ -1350,6 +1350,7 @@ var HOUSE_TYPES = {
   "3-bed terrace":{sqft:920,adj:0.95},
   "3-bed semi":{sqft:1020,adj:1.00},
   "3-bed detached":{sqft:1150,adj:1.08},
+  "4-bed terrace":{sqft:1180,adj:1.10},
   "4-bed semi":{sqft:1300,adj:1.14},
   "4-bed detached":{sqft:1500,adj:1.18},
   "4-bed executive":{sqft:1900,adj:1.28},
