@@ -299,6 +299,7 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
                 e("option",{value:"ahp_so"},"AHP — Shared Ownership (70% MV)"),
                 e("option",{value:"ahp_affordable"},"AHP — Affordable Rent (60% MV)"),
                 e("option",{value:"retained_prs"},"Retained PRS (yield-based)"),
+                e("option",{value:"btr_operator"},"BTR operator (full rental value)"),
                 e("option",{value:"first_homes"},"First Homes (70% MV cap)")
               ),
               e("button",{onClick:function(){up("sfh","mix",mix.filter(function(_,j){return j!==i;}));},title:"Remove this row",style:{background:"none",border:"none",color:"#B05A35",fontSize:16,fontWeight:700,cursor:"pointer",padding:0,lineHeight:1}},"×")

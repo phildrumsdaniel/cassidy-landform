@@ -392,22 +392,24 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
         // For retained PRS: compute capitalised value from yield
         var targetYield = num(cap.targetYield) || 0.045;
         if(targetYield > 1) targetYield = targetYield / 100;  // accept 4.5 or 0.045
-        if(byRoute.retained_prs){
-          // Use the user-set monthly rents from this stage, weighted by bed mix per sqft
-          var prsSqft = byRoute.retained_prs.sqft;
-          var prsUnits = byRoute.retained_prs.units;
-          // Estimate annual rent: average rent across bed types weighted by units in PRS retained
+        // Yield-based (rental-model) routes: Retained PRS + BTR-operator sale.
+        // Both are capitalised at the target yield with NO affordable discount —
+        // a BTR operator pays the full uncapped rental value (Phil: "100% of value").
+        var YIELD_ROUTES = ["retained_prs","btr_operator"];
+        YIELD_ROUTES.forEach(function(yr){
+          if(!byRoute[yr]) return;
+          var yUnits = byRoute[yr].units;
           var avgMonthly = grossMonthly && totalUnitsCalc ? grossMonthly / totalUnitsCalc : (base1bed * 1.4);
-          var prsAnnualRent = avgMonthly * 12 * prsUnits;
-          var prsNoi = prsAnnualRent * (1 - totalDed);
-          var prsCapValue = targetYield > 0 ? prsNoi / targetYield : 0;
-          byRoute.retained_prs.realised = prsCapValue;
-          byRoute.retained_prs.prsAnnualRent = prsAnnualRent;
-          byRoute.retained_prs.prsNoi = prsNoi;
-        }
-        // Apply discount for non-PRS routes
+          var yAnnualRent = avgMonthly * 12 * yUnits;
+          var yNoi = yAnnualRent * (1 - totalDed);
+          var yCap = targetYield > 0 ? yNoi / targetYield : 0;
+          byRoute[yr].realised = yCap;
+          byRoute[yr].prsAnnualRent = yAnnualRent;
+          byRoute[yr].prsNoi = yNoi;
+        });
+        // Apply discount for the remaining (sale-based) routes
         Object.keys(byRoute).forEach(function(route){
-          if(route === "retained_prs") return;
+          if(YIELD_ROUTES.indexOf(route) >= 0) return;
           var disc = (ROUTE_DISCOUNT[route] || ROUTE_DISCOUNT.private).pct;
           byRoute[route].realised = byRoute[route].fullMv * disc;
         });
