@@ -1471,7 +1471,7 @@ function loadSiteIntoDeal(site){
       // ────────────────────────────────────────────────────────────────
       if(unitsNum>0)     up("fin","units",unitsNum);
       if(inferredBuildPsf) up("fin","buildPsf",inferredBuildPsf);
-      up("fin","feesPct",12);          // institutional standard
+      if(!(data.fin&&data.fin.feesPct)) up("fin","feesPct",12);  // default only — don't clobber a value you've set
       up("fin","contingency",5);       // 5% contingency
       up("fin","finRate",7.5);         // current dev finance market rate
       up("fin","profitPct",17.5);      // target margin
