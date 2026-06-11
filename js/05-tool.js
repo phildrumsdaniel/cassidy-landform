@@ -326,15 +326,33 @@ var JOURNEYS = {
     return false;
   }
 
+  // F6 — shared assumptions: editing any of these in one stage propagates to the
+  // sibling stages that also use it, so you enter it once and the whole tool follows.
+  var SHARED_ASSUMPTIONS = {
+    finRate:    ["fin","rlv","sfh"],
+    buildPsf:   ["fin","rlv","sfh"],
+    profitPct:  ["fin","rlv","sfh"],
+    contingency:["fin","rlv","sfh"],
+    s106pu:     ["fin","planning","rlv","sfh"]
+  };
   function up(section,key,val){
     setData(function(d){
       var completed=(d&&d._completedStages)||{};
       var isCrossStage=section!==stage && isStageId(section);
       if(isCrossStage && completed[section]) return d;
-      var sec=Object.assign({},d[section]||{});
-      sec[key]=val;
       var next=Object.assign({},d);
-      next[section]=sec;
+      function writeOne(sec,k,v){
+        // never clobber a completed/finalised stage other than the one being edited
+        if(sec!==stage && isStageId(sec) && completed[sec]) return;
+        var o=Object.assign({},next[sec]||{});
+        o[k]=v;
+        next[sec]=o;
+      }
+      writeOne(section,key,val);
+      // Propagate shared cost/finance assumptions to their sibling stages
+      if(SHARED_ASSUMPTIONS[key]){
+        SHARED_ASSUMPTIONS[key].forEach(function(sib){ if(sib!==section) writeOne(sib,key,val); });
+      }
       return next;
     });
   }
