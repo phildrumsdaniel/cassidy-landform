@@ -95,6 +95,21 @@ function renderRLV(city, data, m, navTo, setData, up, user){
     })();
     // Use blended GDV for downstream calc when scheme is multi-route
     var rGdv = rHasMultiRoute ? rBlendedGdv : rRetailGdv;
+    // v9.46 — When an SFH House Mix exists, the canonical per-type, AH-aware engine
+    // (computeSFHMetrics) is the SINGLE source of GDV, so this screen's headline,
+    // breakdown and AI report agree exactly with the SFH House Mix screen and the
+    // deal-state. (The sensitivity sliders below use their own rlvCore/calcDealMetrics
+    // path and are unaffected.) Falls back to the flat-psf calc when there's no mix.
+    if(data.sfh && data.sfh.mix && data.sfh.mix.length && typeof computeSFHMetrics === "function"){
+      var _canon = computeSFHMetrics(data);
+      if(_canon.retailGdv > 0){
+        rRetailGdv = _canon.retailGdv;
+        rBlendedGdv = _canon.gdv;
+        rBlendFactor = _canon.retailGdv > 0 ? _canon.gdv / _canon.retailGdv : 1;
+        rHasMultiRoute = _canon.hasNonPrivate || (_canon.ahFactor < 1);
+        rGdv = _canon.gdv;
+      }
+    }
 
     var rBc=rUnits*rSqft*rBuild;
     var rFees=rBc*bt.fees; var rContCost=rBc*(rCont/100);

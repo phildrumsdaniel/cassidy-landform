@@ -81,7 +81,12 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
     var hasNonPrivateRoutes=houseCalcs.some(function(h){return h.tenure && h.tenure !== "private";});
     // v9.40 — Use blended GDV for RLV calc when scheme has AHP/pension/etc routes
     // CRITICAL: previously used retail GDV which overstated RLV by tens of £m for multi-tenure schemes
-    var totalGdv = hasNonPrivateRoutes ? blendedGdv : retailGdv;
+    // v9.46 — When mix rows are all-private but the scheme carries an overall AH%,
+    // apply the same sfhAhFactor() the canonical engine uses, so this screen's
+    // headline GDV/RLV match calcDealMetrics and the RLV screen exactly.
+    var sfhAhF = (typeof sfhAhFactor === "function") ? sfhAhFactor(data) : 1;
+    var ahApplied = !hasNonPrivateRoutes && sfhAhF < 1;
+    var totalGdv = hasNonPrivateRoutes ? blendedGdv : (ahApplied ? retailGdv * sfhAhF : retailGdv);
     var totalBuild=houseCalcs.reduce(function(a,h){return a+h.build;},0);
     var fees=totalBuild*0.10; var contCost=totalBuild*(sCont/100);
     var finCost=(totalBuild+fees)*(sFin/100);
@@ -331,17 +336,17 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
                   e("span",null,fmt(hasNonPrivateRoutes?h.blendedGdv:h.totalGdv))
                 );
               }),
-              // v9.40 — Show both retail and blended when non-private routes exist
-              hasNonPrivateRoutes && e("div",{style:{display:"flex",justifyContent:"space-between",fontSize:11,color:"#7278A0",padding:"6px 0 2px",fontStyle:"italic"}},
+              // v9.40/46 — Show both retail and blended when routes OR an overall AH% discount the GDV
+              (hasNonPrivateRoutes||ahApplied) && e("div",{style:{display:"flex",justifyContent:"space-between",fontSize:11,color:"#7278A0",padding:"6px 0 2px",fontStyle:"italic"}},
                 e("span",null,"Full retail (if all sold private)"),
                 e("span",null,fmt(retailGdv))
               ),
-              hasNonPrivateRoutes && e("div",{style:{display:"flex",justifyContent:"space-between",fontSize:11,color:"#B05A35",padding:"2px 0",fontWeight:600}},
-                e("span",null,"− AHP/route discounts"),
-                e("span",null,"−"+fmt(retailGdv-blendedGdv))
+              (hasNonPrivateRoutes||ahApplied) && e("div",{style:{display:"flex",justifyContent:"space-between",fontSize:11,color:"#B05A35",padding:"2px 0",fontWeight:600}},
+                e("span",null,ahApplied&&!hasNonPrivateRoutes?"− affordable housing discount ("+ahPct+"%)":"− AHP/route discounts"),
+                e("span",null,"−"+fmt(retailGdv-totalGdv))
               ),
               e("div",{style:{display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:700,color:"#2E2F8A",padding:"8px 0",borderTop:"1px solid #DDE0ED",marginTop:4}},
-                e("span",null,hasNonPrivateRoutes?"Blended Realisable GDV":"Total GDV"+" ("+totalUnits+" plots)"),
+                e("span",null,((hasNonPrivateRoutes||ahApplied)?"Blended Realisable GDV":"Total GDV")+" ("+totalUnits+" plots)"),
                 e("span",null,fmt(totalGdv))
               )
             ),
@@ -518,7 +523,7 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
           e("div",{style:{fontSize:10,color:"#7278A0",padding:"6px 4px"}},"Pessimistic: -10% sales, +12% build costs | Optimistic: +8% sales, -5% build costs")
         ),
         e(AIPanel,{user:user,up:up,stage:"sfh",data:data,persistKey:"sfh_sfh_development_anal",label:"SFH Development Analysis",
-          prompt:buildHonestPrompt(data,"Analyse this SFH development. Site: "+sAcres+" acres in "+cityName(sfhCity)+", "+sDph+" dph, "+totalUnits+" plots. Mix: "+houseCalcs.map(function(h){return h.count+"x "+h.type;}).join(", ")+". GDV: "+fmt(totalGdv)+", RLV: "+fmt(rlv)+" ("+fmt(rlvPu)+"/plot), margin: "+pct(sMargin)+". AH: "+ahPct+"% required. Provide: 1) Mix assessment for "+cityName(sfhCity)+" market, 2) Sale price sense check, 3) Affordable housing strategy and best tenure, 4) Infrastructure cost adequacy, 5) Phasing strategy for "+totalUnits+" plots, 6) Key planning and delivery risks.")})
+          prompt:buildHonestPrompt(data,"Analyse this SFH development's mix and delivery. Site: "+sAcres+" acres in "+cityName(sfhCity)+", "+sDph+" dph, "+totalUnits+" plots. Mix: "+houseCalcs.map(function(h){return h.count+"x "+h.type;}).join(", ")+". AH: "+ahPct+"% required. Use the GDV, RLV and margin from the DEAL STATE above — do not restate your own. Provide: 1) Mix assessment for "+cityName(sfhCity)+" market, 2) Sale price sense check, 3) Affordable housing strategy and best tenure, 4) Infrastructure cost adequacy, 5) Phasing strategy for "+totalUnits+" plots, 6) Key planning and delivery risks.","sfh")})
       )
     );
   }

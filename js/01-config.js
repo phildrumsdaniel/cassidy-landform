@@ -1342,6 +1342,28 @@ var ROUTE_DISCOUNT = {
   "btr_operator":    {pct:1.00, label:"BTR operator (full rental value)", col:"#2D7A65", note:"Whole-scheme sale to a BTR operator on a rental model — capitalised at target yield, NO affordable discount (100% of value)."}
 };
 
+// ──────────────────────────────────────────────────────────────────────
+// sfhAhFactor (v9.46) — SINGLE source of the affordable-housing GDV haircut.
+// Used by BOTH computeSFHMetrics (the canonical engine) and the SFH House Mix
+// screen so their blended GDV always agrees. When a scheme's mix rows already
+// carry per-row tenure, that per-row blend is authoritative and this overall
+// ahPct haircut is NOT applied on top (avoids double-counting). When the mix is
+// all-private but the scheme has an overall AH% (sfh.ahPct), this returns the
+// blend factor: private units at full MV, AH units at the AH tenure discount.
+// ──────────────────────────────────────────────────────────────────────
+function sfhAhFactor(data){
+  var sfh = (data && data.sfh) || {};
+  var ahPct = num(sfh.ahPct) || 0;
+  if(ahPct <= 0) return 1;
+  // No per-tenure granularity is captured for the overall AH%, so value the AH
+  // units at Affordable Rent (60% MV) as a representative default. A scheme that
+  // wants a different AH tenure should tag the mix rows individually instead.
+  var ahDisc = (ROUTE_DISCOUNT[sfh.ahTenure] || ROUTE_DISCOUNT.ahp_affordable).pct;
+  var f = Math.min(1, ahPct / 100);
+  return (1 - f) + f * ahDisc;
+}
+
+
 var HOUSE_TYPES = {
   "1-bed terrace":{sqft:550,adj:0.75},
   "1-bed apartment":{sqft:520,adj:0.72},
@@ -1666,7 +1688,12 @@ function computeSFHMetrics(data){
     rows.push({type:row.type,count:count,sqft:sqft,psf:psf,tenure:tenure,retailGdv:rowRetail,blendedGdv:rowBlended});
   });
   var hasNonPrivate = rows.some(function(r){return r.tenure && r.tenure !== "private";});
-  return {rows:rows,totalUnits:totalUnits,avgSqft:totalUnits>0?totalSqft/totalUnits:0,retailGdv:retailGdv,blendedGdv:blendedGdv,gdv:hasNonPrivate?blendedGdv:retailGdv,buildCost:buildCost,hasNonPrivate:hasNonPrivate,basePsf:basePsf,buildPsf:buildPsf};
+  // v9.46 — Canonical blended GDV. Priority: (1) if rows carry per-row tenure,
+  // that blend is authoritative; (2) else apply the scheme's overall AH% haircut;
+  // (3) else retail. This single value is what every screen/consumer reads.
+  var ahFactor = sfhAhFactor(data);
+  var effectiveBlended = hasNonPrivate ? blendedGdv : (ahFactor < 1 ? retailGdv * ahFactor : retailGdv);
+  return {rows:rows,totalUnits:totalUnits,avgSqft:totalUnits>0?totalSqft/totalUnits:0,retailGdv:retailGdv,blendedGdv:effectiveBlended,gdv:effectiveBlended,ahFactor:ahFactor,buildCost:buildCost,hasNonPrivate:hasNonPrivate,basePsf:basePsf,buildPsf:buildPsf};
 }
 
 function computeTenureMetrics(data){
@@ -1759,12 +1786,14 @@ function calcDealMetrics(data){
   var tenureBlendedGdv = tenureMetrics.blendedGdv;
 
   // Choose the right GDV based on asset type / scheme
+  // v9.46 — For SFH schemes the canonical source is computeSFHMetrics (per-type
+  // mix, AH-aware blended) so the deal-state matches the SFH House Mix screen.
+  // The Tenure Mix capitalised blend is only used for non-SFH multi-tenure schemes.
   var gdv = 0;
   if (manualGdv > 0) gdv = manualGdv;
-  else if (tenureBlendedGdv > 0) gdv = tenureBlendedGdv;  // mixed-tenure scheme
-  else if (at === "sfh" && sfhGdv > 0) gdv = sfhGdv;
+  else if (at === "sfh" && sfhGdv > 0) gdv = sfhGdv;       // SFH: canonical AH-aware mix blend
+  else if (tenureBlendedGdv > 0) gdv = tenureBlendedGdv;  // other mixed-tenure scheme
   else if ((at === "btr" || at === "pbsa") && btrGdv > 0) gdv = btrGdv;
-  else if (at === "sfh" && sfhGdv > 0) gdv = sfhGdv;
   else if (at !== "btr" && at !== "pbsa" && sfhGdv > 0) gdv = sfhGdv;
   // F7 lockout: only btr/pbsa/asset schemes may fall back to the capitalised BTR GDV,
   // so a stale BTR/PBSA value can no longer leak into an SFH / land / property deal.
@@ -1899,6 +1928,7 @@ function calcDealMetrics(data){
 var STAGE_FOCUS = {
   land: "You are at the LAND APPRAISAL stage — the very start of the journey. Focus ONLY on the land itself: location quality, planning status and certainty, site size, tenure, contamination, and whether the ASKING PRICE is sensible versus the £/acre benchmark band for this planning tier. Do NOT analyse build cost, GDV, sale values, S106 or developer margin in detail — those inputs belong to later stages and may not even be set yet.",
   fin:  "You are at the FINANCIAL MODELLING stage. Focus on the development-appraisal economics: build cost, fees, finance, contingency, S106, GDV, profit and margin versus benchmarks.",
+  sfh:  "You are at the SFH HOUSE MIX stage. Focus on the unit mix, house-type pricing, affordable-housing tenure strategy, infrastructure adequacy and phasing. Use the GDV, RLV and margin from the DEAL STATE above as the single source of truth — do NOT restate or recompute your own headline GDV/RLV/margin; they are already given and reflect the affordable-housing blend.",
   land_deal: "You are advising on the LAND DEAL STRUCTURE. Focus on the acquisition: fair land price, deal structure (unconditional/conditional/option/promotion), overage, and the landowner split — not the build programme.",
   exit: "You are at the EXIT STRATEGY stage. Focus on the exit/sale route, buyer type, yield, hold-vs-sell and refinancing — not the land acquisition price.",
   hra:  "You are at the APARTMENT (HRA) appraisal stage. Focus on apartment-scheme viability, BSA 2022 / Gateway compliance, structural form for the storey count, and mix optimisation.",
