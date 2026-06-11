@@ -1766,7 +1766,9 @@ function calcDealMetrics(data){
   else if ((at === "btr" || at === "pbsa") && btrGdv > 0) gdv = btrGdv;
   else if (at === "sfh" && sfhGdv > 0) gdv = sfhGdv;
   else if (at !== "btr" && at !== "pbsa" && sfhGdv > 0) gdv = sfhGdv;
-  else if (btrGdv > 0) gdv = btrGdv;
+  // F7 lockout: only btr/pbsa/asset schemes may fall back to the capitalised BTR GDV,
+  // so a stale BTR/PBSA value can no longer leak into an SFH / land / property deal.
+  else if ((at === "btr" || at === "pbsa" || at === "asset") && btrGdv > 0) gdv = btrGdv;
   else if (units > 0 && salePsf > 0 && avgSqft > 0) gdv = units * avgSqft * salePsf;
 
   // ── COSTS ──────────────────────────────────────────────────────────────
