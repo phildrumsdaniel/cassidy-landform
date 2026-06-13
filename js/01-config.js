@@ -1368,21 +1368,53 @@ function sfhAhFactor(data){
 
 
 var HOUSE_TYPES = {
-  "1-bed terrace":{sqft:550,adj:0.75},
-  "1-bed apartment":{sqft:520,adj:0.72},
-  "2-bed terrace":{sqft:720,adj:0.88},
-  "2-bed apartment":{sqft:680,adj:0.85},
-  "2-bed semi":{sqft:820,adj:0.90},
-  "3-bed terrace":{sqft:920,adj:0.95},
-  "3-bed semi":{sqft:1020,adj:1.00},
-  "3-bed detached":{sqft:1150,adj:1.08},
-  "4-bed terrace":{sqft:1180,adj:1.10},
-  "4-bed semi":{sqft:1300,adj:1.14},
-  "4-bed detached":{sqft:1500,adj:1.18},
-  "4-bed executive":{sqft:1900,adj:1.28},
-  "5-bed detached":{sqft:2400,adj:1.40},
-  "Bungalow 2-bed":{sqft:800,adj:1.05},
-  "Bungalow 3-bed":{sqft:1050,adj:1.12},
+  // ── Apartments / flats (new-build) ──
+  "Studio apartment":{beds:0,sqft:330,adj:0.58},
+  "1-bed apartment":{beds:1,sqft:520,adj:0.72},
+  "2-bed apartment":{beds:2,sqft:680,adj:0.85},
+  "3-bed apartment":{beds:3,sqft:900,adj:1.02},
+  "2-bed penthouse":{beds:2,sqft:950,adj:1.20},
+  "3-bed penthouse":{beds:3,sqft:1300,adj:1.35},
+  // ── Conversion flats (stately home / office / pub converted to flats) ──
+  "Conversion studio":{beds:0,sqft:380,adj:0.60},
+  "Conversion 1-bed flat":{beds:1,sqft:560,adj:0.78},
+  "Conversion 2-bed flat":{beds:2,sqft:800,adj:0.92},
+  "Conversion 3-bed flat":{beds:3,sqft:1100,adj:1.08},
+  "Conversion duplex":{beds:3,sqft:1300,adj:1.18},
+  // ── Maisonettes / coach houses ──
+  "1-bed maisonette":{beds:1,sqft:600,adj:0.80},
+  "2-bed maisonette":{beds:2,sqft:820,adj:0.92},
+  "Coach house 2-bed":{beds:2,sqft:700,adj:0.88},
+  // ── Terraces ──
+  "1-bed terrace":{beds:1,sqft:550,adj:0.75},
+  "2-bed terrace":{beds:2,sqft:720,adj:0.88},
+  "3-bed terrace":{beds:3,sqft:920,adj:0.95},
+  "4-bed terrace":{beds:4,sqft:1180,adj:1.10},
+  // ── Mews / townhouses ──
+  "2-bed mews":{beds:2,sqft:900,adj:0.98},
+  "3-bed mews":{beds:3,sqft:1050,adj:1.05},
+  "3-bed townhouse":{beds:3,sqft:1300,adj:1.15},
+  "4-bed townhouse":{beds:4,sqft:1650,adj:1.26},
+  // ── Semi-detached ──
+  "2-bed semi":{beds:2,sqft:820,adj:0.90},
+  "3-bed semi":{beds:3,sqft:1020,adj:1.00},
+  "4-bed semi":{beds:4,sqft:1300,adj:1.14},
+  // ── Link-detached ──
+  "3-bed link-detached":{beds:3,sqft:1100,adj:1.05},
+  "4-bed link-detached":{beds:4,sqft:1350,adj:1.16},
+  // ── Detached ──
+  "3-bed detached":{beds:3,sqft:1150,adj:1.08},
+  "4-bed detached":{beds:4,sqft:1500,adj:1.18},
+  "4-bed executive":{beds:4,sqft:1900,adj:1.28},
+  "5-bed detached":{beds:5,sqft:2400,adj:1.40},
+  "5-bed executive":{beds:5,sqft:2900,adj:1.52},
+  "6-bed detached":{beds:6,sqft:3400,adj:1.65},
+  // ── Bungalows ──
+  "Bungalow 2-bed":{beds:2,sqft:800,adj:1.05},
+  "Bungalow 3-bed":{beds:3,sqft:1050,adj:1.12},
+  // ── Prime / large country houses ──
+  "Manor house":{beds:6,sqft:4500,adj:1.90},
+  "Mansion":{beds:8,sqft:6500,adj:2.20},
 };
 
 var RISK_DEFAULTS = [

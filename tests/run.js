@@ -216,6 +216,33 @@ console.log("Landform engine consistency tests\n");
   }
 })();
 
+// 11 — Comprehensive house-type catalogue (studio → mansion, incl. conversions)
+(function(){
+  // back-compat: every type the auto-mix relies on must still exist
+  ["1-bed terrace","2-bed terrace","2-bed semi","3-bed semi","3-bed detached","4-bed semi","4-bed detached"].forEach(function(t){
+    ok("catalogue keeps '"+t+"' (back-compat)", !!HOUSE_TYPES[t]);
+  });
+  // new comprehensive range present
+  ["Studio apartment","Conversion 2-bed flat","Conversion duplex","2-bed maisonette","3-bed link-detached","4-bed townhouse","Manor house","Mansion"].forEach(function(t){
+    ok("catalogue includes '"+t+"'", !!HOUSE_TYPES[t]);
+  });
+  ok("catalogue is comprehensive (30+ types)", Object.keys(HOUSE_TYPES).length >= 30);
+  ok("every type carries beds/sqft/adj", Object.keys(HOUSE_TYPES).every(function(k){ var t=HOUSE_TYPES[k]; return typeof t.beds==="number" && t.sqft>0 && t.adj>0; }));
+
+  // a mixed stately-home-style scheme (conversion flats + mansion + new-build) computes cleanly,
+  // pricing each row off the catalogue sqft × (basePsf × adj) when no explicit price is given
+  var d = { assetType:"sfh", land:{city:"maldon"}, sfh:{ city:"maldon", basePsf:400, buildPsf:220,
+    mix:[
+      {type:"Conversion 2-bed flat", count:"10", tenure:"private"},
+      {type:"Mansion",               count:"1",  tenure:"private"},
+      {type:"3-bed detached",        count:"20", tenure:"private"}
+    ] } };
+  var c = computeSFHMetrics(d);
+  ok("mixed catalogue scheme: units summed (31)", c.totalUnits === 31);
+  ok("mixed catalogue scheme: finite positive GDV", isFinite(c.gdv) && c.gdv > 0);
+  ok("mixed catalogue scheme: finite RLV", isFinite(c.rlv));
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);
