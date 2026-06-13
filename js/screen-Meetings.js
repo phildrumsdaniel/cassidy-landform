@@ -9,33 +9,50 @@ function renderMeetings(data, up, user){
 
     function upM(key,val){up("meetings",key,val);}
 
+    function addTranscriptFromText(text, file){
+      var newT={
+        id:"mtg-"+Date.now(),
+        name:file.name.replace(/\.[^.]+$/,""),
+        filename:file.name,
+        date:new Date().toLocaleDateString("en-GB"),
+        uploadedAt:Date.now(),
+        text:text,
+        analysis:"",
+        actionItems:[],
+        siteRefs:[],
+        keyDecisions:[],
+        attendees:[],
+        tags:[],
+        dealRef:data.land&&data.land.address||""
+      };
+      upM("transcripts",transcripts.concat([newT]));
+      upM("activeId",newT.id);
+    }
+
     function handleFileUpload(ev){
       var files=ev.target.files;
       if(!files||files.length===0)return;
       var file=files[0];
+      var nm=(file.name||"").toLowerCase();
+      var isExcel=/\.(xlsx|xlsm|xlsb|xls)$/.test(nm);
       var reader=new FileReader();
       reader.onload=function(e){
-        var text=e.target.result;
-        var newT={
-          id:"mtg-"+Date.now(),
-          name:file.name.replace(/\.[^.]+$/,""),
-          filename:file.name,
-          date:new Date().toLocaleDateString("en-GB"),
-          uploadedAt:Date.now(),
-          text:text,
-          analysis:"",
-          actionItems:[],
-          siteRefs:[],
-          keyDecisions:[],
-          attendees:[],
-          tags:[],
-          dealRef:data.land&&data.land.address||""
-        };
-        var newList=transcripts.concat([newT]);
-        upM("transcripts",newList);
-        upM("activeId",newT.id);
+        if(isExcel){
+          // Excel is binary (zipped XML) — parse with SheetJS and turn every sheet
+          // into readable CSV text so it flows into the same analysis pipeline.
+          if(typeof XLSX==="undefined"){ alert("Spreadsheet reader is still loading — please try again in a moment."); return; }
+          try{
+            var wb=XLSX.read(new Uint8Array(e.target.result),{type:"array"});
+            var out=wb.SheetNames.map(function(sn){
+              return "=== Sheet: "+sn+" ===\n"+XLSX.utils.sheet_to_csv(wb.Sheets[sn]);
+            }).join("\n\n");
+            addTranscriptFromText(out||"(empty workbook)", file);
+          }catch(err){ alert("Could not read that spreadsheet: "+(err&&err.message||err)); }
+        } else {
+          addTranscriptFromText(e.target.result, file);
+        }
       };
-      reader.readAsText(file);
+      if(isExcel) reader.readAsArrayBuffer(file); else reader.readAsText(file);
       ev.target.value="";
     }
 
@@ -159,7 +176,7 @@ function renderMeetings(data, up, user){
         e("div",{style:{display:"flex",gap:8}},
           e("label",{style:{padding:"8px 16px",background:"#4A4BAE",border:"none",borderRadius:6,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",display:"inline-flex",alignItems:"center",gap:6}},
             "📁 Upload File",
-            e("input",{type:"file",accept:".txt,.doc,.docx,.pdf,.md",onChange:handleFileUpload,style:{display:"none"}})
+            e("input",{type:"file",accept:".txt,.doc,.docx,.pdf,.md,.csv,.xlsx,.xls,.xlsm,.xlsb",onChange:handleFileUpload,style:{display:"none"}})
           )
         )
       ),
@@ -183,7 +200,7 @@ function renderMeetings(data, up, user){
       transcripts.length===0&&e("div",{style:{textAlign:"center",padding:"40px 20px",color:"#7278A0",background:"rgba(74,75,174,0.03)",borderRadius:10,border:"1px dashed rgba(74,75,174,0.2)"}},
         e("div",{style:{fontSize:40,marginBottom:12}},"📝"),
         e("div",{style:{fontSize:14,fontWeight:700,color:"#2E2F8A",marginBottom:6}},"No meeting transcripts yet"),
-        e("div",{style:{fontSize:12,lineHeight:1.7}},"Upload a .txt file or paste notes above.",e("br"),"AI will extract action items, decisions and site references automatically.")
+        e("div",{style:{fontSize:12,lineHeight:1.7}},"Upload a .txt, .csv or Excel (.xlsx) file, or paste notes above.",e("br"),"AI will extract action items, decisions and site references automatically.")
       ),
 
       transcripts.length>0&&e("div",{style:{display:"grid",gridTemplateColumns:"260px 1fr",gap:16}},
