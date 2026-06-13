@@ -1111,30 +1111,38 @@ var JOURNEYS = {
     function generateSummary(){
       setData(function(d){return Object.assign({},d,{sumLoading:true,sumReport:""});});
 
-      var dealData={
-        address:addr,postcode:pc,city:cityName(lCity2),acres:acres2,
-        askingPrice:askingPrice2,assetType:assetLabel,journey:journeyLabel,
-        lpa:lpa2,planningStatus:planStatus2,units:totalUnits2,
-        gdv:gdv,totalDevCost:tc,profit:profit,margin:margin,
-        exitYield:ey*100,noi:noi,exitStrategy:ex.strategy||"Not set",
-        sfhMix:sf.mix?sf.mix.filter(function(m){return num(m.count)>0;}).map(function(m){return m.count+"x "+m.type;}).join(", "):"",
-        riskCount:(data.risks||[]).length,
-        redRisks:(data.risks||[]).filter(function(r2){return r2.rag==="red";}).length,
-        ddComplete:Object.keys(data.ddChecked||{}).filter(function(k){return data.ddChecked[k];}).length,
-        completionPct:completionPct,
-        agent:data.scraper&&data.scraper.result&&data.scraper.result.agent||"",
-        description:data.scraper&&data.scraper.result&&data.scraper.result.description||"",
-        planningStatus2:planStatus2,
-        recoveryRoute:rc.refusalType||"",
-      };
-
-      var prompt="Write a professional executive summary for this real estate development deal. Format as a structured deal brief that could be shared with investors or partners.\n\nDEAL DATA:\n"+JSON.stringify(dealData)+"\n\nWrite the summary with these 9 sections:\n1. DEAL OVERVIEW\n2. SITE & LOCATION\n3. DEVELOPMENT PROPOSAL\n4. FINANCIAL SUMMARY\n5. PLANNING POSITION\n6. EXIT STRATEGY\n7. KEY RISKS\n8. NEXT STEPS\n9. DEAL RATING (score 1-10 with justification)\n\nTone: Professional, commercially sharp, suitable for institutional investors. Plain text. Be specific with the actual numbers provided.";
+      // v9.47 — Ground the exec summary in the SAME unified engine every other
+      // screen uses (calcDealMetrics), so the headline numbers add up, and route
+      // it through buildHonestPrompt so persona/tone/'make-it-stack' rules apply.
+      var DMx = (typeof calcDealMetrics==="function") ? calcDealMetrics(data) : {};
+      var extra = "Write a friendly EXECUTIVE SUMMARY that a complete beginner could follow.\n\n"+
+        "ADDITIONAL DEAL CONTEXT (facts — use alongside the verified deal state above):\n"+
+        "- Address: "+(addr||"not provided")+", "+cityName(lCity2)+" "+(pc||"")+"\n"+
+        "- Asset type / journey: "+assetLabel+" / "+journeyLabel+"\n"+
+        "- Planning: "+planStatus2+(lpa2?", LPA "+lpa2:"")+"\n"+
+        "- Exit strategy: "+(ex.strategy||"not set")+(num(ey)?", target yield "+pct(ey*100):"")+"\n"+
+        "- Risks logged: "+(data.risks||[]).length+" ("+((data.risks||[]).filter(function(r2){return r2.rag==="red";}).length)+" red)\n"+
+        "- Due-diligence items ticked: "+(Object.keys(data.ddChecked||{}).filter(function(k){return data.ddChecked[k];}).length)+"\n"+
+        "- Data completeness: "+completionPct+"%\n"+
+        ((data.scraper&&data.scraper.result&&data.scraper.result.agent)?("- Listing agent: "+data.scraper.result.agent+"\n"):"")+
+        "\nWrite these sections, each opening with ONE plain-English sentence a non-expert grasps instantly:\n"+
+        "1. THE DEAL IN A NUTSHELL\n"+
+        "2. THE SITE & LOCATION\n"+
+        "3. WHAT WE'D BUILD\n"+
+        "4. THE MONEY — in pounds and plain words: what it sells for, what it costs to build, what's left to pay for the land and profit\n"+
+        "5. PLANNING POSITION\n"+
+        "6. HOW WE GET OUR MONEY BACK (the exit)\n"+
+        "7. THE MAIN RISKS — and how to handle each\n"+
+        "8. DOES IT STACK UP? — say plainly yes / no / marginal. If it does NOT, follow rule 6: design a concrete alternative scheme that WOULD work, list the levers you changed, and give the rough resulting numbers, clearly labelled as YOUR proposed scenario to test in Landform.\n"+
+        "9. NEXT STEPS — the 3-5 most important things to do next\n"+
+        "10. DEAL RATING out of 10, with a one-line reason.\n";
+      var prompt = (typeof buildHonestPrompt==="function") ? buildHonestPrompt(data, extra) : extra;
 
       var params=new URLSearchParams({
         action:"ai",stage:"Executive Summary",
         user:(user&&user.name)||"",company:(user&&user.company)||"",
-        system:"You are a senior real estate investment analyst. Write clear, commercially sharp executive summaries for development deals. Plain text only. Use UK conventions and formatting.",
-        prompt:prompt.substring(0,3000)
+        system:"You are the UK's best property developer, advising Cassidy Group Ltd. Write in warm, plain, layman's terms a non-expert understands. UK conventions. Plain text only.",
+        prompt:prompt.substring(0,8000)
       });
 
       fetch(WEBHOOK+"?"+params.toString())
