@@ -765,6 +765,42 @@ function renderRLV(city, data, m, navTo, setData, up, user){
             )
           ),
 
+          // ── MAKE IT STACK — numeric solver: the exact single-lever change on
+          // each lever that lifts the residual to cover the asking price (or £0).
+          (function(){
+            if(typeof optimiseScheme!=="function") return null;
+            var opt=optimiseScheme(data);
+            if(opt.stacks || (opt.levers.length===0 && !opt.allInOption)) return null;
+            var applyBtn={padding:"5px 12px",background:"#B05A35",color:"#fff",border:"none",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"};
+            var rowSt={display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,padding:"8px 0",borderBottom:"1px dashed #EADBC8"};
+            function applyLever(lv){
+              if(lv.key==="sales"){
+                var f=1+lv.required/100;
+                var nm=((data.sfh&&data.sfh.mix)||[]).map(function(r){var c=Object.assign({},r); if(num(c.unitPrice))c.unitPrice=String(Math.round(num(c.unitPrice)*f)); else if(num(c.psf))c.psf=String(Math.round(num(c.psf)*f)); return c;});
+                up("sfh","mix",nm);
+              } else { up("sfh",lv.key,lv.required); }
+            }
+            return e("div",{style:{marginTop:12,background:"#FFF8F0",border:"1px solid rgba(176,90,53,0.35)",borderRadius:8,padding:"14px 16px"}},
+              e("div",{style:{fontSize:13,fontWeight:800,color:"#B05A35",marginBottom:4}},"🔧 How to make this scheme stack"),
+              e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:10,lineHeight:1.5}},
+                opt.targetRlv>0
+                  ? "The land is worth "+fmt(opt.currentRlv)+" to this scheme, but the asking is "+fmt(opt.targetRlv)+". Each line below is the single change that would close the gap on its own — tap Apply to model it."
+                  : "The scheme doesn't break even on land ("+fmt(opt.currentRlv)+"). Each line is the single change that would get it to £0 on its own — tap Apply to model it."
+              ),
+              opt.allInOption && e("div",{style:rowSt},
+                e("div",{style:{fontSize:11,color:"#4A4B6E",flex:1}},e("strong",null,"Mark build cost as all-in")," — "+opt.allInOption.note),
+                e("button",{onClick:function(){up("sfh","buildInclusive",true);},style:applyBtn},"Apply")
+              ),
+              opt.levers.map(function(lv){
+                return e("div",{key:lv.key,style:rowSt},
+                  e("div",{style:{fontSize:11,color:"#4A4B6E",flex:1}},e("strong",null,lv.label+(lv.stretch?" ⚠":""))," — "+lv.note),
+                  e("button",{onClick:function(){applyLever(lv);},style:applyBtn},"Apply")
+                );
+              }),
+              e("div",{style:{fontSize:10,color:"#9A7B3E",marginTop:8,fontStyle:"italic"}},"⚠ = a stretch; back it with evidence before relying on it. Applying a change models it across the tool — your other figures stay as you set them.")
+            );
+          })(),
+
           // ── COST BREAKDOWN — what's deducted from GDV to reach land value
           e("div",{style:{marginTop:12,background:"#F7F8FC",borderRadius:8,padding:"14px 16px"}},
             e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:10}},"What's deducted to reach the land value"),

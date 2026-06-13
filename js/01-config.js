@@ -1973,6 +1973,126 @@ function calcDealMetrics(data){
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// optimiseScheme (v9.48) — the numeric "MAKE IT STACK" solver.
+// When a scheme doesn't work, this works out — exactly — the single change to
+// each lever that would lift the residual land value (RLV) to a target (default:
+// enough to cover the asking land price; otherwise break even at £0). It drives
+// the REAL calcDealMetrics by bisection, so every answer matches the engine the
+// screens use — no separate formula to drift. SFH schemes for now.
+//
+// Returns { stacks, currentRlv, targetRlv, asking, levers:[...], allInOption }.
+// Each lever: { key,label,current,required,unit,direction,feasible,stretch,note,resultRlv }.
+// ──────────────────────────────────────────────────────────────────────────
+function optimiseScheme(data, opts){
+  opts = opts || {};
+  data = data || {};
+  var base = calcDealMetrics(data);
+  var asking = num(data.land && data.land.price);
+  var targetRlv = (opts.targetRlv != null) ? opts.targetRlv : (asking > 0 ? asking : 0);
+  var sfh = data.sfh || {};
+  var cityKey = ((sfh.city) || (data.land && data.land.city) || "").toLowerCase();
+  var mkt = MKT[cityKey] || null;
+
+  function clone(d){ return JSON.parse(JSON.stringify(d)); }
+  function rlvWith(mutate){ var d = clone(data); mutate(d); return calcDealMetrics(d).rlv; }
+  // Find, by bisection, the value in [lo,hi] that just reaches targetRlv.
+  // increasingHelps=true  → bigger value raises RLV (return the smallest that works).
+  // increasingHelps=false → smaller value raises RLV (return the largest that works,
+  //                         i.e. the least painful reduction).
+  function solve(setter, lo, hi, increasingHelps){
+    var bestEnd = increasingHelps ? hi : lo;
+    if (rlvWith(function(d){ setter(d, bestEnd); }) < targetRlv) return null; // even the max move fails
+    var a = lo, b = hi;
+    for (var i = 0; i < 50; i++){
+      var mid = (a + b) / 2;
+      var r = rlvWith(function(d){ setter(d, mid); });
+      if (increasingHelps) { if (r < targetRlv) a = mid; else b = mid; }
+      else { if (r < targetRlv) b = mid; else a = mid; }
+    }
+    return increasingHelps ? b : a;
+  }
+
+  var levers = [];
+  var isSfh = (data.assetType === "sfh" || !data.assetType) && computeSFHMetrics(data).totalUnits > 0;
+  if (isSfh) {
+    var cur = computeSFHMetrics(data);
+
+    // 1) Sales uplift — scale every unit price by k (an across-the-board % uplift).
+    var setSales = function(d, k){ (d.sfh.mix || []).forEach(function(row){
+      if (num(row.unitPrice)) row.unitPrice = String(Math.round(num(row.unitPrice) * k));
+      else if (num(row.sqft) && num(row.psf)) row.psf = String(num(row.psf) * k);
+    }); };
+    var kNeeded = solve(setSales, 1.0, 1.8, true);
+    if (kNeeded != null) {
+      var upliftPct = Math.round((kNeeded - 1) * 100);
+      levers.push({ key:"sales", label:"Achieve higher sales values", current:0, required:upliftPct, unit:"% across the board",
+        direction:"up", feasible:true, stretch: upliftPct > 12,
+        note: upliftPct <= 0 ? "Already sufficient." : "Sales would need to be about "+upliftPct+"% higher than entered"+(upliftPct>12?" — a big ask; back it with dated new-build comparables before relying on it.":" — check against recent local new-build sales.") });
+    }
+
+    // 2) Build cost — lower £/sqft.
+    var curBuild = num(sfh.buildPsf) || (mkt && mkt.build) || 195;
+    var buildNeeded = solve(function(d,v){ d.sfh.buildPsf = v; }, curBuild*0.5, curBuild, false);
+    if (buildNeeded != null && buildNeeded < curBuild - 0.5) {
+      levers.push({ key:"buildPsf", label:"Reduce build cost", current:Math.round(curBuild), required:Math.round(buildNeeded), unit:"£/sqft",
+        direction:"down", feasible:true, stretch: buildNeeded < curBuild*0.85,
+        note:"Build would need to come down from £"+Math.round(curBuild)+" to about £"+Math.round(buildNeeded)+"/sqft — tender it, or check the build rate isn't double-counting infra." });
+    }
+
+    // 3) Developer profit — accept a thinner margin (floored at 12%).
+    var curProfit = numOr(sfh.profitPct, 17.5);
+    if (curProfit > 12) {
+      var profitNeeded = solve(function(d,v){ d.sfh.profitPct = v; }, 12, curProfit, false);
+      if (profitNeeded != null && profitNeeded < curProfit - 0.1) {
+        levers.push({ key:"profitPct", label:"Accept a lower profit margin", current:curProfit, required:Math.round(profitNeeded*10)/10, unit:"% of GDV",
+          direction:"down", feasible:true, stretch: profitNeeded < 15,
+          note:"Trimming target profit to about "+(Math.round(profitNeeded*10)/10)+"% would do it"+(profitNeeded<15?" — but below ~15% most funders get nervous.":".") });
+      }
+    }
+
+    // 4) Affordable housing — reduce the AH% (planning permitting).
+    var curAh = num(sfh.ahPct);
+    if (curAh > 0) {
+      var ahNeeded = solve(function(d,v){ d.sfh.ahPct = v; }, 0, curAh, false);
+      if (ahNeeded != null && ahNeeded < curAh - 0.5) {
+        levers.push({ key:"ahPct", label:"Reduce affordable housing %", current:Math.round(curAh), required:Math.round(ahNeeded), unit:"% affordable",
+          direction:"down", feasible:true, stretch:false,
+          note:"Dropping affordable from "+Math.round(curAh)+"% to about "+Math.round(ahNeeded)+"% would do it — needs a viability case agreed with the council." });
+      }
+    }
+
+    // 5) S106 / unit — lower the planning contribution.
+    var curS106 = numOr(sfh.s106pu, 8000);
+    var s106Needed = solve(function(d,v){ d.sfh.s106pu = v; }, 0, curS106, false);
+    if (s106Needed != null && s106Needed < curS106 - 1) {
+      levers.push({ key:"s106pu", label:"Negotiate S106 down", current:Math.round(curS106), required:Math.round(s106Needed), unit:"£/unit",
+        direction:"down", feasible:true, stretch: s106Needed < curS106*0.5,
+        note:"S106 would need to fall from £"+Math.round(curS106).toLocaleString()+" to about £"+Math.round(s106Needed).toLocaleString()+"/unit — test against the actual heads of terms." });
+    }
+  }
+
+  // Binary lever: if roads/infra are being added separately, is the build rate
+  // actually all-in? Toggling it on is a one-click, often-large swing.
+  var allInOption = null;
+  if (isSfh && !sfh.buildInclusive) {
+    var rlvAllIn = rlvWith(function(d){ d.sfh.buildInclusive = true; });
+    if (rlvAllIn > base.rlv + 1) {
+      allInOption = { resultRlv: rlvAllIn, delta: rlvAllIn - base.rlv,
+        note:"If your build £/sqft already includes roads, drainage and site infrastructure, tick 'build is all-in' — that alone adds "+(Math.round((rlvAllIn-base.rlv)/1000))+"k to the residual." };
+    }
+  }
+
+  return {
+    stacks: base.rlv >= targetRlv,
+    currentRlv: base.rlv,
+    targetRlv: targetRlv,
+    asking: asking,
+    levers: levers,
+    allInOption: allInOption
+  };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // HONEST AI WRAPPER (v9.42)
 // Wraps every AI panel prompt so the model is grounded in Landform's OWN
 // calculated figures, is given market benchmarks to cross-check against, is

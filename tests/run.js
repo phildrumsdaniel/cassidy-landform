@@ -152,6 +152,37 @@ console.log("Landform engine consistency tests\n");
   ok("prompt instructs layman's terms", p.indexOf("layman") >= 0);
 })();
 
+// 9 — "Make It Stack" solver: answers are exact when fed back through the engine
+(function(){
+  var d = sfhDeal({ sfh:{ ahPct:50, ahTenure:"ahp_affordable" } });   // gross RLV is negative
+  var opt = optimiseScheme(d, { targetRlv:0 });
+  ok("optimiser flags a non-stacking scheme", opt.stacks === false);
+  ok("optimiser returns at least one lever", opt.levers.length > 0);
+
+  // buildPsf solution, fed back through calcDealMetrics, lands on the target (±rounding)
+  var bl = opt.levers.filter(function(x){ return x.key === "buildPsf"; })[0];
+  if (bl) {
+    var d2 = JSON.parse(JSON.stringify(d)); d2.sfh.buildPsf = bl.required;
+    near("solver buildPsf answer hits the target", calcDealMetrics(d2).rlv, 0, 130000);
+  }
+  // sales uplift solution moves RLV up to ~target (integer-% rounded)
+  var sl = opt.levers.filter(function(x){ return x.key === "sales"; })[0];
+  if (sl) {
+    var d3 = JSON.parse(JSON.stringify(d));
+    (d3.sfh.mix || []).forEach(function(r){ r.unitPrice = String(Math.round(num(r.unitPrice) * (1 + sl.required/100))); });
+    ok("solver sales answer lifts RLV to about break-even", calcDealMetrics(d3).rlv >= -500000);
+  }
+
+  // all-in build option equals the roads+infra it removes
+  var optAllIn = optimiseScheme(sfhDeal(), { targetRlv:0 });
+  ok("solver surfaces the build-inclusive option", !!optAllIn.allInOption);
+  if (optAllIn.allInOption) near("all-in delta == roads+infra removed", optAllIn.allInOption.delta, 200*12000 + 32*53000, 2);
+
+  // a viable scheme reports stacks=true
+  var good = optimiseScheme(sfhDeal({ sfh:{ buildInclusive:true } }), { targetRlv:0 });
+  ok("optimiser reports a viable scheme as stacking", good.stacks === true);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);
