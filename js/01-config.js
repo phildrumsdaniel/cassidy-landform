@@ -1753,6 +1753,72 @@ function computeSFHMetrics(data){
     acres:sfhAcres,buildInclusive:buildInclusive,fees:sfhFees,contingency:sfhContingency,finance:sfhFinance,s106:sfhS106,roads:sfhRoads,infra:sfhInfra,profit:sfhProfit,devCost:sfhDevCost,rlv:sfhGrossRlv};
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// computeHRAMetrics (v9.49) — canonical engine for high-rise / apartment (BTR/
+// PBSA) blocks. Mirrors the BTR/PBSA Block screen EXACTLY for the sales-based
+// value (so screen == engine), and ALSO returns the rent-capitalised investment
+// value, so a BTR scheme can be judged BOTH ways: sell the flats individually,
+// or sell the whole block to an investor on its rent. Full high-rise cost stack
+// (lifts, sprinklers, EWS1, BSA Gateway 2/3, structural premium, amenity).
+// ──────────────────────────────────────────────────────────────────────────
+function computeHRAMetrics(data){
+  data = data || {};
+  var h = data.hra || {};
+  var cityKey = ((h.city) || (data.land && data.land.city) || (data.sfh && data.sfh.city) || "").toLowerCase();
+  var hm = MKT[cityKey] || MKT.manchester;
+  var storeys = num(h.storeys), fp = num(h.fp);
+  var eff = numOr(h.eff, 80);
+  var gia = fp * storeys, nia = gia * (eff / 100);
+  var ss = numOr(h.ss, 20), os = numOr(h.os, 50), ts = numOr(h.ts, 30);
+  var ssqft = numOr(h.ssqft, 380), osqft = numOr(h.osqft, 520), tsqft = numOr(h.tsqft, 750);
+  var su = (nia > 0 && ss > 0 && ssqft > 0) ? Math.round(nia * (ss / 100) / ssqft) : 0;
+  var ou = (nia > 0 && os > 0 && osqft > 0) ? Math.round(nia * (os / 100) / osqft) : 0;
+  var tu = (nia > 0 && ts > 0 && tsqft > 0) ? Math.round(nia * (ts / 100) / tsqft) : 0;
+  var total = su + ou + tu;
+  var mktSalePsf = num(data.rlv && data.rlv.salePsf) || (cityKey && typeof PC_PSF !== "undefined" && PC_PSF[cityKey.substring(0,3).toUpperCase()]) || 260;
+  var sPsf = num(h.sPsf) || Math.round(mktSalePsf * 0.92);
+  var oPsf = num(h.oPsf) || Math.round(mktSalePsf);
+  var tPsf = num(h.tPsf) || Math.round(mktSalePsf * 1.08);
+  var fl = numOr(h.fl, 0.5);
+  var blend = 1 + (storeys > 1 ? (storeys / 2) * fl / 100 : 0);
+  var salesGdv = su * ssqft * sPsf * blend + ou * osqft * oPsf * blend + tu * tsqft * tPsf * blend;
+  var bcp = numOr(h.bcp, (storeys >= 20 ? 310 : storeys >= 15 ? 280 : storeys >= 10 ? 255 : 230));
+  var hBc = gia * bcp;
+  var cores = numOr(h.cores, Math.max(1, Math.ceil(gia / 40000)));
+  var hrCosts = cores * storeys * 18000           // lifts
+    + gia * 18                                      // sprinklers
+    + (storeys >= 11 ? 25000 : 0)                   // EWS1
+    + (storeys >= 18 ? 45000 : storeys >= 11 ? 28000 : 0)  // Gateway 2/3
+    + (storeys >= 20 ? gia * 15 : storeys >= 15 ? gia * 10 : gia * 6)  // structural premium
+    + Math.min(total * 3500, 500000);               // amenity
+  var fees = hBc * 0.13, cont = hBc * (numOr(h.contingency, 6)) / 100;
+  var fin = (hBc + fees) * (numOr(h.finRate, 8)) / 100;
+  var s106 = total * (numOr(h.s106pu, 10000)), plan = total * 12000;
+  var profitPct = numOr(h.profitPct, 17.5);
+  var devCost = hBc + fees + cont + fin + s106 + plan + hrCosts;
+  var salesProfit = salesGdv * (profitPct / 100);
+  var salesRlv = salesGdv - devCost - salesProfit;
+
+  // Investment value — sell the whole block to an investor on its rent.
+  var cap = data.capitalise || {};
+  var capYield = num(cap.targetYield); capYield = capYield > 1 ? capYield / 100 : capYield;
+  var yld = capYield || (hm && hm.yield) || 0.05;
+  var grossRentPa = total * (areaMarketRentPa(data) || (hm && hm.btr ? hm.btr * 12 : 0));
+  var netRentPa = grossRentPa * 0.75;   // ~25% gross-to-net (voids, management, opex) — typical BTR
+  var investmentValue = (yld > 0 && netRentPa > 0) ? netRentPa / yld : 0;
+  var investmentProfit = investmentValue * (profitPct / 100);
+  var investmentRlv = investmentValue > 0 ? investmentValue - devCost - investmentProfit : 0;
+
+  return {
+    units: total, su: su, ou: ou, tu: tu, gia: gia, nia: nia,
+    salesGdv: salesGdv, gdv: salesGdv,
+    buildCost: hBc, fees: fees, contingency: cont, finance: fin, s106: s106, planning: plan, hrCosts: hrCosts,
+    devCost: devCost, profit: salesProfit, rlv: salesRlv,
+    annualRentGross: grossRentPa, annualRentNet: netRentPa, yield: yld,
+    investmentValue: investmentValue, investmentRlv: investmentRlv
+  };
+}
+
 // areaMarketRentPa (v9.47) — the local open-market rent per unit per year, taken
 // from the area data (MKT[city].btr is a monthly market rent). Used to auto-fill
 // affordable rents (Social Rent ~60%, Affordable Rent ~80% of market) so they

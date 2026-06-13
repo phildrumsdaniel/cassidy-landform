@@ -259,6 +259,37 @@ console.log("Landform engine consistency tests\n");
   ok("mixed-tenure row blends (shared ownership is non-private)", c.hasNonPrivate === true);
 })();
 
+// 13 — Apartments (BTR/PBSA): engine mirrors the screen's sales value, plus the
+// rent-capitalised investment value ("both ways to value a BTR block").
+(function(){
+  // Independent replica of the BTR/PBSA Block screen's sales-GDV formula.
+  function hraScreenSalesGdv(data){
+    var h = data.hra || {}; var city = ((h.city) || (data.land && data.land.city) || "").toLowerCase();
+    var storeys = num(h.storeys), fp = num(h.fp), eff = numOr(h.eff, 80);
+    var gia2 = fp * storeys, nia = gia2 * (eff / 100);
+    var ss = numOr(h.ss, 20), os = numOr(h.os, 50), ts = numOr(h.ts, 30);
+    var ssqft = numOr(h.ssqft, 380), osqft = numOr(h.osqft, 520), tsqft = numOr(h.tsqft, 750);
+    var su = (nia > 0 && ss > 0 && ssqft > 0) ? Math.round(nia * (ss / 100) / ssqft) : 0;
+    var ou = (nia > 0 && os > 0 && osqft > 0) ? Math.round(nia * (os / 100) / osqft) : 0;
+    var tu = (nia > 0 && ts > 0 && tsqft > 0) ? Math.round(nia * (ts / 100) / tsqft) : 0;
+    var mktSalePsf = num(data.rlv && data.rlv.salePsf) || (city && PC_PSF && PC_PSF[city.substring(0,3).toUpperCase()]) || 260;
+    var sPsf = num(h.sPsf) || Math.round(mktSalePsf * 0.92);
+    var oPsf = num(h.oPsf) || Math.round(mktSalePsf);
+    var tPsf = num(h.tPsf) || Math.round(mktSalePsf * 1.08);
+    var fl = numOr(h.fl, 0.5); var blend = 1 + (storeys > 1 ? (storeys / 2) * fl / 100 : 0);
+    return su * ssqft * sPsf * blend + ou * osqft * oPsf * blend + tu * tsqft * tPsf * blend;
+  }
+  var d = { assetType:"btr", land:{city:"manchester"}, hra:{ city:"manchester", storeys:10, fp:8000, eff:80, ss:20, os:50, ts:30 } };
+  var H = computeHRAMetrics(d);
+  ok("apartments: units computed", H.units > 0);
+  near("apartments: engine sales GDV == screen formula", H.salesGdv, hraScreenSalesGdv(d), 1);
+  ok("apartments: sales GDV positive", H.salesGdv > 0);
+  ok("apartments: investment value positive (rent-capitalised)", H.investmentValue > 0);
+  near("apartments: investment value == net rent / yield", H.investmentValue, H.annualRentNet / H.yield, 1);
+  ok("apartments: both RLVs are finite", isFinite(H.rlv) && isFinite(H.investmentRlv));
+  ok("apartments: high-rise costs included (lifts/sprinklers/etc.)", H.hrCosts > 0);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

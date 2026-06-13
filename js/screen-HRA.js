@@ -203,11 +203,37 @@ function renderHRA(LiveMarketBanner, city, data, up, user){
             e("span",{style:{color:sc,fontWeight:700}},hRlv>0&&hMargin>=15?"✓ Viable":"✗ Below threshold")
           )
         ),
+        // v9.49 — Two ways to value a BTR/PBSA block: sell the flats, or sell the
+        // whole block to an investor on its rent. Both come from one engine.
+        (function(){
+          if(typeof computeHRAMetrics!=="function") return null;
+          var H=computeHRAMetrics(data); if(!(H.units>0)) return null;
+          var box={flex:"1 1 240px",padding:"12px 14px",borderRadius:8,border:"1px solid #DDE0ED",background:"#F7F8FC"};
+          var tag={fontSize:10,color:"#7278A0",fontWeight:700,marginBottom:4};
+          var big={fontSize:20,fontWeight:800,color:"#2E2F8A"};
+          var sub={fontSize:10,color:"#7278A0",marginTop:4,lineHeight:1.4};
+          return e("div",{style:{marginTop:12}},
+            e("div",{style:{fontSize:12,fontWeight:800,color:"#2E2F8A",marginBottom:8}},"Two ways to value this block"),
+            e("div",{style:{display:"flex",gap:12,flexWrap:"wrap"}},
+              e("div",{style:box},
+                e("div",{style:tag},"① SELL THE FLATS INDIVIDUALLY"),
+                e("div",{style:big},fmt(H.salesGdv)),
+                e("div",{style:sub},"Gross sales value · max land "+fmt(H.rlv))
+              ),
+              e("div",{style:box},
+                e("div",{style:tag},"② SELL THE BLOCK TO AN INVESTOR (ON THE RENT)"),
+                e("div",{style:big},fmt(H.investmentValue)),
+                e("div",{style:sub},"At "+pct(H.yield*100)+" yield on "+fmt(H.annualRentNet)+" net rent/yr · max land "+fmt(H.investmentRlv))
+              )
+            ),
+            e("div",{style:{fontSize:10,color:"#9A7B3E",marginTop:8,fontStyle:"italic"}},"Investment value = net rent ÷ yield (assumes ~25% gross-to-net). Refine the rent and yield on the Capitalisation stage.")
+          );
+        })(),
         e("div",{style:{background:"rgba(176,90,53,0.06)",border:"1px solid rgba(176,90,53,0.2)",borderRadius:8,padding:"12px 16px",marginTop:10,fontSize:11,color:"#8A4020"}},
           "⚠ Est. service charge: £"+(total*2400).toLocaleString()+"/year total (£2,400/unit). Sinking fund required under BSA 2022. High service charges reduce investor pricing by ~2%."
         ),
         e(AIPanel,{user:user,up:up,stage:"hra",data:data,persistKey:"hra_high_rise_analysis__",label:"High-Rise Analysis & BSA Compliance",
-          prompt:buildHonestPrompt(data,"Analyse this "+storeys+"-storey apartment scheme in "+cityName(hCity)+". "+total+" units ("+su+" studios, "+ou+" 1-bed, "+tu+" 2-bed), GDV: "+fmt(hGdv)+", RLV: "+fmt(hRlv)+", margin: "+pct(hMargin)+". Structure: "+(h.structure||"RC frame")+". "+(bsa?"Higher Risk Building under BSA 2022.":"")+". Provide: 1) Viability vs "+cityName(hCity)+" market benchmarks, 2) BSA 2022 compliance roadmap and Gateway 2/3 timeline, 3) EWS1 strategy and cladding risk, 4) Structural form recommendation for "+storeys+" storeys, 5) Service charge impact on exit pricing, 6) Mix optimisation for current demand.","hra")})
+          prompt:buildHonestPrompt(data,"Analyse this "+storeys+"-storey apartment scheme in "+cityName(hCity)+". "+total+" units ("+su+" studios, "+ou+" 1-bed, "+tu+" 2-bed). Value it BOTH ways: selling the flats individually (sales GDV "+fmt(hGdv)+", margin "+pct(hMargin)+") and selling the whole block to an investor on its rent (rent-capitalised value "+fmt((typeof computeHRAMetrics==="function"?computeHRAMetrics(data).investmentValue:0))+"). Structure: "+(h.structure||"RC frame")+". "+(bsa?"Higher Risk Building under BSA 2022.":"")+". Provide: 1) Which exit (individual sales vs investment sale) looks better and why, 2) Viability vs "+cityName(hCity)+" market benchmarks, 3) BSA 2022 compliance roadmap and Gateway 2/3 timeline, 4) EWS1 strategy and cladding risk, 5) Structural form recommendation for "+storeys+" storeys, 6) Service charge impact on exit pricing, 7) Mix optimisation for current demand.","hra")})
       )
     );
   }
