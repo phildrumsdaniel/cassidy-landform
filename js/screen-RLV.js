@@ -116,12 +116,28 @@ function renderRLV(city, data, m, navTo, setData, up, user){
     var rFinCost=(rBc+rFees)*(rFin/100);
     var rS106=rUnits*(numOr(r.s106pu, 8000));
     var rPlan=rUnits*bt.plan;
+    var rRoads=0, rInfra=0;
+    var rFeesPct=bt.fees;
     var rDevProfit=rGdv*(rProfit/100);
     var rRlv=rGdv-rBc-rFees-rContCost-rFinCost-rS106-rPlan-rDevProfit;
-    // If acquisition costs toggle is on, the RLV is the NET land bid (after SDLT/legals/agent/land finance)
+    var rNetLandBid=rRlv;
+    // v9.47 — For SFH schemes, adopt the canonical gross cost stack (build, fees,
+    // contingency, finance, S106, roads, infra, profit) so this screen's RLV
+    // equals the SFH House Mix screen and the AI exactly. Acquisition costs give
+    // the net land bid. Non-SFH land valuations keep the flat-psf model.
+    var rIsSfhCanon = !!(data.sfh && data.sfh.mix && data.sfh.mix.length && typeof calcDealMetrics==="function" && (data.assetType==="sfh"||!data.assetType));
+    if(rIsSfhCanon){
+      var DMc=calcDealMetrics(data);
+      if(DMc.gdv>0){
+        rBc=DMc.buildCost; rFees=DMc.fees; rFeesPct=0.10; rContCost=DMc.contingency; rFinCost=DMc.finance;
+        rS106=DMc.s106; rRoads=DMc.roads; rInfra=DMc.infra; rPlan=0; rDevProfit=DMc.profit;
+        rRlv=DMc.rlv; rNetLandBid=DMc.netLandBid;
+      }
+    }
+    // If acquisition costs toggle is on, show the NET land bid (after SDLT/legals/agent/land finance)
     if(r.includeAcqCosts){
-      var DM_acq=calcDealMetrics(data);
-      rRlv = rRlv - DM_acq.totalAcqCosts;
+      if(rIsSfhCanon){ rRlv = rNetLandBid; }
+      else { var DM_acq=calcDealMetrics(data); rRlv = rRlv - DM_acq.totalAcqCosts; }
     }
     var rlvPu=rUnits>0?rRlv/rUnits:0;
     var rlvPctGdv=rGdv>0?(rRlv/rGdv)*100:0;
@@ -714,7 +730,7 @@ function renderRLV(city, data, m, navTo, setData, up, user){
           e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginTop:12,marginBottom:12}},
             e("div",{style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,padding:14}},
               e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:4}},"GDV Breakdown"),
-              [{l:"Build cost",v:rBc},{l:"Prof fees ("+Math.round(bt.fees*100)+"%)",v:rFees},{l:"Contingency ("+rCont+"%)",v:rContCost},{l:"Finance ("+rFin+"%)",v:rFinCost},{l:"S106/CIL",v:rS106},{l:"Planning fees",v:rPlan},{l:"Dev profit ("+rProfit+"%)",v:rDevProfit,warn:rProfit<15}].map(function(row){
+              [{l:"Build cost",v:rBc},{l:"Prof fees ("+Math.round(rFeesPct*100)+"%)",v:rFees},{l:"Contingency ("+rCont+"%)",v:rContCost},{l:"Finance ("+rFin+"%)",v:rFinCost},{l:"S106/CIL",v:rS106}].concat(rRoads>0?[{l:"Roads & Sewers",v:rRoads}]:[]).concat(rInfra>0?[{l:"Site Infra & SuDS",v:rInfra}]:[]).concat(rPlan>0?[{l:"Planning fees",v:rPlan}]:[]).concat([{l:"Dev profit ("+rProfit+"%)",v:rDevProfit,warn:rProfit<15}]).map(function(row){
                 // v9.26 — Highlight rows that look wrong (e.g. 0% profit)
                 var rowColor = row.warn ? "#B05A35" : "#7278A0";
                 var rowBg = row.warn ? "rgba(176,90,53,0.06)" : "transparent";
@@ -754,13 +770,13 @@ function renderRLV(city, data, m, navTo, setData, up, user){
             e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:10}},"What's deducted to reach the land value"),
             [
               {l:"Build cost ("+rUnits+" units × "+rSqft+"sqft × £"+rBuild+"/sqft)",v:rBc,pct2:rGdv>0?rBc/rGdv:0},
-              {l:"Professional fees & prelims ("+Math.round(bt.fees*100)+"% of build)",v:rFees,pct2:rGdv>0?rFees/rGdv:0},
+              {l:"Professional fees & prelims ("+Math.round(rFeesPct*100)+"% of build)",v:rFees,pct2:rGdv>0?rFees/rGdv:0},
               {l:"Contingency ("+rCont+"%)",v:rContCost,pct2:rGdv>0?rContCost/rGdv:0},
               {l:"Development finance ("+rFin+"% on build+fees)",v:rFinCost,pct2:rGdv>0?rFinCost/rGdv:0},
-              {l:"S106 obligations (£"+(num(r.s106pu)||8000).toLocaleString()+"/unit)",v:rS106,pct2:rGdv>0?rS106/rGdv:0},
-              {l:"Planning & infrastructure fees",v:rPlan,pct2:rGdv>0?rPlan/rGdv:0},
-              {l:"Developer profit margin ("+rProfit+"%)",v:rDevProfit,pct2:rGdv>0?rDevProfit/rGdv:0},
-            ].map(function(row){
+              {l:"S106 obligations (£"+(num(r.s106pu)||8000).toLocaleString()+"/unit)",v:rS106,pct2:rGdv>0?rS106/rGdv:0}
+            ].concat(rRoads>0?[{l:"Roads & Sewers (S38/S104)",v:rRoads,pct2:rGdv>0?rRoads/rGdv:0}]:[]).concat(rInfra>0?[{l:"Site infrastructure & SuDS",v:rInfra,pct2:rGdv>0?rInfra/rGdv:0}]:[]).concat(rPlan>0?[{l:"Planning & infrastructure fees",v:rPlan,pct2:rGdv>0?rPlan/rGdv:0}]:[]).concat([
+              {l:"Developer profit margin ("+rProfit+"%)",v:rDevProfit,pct2:rGdv>0?rDevProfit/rGdv:0}
+            ]).map(function(row){
               return e("div",{key:row.l,style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px dashed #E8E8F0",fontSize:11}},
                 e("span",{style:{color:"#4A4B6E",flex:1}},row.l),
                 e("div",{style:{display:"flex",gap:12,alignItems:"center"}},
@@ -978,14 +994,14 @@ function renderRLV(city, data, m, navTo, setData, up, user){
               [
                 {step:"1",l:"Gross Development Value (GDV)",formula:"Units × Avg sqft × Sale £/sqft",val:fmt(rGdv),note:"Revenue if every unit sells at the assumed price"},
                 {step:"2",l:"Build cost",formula:"Units × Avg sqft × Build £/sqft",val:fmt(rBc),note:"Raw construction cost, no fees or contingency"},
-                {step:"3",l:"Professional fees & prelims",formula:"Build cost × "+Math.round(bt.fees*100)+"%",val:fmt(rFees),note:"Architects, engineers, project management, prelims — "+Math.round(bt.fees*100)+"% is the BCIS norm for this scheme type"},
+                {step:"3",l:"Professional fees & prelims",formula:"Build cost × "+Math.round(rFeesPct*100)+"%",val:fmt(rFees),note:"Architects, engineers, project management, prelims — "+Math.round(rFeesPct*100)+"% is the BCIS norm for this scheme type"},
                 {step:"4",l:"Contingency",formula:"Build cost × "+rCont+"%",val:fmt(rContCost),note:"Risk allowance — industry standard 5–10% of build"},
                 {step:"5",l:"Development finance",formula:"(Build + fees) × "+rFin+"%",val:fmt(rFinCost),note:"Interest on peak debt — simplified average debt method. Detailed Appraisal uses Normal Distribution cashflow for the true figure"},
-                {step:"6",l:"S106 obligations",formula:"Units × £"+(num(r.s106pu)||8000).toLocaleString()+"/unit",val:fmt(rS106),note:"Planning obligations — affordable housing, education, open space. Varies by LPA"},
-                {step:"7",l:"Planning & infrastructure fees",formula:"Units × scheme factor",val:fmt(rPlan),note:"CIL, planning application fees, infrastructure contributions"},
-                {step:"8",l:"Developer profit",formula:"GDV × "+rProfit+"%",val:fmt(rDevProfit),note:"Required return — majors target 18–22% on GDV. Below 15% most schemes are unviable"},
-                {step:"=",l:"Residual Land Value",formula:"GDV − all above costs",val:fmt(rRlv),note:"Maximum you can pay for the land and still hit your profit target",bold:true},
-              ].map(function(row){
+                {step:"6",l:"S106 obligations",formula:"Units × £"+(num(r.s106pu)||8000).toLocaleString()+"/unit",val:fmt(rS106),note:"Planning obligations — affordable housing, education, open space. Varies by LPA"}
+              ].concat(rRoads>0?[{step:"7",l:"Roads & Sewers (S38/S104)",formula:"Units × roads/plot",val:fmt(rRoads),note:"Estate roads, sewers and adoption works — excluded when the build rate is all-in"}]:[]).concat(rInfra>0?[{step:"8",l:"Site infrastructure & SuDS",formula:"Acres × infra rate",val:fmt(rInfra),note:"Drainage, attenuation, utilities and enabling works — excluded when the build rate is all-in"}]:[]).concat(rPlan>0?[{step:"9",l:"Planning & infrastructure fees",formula:"Units × scheme factor",val:fmt(rPlan),note:"CIL, planning application fees, infrastructure contributions"}]:[]).concat([
+                {step:"×",l:"Developer profit",formula:"GDV × "+rProfit+"%",val:fmt(rDevProfit),note:"Required return — majors target 18–22% on GDV. Below 15% most schemes are unviable"},
+                {step:"=",l:"Residual Land Value",formula:"GDV − all above costs",val:fmt(rRlv),note:"Maximum you can pay for the land and still hit your profit target",bold:true}
+              ]).map(function(row){
                 return e("div",{key:row.step,style:{display:"flex",gap:12,padding:"7px 0",borderBottom:"1px dashed #E8E8F2",alignItems:"flex-start"}},
                   e("span",{style:{width:20,height:20,borderRadius:"50%",background:row.bold?"#2E2F8A":"#DDE0ED",color:row.bold?"#fff":"#7278A0",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},row.step),
                   e("div",{style:{flex:1}},
@@ -1117,13 +1133,15 @@ function renderRLV(city, data, m, navTo, setData, up, user){
                 : "GDV: "+fmt(rGdv)+"\n"
               )+
               "Build cost: "+fmt(rBc)+"\n"+
-              "Prof fees ("+Math.round(bt.fees*100)+"%): "+fmt(rFees)+"\n"+
+              "Prof fees ("+Math.round(rFeesPct*100)+"%): "+fmt(rFees)+"\n"+
               "Contingency ("+rCont+"%): "+fmt(rContCost)+"\n"+
               "Finance cost: "+fmt(rFinCost)+"\n"+
               "S106 total: "+fmt(rS106)+"\n"+
-              "Planning fees: "+fmt(rPlan)+"\n"+
+              (rRoads>0?"Roads & sewers: "+fmt(rRoads)+"\n":"")+
+              (rInfra>0?"Site infrastructure & SuDS: "+fmt(rInfra)+"\n":"")+
+              (rPlan>0?"Planning fees: "+fmt(rPlan)+"\n":"")+
               "Developer profit: "+fmt(rDevProfit)+"\n"+
-              "═══ LANDFORM RESIDUAL LAND VALUE: "+fmt(rRlv)+" ═══\n"+
+              "═══ LANDFORM RESIDUAL LAND VALUE (gross of land purchase costs): "+fmt(rRlv)+" ═══\n"+
               "Land as % GDV: "+pct(rlvPctGdv)+"\n"+
               "Land per plot: £"+Math.round(rlvPu).toLocaleString()+"\n"+
               "Verdict: "+(rViable?"Viable (≥15% land:GDV)":(rRlv>0?"Below 15% threshold — stretched":"NEGATIVE — does not stack"))+"\n\n"+
