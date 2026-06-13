@@ -445,6 +445,23 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
           e(Inp,{label:"Developer Profit % of GDV — UK norm 15-18%",type:"number",value:ep.profitPct,onChange:function(v){up("epe","profitPct",v);},placeholder:"17.5"}),
           e(Inp,{label:"Finance Rate % — lender's interest rate (typically 6-9%)",type:"number",value:ep.finRate,onChange:function(v){up("epe","finRate",v);},placeholder:"7.5"})
         ),
+        // Build-cost benchmark: pick what you're building (new-build or conversion) to set Build £/sqft
+        (function(){
+          if(typeof benchmarkBuildPsf!=="function") return null;
+          var opts={city:eCity};
+          var picks=[
+            {l:"New houses",k:"Residential houses"},
+            {l:"New apartments",k:"Residential apartments"},
+            {l:"Pub→flats",k:"Pub conversion"},
+            {l:"Office→resi",k:"Office conversion"},
+            {l:"Barn conv.",k:"Barn conversion"}
+          ];
+          var btn={padding:"4px 10px",background:"#4A4BAE",border:"none",borderRadius:4,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"};
+          return e("div",{style:{gridColumn:"span 2",margin:"4px 0 0",padding:"10px 14px",background:"rgba(74,75,174,0.06)",border:"1px solid rgba(74,75,174,0.25)",borderRadius:6,fontSize:11,color:"#3A3D6A",lineHeight:1.6,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}},
+            e("span",{style:{flex:"1 1 220px"}},e("strong",null,"🧱 Build benchmark — "+cityName(eCity)+": "),"pick what you're building to set Build £/sqft (BCIS-style mid rate; validate with QS):"),
+            picks.map(function(p){ var v=benchmarkBuildPsf(p.k,opts); return e("button",{key:p.k,onClick:function(){up("epe","buildPsf",v);},style:btn},p.l+" £"+v); })
+          );
+        })(),
         e("div",{style:{gridColumn:"span 2",paddingTop:4}},
           e("button",{
             onClick:function(){

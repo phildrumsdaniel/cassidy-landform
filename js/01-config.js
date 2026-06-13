@@ -1472,6 +1472,33 @@ function buildTypeForAsset(assetType){
   return ({btr:"BTR (Build to Rent)", pbsa:"PBSA (Student)", sfh:"Residential houses"})[assetType] || "Residential apartments";
 }
 
+// ── BUILD-COST SETTINGS (v9.50) ─────────────────────────────────────────────
+// Cassidy / the QS can keep the benchmark library current without code changes.
+// Overrides persist in localStorage ("cassidy_build_costs") and merge over the
+// code defaults at load, so every build-cost helper picks them up automatically.
+var BUILD_TYPES_DEFAULTS = JSON.parse(JSON.stringify(BUILD_TYPES));
+var HOUSE_BUILD_DEFAULTS = (function(){ var o={}; Object.keys(HOUSE_TYPES).forEach(function(k){ o[k]=HOUSE_TYPES[k].build; }); return o; })();
+var TIER1_BUILD_UPLIFT_DEFAULT = TIER1_BUILD_UPLIFT;
+function applyBuildCostSettings(bc){
+  if(!bc) return;
+  if(num(bc.tier1Uplift) > 0) TIER1_BUILD_UPLIFT = num(bc.tier1Uplift);
+  if(bc.types) Object.keys(bc.types).forEach(function(k){ if(BUILD_TYPES[k]) ["lo","mid","hi"].forEach(function(b){ if(num(bc.types[k][b]) > 0) BUILD_TYPES[k][b] = num(bc.types[k][b]); }); });
+  if(bc.houses) Object.keys(bc.houses).forEach(function(k){ if(HOUSE_TYPES[k] && num(bc.houses[k]) > 0) HOUSE_TYPES[k].build = num(bc.houses[k]); });
+}
+function currentBuildCostSettings(){
+  var types = {}; Object.keys(BUILD_TYPES).forEach(function(k){ types[k] = {lo:BUILD_TYPES[k].lo, mid:BUILD_TYPES[k].mid, hi:BUILD_TYPES[k].hi}; });
+  var houses = {}; Object.keys(HOUSE_TYPES).forEach(function(k){ houses[k] = HOUSE_TYPES[k].build; });
+  return {tier1Uplift:TIER1_BUILD_UPLIFT, types:types, houses:houses};
+}
+function saveBuildCostSettings(bc){ try{ localStorage.setItem("cassidy_build_costs", JSON.stringify(bc)); }catch(e){} applyBuildCostSettings(bc); }
+function resetBuildCostSettings(){
+  try{ localStorage.removeItem("cassidy_build_costs"); }catch(e){}
+  Object.keys(BUILD_TYPES_DEFAULTS).forEach(function(k){ BUILD_TYPES[k] = Object.assign({}, BUILD_TYPES[k], BUILD_TYPES_DEFAULTS[k]); });
+  Object.keys(HOUSE_BUILD_DEFAULTS).forEach(function(k){ if(HOUSE_TYPES[k]) HOUSE_TYPES[k].build = HOUSE_BUILD_DEFAULTS[k]; });
+  TIER1_BUILD_UPLIFT = TIER1_BUILD_UPLIFT_DEFAULT;
+}
+(function(){ try{ var bc = JSON.parse(localStorage.getItem("cassidy_build_costs") || "null"); if(bc) applyBuildCostSettings(bc); }catch(e){} })();
+
 var RISK_DEFAULTS = [
   {id:1,cat:"Planning",desc:"Consent delayed or refused",rag:"amber",mit:"Pre-app engaged, LPA meeting scheduled"},
   {id:2,cat:"Ground",desc:"Unknown ground contamination",rag:"amber",mit:"Phase 1 instructed, contingency in appraisal"},

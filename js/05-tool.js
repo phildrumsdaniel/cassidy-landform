@@ -93,6 +93,7 @@ var ALL_STAGES = [
   {id:"dashboard",   label:"Deal Dashboard",       icon:"◈",  group:"6. Records",  journeys:["land","sfh","btr","pbsa","property","recovery","all"]},
   // ── 7. AUDIT ─────────────────────────────────────────────────────────────
   {id:"propagation", label:"Propagation Audit",    icon:"🔬", group:"7. Audit",    journeys:["all"]},
+  {id:"buildcosts",  label:"Build Cost Library",   icon:"🧱", group:"7. Audit",    journeys:["all"]},
 ];
 
 // ──────────────────────────────────────────────────────────────────────
@@ -143,7 +144,8 @@ var STAGE_RELEVANCE = {
   meetings:     {required:[],                        recommended:[]},
   portfolio:    {required:[],                        recommended:[]},
   dashboard:    {required:[],                        recommended:["sfh","btr","pbsa","land","property"]},
-  propagation:  {required:[],                        recommended:[]}
+  propagation:  {required:[],                        recommended:[]},
+  buildcosts:   {required:[],                        recommended:[]}
 };
 
 // Compute relevance for one stage given current deal state
@@ -1849,6 +1851,7 @@ function loadSiteIntoDeal(site){
     if(stage==="constraint")return renderConstraintCheck(data, navTo, up, user);
     if(stage==="dashboard")return renderDashboard(ALL_STAGES, JOURNEYS, at, city, data, effUnits, ey, gdv, getStageRelevance, isSFHdash, journey, loadSiteIntoDeal, margin, navTo, noi, profit, scM, setData, setJourney, stage, tc, up, user);
     if(stage==="propagation")return renderPropagationAudit(data, setData, up);
+    if(stage==="buildcosts")return renderBuildCosts(data, setData, user);
     if(stage==="epeworkflow")return renderEPEWorkflow(at, city, data, mergeRespectingCompletedStages, navTo, setData, stage, up, user);
     if(stage==="landworkflow")return renderLandWorkflow(at, city, data, effUnits, gdv, lc, margin, mergeRespectingCompletedStages, navTo, profit, setData, tc, units, up, user);
     if(stage==="recovery")return renderRecovery(city, data, navTo, up, user);

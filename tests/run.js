@@ -360,6 +360,16 @@ console.log("Landform engine consistency tests\n");
   ok("asset type maps to a build type", buildTypeForAsset("btr")==="BTR (Build to Rent)" && buildTypeForAsset("pbsa")==="PBSA (Student)" && buildTypeForAsset("sfh")==="Residential houses");
 })();
 
+// 19 — Editable Build Cost Library: overrides persist and feed the helpers; reset restores
+(function(){
+  var before = benchmarkBuildPsf("BTR (Build to Rent)");
+  saveBuildCostSettings({ tier1Uplift:1.15, types:{ "BTR (Build to Rent)":{mid:260} } });
+  near("build-cost override feeds benchmarkBuildPsf", benchmarkBuildPsf("BTR (Build to Rent)"), 260, 0);
+  near("Tier-1 uplift override applies", benchmarkBuildPsf("BTR (Build to Rent)",{tier1:true}), Math.round(260*1.15), 0);
+  resetBuildCostSettings();
+  near("reset restores the code default", benchmarkBuildPsf("BTR (Build to Rent)"), before, 0);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);
