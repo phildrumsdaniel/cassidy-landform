@@ -290,6 +290,20 @@ console.log("Landform engine consistency tests\n");
   ok("apartments: high-rise costs included (lifts/sprinklers/etc.)", H.hrCosts > 0);
 })();
 
+// 14 — Existing-property evaluator: value as-standing vs redevelop, and uplift
+(function(){
+  var d = { assetType:"property", epe:{ city:"manchester", salePsf:300, propSqft:1000, condition:"average",
+    newUnits:4, newSqft:900, newPsf:300, buildPsf:200, profitPct:17.5, finRate:7.5, s106pu:8000 } };
+  var E = computeEPEMetrics(d);
+  near("EPE: current value as-standing", E.currentVal, 1000*300*1.0, 1);
+  near("EPE: redevelopment GDV", E.newGdv, 4*900*300, 1);
+  // devCost = build + 10% fees + finance + s106 + demolish
+  var build = 4*900*200, fees = build*0.10, fin = (build+fees)*0.075, s106 = 4*8000, demo = 15000;
+  near("EPE: redevelopment residual (devRLV)", E.devRlv, (4*900*300) - (build+fees+fin+s106+demo) - (4*900*300*0.175), 2);
+  near("EPE: uplift == devRLV − current value", E.uplift, E.devRlv - E.currentVal, 1);
+  ok("EPE: viability flag is boolean", typeof E.viable === "boolean");
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

@@ -1819,6 +1819,53 @@ function computeHRAMetrics(data){
   };
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// computeEPEMetrics (v9.49) — canonical engine for EXISTING PROPERTY (a house,
+// pub, office etc. you'd buy as standing, then convert/extend or demolish and
+// redevelop). Mirrors the Property Evaluator screen exactly: value as-standing
+// (with garden/parking/condition adjustments) vs the redevelopment residual, and
+// the uplift between them. Pure + tested so this maths is in the CI safety net.
+// ──────────────────────────────────────────────────────────────────────────
+function computeEPEMetrics(data){
+  data = data || {};
+  var ep = data.epe || {};
+  var pcData = (typeof lookupPostcode === "function" && ep.postcode) ? lookupPostcode(ep.postcode) : null;
+  var eCity = (pcData && pcData.city) || ep.city || "manchester";
+  var em = MKT[eCity] || MKT.manchester;
+  var salePsf = num(ep.salePsf) || (pcData && pcData.salePsf) || 280;
+  var propSqft = num(ep.propSqft) || 900;
+  var condMod = ({excellent:1.15, good:1.05, average:1.0, poor:0.88, derelict:0.70})[ep.condition] || 1.0;
+  var gLen = num(ep.gLen), gWid = num(ep.gWid), gardenSqft = gLen * gWid;
+  var gPsf = (typeof lookupLandPsf === "function") ? lookupLandPsf(ep.postcode || "") : 0;
+  var aspMod = ({south:1.08, south_west:1.05, west:1.02, east:1.0, north:0.95})[ep.aspect] || 1.0;
+  var gVal = gardenSqft > 0 ? Math.round((Math.min(gardenSqft,500)*gPsf + Math.max(0,Math.min(gardenSqft-500,500))*gPsf*0.65 + Math.max(0,gardenSqft-1000)*gPsf*0.3) * aspMod) : 0;
+  var PARK_MODS = {triple_garage:0.15,double_garage:0.10,single_garage:0.06,triple_carport:0.10,double_carport:0.07,single_carport:0.04,balcony:0.04,garage_conversion:0.03,annex:0.06,drive_1:0.02,drive_2:0.04,drive_3:0.05,drive_4:0.06,drive_5:0.07,drive_6plus:0.08,on_street_2plus:0.01,on_street_1:0.00,cpz:-0.03,permit_only:-0.02,no_parking:-0.05};
+  var parkBonus = (ep.parkingFeatures || []).reduce(function(a,f){ return a + (PARK_MODS[f] || 0); }, 0);
+  var outbuildingMod = ({small_shed:0.01,large_outbuilding:0.03,log_cabin:0.05,annex_detached:0.08,barn:0.06})[ep.outbuildings] || 0;
+  var balconyMod = ({juliet:0.01,small:0.02,large:0.04,roof_terrace:0.06,inset:0.03})[ep.balconyType] || 0;
+  var poolMod = ({outdoor:0.04,indoor:0.08,hot_tub:0.02})[ep.pool] || 0;
+  var storeysMod = ({"1":-0.05,"1.5":0.00,"2":0.00,"2.5":0.03,"3":0.04,"4":0.03,"5plus":0.02})[ep.storeys] || 0;
+  var parkMod = 1 + parkBonus + outbuildingMod + balconyMod + poolMod + storeysMod;
+  var houseVal = Math.round(propSqft * salePsf * condMod);
+  var currentVal = Math.round((houseVal + gVal) * parkMod);
+  var newUnits = num(ep.newUnits), newSqft = num(ep.newSqft) || 900, newPsf = num(ep.newPsf) || salePsf;
+  var newBuildPsf = num(ep.buildPsf) || (em && em.build) || 195, profitPct = num(ep.profitPct) || 17.5;
+  var newGdv = newUnits * newSqft * newPsf;
+  var newBuild = newUnits * newSqft * newBuildPsf;
+  var demolish = 15000 + (gardenSqft > 5000 ? 8000 : 0);
+  var fees = newBuild * 0.10, fin = (newBuild + fees) * (num(ep.finRate) || 7.5) / 100;
+  var s106 = newUnits * (num(ep.s106pu) || 8000);
+  var devProfit = newGdv * (profitPct / 100);
+  var devCost = newBuild + fees + fin + s106 + demolish;
+  var devRlv = newGdv - devCost - devProfit;
+  return {
+    currentVal: currentVal, houseVal: houseVal, gardenVal: gVal, gardenSqft: gardenSqft,
+    newUnits: newUnits, newGdv: newGdv, newBuild: newBuild, fees: fees, finance: fin,
+    s106: s106, demolish: demolish, profit: devProfit, devCost: devCost, devRlv: devRlv,
+    uplift: devRlv - currentVal, viable: devRlv > currentVal * 1.1
+  };
+}
+
 // areaMarketRentPa (v9.47) — the local open-market rent per unit per year, taken
 // from the area data (MKT[city].btr is a monthly market rent). Used to auto-fill
 // affordable rents (Social Rent ~60%, Affordable Rent ~80% of market) so they
