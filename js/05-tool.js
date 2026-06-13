@@ -329,11 +329,19 @@ var JOURNEYS = {
   // F6 — shared assumptions: editing any of these in one stage propagates to the
   // sibling stages that also use it, so you enter it once and the whole tool follows.
   var SHARED_ASSUMPTIONS = {
-    finRate:    ["fin","rlv","sfh"],
-    buildPsf:   ["fin","rlv","sfh"],
-    profitPct:  ["fin","rlv","sfh"],
-    contingency:["fin","rlv","sfh"],
-    s106pu:     ["fin","planning","rlv","sfh"]
+    finRate:      ["fin","rlv","sfh"],
+    buildPsf:     ["fin","rlv","sfh"],
+    profitPct:    ["fin","rlv","sfh"],
+    contingency:  ["fin","rlv","sfh"],
+    s106pu:       ["fin","planning","rlv","sfh"],
+    ahPct:        ["planning","sfh","tenure"],
+    buildInclusive:["fin","rlv","sfh"]
+  };
+  // Same logical input that lives under DIFFERENT key names per stage. Editing
+  // either side keeps the other in sync, so "sale £/sqft" entered on Land
+  // Valuation shows on the SFH House Mix screen and vice-versa.
+  var SHARED_ALIASES = {
+    salePsf: [["rlv","salePsf"],["sfh","basePsf"]]
   };
   function up(section,key,val){
     setData(function(d){
@@ -353,6 +361,13 @@ var JOURNEYS = {
       if(SHARED_ASSUMPTIONS[key]){
         SHARED_ASSUMPTIONS[key].forEach(function(sib){ if(sib!==section) writeOne(sib,key,val); });
       }
+      // Propagate aliased shared inputs (same meaning, different key per stage)
+      Object.keys(SHARED_ALIASES).forEach(function(canon){
+        var targets=SHARED_ALIASES[canon];
+        if(targets.some(function(t){return t[0]===section && t[1]===key;})){
+          targets.forEach(function(t){ if(!(t[0]===section && t[1]===key)) writeOne(t[0],t[1],val); });
+        }
+      });
       return next;
     });
   }
