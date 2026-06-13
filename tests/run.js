@@ -338,6 +338,17 @@ console.log("Landform engine consistency tests\n");
   near("EPE engine current value == screen formula (good condition)", computeEPEMetrics(d).currentVal, epeScreenCurrentVal(d), 1);
 })();
 
+// 17 — Per-house-type build cost benchmark (BCIS-style) + Tier-1 / regional uplift
+(function(){
+  ok("every house type has a build £/sqft benchmark", Object.keys(HOUSE_TYPES).every(function(k){ return HOUSE_TYPES[k].build > 0; }));
+  near("4-bed executive base build £/sqft", typicalBuildPsf("4-bed executive"), 230, 0);
+  near("Tier-1 uplift ~12% on build", typicalBuildPsf("4-bed executive",{tier1:true}), Math.round(230*1.12), 0);
+  near("regional index applies (Maldon ~1.02)", typicalBuildPsf("4-bed executive",{city:"maldon"}), Math.round(230*1.02), 0);
+  ok("a simple terrace costs less to build than a luxury executive", typicalBuildPsf("1-bed terrace") < typicalBuildPsf("5-bed executive"));
+  ok("conversion flats build cheaper than equivalent new-build", HOUSE_TYPES["Conversion 2-bed flat"].build < HOUSE_TYPES["2-bed apartment"].build);
+  near("unknown type falls back to a sensible default", typicalBuildPsf("not a real type"), 185, 0);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

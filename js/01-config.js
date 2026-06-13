@@ -1375,55 +1375,85 @@ function sfhAhFactor(data){
 }
 
 
+// HOUSE_TYPES — each: beds, typical sqft (GIA), adj (sale £/sqft multiplier vs the
+// 3-bed-semi baseline), and build (BCIS-style 2026 UK new-build CONSTRUCTION cost
+// £/sqft GIA, standard spec, before regional index and Tier-1 main-contractor
+// uplift, and excluding land/fees/externals/contingency). Used to auto-cost each
+// house type at appraisal stage — a benchmark to validate with a QS/contractor.
 var HOUSE_TYPES = {
   // ── Apartments / flats (new-build) ──
-  "Studio apartment":{beds:0,sqft:330,adj:0.58},
-  "1-bed apartment":{beds:1,sqft:520,adj:0.72},
-  "2-bed apartment":{beds:2,sqft:680,adj:0.85},
-  "3-bed apartment":{beds:3,sqft:900,adj:1.02},
-  "2-bed penthouse":{beds:2,sqft:950,adj:1.20},
-  "3-bed penthouse":{beds:3,sqft:1300,adj:1.35},
+  "Studio apartment":{beds:0,sqft:330,adj:0.58,build:215},
+  "1-bed apartment":{beds:1,sqft:520,adj:0.72,build:210},
+  "2-bed apartment":{beds:2,sqft:680,adj:0.85,build:210},
+  "3-bed apartment":{beds:3,sqft:900,adj:1.02,build:215},
+  "2-bed penthouse":{beds:2,sqft:950,adj:1.20,build:245},
+  "3-bed penthouse":{beds:3,sqft:1300,adj:1.35,build:255},
   // ── Conversion flats (stately home / office / pub converted to flats) ──
-  "Conversion studio":{beds:0,sqft:380,adj:0.60},
-  "Conversion 1-bed flat":{beds:1,sqft:560,adj:0.78},
-  "Conversion 2-bed flat":{beds:2,sqft:800,adj:0.92},
-  "Conversion 3-bed flat":{beds:3,sqft:1100,adj:1.08},
-  "Conversion duplex":{beds:3,sqft:1300,adj:1.18},
+  "Conversion studio":{beds:0,sqft:380,adj:0.60,build:150},
+  "Conversion 1-bed flat":{beds:1,sqft:560,adj:0.78,build:150},
+  "Conversion 2-bed flat":{beds:2,sqft:800,adj:0.92,build:150},
+  "Conversion 3-bed flat":{beds:3,sqft:1100,adj:1.08,build:155},
+  "Conversion duplex":{beds:3,sqft:1300,adj:1.18,build:165},
   // ── Maisonettes / coach houses ──
-  "1-bed maisonette":{beds:1,sqft:600,adj:0.80},
-  "2-bed maisonette":{beds:2,sqft:820,adj:0.92},
-  "Coach house 2-bed":{beds:2,sqft:700,adj:0.88},
+  "1-bed maisonette":{beds:1,sqft:600,adj:0.80,build:180},
+  "2-bed maisonette":{beds:2,sqft:820,adj:0.92,build:180},
+  "Coach house 2-bed":{beds:2,sqft:700,adj:0.88,build:185},
   // ── Terraces ──
-  "1-bed terrace":{beds:1,sqft:550,adj:0.75},
-  "2-bed terrace":{beds:2,sqft:720,adj:0.88},
-  "3-bed terrace":{beds:3,sqft:920,adj:0.95},
-  "4-bed terrace":{beds:4,sqft:1180,adj:1.10},
+  "1-bed terrace":{beds:1,sqft:550,adj:0.75,build:165},
+  "2-bed terrace":{beds:2,sqft:720,adj:0.88,build:165},
+  "3-bed terrace":{beds:3,sqft:920,adj:0.95,build:170},
+  "4-bed terrace":{beds:4,sqft:1180,adj:1.10,build:175},
   // ── Mews / townhouses ──
-  "2-bed mews":{beds:2,sqft:900,adj:0.98},
-  "3-bed mews":{beds:3,sqft:1050,adj:1.05},
-  "3-bed townhouse":{beds:3,sqft:1300,adj:1.15},
-  "4-bed townhouse":{beds:4,sqft:1650,adj:1.26},
+  "2-bed mews":{beds:2,sqft:900,adj:0.98,build:180},
+  "3-bed mews":{beds:3,sqft:1050,adj:1.05,build:185},
+  "3-bed townhouse":{beds:3,sqft:1300,adj:1.15,build:190},
+  "4-bed townhouse":{beds:4,sqft:1650,adj:1.26,build:200},
   // ── Semi-detached ──
-  "2-bed semi":{beds:2,sqft:820,adj:0.90},
-  "3-bed semi":{beds:3,sqft:1020,adj:1.00},
-  "4-bed semi":{beds:4,sqft:1300,adj:1.14},
+  "2-bed semi":{beds:2,sqft:820,adj:0.90,build:165},
+  "3-bed semi":{beds:3,sqft:1020,adj:1.00,build:170},
+  "4-bed semi":{beds:4,sqft:1300,adj:1.14,build:180},
   // ── Link-detached ──
-  "3-bed link-detached":{beds:3,sqft:1100,adj:1.05},
-  "4-bed link-detached":{beds:4,sqft:1350,adj:1.16},
+  "3-bed link-detached":{beds:3,sqft:1100,adj:1.05,build:180},
+  "4-bed link-detached":{beds:4,sqft:1350,adj:1.16,build:188},
   // ── Detached ──
-  "3-bed detached":{beds:3,sqft:1150,adj:1.08},
-  "4-bed detached":{beds:4,sqft:1500,adj:1.18},
-  "4-bed executive":{beds:4,sqft:1900,adj:1.28},
-  "5-bed detached":{beds:5,sqft:2400,adj:1.40},
-  "5-bed executive":{beds:5,sqft:2900,adj:1.52},
-  "6-bed detached":{beds:6,sqft:3400,adj:1.65},
+  "3-bed detached":{beds:3,sqft:1150,adj:1.08,build:185},
+  "4-bed detached":{beds:4,sqft:1500,adj:1.18,build:195},
+  "4-bed executive":{beds:4,sqft:1900,adj:1.28,build:230},
+  "5-bed detached":{beds:5,sqft:2400,adj:1.40,build:215},
+  "5-bed executive":{beds:5,sqft:2900,adj:1.52,build:260},
+  "6-bed detached":{beds:6,sqft:3400,adj:1.65,build:245},
   // ── Bungalows ──
-  "Bungalow 2-bed":{beds:2,sqft:800,adj:1.05},
-  "Bungalow 3-bed":{beds:3,sqft:1050,adj:1.12},
+  "Bungalow 2-bed":{beds:2,sqft:800,adj:1.05,build:190},
+  "Bungalow 3-bed":{beds:3,sqft:1050,adj:1.12,build:198},
   // ── Prime / large country houses ──
-  "Manor house":{beds:6,sqft:4500,adj:1.90},
-  "Mansion":{beds:8,sqft:6500,adj:2.20},
+  "Manor house":{beds:6,sqft:4500,adj:1.90,build:320},
+  "Mansion":{beds:8,sqft:6500,adj:2.20,build:380},
 };
+
+// BCIS regional index (1.00 = UK average). Tweakable; covers the broad spread a
+// QS would apply. Cassidy operates UK-wide ex-London, so the Midlands/regions sit
+// near or just below 1.0; the South East and prime areas run higher.
+var BUILD_REGION_INDEX = {
+  london:1.18, oxford:1.12, cambridge:1.12, guildford:1.12, brighton:1.08, bath:1.06,
+  bristol:1.03, manchester:1.0, birmingham:0.99, coventry:0.98, leamington:1.0,
+  maldon:1.02, exeter:1.01, taunton:1.0, worcester:0.98, stoke:0.95, telford:0.95,
+  wolverhampton:0.97, walsall:0.97, stafford:0.98, tamworth:0.98, lichfield:1.0
+};
+// Tier-1 main contractor (Winvic, Vinci, Wates etc.) adds main-contractor prelims,
+// overheads & profit and programme certainty over a self-delivered/sub-let rate.
+var TIER1_BUILD_UPLIFT = 1.12;  // ~12%
+
+// typicalBuildPsf — the benchmark construction cost £/sqft for a house type, with
+// optional regional index and Tier-1 main-contractor uplift. A QS-grade starting
+// point to validate against an actual cost plan or contractor tender.
+function typicalBuildPsf(type, opts){
+  opts = opts || {};
+  var t = HOUSE_TYPES[type];
+  var base = (t && t.build) || 185;
+  var region = num(opts.regionIndex) || (opts.city && BUILD_REGION_INDEX[(opts.city||"").toLowerCase()]) || 1.0;
+  var f = base * region * (opts.tier1 ? TIER1_BUILD_UPLIFT : 1);
+  return Math.round(f);
+}
 
 var RISK_DEFAULTS = [
   {id:1,cat:"Planning",desc:"Consent delayed or refused",rag:"amber",mit:"Pre-app engaged, LPA meeting scheduled"},

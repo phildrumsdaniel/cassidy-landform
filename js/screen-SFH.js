@@ -279,8 +279,19 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"House Type Mix"),
         e("div",{style:{overflowX:"auto"}},
-          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}},
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,gap:8,flexWrap:"wrap"}},
             e("div",{style:{fontSize:10,color:"#7278A0",fontStyle:"italic"}},"Name each type, enter sqft and Savills price — matches professional appraisal methodology"),
+            e("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+            // Auto-cost the BUILD £/sqft of every row from the per-type BCIS benchmark
+            // (× region × Tier-1 uplift if the Tier-1 toggle is on). A QS-grade starting point.
+            e("button",{onClick:function(){
+              var nm=mix.map(function(r){
+                var c=Object.assign({},r);
+                c.buildPsf=String(typicalBuildPsf(r.type,{city:sfhCity,tier1:!!s.tier1Build}));
+                return c;
+              });
+              up("sfh","mix",nm);
+            },title:"Fill each row's build £/sqft from the BCIS-style benchmark for that house type"+(s.tier1Build?" (incl. Tier-1 main-contractor uplift)":""),style:{padding:"5px 12px",background:"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",flexShrink:0}},"🧱 Auto-cost build / type"),
             e("button",{onClick:function(){
               var totalU2=Math.floor(sAcres*0.404686*(numOr(s.dph, 30)));
               if(totalU2<1)totalU2=20;
@@ -292,6 +303,7 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
               ];
               up("sfh","mix",newMix);
             },style:{padding:"5px 12px",background:"#2D7A65",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",flexShrink:0}},"⚡ Auto-fill Typical Mix")
+            )
           ),
           // v9.29 — Single header row with Exit Route column added
           e("div",{style:{display:"grid",gridTemplateColumns:"1.5fr 56px 56px 74px 88px 96px 150px 90px 70px 26px",padding:"8px 12px",background:"#2E2F8A",fontSize:9,color:"#fff",textTransform:"uppercase",letterSpacing:".06em",fontWeight:700,borderBottom:"1px solid #DDE0ED",minWidth:820,gap:7}},
