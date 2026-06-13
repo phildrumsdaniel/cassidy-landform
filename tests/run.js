@@ -30,6 +30,7 @@ try {
   // Also load the deal migrator so we can prove existing portfolio/history deals
   // still load and compute on the corrected engine (back-compat).
   eval(fs.readFileSync(path.join(__dirname, "..", "js", "lib-migrateLoadedDeal.js"), "utf8"));
+  eval(fs.readFileSync(path.join(__dirname, "..", "js", "lib-isStageComplete.js"), "utf8"));
 } catch (e) {
   console.error("Could not load engine files:", e.message);
   process.exit(1);
@@ -390,6 +391,22 @@ console.log("Landform engine consistency tests\n");
   near("legacy planning.afhPct also blends", ahLegacy, ahOnSfh, 1);
   // and the deal-state engine agrees (this is what the Exec Summary uses)
   near("deal-state GDV == engine GDV with AH on Planning", calcDealMetrics(dealAhOn({planning:{ahPct:50}})).gdv, ahOnPlanning, 1);
+})();
+
+// 21 — Stages auto-complete from their data (no manual "Next" needed)
+(function(){
+  var d = sfhDeal();  // has a mix, so it's appraisable
+  ok("SFH completes once a mix exists", isStageComplete("sfh", d));
+  ok("Financial Modelling auto-completes once the scheme is appraisable", isStageComplete("fin", d));
+  ok("Land Valuation completes when units resolve", isStageComplete("rlv", d));
+  // Due Diligence reads ddChecked (not the old 'dd' namespace)
+  ok("DD not complete with <3 ticks", !isStageComplete("dd", {ddChecked:{a:true,b:true}}));
+  ok("DD auto-completes with >=3 ticks", isStageComplete("dd", {ddChecked:{a:true,b:true,c:true}}));
+  // Tenure reads the entered split (not a computed 'rows' array)
+  ok("Tenure completes when a split is entered", isStageComplete("tenure", {land:{units:100}, tenure:{inputMode:"units", mix:{sr:50, ar:50}}}));
+  // manual completion flag still honoured
+  ok("manual _completedStages still marks a stage done", isStageComplete("exit", {_completedStages:{exit:true}}));
+  ok("empty deal: Financial Modelling not complete", !isStageComplete("fin", {}));
 })();
 
 // ── Report ───────────────────────────────────────────────────────────────────
