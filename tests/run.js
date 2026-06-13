@@ -243,6 +243,22 @@ console.log("Landform engine consistency tests\n");
   ok("mixed catalogue scheme: finite RLV", isFinite(c.rlv));
 })();
 
+// 12 — Mixed tenure/exit options + per-row build cost (conversion vs new-build)
+(function(){
+  // comprehensive tenure / exit-route catalogue available per row
+  ["private","ahp_social","ahp_affordable","ahp_so","first_homes","dms","rent_to_buy","btr_operator","pension","retained_prs"].forEach(function(t){
+    ok("ROUTE_DISCOUNT offers '"+t+"'", !!ROUTE_DISCOUNT[t] && ROUTE_DISCOUNT[t].pct > 0);
+  });
+  // a single row can override build £/sqft (a converted flat builds at a different rate to a new house)
+  var d = sfhDeal({ sfh:{ buildPsf:200, mix:[
+    {type:"3-bed semi",          count:"10", sqft:"1000", unitPrice:"400000", tenure:"private"},                  // scheme rate (200)
+    {type:"Conversion 2-bed flat",count:"10", sqft:"800",  unitPrice:"320000", tenure:"ahp_so", buildPsf:"140"}    // per-row rate (140) + shared ownership
+  ]}});
+  var c = computeSFHMetrics(d);
+  near("per-row build £/sqft is honoured", c.buildCost, 1000*200*10 + 800*140*10, 1);
+  ok("mixed-tenure row blends (shared ownership is non-private)", c.hasNonPrivate === true);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

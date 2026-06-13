@@ -72,7 +72,7 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
       var routeDisc=(ROUTE_DISCOUNT[tenure]||ROUTE_DISCOUNT.private).pct;
       var rowRetailGdv=rowSqft*sp*cnt;
       var rowBlendedGdv=rowRetailGdv*routeDisc;
-      return{type:row.type,beds:beds,count:cnt,sqft:rowSqft,sp:sp,unitPrice:unitPrice||rowSqft*sp,tenure:tenure,routeDisc:routeDisc,totalGdv:rowRetailGdv,blendedGdv:rowBlendedGdv,build:rowSqft*sBuild*cnt};
+      return{type:row.type,beds:beds,count:cnt,sqft:rowSqft,sp:sp,unitPrice:unitPrice||rowSqft*sp,tenure:tenure,routeDisc:routeDisc,totalGdv:rowRetailGdv,blendedGdv:rowBlendedGdv,build:rowSqft*(num(row.buildPsf)||sBuild)*cnt};
     }).filter(Boolean);
 
     var totalUnits=houseCalcs.reduce(function(a,h){return a+h.count;},0);
@@ -294,8 +294,8 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
             },style:{padding:"5px 12px",background:"#2D7A65",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",flexShrink:0}},"⚡ Auto-fill Typical Mix")
           ),
           // v9.29 — Single header row with Exit Route column added
-          e("div",{style:{display:"grid",gridTemplateColumns:"1.5fr 60px 60px 80px 90px 100px 140px 28px",padding:"8px 12px",background:"#2E2F8A",fontSize:9,color:"#fff",textTransform:"uppercase",letterSpacing:".08em",fontWeight:700,borderBottom:"1px solid #DDE0ED",minWidth:680,gap:8}},
-            e("span",null,"House Type"),e("span",null,"Plots"),e("span",null,"Sqft"),e("span",null,"£/sqft"),e("span",null,"Unit £"),e("span",null,"Revenue"),e("span",null,"Exit Route"),e("span",null,"")
+          e("div",{style:{display:"grid",gridTemplateColumns:"1.5fr 56px 56px 74px 88px 96px 150px 90px 70px 26px",padding:"8px 12px",background:"#2E2F8A",fontSize:9,color:"#fff",textTransform:"uppercase",letterSpacing:".06em",fontWeight:700,borderBottom:"1px solid #DDE0ED",minWidth:820,gap:7}},
+            e("span",null,"House Type"),e("span",null,"Plots"),e("span",null,"Sqft"),e("span",null,"£/sqft"),e("span",null,"Unit £"),e("span",null,"Revenue"),e("span",null,"Tenure / exit route"),e("span",null,"Hold"),e("span",null,"Build £"),e("span",null,"")
           ),
           mix.map(function(row,i){
             var info=HOUSE_TYPES[row.type]||HOUSE_TYPES["3-bed semi"];
@@ -311,7 +311,8 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
               row.tenure==="retained_prs" ? "#F0F4FB" :
               "#FAFDF9"
             ) : "#fff";
-            return e("div",{key:i,style:{display:"grid",gridTemplateColumns:"1.5fr 60px 60px 80px 90px 100px 140px 28px",padding:"8px 12px",borderBottom:"1px solid #DDE0ED",gap:8,alignItems:"center",background:rowTint,minWidth:680}},
+            var defHold=/apartment|flat|maisonette|penthouse|duplex|coach/i.test(row.type||"")?"leasehold":"freehold";
+            return e("div",{key:i,style:{display:"grid",gridTemplateColumns:"1.5fr 56px 56px 74px 88px 96px 150px 90px 70px 26px",padding:"8px 12px",borderBottom:"1px solid #DDE0ED",gap:7,alignItems:"center",background:rowTint,minWidth:820}},
               e("select",{value:row.type,onChange:function(ev){updMix(i,"type",ev.target.value);},style:Object.assign({},S.select,{fontSize:11,padding:"5px 6px"})},
                 Object.keys(HOUSE_TYPES).map(function(t){return e("option",{key:t,value:t},t);})
               ),
@@ -332,18 +333,25 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
                 e("option",{value:"ahp_social"},"AHP — Social Rent (55% MV)"),
                 e("option",{value:"ahp_so"},"AHP — Shared Ownership (70% MV)"),
                 e("option",{value:"ahp_affordable"},"AHP — Affordable Rent (60% MV)"),
-                e("option",{value:"retained_prs"},"Retained PRS (yield-based)"),
-                e("option",{value:"btr_operator"},"BTR operator (full rental value)"),
-                e("option",{value:"first_homes"},"First Homes (70% MV cap)")
+                Object.keys(ROUTE_DISCOUNT).map(function(tk){return e("option",{key:tk,value:tk},ROUTE_DISCOUNT[tk].label+" ("+Math.round(ROUTE_DISCOUNT[tk].pct*100)+"% MV)");})
               ),
+              // Hold — legal tenure (leasehold typical for flats, freehold for houses)
+              e("select",{value:row.hold||defHold,onChange:function(ev){updMix(i,"hold",ev.target.value);},title:"Legal tenure of the unit",style:Object.assign({},S.select,{fontSize:10,padding:"5px 6px"})},
+                e("option",{value:"freehold"},"Freehold"),
+                e("option",{value:"leasehold"},"Leasehold"),
+                e("option",{value:"commonhold"},"Commonhold"),
+                e("option",{value:"share_of_freehold"},"Share of freehold")
+              ),
+              // Per-row build £/sqft — e.g. a conversion costs a different rate to a new-build
+              e("input",{type:"number",value:row.buildPsf||"",onChange:function(ev){updMix(i,"buildPsf",ev.target.value);},placeholder:"£"+Math.round(sBuild),title:"Build £/sqft for this unit type — leave blank to use the scheme rate (£"+Math.round(sBuild)+")",style:Object.assign({},S.input,{fontSize:11,padding:"5px 6px"})}),
               e("button",{onClick:function(){up("sfh","mix",mix.filter(function(_,j){return j!==i;}));},title:"Remove this row",style:{background:"none",border:"none",color:"#B05A35",fontSize:16,fontWeight:700,cursor:"pointer",padding:0,lineHeight:1}},"×")
             );
           }),
-          totalUnits>0&&e("div",{style:{display:"grid",gridTemplateColumns:"1.5fr 60px 60px 80px 90px 100px 140px 28px",padding:"10px 12px",background:"#F7F8FC",borderTop:"2px solid #DDE0ED",fontSize:12,fontWeight:700,color:"#2E2F8A",minWidth:680,gap:8}},
+          totalUnits>0&&e("div",{style:{display:"grid",gridTemplateColumns:"1.5fr 56px 56px 74px 88px 96px 150px 90px 70px 26px",padding:"10px 12px",background:"#F7F8FC",borderTop:"2px solid #DDE0ED",fontSize:12,fontWeight:700,color:"#2E2F8A",minWidth:820,gap:7}},
             e("span",null,"TOTAL"),e("span",null,totalUnits+" plots"),e("span",null,""),e("span",null,""),e("span",null,""),
             e("span",{style:{color:"#4A4BAE",fontWeight:800}},fmt(totalGdv)),
             e("span",{style:{fontSize:9,color:"#7278A0",fontWeight:600}},"see Cap →"),
-            e("span",null,"")
+            e("span",null,""),e("span",null,""),e("span",null,"")
           ),
           e("datalist",{id:"house-type-list"},
           Object.keys(HOUSE_TYPES).map(function(ht){return e("option",{key:ht,value:ht});})

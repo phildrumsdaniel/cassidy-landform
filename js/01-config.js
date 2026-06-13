@@ -1341,6 +1341,8 @@ var ROUTE_DISCOUNT = {
   "ahp_so":          {pct:0.70, label:"AHP — Shared Ownership",     col:"#4A4BAE", note:"70% MV — first tranche sale to occupier, equity retained"},
   "ahp_affordable":  {pct:0.60, label:"AHP — Affordable Rent",      col:"#4A4BAE", note:"60% MV — sold to RP at affordable rent valuation"},
   "first_homes":     {pct:0.70, label:"First Homes",                col:"#4A4BAE", note:"70% MV cap under First Homes scheme (planning policy)"},
+  "dms":             {pct:0.80, label:"Discounted Market Sale",     col:"#9A7B3E", note:"20% discount to open market — local eligibility criteria apply."},
+  "rent_to_buy":     {pct:0.85, label:"Rent to Buy",                col:"#9A7B3E", note:"Intermediate rent now, option to buy later — ~85% MV to the provider."},
   "retained_prs":    {pct:0.85, label:"Retained PRS (yield-based)", col:"#B05A35", note:"NOTE: SFH Dev Appraisal uses 85% MV approximation. For exact yield-based value, see Capitalisation."},
   "btr_operator":    {pct:1.00, label:"BTR operator (full rental value)", col:"#2D7A65", note:"Whole-scheme sale to a BTR operator on a rental model — capitalised at target yield, NO affordable discount (100% of value)."}
 };
@@ -1719,7 +1721,7 @@ function computeSFHMetrics(data){
     totalSqft += sqft * count;
     retailGdv += rowRetail;
     blendedGdv += rowBlended;
-    buildCost += sqft * buildPsf * count;
+    buildCost += sqft * (num(row.buildPsf) || buildPsf) * count;   // per-row build £/sqft (e.g. conversion vs new-build) overrides the scheme rate
     rows.push({type:row.type,count:count,sqft:sqft,psf:psf,tenure:tenure,retailGdv:rowRetail,blendedGdv:rowBlended});
   });
   var hasNonPrivate = rows.some(function(r){return r.tenure && r.tenure !== "private";});
