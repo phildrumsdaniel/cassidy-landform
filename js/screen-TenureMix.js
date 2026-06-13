@@ -19,7 +19,11 @@ function renderTenureMix(data, up, user){
       num(data.sfh&&data.sfh.avgSqft) || 900);
 
     var omsUnitPrice = numOr(t.omsUnitPrice, basePsf * avgSqft);
-    var omsRentPa = numOr(t.omsRentPa, omsUnitPrice * 0.04);  // 4% gross yield default for rental tenures
+    // v9.47 — auto-fill the open-market rent from the AREA (MKT[city].btr × 12),
+    // so affordable rents (SR ~60%, AR ~80% of market) reflect the location.
+    // Falls back to a 4% gross-yield proxy if the area has no rent benchmark.
+    // Any figure remains editable per tenure (t[key+"_rentPa"]) and overall (t.omsRentPa).
+    var omsRentPa = numOr(t.omsRentPa, (typeof areaMarketRentPa==="function" && areaMarketRentPa(data)) || omsUnitPrice * 0.04);
     var inputMode = t.inputMode || "units";  // "units" or "percent"
 
     // Mix object — defaults to 100% OMS if empty
@@ -126,6 +130,12 @@ function renderTenureMix(data, up, user){
             e("label",{style:lbl},"OMS unit price (calculated)"),
             e("input",{type:"number",value:(t.omsUnitPrice!==undefined&&t.omsUnitPrice!=="")?t.omsUnitPrice:Math.round(omsUnitPrice)||"",onChange:function(ev){upt("omsUnitPrice",ev.target.value);},placeholder:String(Math.round(omsUnitPrice)||"315000"),style:ipt})
           )
+        ),
+        // v9.47 — area-based affordable-rent hint
+        e("div",{style:{fontSize:10,color:"#5B6BD6",margin:"8px 0 2px",lineHeight:1.5}},
+          (typeof areaMarketRentPa==="function" && areaMarketRentPa(data)>0)
+            ? "💡 Affordable rents auto-fill from the local market rent (~£"+Math.round(areaMarketRentPa(data)/12).toLocaleString()+"/mo): Social Rent ≈60%, Affordable Rent ≈80% of market. Edit any cell to override."
+            : "💡 Affordable rents auto-fill (Social Rent ≈60%, Affordable Rent ≈80% of market). Set the deal's city for area-accurate figures, then edit any cell to override."
         ),
         // Mode toggle
         e("div",{style:{display:"flex",gap:10,alignItems:"center",paddingTop:10,borderTop:"1px solid #F0F1FA"}},

@@ -1719,6 +1719,17 @@ function computeSFHMetrics(data){
     acres:sfhAcres,buildInclusive:buildInclusive,fees:sfhFees,contingency:sfhContingency,finance:sfhFinance,s106:sfhS106,roads:sfhRoads,infra:sfhInfra,profit:sfhProfit,devCost:sfhDevCost,rlv:sfhGrossRlv};
 }
 
+// areaMarketRentPa (v9.47) — the local open-market rent per unit per year, taken
+// from the area data (MKT[city].btr is a monthly market rent). Used to auto-fill
+// affordable rents (Social Rent ~60%, Affordable Rent ~80% of market) so they
+// reflect the actual location, then the user can override any figure. Returns 0
+// when the area has no rent benchmark, so callers fall back to a yield proxy.
+function areaMarketRentPa(data){
+  data = data || {};
+  var cityKey = ((data.sfh && data.sfh.city) || (data.land && data.land.city) || (data.rlv && data.rlv.city) || (data.hra && data.hra.city) || (data.tenure && data.tenure.city) || "").toLowerCase();
+  var mk = MKT[cityKey];
+  return (mk && mk.btr) ? mk.btr * 12 : 0;
+}
 function computeTenureMetrics(data){
   data = data || {};
   var t = data.tenure || {};
@@ -1727,7 +1738,7 @@ function computeTenureMetrics(data){
   var basePsf = numOr(t.basePsf, num(data.sfh&&data.sfh.basePsf) || num(data.rlv&&data.rlv.salePsf) || 350);
   var avgSqft = numOr(t.avgSqft, sfhMetrics.avgSqft || num(data.sfh&&data.sfh.avgSqft) || 900);
   var omsUnitPrice = numOr(t.omsUnitPrice, basePsf * avgSqft);
-  var omsRentPa = numOr(t.omsRentPa, omsUnitPrice * 0.04);
+  var omsRentPa = numOr(t.omsRentPa, areaMarketRentPa(data) || omsUnitPrice * 0.04);
   var inputMode = t.inputMode || "units";
   var mix = t.mix || null;
   if(!mix) return {rows:[],totalUnits:0,blendedGdv:0,annualIncome:0,pureMarketGdv:0,discountPct:0};
