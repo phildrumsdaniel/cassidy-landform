@@ -1866,6 +1866,52 @@ function computeEPEMetrics(data){
   };
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// SHARED INPUTS (v9.49) — "enter once, flows everywhere". A value typed on any
+// stage propagates to the sibling stages that use it, so the whole tool follows
+// and the screens never disagree. Lifted to module scope + a pure helper so the
+// behaviour is covered by the test suite.
+//   SHARED_ASSUMPTIONS: same key name across stages.
+//   SHARED_ALIASES:     same meaning, different key name per stage (e.g. sale £/sqft
+//                       is rlv.salePsf but sfh.basePsf).
+// applySharedInput returns a NEW deal object; completed stages are never clobbered.
+// ──────────────────────────────────────────────────────────────────────────
+var SHARED_ASSUMPTIONS = {
+  finRate:        ["fin","rlv","sfh"],
+  buildPsf:       ["fin","rlv","sfh"],
+  profitPct:      ["fin","rlv","sfh"],
+  contingency:    ["fin","rlv","sfh"],
+  s106pu:         ["fin","planning","rlv","sfh"],
+  ahPct:          ["planning","sfh","tenure"],
+  buildInclusive: ["fin","rlv","sfh"]
+};
+var SHARED_ALIASES = {
+  salePsf: [["rlv","salePsf"],["sfh","basePsf"]]
+};
+function applySharedInput(d, section, key, val, currentStage, isStageId){
+  d = d || {};
+  isStageId = isStageId || function(){ return true; };
+  var completed = d._completedStages || {};
+  // can't edit a completed stage other than the one you're on
+  if(section !== currentStage && isStageId(section) && completed[section]) return d;
+  var next = Object.assign({}, d);
+  function writeOne(sec, k, v){
+    if(sec !== currentStage && isStageId(sec) && completed[sec]) return;   // never clobber a finalised sibling
+    var o = Object.assign({}, next[sec] || {});
+    o[k] = v;
+    next[sec] = o;
+  }
+  writeOne(section, key, val);
+  if(SHARED_ASSUMPTIONS[key]) SHARED_ASSUMPTIONS[key].forEach(function(sib){ if(sib !== section) writeOne(sib, key, val); });
+  Object.keys(SHARED_ALIASES).forEach(function(canon){
+    var targets = SHARED_ALIASES[canon];
+    if(targets.some(function(t){ return t[0] === section && t[1] === key; })){
+      targets.forEach(function(t){ if(!(t[0] === section && t[1] === key)) writeOne(t[0], t[1], val); });
+    }
+  });
+  return next;
+}
+
 // areaMarketRentPa (v9.47) — the local open-market rent per unit per year, taken
 // from the area data (MKT[city].btr is a monthly market rent). Used to auto-fill
 // affordable rents (Social Rent ~60%, Affordable Rent ~80% of market) so they

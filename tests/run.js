@@ -304,6 +304,40 @@ console.log("Landform engine consistency tests\n");
   ok("EPE: viability flag is boolean", typeof E.viable === "boolean");
 })();
 
+// 15 — "Enter once, flows everywhere": shared-input propagation (applySharedInput)
+(function(){
+  var anyStage = function(){ return true; };
+  var d1 = applySharedInput({}, "fin", "buildPsf", 250, "fin", anyStage);
+  ok("buildPsf entered on Fin flows to RLV", d1.rlv && d1.rlv.buildPsf === 250);
+  ok("buildPsf entered on Fin flows to SFH", d1.sfh && d1.sfh.buildPsf === 250);
+  var d2 = applySharedInput({}, "sfh", "basePsf", 400, "sfh", anyStage);
+  ok("sale £/sqft alias: sfh.basePsf → rlv.salePsf", d2.rlv && d2.rlv.salePsf === 400);
+  var d3 = applySharedInput({}, "rlv", "salePsf", 420, "rlv", anyStage);
+  ok("sale £/sqft alias: rlv.salePsf → sfh.basePsf", d3.sfh && d3.sfh.basePsf === 420);
+  var d4 = applySharedInput({}, "planning", "ahPct", 40, "planning", anyStage);
+  ok("affordable % flows planning → sfh & tenure", d4.sfh.ahPct === 40 && d4.tenure.ahPct === 40);
+  var d5 = applySharedInput({_completedStages:{rlv:true}}, "fin", "buildPsf", 300, "fin", anyStage);
+  ok("a completed/locked sibling stage is never clobbered", !(d5.rlv && d5.rlv.buildPsf === 300));
+  var d6 = applySharedInput({}, "land", "address", "1 Test St", "land", anyStage);
+  ok("a non-shared field stays local (no spurious propagation)", d6.land.address === "1 Test St" && !d6.rlv);
+})();
+
+// 16 — EPE engine mirrors the Property Evaluator screen formula (condition modifier)
+(function(){
+  // independent replica of the screen's as-standing value for a condition case
+  function epeScreenCurrentVal(data){
+    var ep = data.epe || {};
+    var pcData = (ep.postcode) ? lookupPostcode(ep.postcode) : null;
+    var salePsf = num(ep.salePsf) || (pcData && pcData.salePsf) || 280;
+    var propSqft = num(ep.propSqft) || 900;
+    var condMod = ({excellent:1.15,good:1.05,average:1.0,poor:0.88,derelict:0.70})[ep.condition] || 1.0;
+    var houseVal = Math.round(propSqft * salePsf * condMod);
+    return Math.round((houseVal + 0) * 1); // no garden / no parking in this fixture
+  }
+  var d = { assetType:"property", epe:{ city:"manchester", salePsf:300, propSqft:1200, condition:"good", newUnits:0 } };
+  near("EPE engine current value == screen formula (good condition)", computeEPEMetrics(d).currentVal, epeScreenCurrentVal(d), 1);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);
