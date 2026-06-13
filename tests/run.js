@@ -27,8 +27,11 @@ global.fetch = noop; global.alert = noop;
 // computeTenureMetrics, areaMarketRentPa, buildHonestPrompt, MKT, …)
 try {
   eval(fs.readFileSync(path.join(__dirname, "..", "js", "01-config.js"), "utf8"));
+  // Also load the deal migrator so we can prove existing portfolio/history deals
+  // still load and compute on the corrected engine (back-compat).
+  eval(fs.readFileSync(path.join(__dirname, "..", "js", "lib-migrateLoadedDeal.js"), "utf8"));
 } catch (e) {
-  console.error("Could not load js/01-config.js:", e.message);
+  console.error("Could not load engine files:", e.message);
   process.exit(1);
 }
 
@@ -181,6 +184,36 @@ console.log("Landform engine consistency tests\n");
   // a viable scheme reports stacks=true
   var good = optimiseScheme(sfhDeal({ sfh:{ buildInclusive:true } }), { targetRlv:0 });
   ok("optimiser reports a viable scheme as stacking", good.stacks === true);
+})();
+
+// 10 — Back-compat: an existing (legacy-shaped) portfolio/history deal still
+// loads via migrateLoadedDeal and computes on the corrected engine without error.
+(function(){
+  var legacy = {
+    _savedVersion:"9.20",
+    assetType:"sfh",
+    land:{ city:"maldon", price:14000000, units:200 },
+    planning:{ afhPct:40, units:200 },          // legacy AH field name
+    cap:{ targetYield:5 },                        // legacy 'cap' namespace (pre-'capitalise')
+    sfh:{ city:"maldon", basePsf:380, buildPsf:200, profitPct:17.5,
+      mix:[                                        // rows with no tenure / no buildInclusive / no roads
+        {type:"3-bed semi",    count:"120", sqft:"1000", unitPrice:"380000"},
+        {type:"4-bed detached",count:"80",  sqft:"1300", unitPrice:"560000"}
+      ] }
+  };
+  var migrated, threw = false;
+  try { migrated = migrateLoadedDeal(legacy).data; } catch(e){ threw = true; }
+  ok("legacy deal migrates without throwing", !threw && !!migrated);
+  if (migrated) {
+    var dm = calcDealMetrics(migrated), sm = computeSFHMetrics(migrated);
+    ok("legacy deal: units read correctly (200)", sm.totalUnits === 200);
+    ok("legacy deal: GDV is a finite positive number", isFinite(dm.gdv) && dm.gdv > 0);
+    ok("legacy deal: RLV is a finite number", isFinite(dm.rlv));
+    // build-inclusive defaults OFF, so per-unit roads are still added (infra needs acreage, absent here)
+    ok("legacy deal: roads still included (build-inclusive defaults off)", dm.roads > 0 && dm.infra === 0);
+    var threw2 = false; try { optimiseScheme(migrated); } catch(e){ threw2 = true; }
+    ok("legacy deal: Make-It-Stack solver runs without throwing", !threw2);
+  }
 })();
 
 // ── Report ───────────────────────────────────────────────────────────────────
