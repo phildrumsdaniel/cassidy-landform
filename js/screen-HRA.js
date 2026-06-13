@@ -120,6 +120,18 @@ function renderHRA(LiveMarketBanner, city, data, up, user){
           e(Inp,{label:"Finance Rate %",type:"number",value:h.finRate,onChange:function(v){up("hra","finRate",v);},placeholder:"8.0"}),
           e(Inp,{label:"S106/CIL per unit (£)",type:"number",value:h.s106pu,onChange:function(v){up("hra","s106pu",v);},placeholder:"10000"})
         ),
+        // Build-cost benchmark for the scheme type (BTR / PBSA / apartments), region-adjusted.
+        (function(){
+          if(typeof benchmarkBuildPsf!=="function") return null;
+          var key=buildTypeForAsset(data.assetType);
+          var lo=benchmarkBuildPsf(key,{city:hCity,band:"lo"}), mid=benchmarkBuildPsf(key,{city:hCity,band:"mid"}), hi=benchmarkBuildPsf(key,{city:hCity,band:"hi"});
+          var btn={padding:"4px 10px",border:"none",borderRadius:4,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"};
+          return e("div",{style:{margin:"10px 0 0",padding:"10px 14px",background:"rgba(74,75,174,0.06)",border:"1px solid rgba(74,75,174,0.25)",borderRadius:6,fontSize:11,color:"#3A3D6A",lineHeight:1.5,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}},
+            e("span",{style:{flex:"1 1 260px"}},e("strong",null,"🧱 "+key+" build benchmark — "+cityName(hCity)+": "),"£"+lo+" volume · £"+mid+" mid · £"+hi+"/sqft Tier-1/high-spec. BCIS-style; validate with your QS. (Storey premium is added on top automatically.)"),
+            e("button",{onClick:function(){up("hra","bcp",mid);},style:Object.assign({},btn,{background:"#4A4BAE"})},"Apply mid £"+mid),
+            e("button",{onClick:function(){up("hra","bcp",hi);},style:Object.assign({},btn,{background:"#3A3D6A"})},"Apply Tier-1 £"+hi)
+          );
+        })(),
         total>0&&e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginTop:8}},
           [{l:"Studios",units:su,sqft:ssqft,psf:Math.round(sPsf),gdv:sGdv,c:"#4A4BAE"},
            {l:"1-bed",units:ou,sqft:osqft,psf:Math.round(oPsf),gdv:oGdv,c:"#7B6CB0"},

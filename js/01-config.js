@@ -1455,6 +1455,23 @@ function typicalBuildPsf(type, opts){
   return Math.round(f);
 }
 
+// benchmarkBuildPsf — build cost £/sqft for ANY development type in BUILD_TYPES
+// (apartments, BTR, PBSA, Later Living, pub/office/church/barn conversions,
+// industrial, hotel, care home, mixed use). Applies the regional index and the
+// Tier-1 main-contractor uplift, so every product is costed on the same basis as
+// the houses. band: "lo" | "mid" (default) | "hi".
+function benchmarkBuildPsf(schemeType, opts){
+  opts = opts || {};
+  var bt = BUILD_TYPES[schemeType] || BUILD_TYPES["Residential apartments"];
+  var band = opts.band === "lo" ? bt.lo : opts.band === "hi" ? bt.hi : bt.mid;
+  var region = num(opts.regionIndex) || (opts.city && BUILD_REGION_INDEX[(opts.city||"").toLowerCase()]) || 1.0;
+  return Math.round(band * region * (opts.tier1 ? TIER1_BUILD_UPLIFT : 1));
+}
+// Map a Landform asset type to its BUILD_TYPES key.
+function buildTypeForAsset(assetType){
+  return ({btr:"BTR (Build to Rent)", pbsa:"PBSA (Student)", sfh:"Residential houses"})[assetType] || "Residential apartments";
+}
+
 var RISK_DEFAULTS = [
   {id:1,cat:"Planning",desc:"Consent delayed or refused",rag:"amber",mit:"Pre-app engaged, LPA meeting scheduled"},
   {id:2,cat:"Ground",desc:"Unknown ground contamination",rag:"amber",mit:"Phase 1 instructed, contingency in appraisal"},

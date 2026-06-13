@@ -349,6 +349,17 @@ console.log("Landform engine consistency tests\n");
   near("unknown type falls back to a sensible default", typicalBuildPsf("not a real type"), 185, 0);
 })();
 
+// 18 — Build cost benchmark for ALL development types (BTR, PBSA, conversions…)
+(function(){
+  ["Residential apartments","Residential houses","BTR (Build to Rent)","PBSA (Student)","Later Living","Pub conversion","Office conversion","Industrial/Warehouse","Hotel (3-4 star)","Care home","Mixed use"].forEach(function(t){
+    ok("BUILD_TYPES has '"+t+"' with lo/mid/hi", BUILD_TYPES[t] && BUILD_TYPES[t].lo>0 && BUILD_TYPES[t].mid>0 && BUILD_TYPES[t].hi>0);
+  });
+  near("benchmarkBuildPsf BTR mid == table mid", benchmarkBuildPsf("BTR (Build to Rent)"), BUILD_TYPES["BTR (Build to Rent)"].mid, 0);
+  near("benchmarkBuildPsf PBSA hi band", benchmarkBuildPsf("PBSA (Student)",{band:"hi"}), BUILD_TYPES["PBSA (Student)"].hi, 0);
+  near("benchmark applies Tier-1 uplift", benchmarkBuildPsf("BTR (Build to Rent)",{tier1:true}), Math.round(BUILD_TYPES["BTR (Build to Rent)"].mid*1.12), 0);
+  ok("asset type maps to a build type", buildTypeForAsset("btr")==="BTR (Build to Rent)" && buildTypeForAsset("pbsa")==="PBSA (Student)" && buildTypeForAsset("sfh")==="Residential houses");
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);
