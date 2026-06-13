@@ -1363,13 +1363,19 @@ var ROUTE_DISCOUNT = {
 // blend factor: private units at full MV, AH units at the AH tenure discount.
 // ──────────────────────────────────────────────────────────────────────
 function sfhAhFactor(data){
-  var sfh = (data && data.sfh) || {};
-  var ahPct = num(sfh.ahPct) || 0;
+  data = data || {};
+  var sfh = data.sfh || {};
+  // v9.50 — Affordable % may be entered on the SFH, Planning or Tenure stage.
+  // Resolve across all of them (incl. the legacy 'afhPct') so the affordable blend
+  // is applied no matter where it was set — keeping GDV/RLV identical across the
+  // dashboard, Land Valuation and the Executive Summary.
+  var p = data.planning || {}, t = data.tenure || {};
+  var ahPct = num(sfh.ahPct) || num(p.ahPct) || num(p.afhPct) || num(t.ahPct) || 0;
   if(ahPct <= 0) return 1;
   // No per-tenure granularity is captured for the overall AH%, so value the AH
   // units at Affordable Rent (60% MV) as a representative default. A scheme that
   // wants a different AH tenure should tag the mix rows individually instead.
-  var ahDisc = (ROUTE_DISCOUNT[sfh.ahTenure] || ROUTE_DISCOUNT.ahp_affordable).pct;
+  var ahDisc = (ROUTE_DISCOUNT[sfh.ahTenure || t.ahTenure] || ROUTE_DISCOUNT.ahp_affordable).pct;
   var f = Math.min(1, ahPct / 100);
   return (1 - f) + f * ahDisc;
 }

@@ -370,6 +370,28 @@ console.log("Landform engine consistency tests\n");
   near("reset restores the code default", benchmarkBuildPsf("BTR (Build to Rent)"), before, 0);
 })();
 
+// 20 — Affordable % resolves wherever it's entered (SFH / Planning / Tenure), so
+// the GDV blends consistently and the Exec Summary can't diverge from the dashboard.
+(function(){
+  function dealAhOn(stageObj){
+    return { assetType:"sfh", land:{city:"maldon"}, sfh:Object.assign({ city:"maldon", buildPsf:220,
+      mix:[{type:"3-bed semi",count:"100",sqft:"1000",unitPrice:String(1000*420),tenure:"private"},
+           {type:"4-bed detached",count:"100",sqft:"1300",unitPrice:String(1300*479),tenure:"private"}] }, stageObj.sfh||{}),
+      planning:stageObj.planning||{}, tenure:stageObj.tenure||{} };
+  }
+  var retail = computeSFHMetrics(dealAhOn({})).gdv;                                   // no AH anywhere → retail
+  var ahOnSfh = computeSFHMetrics(dealAhOn({sfh:{ahPct:50}})).gdv;
+  var ahOnPlanning = computeSFHMetrics(dealAhOn({planning:{ahPct:50}})).gdv;          // AH only on Planning
+  var ahOnTenure = computeSFHMetrics(dealAhOn({tenure:{ahPct:50}})).gdv;
+  var ahLegacy = computeSFHMetrics(dealAhOn({planning:{afhPct:50}})).gdv;             // legacy field name
+  ok("AH on SFH blends GDV below retail", ahOnSfh < retail);
+  near("AH on Planning blends the SAME as AH on SFH", ahOnPlanning, ahOnSfh, 1);
+  near("AH on Tenure blends the same", ahOnTenure, ahOnSfh, 1);
+  near("legacy planning.afhPct also blends", ahLegacy, ahOnSfh, 1);
+  // and the deal-state engine agrees (this is what the Exec Summary uses)
+  near("deal-state GDV == engine GDV with AH on Planning", calcDealMetrics(dealAhOn({planning:{ahPct:50}})).gdv, ahOnPlanning, 1);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);
