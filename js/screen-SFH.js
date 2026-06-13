@@ -90,8 +90,13 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
     var totalBuild=houseCalcs.reduce(function(a,h){return a+h.build;},0);
     var fees=totalBuild*0.10; var contCost=totalBuild*(sCont/100);
     var finCost=(totalBuild+fees)*(sFin/100);
-    var s106Total=totalUnits*s106Pu; var roadsTotal=totalUnits*roads;
-    var infra=sAcres*53000;
+    // v9.47 — buildInclusive: if the build £/sqft already covers roads/drainage/
+    // infrastructure, zero those lines so they are not double-counted. Matches
+    // computeSFHMetrics exactly so screen, deal-state and AI agree.
+    var buildInclusive = !!s.buildInclusive;
+    var s106Total=totalUnits*s106Pu;
+    var roadsTotal=buildInclusive ? 0 : totalUnits*roads;
+    var infra=buildInclusive ? 0 : sAcres*53000;
     var devProfit=totalGdv*(sProfit/100);
     var tc3=totalBuild+fees+contCost+finCost+s106Total+roadsTotal+infra;
     var rlv=totalGdv-tc3-devProfit;
@@ -207,6 +212,24 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
                   "Programme certainty higher, variation risk still with Cassidy."
                 )
               : "Tick if Cassidy is sponsor/developer with a Tier 1 main contractor delivering the build (typical for £20m+ schemes). Otherwise leaves the model assuming Cassidy is self-delivering."
+          )
+        );
+      })(),
+
+      // v9.47 — Build-inclusive toggle: avoid double-counting infrastructure.
+      // When the build £/sqft already includes roads/drainage/site infra, the
+      // separate Roads & Sewers and Site Infra/SuDS lines are zeroed.
+      (function(){
+        var inc = !!s.buildInclusive;
+        return e("div",{style:{margin:"-8px 0 14px",padding:"12px 14px",background:inc?"rgba(45,122,101,0.07)":"rgba(243,244,248,0.6)",border:"1px solid "+(inc?"rgba(45,122,101,0.35)":"#E0E2EC"),borderRadius:6,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}},
+          e("label",{style:{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,color:"#3A3D6A",fontWeight:600}},
+            e("input",{type:"checkbox",checked:inc,onChange:function(ev){up("sfh","buildInclusive",ev.target.checked);},style:{width:16,height:16,cursor:"pointer",accentColor:"#2D7A65"}}),
+            "🧱 Build £/sqft already includes roads, drainage & site infrastructure"
+          ),
+          e("div",{style:{flex:1,minWidth:220,fontSize:10,color:inc?"#2D7A65":"#7278A0",lineHeight:1.5}},
+            inc
+              ? e("span",null,e("strong",null,"On. "),"Roads/Sewers and Site Infra/SuDS lines are set to £0 — they are assumed to be within your build £/sqft, so nothing is double-counted.")
+              : "Tick if your build rate is all-in (covers external works, roads, drainage, SuDS). Leave unticked to add those as separate optional cost lines below."
           )
         );
       })(),

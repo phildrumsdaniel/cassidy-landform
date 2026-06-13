@@ -1696,7 +1696,27 @@ function computeSFHMetrics(data){
   // (3) else retail. This single value is what every screen/consumer reads.
   var ahFactor = sfhAhFactor(data);
   var effectiveBlended = hasNonPrivate ? blendedGdv : (ahFactor < 1 ? retailGdv * ahFactor : retailGdv);
-  return {rows:rows,totalUnits:totalUnits,avgSqft:totalUnits>0?totalSqft/totalUnits:0,retailGdv:retailGdv,blendedGdv:effectiveBlended,gdv:effectiveBlended,ahFactor:ahFactor,buildCost:buildCost,hasNonPrivate:hasNonPrivate,basePsf:basePsf,buildPsf:buildPsf};
+
+  // v9.47 — Canonical GROSS cost stack + residual, mirroring the SFH House Mix
+  // screen exactly so every screen and the AI quote the same RLV. Acquisition
+  // costs (SDLT/legals/agent) are NOT included here — they are layered on later
+  // as the "net land bid". 'buildInclusive' = the user's build £/sqft already
+  // covers roads/drainage/site infrastructure, so those lines are zeroed to
+  // avoid double-counting (the optional-cost behaviour the user asked for).
+  var sfhAcres = num(sfh.acres);
+  var buildInclusive = !!sfh.buildInclusive;
+  var sfhFees = buildCost * 0.10;
+  var sfhContingency = buildCost * (numOr(sfh.contingency, 5) / 100);
+  var sfhFinance = (buildCost + sfhFees) * (numOr(sfh.finRate, 7.5) / 100);
+  var sfhS106 = totalUnits * numOr(sfh.s106pu, 8000);
+  var sfhRoads = buildInclusive ? 0 : totalUnits * numOr(sfh.roads, 12000);
+  var sfhInfra = buildInclusive ? 0 : sfhAcres * 53000;
+  var sfhProfit = effectiveBlended * (numOr(sfh.profitPct, 17.5) / 100);
+  var sfhDevCost = buildCost + sfhFees + sfhContingency + sfhFinance + sfhS106 + sfhRoads + sfhInfra;
+  var sfhGrossRlv = effectiveBlended - sfhDevCost - sfhProfit;
+
+  return {rows:rows,totalUnits:totalUnits,avgSqft:totalUnits>0?totalSqft/totalUnits:0,retailGdv:retailGdv,blendedGdv:effectiveBlended,gdv:effectiveBlended,ahFactor:ahFactor,buildCost:buildCost,hasNonPrivate:hasNonPrivate,basePsf:basePsf,buildPsf:buildPsf,
+    acres:sfhAcres,buildInclusive:buildInclusive,fees:sfhFees,contingency:sfhContingency,finance:sfhFinance,s106:sfhS106,roads:sfhRoads,infra:sfhInfra,profit:sfhProfit,devCost:sfhDevCost,rlv:sfhGrossRlv};
 }
 
 function computeTenureMetrics(data){
@@ -1844,14 +1864,35 @@ function calcDealMetrics(data){
   }
   var totalAcqCosts = sdlt + agentFees + legalFees + landFinance;
 
+  // ── SFH: adopt the canonical gross cost stack so the deal-state RLV equals
+  // the SFH House Mix screen exactly (one engine). Includes roads/infra (subject
+  // to the build-inclusive toggle); fees 10%, finance & S106 from the SFH tab. ──
+  var roads = 0, infra = 0;
+  if (at === "sfh" && sfhMetrics.totalUnits > 0) {
+    buildCost   = sfhMetrics.buildCost;
+    fees        = sfhMetrics.fees;
+    contingency = sfhMetrics.contingency;
+    finance     = sfhMetrics.finance;
+    s106        = sfhMetrics.s106;
+    roads       = sfhMetrics.roads;
+    infra       = sfhMetrics.infra;
+    profit      = sfhMetrics.profit;
+  }
+
   // ── TOTAL COST ────────────────────────────────────────────────────────
-  var totalCost = buildCost + fees + contingency + s106 + finance + totalAcqCosts;
+  // Development cost (what it costs to build) is separate from acquisition cost
+  // (what it costs to buy the land). The headline residual is GROSS of purchase
+  // costs; the net land bid then deducts them.
+  var devCost = buildCost + fees + contingency + s106 + finance + roads + infra;
+  var totalCost = devCost + totalAcqCosts;
 
   // ── RLV / RESIDUAL ────────────────────────────────────────────────────
-  // RLV = GDV − all costs − developer profit
-  var rlv = 0;
+  // rlv = GROSS residual land value (max land value before purchase costs) — the
+  // single headline shared with the SFH screen. netLandBid deducts acquisition.
+  var rlv = 0, netLandBid = 0;
   if (gdv > 0) {
-    rlv = gdv - totalCost - profit;
+    rlv = gdv - devCost - profit;
+    netLandBid = rlv - totalAcqCosts;
   }
 
   // Actual profit (if user has explicit costs)
@@ -1893,6 +1934,8 @@ function calcDealMetrics(data){
     contingency: contingency, contingencyPct: contPct,
     s106: s106, s106pu: s106pu,
     finance: finance, finRate: finRate,
+    roads: roads, infra: infra,
+    devCost: devCost,
     // Acquisition (only populated if toggle on)
     includeAcqCosts: includeAcq,
     sdlt: sdlt, agentFees: agentFees, legalFees: legalFees, landFinance: landFinance,
@@ -1904,7 +1947,8 @@ function calcDealMetrics(data){
     roc: roc,
     // Outputs
     totalCost: totalCost,
-    rlv: rlv,
+    rlv: rlv,                 // GROSS residual (before land purchase costs)
+    netLandBid: netLandBid,   // net of acquisition costs (SDLT/legals/agent/land finance)
     headroom: headroom,
     headroomPct: headroomPct,
     // Diagnostic
@@ -2017,9 +2061,10 @@ function buildHonestPrompt(data, taskInstruction, focusKey){
     s += "Sale price input: £" + Math.round(num(m.salePsf)) + "/sqft" + nl;
     s += "Build cost input: £" + Math.round(num(m.buildPsf)) + "/sqft" + nl;
     s += "GDV (Landform): " + fmt(m.gdv) + " [source: " + m.gdvSource + "]" + nl;
-    s += "Total cost (Landform): " + fmt(m.totalCost) + " (build " + fmt(m.buildCost) + ", fees " + pct(m.feesPct) + ", contingency " + pct(m.contingencyPct) + ", S106 " + fmt(m.s106) + ", finance " + fmt(m.finance) + " @ " + pct(m.finRate) + ")" + nl;
+    s += "Development cost (Landform): " + fmt(m.devCost) + " (build " + fmt(m.buildCost) + ", fees " + fmt(m.fees) + ", contingency " + fmt(m.contingency) + ", S106 " + fmt(m.s106) + ", finance " + fmt(m.finance) + " @ " + pct(m.finRate) + (num(m.roads) ? ", roads " + fmt(m.roads) : "") + (num(m.infra) ? ", site infra " + fmt(m.infra) : "") + ")" + nl;
     s += "Target developer profit: " + fmt(m.profit) + " (" + pct(m.profitPctTarget) + " of GDV)" + nl;
-    s += "RESIDUAL LAND VALUE (Landform): " + fmt(m.rlv) + nl;
+    s += "RESIDUAL LAND VALUE (Landform, gross of purchase costs): " + fmt(m.rlv) + nl;
+    if(num(m.totalAcqCosts)) s += "Net land bid (after SDLT/legal/agent/land finance " + fmt(m.totalAcqCosts) + "): " + fmt(m.netLandBid) + nl;
     s += "Implied margin on GDV: " + pct(m.marginPct) + " | ROC: " + pct(m.roc) + " | build:sale " + pct(m.buildSaleRatio) + " (" + m.buildSaleVerdict + ")" + nl + nl;
   }
 
