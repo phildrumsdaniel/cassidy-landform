@@ -1,0 +1,25 @@
+name: Engine tests
+
+# Runs the headless appraisal-engine consistency tests on every push and PR.
+# These guard the single-source-of-truth maths (GDV / RLV / AH blend / costs)
+# so a future edit cannot silently make the screens disagree again.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Syntax-check all JS
+        run: |
+          for f in js/*.js tests/*.js stamp-build.js; do node --check "$f"; done
+      - name: Run engine consistency tests
+        run: node tests/run.js
