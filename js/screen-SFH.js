@@ -376,6 +376,38 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
           )
         )
       ),
+      // Exit / buyer allocation — rolls up the per-row tenure/exit routes into
+      // "what's going to whom" with units and realisable value per buyer.
+      totalUnits>0 && (function(){
+        var alloc={}, order=[];
+        houseCalcs.forEach(function(h){ var k=h.tenure||"private"; if(!alloc[k]){alloc[k]={units:0,retail:0,real:0};order.push(k);} alloc[k].units+=h.count; alloc[k].retail+=h.totalGdv; alloc[k].real+=h.blendedGdv; });
+        var sumReal=order.reduce(function(a,k){return a+alloc[k].real;},0);
+        var allPrivate = order.length===1 && order[0]==="private";
+        var th={fontSize:9,color:"#fff",textTransform:"uppercase",letterSpacing:".05em",fontWeight:700};
+        var grid="2fr 60px 60px 1fr 60px";
+        return e("div",{style:S.card},
+          e("div",{style:S.cardTitle},"Exit / buyer allocation"),
+          e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:10,lineHeight:1.5}},"Who each home is sold to — set the “Tenure / exit route” on each row in the mix above (e.g. 10 private sale, 20 to a pension fund, 30 to a housing association). This shows the units and the realisable value going to each buyer."),
+          e("div",{style:{overflowX:"auto"}},
+            e("div",{style:{display:"grid",gridTemplateColumns:grid,gap:8,padding:"8px 12px",background:"#2E2F8A",borderRadius:"6px 6px 0 0",minWidth:440}},
+              e("span",{style:th},"Buyer / exit route"),e("span",{style:Object.assign({},th,{textAlign:"right"})},"Units"),e("span",{style:Object.assign({},th,{textAlign:"right"})},"%"),e("span",{style:Object.assign({},th,{textAlign:"right"})},"Realisable £"),e("span",{style:Object.assign({},th,{textAlign:"right"})},"MV%")
+            ),
+            order.map(function(k){ var a=alloc[k], rd=ROUTE_DISCOUNT[k]||ROUTE_DISCOUNT.private;
+              return e("div",{key:k,style:{display:"grid",gridTemplateColumns:grid,gap:8,padding:"7px 12px",borderBottom:"1px solid #EEF",alignItems:"center",minWidth:440,fontSize:12}},
+                e("span",{style:{color:"#3A3D6A",fontWeight:600}},rd.label),
+                e("span",{style:{textAlign:"right",color:"#2E2F8A",fontWeight:700}},a.units),
+                e("span",{style:{textAlign:"right",color:"#7278A0"}},pct(a.units/Math.max(totalUnits,1)*100)),
+                e("span",{style:{textAlign:"right",color:"#4A4BAE",fontWeight:700}},fmt(a.real)),
+                e("span",{style:{textAlign:"right",color:rd.pct===1?"#2D7A65":"#B05A35",fontSize:10}},Math.round(rd.pct*100)+"%")
+              );
+            }),
+            e("div",{style:{display:"grid",gridTemplateColumns:grid,gap:8,padding:"9px 12px",background:"#F7F8FC",borderTop:"2px solid #DDE0ED",fontWeight:800,color:"#2E2F8A",minWidth:440,fontSize:12}},
+              e("span",null,"TOTAL"),e("span",{style:{textAlign:"right"}},totalUnits),e("span",null,""),e("span",{style:{textAlign:"right",color:"#4A4BAE"}},fmt(sumReal)),e("span",null,"")
+            )
+          ),
+          allPrivate && ahPct>0 && e("div",{style:{fontSize:10,color:"#9A7B3E",marginTop:8,fontStyle:"italic",lineHeight:1.5}},"You've set affordable housing as an overall "+ahPct+"% (applied as a blended discount). To allocate specific units to a housing association, pension fund, BTR operator etc., set the “Tenure / exit route” on individual rows above.")
+        );
+      })(),
       totalUnits>0&&totalGdv>0&&e("div",null,
         e("div",{style:S.card},
           e("div",{style:S.cardTitle},"SFH Development Appraisal"),
