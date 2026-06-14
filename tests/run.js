@@ -323,6 +323,27 @@ console.log("Landform engine consistency tests\n");
   ok("a non-shared field stays local (no spurious propagation)", d6.land.address === "1 Test St" && !d6.rlv);
 })();
 
+// 15b — Forward-fill on load: normalizeSharedFields pushes upstream data into blank
+// downstream fields (city/acres/affordable %/sale £/sqft), incl. agent-built deals.
+(function(){
+  var loaded = normalizeSharedFields({
+    land:{ city:"maldon", acres:32, postcode:"CM9 4DY" },
+    planning:{ units:200, ahPct:50 },
+    sfh:{ basePsf:420, buildPsf:220 }   // no city/acres/ahPct on SFH (the reported bug)
+  });
+  ok("city forward-fills Land → SFH", loaded.sfh.city === "maldon");
+  ok("acres forward-fills Land → SFH", num(loaded.sfh.acres) === 32);
+  ok("affordable % forward-fills Planning → SFH & Tenure", num(loaded.sfh.ahPct) === 50 && num(loaded.tenure.ahPct) === 50);
+  ok("sale £/sqft forward-fills SFH.basePsf → RLV.salePsf", num(loaded.rlv.salePsf) === 420);
+  ok("build £/sqft forward-fills SFH → Fin & RLV", num(loaded.fin.buildPsf) === 220 && num(loaded.rlv.buildPsf) === 220);
+  ok("units forward-fill Planning → RLV & Fin", num(loaded.rlv.units) === 200 && num(loaded.fin.units) === 200);
+  // does NOT cross house build cost into the apartment (HRA) rate
+  ok("house build £ does NOT leak into HRA bcp", !(loaded.hra && loaded.hra.bcp));
+  // does not overwrite an existing different value
+  var keep = normalizeSharedFields({ land:{city:"maldon"}, sfh:{city:"bristol"} });
+  ok("a value already set downstream is preserved (not overwritten)", keep.sfh.city === "bristol");
+})();
+
 // 16 — EPE engine mirrors the Property Evaluator screen formula (condition modifier)
 (function(){
   // independent replica of the screen's as-standing value for a condition case

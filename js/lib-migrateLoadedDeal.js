@@ -50,6 +50,7 @@ function migrateLoadedDeal(dealData){
 
     // If saved on current version or newer and schema guards found nothing, no migration needed
     if(savedV && semverCompare(savedV, CURRENT_VERSION) >= 0 && migrations.length===0 && reviewRecommended.length===0){
+      if(typeof normalizeSharedFields==="function") data2 = normalizeSharedFields(data2);  // still forward-fill blanks
       return {data:data2, changed:false, migrations:[], reviewRecommended:[]};
     }
     // ── Migration 1: schType mismatch (v9.15 fix) ────────────────────────
@@ -307,5 +308,6 @@ function migrateLoadedDeal(dealData){
       data2._preMigrationBackup = backup;  // for restore
     }
 
+    if(typeof normalizeSharedFields==="function") data2 = normalizeSharedFields(data2);  // forward-fill shared fields across stages
     return {data:data2, changed:changed, migrations:migrations, reviewRecommended:reviewRecommended, backup:backup};
   }

@@ -1953,33 +1953,46 @@ function computeEPEMetrics(data){
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// SHARED INPUTS (v9.49) — "enter once, flows everywhere". A value typed on any
-// stage propagates to the sibling stages that use it, so the whole tool follows
-// and the screens never disagree. Lifted to module scope + a pure helper so the
-// behaviour is covered by the test suite.
-//   SHARED_ASSUMPTIONS: same key name across stages.
-//   SHARED_ALIASES:     same meaning, different key name per stage (e.g. sale £/sqft
-//                       is rlv.salePsf but sfh.basePsf).
-// applySharedInput returns a NEW deal object; completed stages are never clobbered.
+// SHARED INPUTS (v9.50) — "enter once, flows everywhere". Each group below lists
+// every [stage, fieldKey] that holds the SAME logical value (even where the key
+// name differs per stage, e.g. sale £/sqft is sfh.basePsf but rlv.salePsf). Two
+// consumers, one map:
+//   • applySharedInput  — on edit, copies the new value to the group's siblings
+//     (your latest edit wins; completed/locked stages are never clobbered).
+//   • normalizeSharedFields — on load/import, fills any BLANK sibling from the
+//     first value already present, so data entered upstream shows downstream even
+//     for deals built before this existed (e.g. agent-filled deals).
+// NOTE: product-specific costs are deliberately NOT cross-linked between houses
+// and apartments (e.g. house build £/sqft must not flow into the HRA bcp, which
+// is a different, storey-based rate).
 // ──────────────────────────────────────────────────────────────────────────
-var SHARED_ASSUMPTIONS = {
-  finRate:        ["fin","rlv","sfh"],
-  buildPsf:       ["fin","rlv","sfh"],
-  profitPct:      ["fin","rlv","sfh"],
-  contingency:    ["fin","rlv","sfh"],
-  s106pu:         ["fin","planning","rlv","sfh"],
-  ahPct:          ["planning","sfh","tenure"],
-  buildInclusive: ["fin","rlv","sfh"]
-};
-var SHARED_ALIASES = {
-  salePsf: [["rlv","salePsf"],["sfh","basePsf"]]
-};
+var SHARED_FIELD_GROUPS = [
+  // ── Site / location (universal) ──
+  [["land","city"],["sfh","city"],["hra","city"],["rlv","city"],["epe","city"]],
+  [["land","postcode"],["rlv","postcode"],["epe","postcode"]],
+  [["land","acres"],["sfh","acres"]],
+  // ── Scheme quantum ──
+  [["planning","units"],["land","units"],["rlv","units"],["fin","units"]],
+  // ── Affordable housing % ──
+  [["planning","ahPct"],["sfh","ahPct"],["tenure","ahPct"]],
+  // ── Sale £/sqft (houses path; different key name per stage) ──
+  [["sfh","basePsf"],["rlv","salePsf"]],
+  // ── Development cost assumptions (houses / finance cluster only) ──
+  [["sfh","buildPsf"],["fin","buildPsf"],["rlv","buildPsf"]],
+  [["sfh","profitPct"],["fin","profitPct"],["rlv","profitPct"]],
+  [["sfh","finRate"],["fin","finRate"],["rlv","finRate"]],
+  [["sfh","contingency"],["fin","contingency"],["rlv","contingency"]],
+  [["sfh","s106pu"],["fin","s106pu"],["planning","s106pu"],["rlv","s106pu"]],
+  [["sfh","buildInclusive"],["fin","buildInclusive"],["rlv","buildInclusive"]]
+];
+function _sharedGroupsFor(section, key){
+  return SHARED_FIELD_GROUPS.filter(function(g){ return g.some(function(t){ return t[0]===section && t[1]===key; }); });
+}
 function applySharedInput(d, section, key, val, currentStage, isStageId){
   d = d || {};
   isStageId = isStageId || function(){ return true; };
   var completed = d._completedStages || {};
-  // can't edit a completed stage other than the one you're on
-  if(section !== currentStage && isStageId(section) && completed[section]) return d;
+  if(section !== currentStage && isStageId(section) && completed[section]) return d;  // can't edit a completed cross-stage
   var next = Object.assign({}, d);
   function writeOne(sec, k, v){
     if(sec !== currentStage && isStageId(sec) && completed[sec]) return;   // never clobber a finalised sibling
@@ -1988,12 +2001,25 @@ function applySharedInput(d, section, key, val, currentStage, isStageId){
     next[sec] = o;
   }
   writeOne(section, key, val);
-  if(SHARED_ASSUMPTIONS[key]) SHARED_ASSUMPTIONS[key].forEach(function(sib){ if(sib !== section) writeOne(sib, key, val); });
-  Object.keys(SHARED_ALIASES).forEach(function(canon){
-    var targets = SHARED_ALIASES[canon];
-    if(targets.some(function(t){ return t[0] === section && t[1] === key; })){
-      targets.forEach(function(t){ if(!(t[0] === section && t[1] === key)) writeOne(t[0], t[1], val); });
-    }
+  _sharedGroupsFor(section, key).forEach(function(group){
+    group.forEach(function(t){ if(!(t[0] === section && t[1] === key)) writeOne(t[0], t[1], val); });
+  });
+  return next;
+}
+// Fill blank shared fields from the first value present in each group (used on
+// load/import so anything entered upstream appears in the matching downstream
+// field, including deals saved before this propagation existed).
+function normalizeSharedFields(data){
+  if(!data || typeof data !== "object") return data;
+  var next = Object.assign({}, data);
+  function getv(sec, k){ var o = next[sec]; if(!o) return undefined; var v = o[k]; return (v === undefined || v === null || v === "") ? undefined : v; }
+  SHARED_FIELD_GROUPS.forEach(function(group){
+    var canon;
+    for(var i = 0; i < group.length; i++){ var v = getv(group[i][0], group[i][1]); if(v !== undefined){ canon = v; break; } }
+    if(canon === undefined) return;
+    group.forEach(function(t){
+      if(getv(t[0], t[1]) === undefined){ var o = Object.assign({}, next[t[0]] || {}); o[t[1]] = canon; next[t[0]] = o; }
+    });
   });
   return next;
 }
