@@ -440,6 +440,24 @@ console.log("Landform engine consistency tests\n");
   ok("SFH RLV computes with inherited acres", isFinite(c.rlv));
 })();
 
+// 23 — Mixed exit allocation: who gets what, and it carries into the reports
+(function(){
+  var d = sfhDeal({ sfh:{ mix:[
+    {type:"3-bed semi",   count:"10", sqft:"1000", unitPrice:"400000", tenure:"private"},
+    {type:"3-bed semi",   count:"20", sqft:"1000", unitPrice:"400000", tenure:"pension"},
+    {type:"2-bed terrace",count:"30", sqft:"800",  unitPrice:"300000", tenure:"ahp_social"}
+  ]}});
+  var alloc = exitAllocationSummary(d);
+  ok("allocation splits into 3 buyer routes", alloc.length === 3);
+  var byT = {}; alloc.forEach(function(a){ byT[a.tenure] = a; });
+  ok("private = 10 units", byT.private && byT.private.units === 10);
+  ok("pension = 20 units", byT.pension && byT.pension.units === 20);
+  ok("housing association (social rent) = 30 units", byT["ahp_social"] && byT["ahp_social"].units === 30);
+  near("social-rent realisable = retail × 0.55", byT["ahp_social"].realisable, 30*800*375*0.55, 5);
+  var p = buildHonestPrompt(d, "task");
+  ok("exit allocation carries into the AI report deal-state", p.indexOf("EXIT / BUYER ALLOCATION") >= 0 && p.indexOf("Pension") >= 0);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

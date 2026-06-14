@@ -2417,6 +2417,25 @@ var STAGE_FOCUS = {
   hra:  "You are at the APARTMENT (HRA) appraisal stage. Focus on apartment-scheme viability, BSA 2022 / Gateway compliance, structural form for the storey count, and mix optimisation.",
   epe:  "You are at the EXISTING PROPERTY EVALUATION stage. Focus on current value sense-check, development feasibility and the best option for THIS property."
 };
+// exitAllocationSummary — who each home is sold to, from the SFH mix per-row
+// tenure/exit route. Returns [{tenure,label,units,retail,realisable,mvPct}].
+// Used by the SFH screen card, the AI deal-state and the reports so a mixed exit
+// (e.g. 10 private + 20 to a pension fund + 30 to an HA) carries through.
+function exitAllocationSummary(data){
+  data = data || {};
+  var c = (typeof computeSFHMetrics === "function") ? computeSFHMetrics(data) : null;
+  if(!c || !c.rows || !c.rows.length) return [];
+  var alloc = {}, order = [];
+  c.rows.forEach(function(r){
+    var k = r.tenure || "private";
+    if(!alloc[k]){ alloc[k] = {units:0, retail:0, real:0}; order.push(k); }
+    alloc[k].units += r.count; alloc[k].retail += r.retailGdv; alloc[k].real += r.blendedGdv;
+  });
+  return order.map(function(k){
+    var a = alloc[k], rd = ROUTE_DISCOUNT[k] || ROUTE_DISCOUNT.private;
+    return {tenure:k, label:rd.label, units:a.units, retail:a.retail, realisable:a.real, mvPct:rd.pct};
+  });
+}
 function buildHonestPrompt(data, taskInstruction, focusKey){
   data = data || {};
   var m = calcDealMetrics(data);
@@ -2507,7 +2526,13 @@ function buildHonestPrompt(data, taskInstruction, focusKey){
     s += "Target developer profit: " + fmt(m.profit) + " (" + pct(m.profitPctTarget) + " of GDV)" + nl;
     s += "RESIDUAL LAND VALUE (Landform, gross of purchase costs): " + fmt(m.rlv) + nl;
     if(num(m.totalAcqCosts)) s += "Net land bid (after SDLT/legal/agent/land finance " + fmt(m.totalAcqCosts) + "): " + fmt(m.netLandBid) + nl;
-    s += "Implied margin on GDV: " + pct(m.marginPct) + " | ROC: " + pct(m.roc) + " | build:sale " + pct(m.buildSaleRatio) + " (" + m.buildSaleVerdict + ")" + nl + nl;
+    s += "Implied margin on GDV: " + pct(m.marginPct) + " | ROC: " + pct(m.roc) + " | build:sale " + pct(m.buildSaleRatio) + " (" + m.buildSaleVerdict + ")" + nl;
+    var _alloc = (typeof exitAllocationSummary === "function") ? exitAllocationSummary(data) : [];
+    if(_alloc.length > 1){
+      s += "EXIT / BUYER ALLOCATION (who each home is sold to — this is the planned mixed exit; honour it):" + nl;
+      _alloc.forEach(function(a){ s += "  - " + a.units + " unit(s) → " + a.label + " (" + Math.round(a.mvPct*100) + "% of MV): realisable " + fmt(a.realisable) + nl; });
+    }
+    s += nl;
   }
 
   if(!landOnly){
