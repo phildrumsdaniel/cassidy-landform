@@ -409,6 +409,16 @@ console.log("Landform engine consistency tests\n");
   ok("empty deal: Financial Modelling not complete", !isStageComplete("fin", {}));
 })();
 
+// 22 — SFH inherits site area from Land Appraisal (engine stays consistent with screen)
+(function(){
+  var d = { assetType:"sfh", land:{city:"maldon", acres:32}, sfh:{ city:"maldon", buildPsf:220,
+    mix:[{type:"3-bed semi",count:"100",sqft:"1000",unitPrice:"400000",tenure:"private"}] } };  // no sfh.acres
+  var c = computeSFHMetrics(d);
+  near("SFH infra inherits Land acres (32 × £53k)", c.infra, 32*53000, 1);
+  // and overall RLV is finite / computed with the inherited acreage
+  ok("SFH RLV computes with inherited acres", isFinite(c.rlv));
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

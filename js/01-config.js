@@ -1823,7 +1823,7 @@ function computeSFHMetrics(data){
   // as the "net land bid". 'buildInclusive' = the user's build £/sqft already
   // covers roads/drainage/site infrastructure, so those lines are zeroed to
   // avoid double-counting (the optional-cost behaviour the user asked for).
-  var sfhAcres = num(sfh.acres);
+  var sfhAcres = num(sfh.acres) || num(l.acres);   // inherit site area from Land Appraisal when not set on SFH
   var buildInclusive = !!sfh.buildInclusive;
   var sfhFees = buildCost * 0.10;
   var sfhContingency = buildCost * (numOr(sfh.contingency, 5) / 100);

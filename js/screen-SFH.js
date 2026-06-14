@@ -3,9 +3,12 @@
 // params; all other names resolve to globals. Loaded before 05-tool.js.
 function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
     var s=data.sfh||{};
-    var sfhCity=s.city||city;
+    // v9.50 — inherit site/location details from upstream (Land Appraisal / Planning)
+    // so SFH doesn't re-ask for them. SFH-specific values still override when set.
+    var sfhLand=data.land||{}, sfhPlan=data.planning||{};
+    var sfhCity=s.city||sfhLand.city||city;
     var sm=MKT[sfhCity]||MKT.manchester;
-    var sAcres=num(s.acres); var sDph=num(s.dph)||30;
+    var sAcres=num(s.acres)||num(sfhLand.acres); var sDph=num(s.dph)||30;
     var sHa=sAcres*0.404686; var sMaxUnits=Math.floor(sHa*sDph);
     // Sale price psf: look up from market data, NOT from rent * multiplier
     // sm.btr is monthly rent - using as psf multiplier gives wrong results
@@ -106,8 +109,8 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
     var sc=rlv>0 ? (sMargin>=15 ? "#2D7A65" : "#9A7B3E") : "#B05A35";
     var viable=rlv>0&&sMargin>=15;
 
-    // AH scenarios
-    var ahPct=num(s.ahPct)||0;
+    // AH scenarios — inherit the affordable % from Planning when not set on SFH
+    var ahPct=num(s.ahPct)||num(sfhPlan.ahPct)||num(sfhPlan.afhPct)||0;
     var ahScenarios=ahPct>0?[
       {label:"First Homes (30% disc)",disc:0.70},
       {label:"Shared Ownership (40%)",disc:0.60},
@@ -238,10 +241,10 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Site Details"),
         e("div",{style:S.grid2},
-          e(CitySelect,{value:s.city,onChange:function(v){up("sfh","city",v);}}),
-          e(Inp,{label:"Site Area (acres)",type:"number",value:s.acres,onChange:function(v){up("sfh","acres",v);},placeholder:"e.g. 5.0"}),
+          e(CitySelect,{value:s.city||sfhLand.city||"",onChange:function(v){up("sfh","city",v);}}),
+          e(Inp,{label:"Site Area (acres)",type:"number",value:(s.acres!==undefined&&s.acres!=="")?s.acres:(sfhLand.acres||""),onChange:function(v){up("sfh","acres",v);},placeholder:String(num(sfhLand.acres)||"e.g. 5.0")}),
           e(Inp,{label:"Density (dph)",type:"number",value:s.dph,onChange:function(v){up("sfh","dph",v);},placeholder:"30"}),
-          e(Inp,{label:"Affordable Housing %",type:"number",value:s.ahPct,onChange:function(v){up("sfh","ahPct",v);},placeholder:"e.g. 25"}),
+          e(Inp,{label:"Affordable Housing %",type:"number",value:(s.ahPct!==undefined&&s.ahPct!=="")?s.ahPct:((sfhPlan.ahPct||sfhPlan.afhPct)||""),onChange:function(v){up("sfh","ahPct",v);},placeholder:String(num(sfhPlan.ahPct)||num(sfhPlan.afhPct)||"e.g. 25")}),
           num(s.ahPct)>0 && e(Sel,{label:"AH tenure (sets the GDV haircut)",value:s.ahTenure||"ahp_affordable",onChange:function(v){up("sfh","ahTenure",v);},options:[
             {value:"ahp_social",label:"Social Rent (55% MV)"},
             {value:"ahp_affordable",label:"Affordable Rent (60% MV)"},
