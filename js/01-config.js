@@ -2436,6 +2436,12 @@ function exitAllocationSummary(data){
     return {tenure:k, label:rd.label, units:a.units, retail:a.retail, realisable:a.real, mvPct:rd.pct};
   });
 }
+// One-line text of the mixed exit allocation for reports (empty if single-route).
+function exitAllocationText(data){
+  var a = exitAllocationSummary(data);
+  if(a.length < 2) return "";
+  return a.map(function(x){ return x.units + " → " + x.label + " (" + fmt(x.realisable) + ")"; }).join("; ");
+}
 function buildHonestPrompt(data, taskInstruction, focusKey){
   data = data || {};
   var m = calcDealMetrics(data);
