@@ -480,6 +480,16 @@ console.log("Landform engine consistency tests\n");
   ok("yield set on Fin flows back to Capitalisation", num(b.capitalise.targetYield) === 5.25);
 })();
 
+// 27 — Per-house-type area rents (anchored on the 3-bed typical, not 1-bed)
+(function(){
+  var d = { land:{city:"maldon"} };
+  near("3-bed area rent = the typical (btr £1,258)", areaRentPcm(d,3), 1258, 0);
+  near("4-bed area rent ≈ ONS £1,929 (within tolerance)", areaRentPcm(d,4), Math.round(1258*1.53), 60);
+  ok("1-bed rent is below 3-bed (correct direction)", areaRentPcm(d,1) < areaRentPcm(d,3));
+  ok("4-bed rent is above 3-bed", areaRentPcm(d,4) > areaRentPcm(d,3));
+  ok("no-area deal returns 0 (caller falls back)", areaRentPcm({},3) === 0);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

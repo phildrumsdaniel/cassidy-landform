@@ -78,11 +78,15 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
       }
     })();
 
-    var base1bed=num(cap.rent1!==undefined && cap.rent1!=="" ? cap.rent1 : rentMonthly1bed);
-    var rent1=base1bed;
-    var rent2=num(cap.rent2!==undefined && cap.rent2!=="" ? cap.rent2 : Math.round(base1bed*BED_MULT[2]));
-    var rent3=num(cap.rent3!==undefined && cap.rent3!=="" ? cap.rent3 : Math.round(base1bed*BED_MULT[3]));
-    var rent4=num(cap.rent4!==undefined && cap.rent4!=="" ? cap.rent4 : Math.round(base1bed*BED_MULT[4]));
+    // v9.51 — per-bed rents anchored on the AREA's typical (3-bed) rent via
+    // areaRentPcm, so each bed size is realistic for the location (fixes the old
+    // "btr = 1-bed" overstatement). Each remains user-editable.
+    var areaR=function(b){ return (typeof areaRentPcm==="function") ? areaRentPcm(data,b) : 0; };
+    var rent1=num(cap.rent1!==undefined && cap.rent1!=="" ? cap.rent1 : (areaR(1)||rentMonthly1bed));
+    var base1bed=rent1;
+    var rent2=num(cap.rent2!==undefined && cap.rent2!=="" ? cap.rent2 : (areaR(2)||Math.round(base1bed*BED_MULT[2])));
+    var rent3=num(cap.rent3!==undefined && cap.rent3!=="" ? cap.rent3 : (areaR(3)||Math.round(base1bed*BED_MULT[3])));
+    var rent4=num(cap.rent4!==undefined && cap.rent4!=="" ? cap.rent4 : (areaR(4)||Math.round(base1bed*BED_MULT[4])));
 
     // ── Gross annual rent ──────────────────────────────────────────────────
     var grossMonthly=(beds1*rent1)+(beds2*rent2)+(beds3*rent3)+(beds4*rent4)+extraMonthly;

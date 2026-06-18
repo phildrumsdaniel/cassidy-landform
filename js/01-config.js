@@ -1531,6 +1531,22 @@ var CITIES = Object.keys(MKT);
 // Source: Rightmove/Savills market data 2025 averages
 var BED_MULT = {1:1.00, 2:1.38, 3:1.65, 4:1.92};
 
+// RENT_BED_FACTOR (v9.51) — monthly rent by bedroom count RELATIVE TO A 3-BED
+// (the typical home, = MKT[city].btr). Fixes the old assumption that btr was a
+// 1-bed rent (which overstated larger homes). Ratios approximate UK/ONS spread.
+var RENT_BED_FACTOR = {0:0.50, 1:0.62, 2:0.78, 3:1.00, 4:1.53, 5:1.92, 6:2.30};
+// areaRentPcm — correct monthly rent for a given bedroom count in the deal's area.
+// Anchored on the local typical (3-bed) rent; returns 0 if the area has no rent
+// benchmark so callers can fall back. Always editable downstream (it's a default).
+function areaRentPcm(data, beds){
+  data = data || {};
+  var cityKey = ((data.sfh && data.sfh.city) || (data.land && data.land.city) || (data.rlv && data.rlv.city) || (data.hra && data.hra.city) || (data.tenure && data.tenure.city) || "").toLowerCase();
+  var mk = MKT[cityKey];
+  if(!mk || !mk.btr) return 0;
+  var b = Math.max(0, Math.min(6, Math.round(num(beds) || 3)));
+  return Math.round(mk.btr * (RENT_BED_FACTOR[b] != null ? RENT_BED_FACTOR[b] : 1));
+}
+
 // Capitalisation yields by buyer type (lower = higher price)
 var CAP_YIELDS = {
   "Pension / Sovereign Fund": {min:0.038, base:0.042, max:0.046, label:"4.2% base (pension-grade)"},
