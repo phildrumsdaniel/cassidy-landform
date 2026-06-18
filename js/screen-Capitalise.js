@@ -95,7 +95,7 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
     // is pulled from the deal (Tenure Mix → Planning → SFH) so the mix flows in here
     // automatically; default discount is 0% (market) until a button is chosen.
     var ahFracCap=Math.min(1,(num(data.tenure&&data.tenure.ahPct)||num(data.planning&&data.planning.ahPct)||num(data.planning&&data.planning.afhPct)||num(data.sfh&&data.sfh.ahPct)||num(cap.ahPct)||0)/100);
-    var ahRentDisc=(cap.ahRentDisc!==undefined && cap.ahRentDisc!=="")?num(cap.ahRentDisc)/100:0;
+    var ahRentDisc=(cap.ahRentDisc!==undefined && cap.ahRentDisc!=="")?num(cap.ahRentDisc)/100:(ahFracCap>0?0.20:0);  // default Affordable Rent (−20%) when the scheme has affordable units
     var rentBlendFactor=(1-ahFracCap)+ahFracCap*(1-ahRentDisc);
     var grossAnnual=grossMonthly*12*rentBlendFactor;
 

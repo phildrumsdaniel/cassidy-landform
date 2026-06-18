@@ -1535,13 +1535,22 @@ var BED_MULT = {1:1.00, 2:1.38, 3:1.65, 4:1.92};
 // (the typical home, = MKT[city].btr). Fixes the old assumption that btr was a
 // 1-bed rent (which overstated larger homes). Ratios approximate UK/ONS spread.
 var RENT_BED_FACTOR = {0:0.50, 1:0.62, 2:0.78, 3:1.00, 4:1.53, 5:1.92, 6:2.30};
-// areaRentPcm — correct monthly rent for a given bedroom count in the deal's area.
-// Anchored on the local typical (3-bed) rent; returns 0 if the area has no rent
-// benchmark so callers can fall back. Always editable downstream (it's a default).
-function areaRentPcm(data, beds){
+// dealCityKey — the deal's actual area, resolved from the city set on ANY stage,
+// and falling back to the postcode (so e.g. Maldon CM9 4DY always resolves to
+// Maldon). Single source of "which area" for all rent/area lookups.
+function dealCityKey(data){
   data = data || {};
-  var cityKey = ((data.sfh && data.sfh.city) || (data.land && data.land.city) || (data.rlv && data.rlv.city) || (data.hra && data.hra.city) || (data.tenure && data.tenure.city) || "").toLowerCase();
-  var mk = MKT[cityKey];
+  var c = ((data.sfh && data.sfh.city) || (data.land && data.land.city) || (data.rlv && data.rlv.city) || (data.hra && data.hra.city) || (data.tenure && data.tenure.city) || (data.epe && data.epe.city) || "").toLowerCase();
+  if(MKT[c]) return c;
+  var pc = (data.land && data.land.postcode) || (data.rlv && data.rlv.postcode) || (data.epe && data.epe.postcode) || "";
+  var pcd = (pc && typeof lookupPostcode === "function") ? lookupPostcode(pc) : null;
+  return (pcd && pcd.city) ? pcd.city : c;
+}
+// areaRentPcm — correct monthly rent for a given bedroom count in the DEAL's area
+// (city or postcode). Anchored on the local typical (3-bed) rent; returns 0 if the
+// area has no rent benchmark so callers can fall back. Always editable downstream.
+function areaRentPcm(data, beds){
+  var mk = MKT[dealCityKey(data)];
   if(!mk || !mk.btr) return 0;
   var b = Math.max(0, Math.min(6, Math.round(num(beds) || 3)));
   return Math.round(mk.btr * (RENT_BED_FACTOR[b] != null ? RENT_BED_FACTOR[b] : 1));
@@ -2048,9 +2057,7 @@ function normalizeSharedFields(data){
 // reflect the actual location, then the user can override any figure. Returns 0
 // when the area has no rent benchmark, so callers fall back to a yield proxy.
 function areaMarketRentPa(data){
-  data = data || {};
-  var cityKey = ((data.sfh && data.sfh.city) || (data.land && data.land.city) || (data.rlv && data.rlv.city) || (data.hra && data.hra.city) || (data.tenure && data.tenure.city) || "").toLowerCase();
-  var mk = MKT[cityKey];
+  var mk = MKT[dealCityKey(data)];
   return (mk && mk.btr) ? mk.btr * 12 : 0;
 }
 // estSalePsfFromRent (v9.51) — estimate a SALE £/sqft from a monthly rent, used

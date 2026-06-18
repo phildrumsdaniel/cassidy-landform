@@ -490,6 +490,18 @@ console.log("Landform engine consistency tests\n");
   ok("no-area deal returns 0 (caller falls back)", areaRentPcm({},3) === 0);
 })();
 
+// 28 — Rents follow the DEAL's area (city OR postcode), and areas differ
+(function(){
+  near("Maldon deal → Maldon 3-bed rent", areaRentPcm({land:{city:"maldon"}},3), 1258, 0);
+  near("Sheffield deal → Sheffield 3-bed rent", areaRentPcm({land:{city:"sheffield"}},3), MKT.sheffield.btr, 0);
+  ok("Maldon and Sheffield rents differ (area-specific)", areaRentPcm({land:{city:"maldon"}},3) !== areaRentPcm({land:{city:"sheffield"}},3));
+  // resolves area from POSTCODE when no city is set
+  var byPc = areaRentPcm({land:{postcode:"M1 1AE"}},3);   // Manchester postcode
+  ok("area resolves from postcode when city missing", byPc === MKT.manchester.btr || byPc > 0);
+  // dealCityKey prefers an explicit city
+  ok("dealCityKey resolves the deal area", dealCityKey({sfh:{city:"sheffield"}}) === "sheffield");
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);
