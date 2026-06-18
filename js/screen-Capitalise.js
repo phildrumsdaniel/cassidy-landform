@@ -90,7 +90,14 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
 
     // ── Gross annual rent ──────────────────────────────────────────────────
     var grossMonthly=(beds1*rent1)+(beds2*rent2)+(beds3*rent3)+(beds4*rent4)+extraMonthly;
-    var grossAnnual=grossMonthly*12;
+    // v9.52 — Affordable-rent discount. Market units rent at 100% of the AREA rent;
+    // affordable units at a discount set by the radio buttons. The affordable SHARE
+    // is pulled from the deal (Tenure Mix → Planning → SFH) so the mix flows in here
+    // automatically; default discount is 0% (market) until a button is chosen.
+    var ahFracCap=Math.min(1,(num(data.tenure&&data.tenure.ahPct)||num(data.planning&&data.planning.ahPct)||num(data.planning&&data.planning.afhPct)||num(data.sfh&&data.sfh.ahPct)||num(cap.ahPct)||0)/100);
+    var ahRentDisc=(cap.ahRentDisc!==undefined && cap.ahRentDisc!=="")?num(cap.ahRentDisc)/100:0;
+    var rentBlendFactor=(1-ahFracCap)+ahFracCap*(1-ahRentDisc);
+    var grossAnnual=grossMonthly*12*rentBlendFactor;
 
     // ── NOI calculation ────────────────────────────────────────────────────
     var ded=NOI_DEDUCTIONS.residential;
@@ -673,8 +680,28 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
         })(),
 
         e("div",{style:{fontSize:10,color:"#7278A0",marginBottom:12}},
-          "Rents auto-populated from "+rentSourceLabel+". Adjust to match your scheme. Market benchmark: 1-bed £"+base1bed+"/month, 2-bed £"+Math.round(base1bed*BED_MULT[2])+", 3-bed £"+Math.round(base1bed*BED_MULT[3])+", 4-bed £"+Math.round(base1bed*BED_MULT[4])+"/month."
+          "Rents auto-populated from "+rentSourceLabel+" at 100% of the local market. Adjust to match your scheme. Area rent: 1-bed £"+rent1+"/mo, 2-bed £"+rent2+", 3-bed £"+rent3+", 4-bed £"+rent4+"/mo."
         ),
+        // v9.52 — Scheme-type banner + affordable-rent discount radio buttons.
+        (function(){
+          var at2=(data.assetType||"").toLowerCase();
+          var typeLabel=at2==="btr"?"Build-to-Rent (BTR)":at2==="pbsa"?"Purpose-Built Student (PBSA)":at2==="sfh"?"Single-family housing":at2==="property"?"Existing property":"Residential";
+          return e("div",{style:{margin:"0 0 14px",padding:"12px 14px",background:"rgba(74,75,174,0.06)",border:"1px solid rgba(74,75,174,0.25)",borderRadius:8}},
+            e("div",{style:{fontSize:11,color:"#3A3D6A",marginBottom:8,lineHeight:1.5}},
+              e("strong",null,"This is a "+typeLabel+" scheme.")," It's valued by capitalising the net rent at your target yield ("+(num(cap.targetYield||4.5))+"%). Market homes rent at 100% of the local area rent above."
+            ),
+            e("div",{style:{fontSize:11,fontWeight:800,color:"#2E2F8A",marginBottom:6}},
+              "🏷 Affordable rent discount"+(ahFracCap>0?" — applied to "+Math.round(ahFracCap*100)+"% of units (from the Tenure Mix)":" — set the affordable % in Tenure Mix or Planning to use this")
+            ),
+            e("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+              [{l:"Market (0%)",v:0},{l:"−20% Affordable Rent",v:20},{l:"−30%",v:30},{l:"−40%",v:40},{l:"−50% Social Rent",v:50}].map(function(o){
+                var sel=Math.round(ahRentDisc*100)===o.v;
+                return e("button",{key:o.v,onClick:function(){up("capitalise","ahRentDisc",o.v);},style:{padding:"5px 12px",background:sel?"#4A4BAE":"#fff",color:sel?"#fff":"#3A3D6A",border:"1px solid "+(sel?"#4A4BAE":"#DDE0ED"),borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},o.l);
+              })
+            ),
+            (ahFracCap>0 && ahRentDisc>0) && e("div",{style:{fontSize:10,color:"#2D7A65",marginTop:8,lineHeight:1.5}},"→ Blended rent = "+Math.round(rentBlendFactor*100)+"% of market ("+Math.round((1-ahFracCap)*100)+"% market + "+Math.round(ahFracCap*100)+"% affordable at "+Math.round(ahRentDisc*100)+"% off). NOI "+fmt(netAnnualIncome)+" pa → capitalised value "+fmt(capValue)+".")
+          );
+        })(),
         e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}},
           [{beds:1,k:"beds1",rk:"rent1",def:defaultMix[1],defR:rent1,col:"#4A4BAE"},
            {beds:2,k:"beds2",rk:"rent2",def:defaultMix[2],defR:rent2,col:"#2D7A65"},
