@@ -37,7 +37,7 @@ function renderRLV(city, data, m, navTo, setData, up, user){
     // v9.28 — Apply new-build premium when scheme is new development (SFH/BTR/PBSA)
     // Land Registry returns ALL housing stock; for new-build viability we need the
     // new-build comparable. Show both figures in the input label.
-    var rRawPsf = num(pcData&&pcData.salePsf) || (rm.btr*8.5/12) || (m&&m.btr*8.5/12) || 260;
+    var rRawPsf = num(pcData&&pcData.salePsf) || (estSalePsfFromRent(rm.btr)) || (m&&estSalePsfFromRent(m.btr)) || 260;
     var rNbInfo = isNewBuildScheme(data.assetType) ? newBuildPsf(r.postcode||(data.land&&data.land.postcode)||"", rRawPsf) : null;
     var rDefaultPsf = rNbInfo ? rNbInfo.newBuild : rRawPsf;
     var rSalePsf=num(r.salePsf)||rDefaultPsf;
@@ -656,7 +656,7 @@ function renderRLV(city, data, m, navTo, setData, up, user){
           e(Inp,{
             label: (num(r.salePsf)?"Sale £/sqft · saved":(rNbInfo
               ? "Sale £/sqft · auto-default — new-build estimate £"+rNbInfo.newBuild+" (existing £"+rNbInfo.existing+" + "+rNbInfo.premiumPct+"% premium)"
-              : "Sale £/sqft · auto-default"+(m?" from "+cityName(city)+": £"+Math.round((pcData&&pcData.salePsf)||(m.btr*8.5/12)||260):""))),
+              : "Sale £/sqft · auto-default"+(m?" from "+cityName(city)+": £"+Math.round((pcData&&pcData.salePsf)||(estSalePsfFromRent(m.btr))||260):""))),
             type:"number",value:r.salePsf,onChange:function(v){up("rlv","salePsf",v);},placeholder:"£"+Math.round(rSalePsf)
           }),
           e(Inp,{label:(num(r.buildPsf)?"Build £/sqft · saved":"Build £/sqft · auto-default"+(m?" from "+cityName(city)+": £"+m.build+" · BCIS £"+bt.lo+"–£"+bt.hi:" · BCIS £"+bt.lo+"–£"+bt.hi)),type:"number",value:r.buildPsf,onChange:function(v){up("rlv","buildPsf",v);},placeholder:"£"+Math.round(rBuild)}),
@@ -1062,7 +1062,7 @@ function renderRLV(city, data, m, navTo, setData, up, user){
             else if(pcData&&pcData.salePsf) benchmarkSale=pcData.salePsf;
             else if(m3&&m3.btr){
               // Convert monthly rent to a sensible sale PSF estimate, clamped to realistic UK range
-              var derived=Math.round(m3.btr*8.5/12);
+              var derived=Math.round(estSalePsfFromRent(m3.btr));
               benchmarkSale=Math.max(150,Math.min(650,derived));
             } else benchmarkSale=220;
 

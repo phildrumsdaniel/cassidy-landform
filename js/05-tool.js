@@ -364,7 +364,7 @@ var JOURNEYS = {
   // SFH GDV: sum house sales from SFH appraisal mix
   var sfhDashGdv=(function(){
     var mix=(data.sfh&&data.sfh.mix)||[];
-    var bPsf=num(data.sfh&&data.sfh.basePsf)||num(m.btr*8.5/12)||260;
+    var bPsf=num(data.sfh&&data.sfh.basePsf)||num(estSalePsfFromRent(m.btr))||260;
     var t=0;
     for(var mi=0;mi<mix.length;mi++){
       var row=mix[mi]; var cnt=num(row.count||0);
@@ -2118,7 +2118,10 @@ function loadSiteIntoDeal(site){
         )
       ),
       e("div",{style:{flex:1,padding:"28px 32px",maxWidth:1000,width:"100%"}},renderStage()),
-      e("div",{style:{padding:"16px 32px",borderTop:"1px solid #DDE0ED",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff"}},
+      // Journey Prev/Next only on the linear appraisal stages — hide it on the
+      // Records/Audit pages (Portfolio, Dashboard, Meetings, Build Cost Library…)
+      // where it would otherwise mis-route to the adjacent stage.
+      (!/^[67]\./.test((curStage&&curStage.group)||"")) && e("div",{style:{padding:"16px 32px",borderTop:"1px solid #DDE0ED",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff"}},
         e("button",{disabled:filteredIdx<=0,onClick:function(){
           if(filteredIdx>0) navTo(navFilteredStages[filteredIdx-1].id);
         },style:{padding:"8px 18px",border:"1px solid #DDE0ED",background:"transparent",color:"#7278A0",borderRadius:6,fontSize:12,fontWeight:700,cursor:filteredIdx<=0?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",opacity:filteredIdx<=0?0.3:1}},"← Previous"),

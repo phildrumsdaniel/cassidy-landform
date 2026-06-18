@@ -195,7 +195,7 @@ var MKT = {
   truro:{btr:680,pbsa:0,yield:0.050,land:700000,build:180},
   // ── Essex / East of England (Cassidy focus area) ────────────────────
   chelmsford:{btr:1280,pbsa:175,yield:0.046,land:4500000,build:218},
-  maldon:{btr:1180,pbsa:0,yield:0.047,land:3400000,build:212},
+  maldon:{btr:1258,pbsa:0,yield:0.047,land:3400000,build:212},
   colchester:{btr:1080,pbsa:165,yield:0.048,land:2900000,build:208},
   basildon:{btr:1150,pbsa:0,yield:0.047,land:3200000,build:212},
   chigwell:{btr:1850,pbsa:0,yield:0.044,land:7500000,build:248},
@@ -1788,7 +1788,7 @@ function computeSFHMetrics(data){
   var l = data.land || {};
   var cityKey = (sfh.city || l.city || "").toLowerCase();
   var market = MKT[cityKey] || MKT.manchester;
-  var basePsf = num(sfh.basePsf) || (market && market.btr ? Math.max(150, Math.min(650, Math.round(market.btr * 8.5 / 12))) : 260);
+  var basePsf = num(sfh.basePsf) || (market && market.btr ? Math.max(150, Math.min(650, Math.round(estSalePsfFromRent(market.btr)))) : 260);
   var buildPsf = num(sfh.buildPsf) || (market && market.build) || 195;
   var mix = sfh.mix || [];
   var rows = [];
@@ -1983,7 +1983,9 @@ var SHARED_FIELD_GROUPS = [
   [["sfh","finRate"],["fin","finRate"],["rlv","finRate"]],
   [["sfh","contingency"],["fin","contingency"],["rlv","contingency"]],
   [["sfh","s106pu"],["fin","s106pu"],["planning","s106pu"],["rlv","s106pu"]],
-  [["sfh","buildInclusive"],["fin","buildInclusive"],["rlv","buildInclusive"]]
+  [["sfh","buildInclusive"],["fin","buildInclusive"],["rlv","buildInclusive"]],
+  // ── Exit / capitalisation yield (stored as a % on each stage) — two-way ──
+  [["capitalise","targetYield"],["fin","exitYield"]]
 ];
 function _sharedGroupsFor(section, key){
   return SHARED_FIELD_GROUPS.filter(function(g){ return g.some(function(t){ return t[0]===section && t[1]===key; }); });
@@ -2034,6 +2036,19 @@ function areaMarketRentPa(data){
   var cityKey = ((data.sfh && data.sfh.city) || (data.land && data.land.city) || (data.rlv && data.rlv.city) || (data.hra && data.hra.city) || (data.tenure && data.tenure.city) || "").toLowerCase();
   var mk = MKT[cityKey];
   return (mk && mk.btr) ? mk.btr * 12 : 0;
+}
+// estSalePsfFromRent (v9.51) — estimate a SALE £/sqft from a monthly rent, used
+// ONLY as a fallback when no sale price / Land Registry figure is available.
+// Capitalises the rent at a gross yield then divides by a typical unit size — a
+// far sounder basis than the old "rent × 8.5 ÷ 12" multiplier, which overstated
+// (e.g. £1,180/mo implied ~£836/sqft for Maldon; this gives ~£333/sqft). Clamped.
+function estSalePsfFromRent(monthlyRentPcm, opts){
+  opts = opts || {};
+  var grossYield = num(opts.yield) || 0.05;
+  var avgSqft = num(opts.avgSqft) || 850;
+  if(!(num(monthlyRentPcm) > 0) || grossYield <= 0 || avgSqft <= 0) return 0;
+  var v = (num(monthlyRentPcm) * 12 / grossYield) / avgSqft;
+  return Math.round(Math.max(150, Math.min(650, v)));
 }
 function computeTenureMetrics(data){
   data = data || {};
@@ -2094,7 +2109,7 @@ function calcDealMetrics(data){
     var pcData = lookupPostcode(l.postcode);
     if (pcData) salePsf = pcData.salePsf;
   }
-  if (!salePsf && m.btr) salePsf = Math.max(150, Math.min(650, Math.round(m.btr * 8.5 / 12)));
+  if (!salePsf && m.btr) salePsf = Math.max(150, Math.min(650, Math.round(estSalePsfFromRent(m.btr))));
   salePsf = salePsf || 260;
 
   // Build PSF: scheme-aware

@@ -22,7 +22,7 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
       if(pcPsfVal>0)return pcPsfVal;
       // 3. Derive from MKT city data
       if(sm&&sm.btr){
-        var derived=Math.round(sm.btr*8.5/12);
+        var derived=Math.round(estSalePsfFromRent(sm.btr));
         return Math.max(150,Math.min(650,derived));
       }
       // 4. Last-resort hardcoded

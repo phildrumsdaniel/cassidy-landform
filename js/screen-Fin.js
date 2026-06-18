@@ -9,7 +9,7 @@ function renderFin(LiveMarketBanner, at, bc, buildPsf, city, data, ey, gia, gr, 
     var rlvAcres=num(l.acres||sf.acres||0);
     var rlvUnits=num(data.planning&&data.planning.units||f.units||0);
     var rlvBuild=num(f.buildPsf||m.build);
-    var rlvSalePsf=num(f.salePsf||m.btr*8.5/12||280);
+    var rlvSalePsf=num(f.salePsf||estSalePsfFromRent(m.btr)||280);
     // ── ASSET-TYPE AWARE GDV CALCULATION ──────────────────────────────────────
     // SFH: GDV = sum of house sales (not yield-based)
     // BTR/PBSA: GDV = NOI / exit yield
@@ -88,7 +88,7 @@ function renderFin(LiveMarketBanner, at, bc, buildPsf, city, data, ey, gia, gr, 
               var updates={};
               if(!f.units&&u2>0)updates.units=String(u2);
               if(!f.buildPsf)updates.buildPsf=String(num(data.sfh&&data.sfh.buildPsf)||Math.round(lm2.build));
-              if(!f.salePsf)updates.salePsf=String(num(data.rlv&&data.rlv.salePsf)||Math.round((MKT[city]&&MKT[city].btr*8.5/12)||260));
+              if(!f.salePsf)updates.salePsf=String(num(data.rlv&&data.rlv.salePsf)||Math.round((MKT[city]&&estSalePsfFromRent(MKT[city].btr))||260));
               if(!f.exitYield)updates.exitYield=String(Math.round(lm2.yield*1000)/10);
               if(!f.finRate)updates.finRate="7.5";
               if(!f.contingency)updates.contingency="5";

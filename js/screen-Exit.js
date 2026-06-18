@@ -48,7 +48,7 @@ function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi,
         valuationMethod:"Residual — GDV minus build, fees, finance, profit margin (18-22%)",
         calc:function(){
           // Housebuilder pays residual after their margin
-          var hbGdv=gdv>0?gdv:(units2*(num(data.rlv&&data.rlv.avgSqft||850))*(num(data.rlv&&data.rlv.salePsf||cityMkt.btr*8.5/12||280)));
+          var hbGdv=gdv>0?gdv:(units2*(num(data.rlv&&data.rlv.avgSqft||850))*(num(data.rlv&&data.rlv.salePsf||estSalePsfFromRent(cityMkt.btr)||280)));
           var hbBuild=buildCostTotal*1.08; // with fees
           var hbFinance=hbBuild*finRate2;
           var hbProfit=hbGdv*0.175; // 20% target

@@ -135,11 +135,11 @@ console.log("Landform engine consistency tests\n");
 (function(){
   var d = { assetType:"sfh", land:{city:"maldon"}, sfh:{city:"maldon", basePsf:420, avgSqft:1000},
             tenure:{ totalUnits:100, inputMode:"units", mix:{ sr:40, ar:40, oms:20 } } };
-  near("area market rent pa (Maldon £1180/mo)", areaMarketRentPa(d), 1180*12);
+  near("area market rent pa (Maldon £1,258/mo)", areaMarketRentPa(d), 1258*12);
   var tm = computeTenureMetrics(d);
   function rentFor(k){ var r = tm.rows.filter(function(x){return x.td.key===k;})[0]; return r ? r.annualRent/r.units : 0; }
-  near("Social Rent ≈ 60% of market", rentFor("sr"), 1180*12*0.6, 2);
-  near("Affordable Rent ≈ 80% of market", rentFor("ar"), 1180*12*0.8, 2);
+  near("Social Rent ≈ 60% of market", rentFor("sr"), 1258*12*0.6, 2);
+  near("Affordable Rent ≈ 80% of market", rentFor("ar"), 1258*12*0.8, 2);
   var d2 = JSON.parse(JSON.stringify(d)); d2.tenure.sr_rentPa = 5000;
   var tm2 = computeTenureMetrics(d2);
   near("explicit rent override wins", tm2.rows.filter(function(x){return x.td.key==="sr";})[0].annualRent/40, 5000);
@@ -456,6 +456,28 @@ console.log("Landform engine consistency tests\n");
   near("social-rent realisable = retail × 0.55", byT["ahp_social"].realisable, 30*800*375*0.55, 5);
   var p = buildHonestPrompt(d, "task");
   ok("exit allocation carries into the AI report deal-state", p.indexOf("EXIT / BUYER ALLOCATION") >= 0 && p.indexOf("Pension") >= 0);
+})();
+
+// 24 — Rent→sale-£/sqft fallback is sane (not the old ×8.5/12 overshoot)
+(function(){
+  var psf = estSalePsfFromRent(1180);   // Maldon-ish monthly rent
+  ok("rent→psf is realistic for Maldon (£250-450, not ~£836)", psf >= 250 && psf <= 450);
+  ok("rent→psf clamps and handles blank", estSalePsfFromRent(0) === 0 && estSalePsfFromRent(99999) <= 650);
+})();
+
+// 25 — Maldon rent benchmark refreshed to current ONS
+(function(){
+  near("Maldon market rent benchmark = £1,258/mo", MKT.maldon.btr, 1258, 0);
+  near("area annual rent reflects the refresh", areaMarketRentPa({land:{city:"maldon"}}), 1258*12, 0);
+})();
+
+// 26 — Yield is a two-way shared field (cap.targetYield <-> fin.exitYield)
+(function(){
+  var anyStage = function(){ return true; };
+  var a = applySharedInput({}, "capitalise", "targetYield", 4.5, "capitalise", anyStage);
+  ok("yield set on Capitalisation flows to Fin exit yield", num(a.fin.exitYield) === 4.5);
+  var b = applySharedInput({}, "fin", "exitYield", 5.25, "fin", anyStage);
+  ok("yield set on Fin flows back to Capitalisation", num(b.capitalise.targetYield) === 5.25);
 })();
 
 // ── Report ───────────────────────────────────────────────────────────────────

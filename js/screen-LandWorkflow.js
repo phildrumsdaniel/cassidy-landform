@@ -39,7 +39,7 @@ function renderLandWorkflow(at, city, data, effUnits, gdv, lc, margin, mergeResp
     var agriValue=acres*15000; // £15k/acre typical agricultural
     var residualLandValue=num(data.rlv&&data.rlv.units?(function(){
       var ru=num(data.rlv.units); var rs=num(data.rlv.avgSqft)||850;
-      var rp=num(data.rlv.salePsf)||lm.btr*8.5/12||280; var rb=num(data.rlv.buildPsf)||lm.build;
+      var rp=num(data.rlv.salePsf)||estSalePsfFromRent(lm.btr)||280; var rb=num(data.rlv.buildPsf)||lm.build;
       var rg=ru*rs*rp; var rbc=ru*rs*rb;
       return rg-rbc-rbc*0.12-rbc*0.05-(rbc+0)*0.075-ru*8000-rg*0.175;
     })():0);
@@ -89,7 +89,7 @@ function renderLandWorkflow(at, city, data, effUnits, gdv, lc, margin, mergeResp
         pros:["AH often exempt","Planning sympathy","Growing demographic"],
         cons:["Specialist operator needed","Slower sales","Service charge complexity"]},
     ].map(function(sc){
-      var gdv=sc.units*sc.unitSqft*(num(data.rlv&&data.rlv.salePsf)||lm.btr*8.5/12||280);
+      var gdv=sc.units*sc.unitSqft*(num(data.rlv&&data.rlv.salePsf)||estSalePsfFromRent(lm.btr)||280);
       var bc=sc.units*sc.unitSqft*sc.buildPsf;
       var fees=bc*0.12; var cont=bc*0.05; var fin=(bc+fees)*0.075;
       var s106=sc.units*8000; var profit=gdv*0.175;
@@ -252,7 +252,7 @@ function renderLandWorkflow(at, city, data, effUnits, gdv, lc, margin, mergeResp
                   setData(function(d){
                     var updates={assetType:sc.assetType};
                     if(sc.type==="SFH"){
-                      updates.sfh=Object.assign({},d.sfh||{},{acres:acres+"",city:lCity,dph:sc.dph+"",basePsf:Math.round(lm.btr*8.5/12)+"",buildPsf:sc.buildPsf+""});
+                      updates.sfh=Object.assign({},d.sfh||{},{acres:acres+"",city:lCity,dph:sc.dph+"",basePsf:Math.round(estSalePsfFromRent(lm.btr))+"",buildPsf:sc.buildPsf+""});
                     } else {
                       updates.hra=Object.assign({},d.hra||{},{city:lCity});
                     }
@@ -281,7 +281,7 @@ function renderLandWorkflow(at, city, data, effUnits, gdv, lc, margin, mergeResp
                   setData(function(d){
                     var updates={assetType:sc.assetType};
                     if(sc.type==="SFH"){
-                      updates.sfh=Object.assign({},d.sfh||{},{acres:acres+"",city:lCity,dph:sc.dph+"",basePsf:Math.round(lm.btr*8.5/12)+"",buildPsf:sc.buildPsf+""});
+                      updates.sfh=Object.assign({},d.sfh||{},{acres:acres+"",city:lCity,dph:sc.dph+"",basePsf:Math.round(estSalePsfFromRent(lm.btr))+"",buildPsf:sc.buildPsf+""});
                     }
                     updates.planning=Object.assign({},d.planning||{},{units:sc.units+"",lpa:lpa});
                     updates.exit=Object.assign({},d.exit||{},{strategy:"stabilised"});
