@@ -686,15 +686,47 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
         // Clear any stale mix / applied scenario so we get a clean "assume N homes
         // at area sale & build £/sqft" residual; inject the unit count everywhere
         // the engine looks for it; force the generic land residual path.
-        var clone = JSON.parse(JSON.stringify(data || {}));
-        clone.assetType = "land";
-        clone.sfh = Object.assign({}, clone.sfh || {}, {mix:[]});
-        clone.land = Object.assign({}, clone.land || {}, {units:assumedUnits, scenarioLandValue:0});
-        clone.rlv = Object.assign({}, clone.rlv || {}, {units:assumedUnits});
-        clone.planning = Object.assign({}, clone.planning || {}, {units:assumedUnits});
-        var cm = calcDealMetrics(clone);
+        var assumedBuildPsf = num(l.assumedBuildPsf);   // optional land-stage override
+        var assumedSalePsf  = num(l.assumedSalePsf);     // optional land-stage override
+        function landClone(withOverrides){
+          var c = JSON.parse(JSON.stringify(data || {}));
+          c.assetType = "land";
+          c.sfh = Object.assign({}, c.sfh || {}, {mix:[]});
+          c.land = Object.assign({}, c.land || {}, {units:assumedUnits, scenarioLandValue:0});
+          c.rlv = Object.assign({}, c.rlv || {}, {units:assumedUnits});
+          c.planning = Object.assign({}, c.planning || {}, {units:assumedUnits});
+          if(withOverrides){
+            if(assumedBuildPsf>0){ c.rlv.buildPsf = assumedBuildPsf; c.fin = Object.assign({}, c.fin||{}, {buildPsf:assumedBuildPsf}); c.sfh.buildPsf = assumedBuildPsf; }
+            if(assumedSalePsf>0){ c.rlv.salePsf = assumedSalePsf; c.sfh.basePsf = assumedSalePsf; }
+          }
+          return c;
+        }
+        // cmBase = what the engine resolves WITHOUT the land-stage overrides (area / shared
+        // settings) — used to pre-fill the build & sale boxes. cm = the effective figures.
+        var cmBase = calcDealMetrics(landClone(false));
+        var cm = (assumedBuildPsf>0 || assumedSalePsf>0) ? calcDealMetrics(landClone(true)) : cmBase;
+        var defBuildPsf = Math.round(num(cmBase.buildPsf));
+        var defSalePsf  = Math.round(num(cmBase.salePsf));
         var consentedRlv = Math.max(0, num(cm.rlv));
         var consentedGdv = num(cm.gdv);
+
+        // Build & sale £/sqft — the two numbers that drive everything, set right here.
+        var costInput = e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}},
+          e("div",null,
+            e("label",{style:{fontSize:10,color:"#7278A0",fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:3}},"Build cost (£/sqft)"),
+            e("input",{type:"number",min:0,step:5,value:l.assumedBuildPsf!==undefined&&l.assumedBuildPsf!==""?l.assumedBuildPsf:"",placeholder:String(defBuildPsf),
+              onChange:function(ev){up("land","assumedBuildPsf",ev.target.value);},
+              style:{width:"100%",padding:"8px 10px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:14,fontFamily:"DM Mono,monospace",fontWeight:700}}),
+            e("div",{style:{fontSize:9,color:"#9A9AAE",marginTop:3}},"Area benchmark £"+defBuildPsf+"/sqft — edit to match your build")
+          ),
+          e("div",null,
+            e("label",{style:{fontSize:10,color:"#7278A0",fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:3}},"Sale price (£/sqft)"),
+            e("input",{type:"number",min:0,step:5,value:l.assumedSalePsf!==undefined&&l.assumedSalePsf!==""?l.assumedSalePsf:"",placeholder:String(defSalePsf),
+              onChange:function(ev){up("land","assumedSalePsf",ev.target.value);},
+              style:{width:"100%",padding:"8px 10px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:14,fontFamily:"DM Mono,monospace",fontWeight:700}}),
+            e("div",{style:{fontSize:9,color:"#9A9AAE",marginTop:3}},"Used: £"+defSalePsf+"/sqft — what your homes sell for")
+          )
+        );
 
         var agriValue = Math.max(0, acresVal * agriPerAcre);
         var uplift = Math.max(0, consentedRlv - agriValue);
@@ -762,7 +794,7 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
         };
 
         return e("div",{style:Object.assign({},S.card,{borderLeft:"4px solid #2D7A65"})},
-          header, unitsInput,
+          header, unitsInput, costInput,
 
           // Three layers of value
           e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}},

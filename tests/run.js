@@ -533,6 +533,13 @@ console.log("Landform engine consistency tests\n");
   // No homes assumed ⇒ engine must NOT invent a residential land value
   var none = calcDealMetrics({ assetType:"land", land:{city:"maldon", acres:30}, sfh:{mix:[]} }).rlv;
   ok("no assumed homes ⇒ no positive residential RLV (panel shows agri floor instead)", !(none > 0));
+  // Build & sale £/sqft overrides on the land stage move the residual the right way
+  function rlvWith(buildPsf, salePsf){
+    return calcDealMetrics({ assetType:"land", land:{city:"maldon", acres:30, units:200},
+      rlv:{units:200, buildPsf:buildPsf, salePsf:salePsf}, planning:{units:200}, sfh:{mix:[]} }).rlv;
+  }
+  ok("higher sale £/sqft ⇒ higher land value", rlvWith(200, 450) > rlvWith(200, 380));
+  ok("higher build £/sqft ⇒ lower land value", rlvWith(260, 400) < rlvWith(200, 400));
 })();
 
 // ── Report ───────────────────────────────────────────────────────────────────
