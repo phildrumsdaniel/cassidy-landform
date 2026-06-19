@@ -111,7 +111,12 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
     var noiPerUnit=totalUnitsCalc>0?netAnnualIncome/totalUnitsCalc:0;
 
     // ── Capitalised values at different yields ─────────────────────────────
-    var selYield=num(cap.targetYield||4.5)/100;
+    // v9.53 — ONE net initial yield used everywhere. Defaults to the AREA benchmark
+    // (e.g. Maldon 4.7%); a Capitalisation override sticks and flows through to Exit/HRA
+    // via dealYield(). Net initial = net of voids, management, maintenance & insurance.
+    var areaYieldPct=(typeof areaYield==="function")?areaYield(data):4.7;
+    var yieldPct=(typeof dealYield==="function")?dealYield(data):num(cap.targetYield||areaYieldPct);
+    var selYield=yieldPct/100;
     var capValue=selYield>0?netAnnualIncome/selYield:0;
     var capValueMin=selYield>0?netAnnualIncome/(selYield+0.01):0;
     var capValueMax=selYield>0?netAnnualIncome/(selYield-0.01):0;
@@ -222,7 +227,7 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
           var snap = cap._pinnedSnapshot;
           var nowSfhTotal = defaultMixTotal;
           var nowRentBase = rentMonthly1bed;
-          var nowTargetYield = num(cap.targetYield) || 0.045;
+          var nowTargetYield = selYield;
           var nowSfhMixHash = sfhMix.map(function(r){return (r.type||"")+":"+(r.count||0)+":"+(r.tenure||"");}).join("|");
 
           if(snap.sfh_total && nowSfhTotal && Math.abs(snap.sfh_total - nowSfhTotal) > 1)
@@ -279,7 +284,7 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
                     capNext._pinnedSnapshot = {
                       sfh_total: defaultMixTotal,
                       rent_base: rentMonthly1bed,
-                      target_yield: num(prev.capitalise&&prev.capitalise.targetYield)||0.045,
+                      target_yield: selYield,
                       sfh_mix_hash: sfhMix.map(function(r){return (r.type||"")+":"+(r.count||0)+":"+(r.tenure||"");}).join("|")
                     };
                     capNext._pinnedAt = new Date().toISOString();
@@ -401,7 +406,7 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
         });
 
         // For retained PRS: compute capitalised value from yield
-        var targetYield = num(cap.targetYield) || 0.045;
+        var targetYield = selYield;  // v9.53 — single net initial yield (area benchmark unless overridden)
         if(targetYield > 1) targetYield = targetYield / 100;  // accept 4.5 or 0.045
         // Yield-based (rental-model) routes: Retained PRS + BTR-operator sale.
         // Both are capitalised at the target yield with NO affordable discount —
@@ -487,7 +492,7 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
 
           // Per-route breakdown table
           e("div",{style:{display:"grid",gridTemplateColumns:"1.8fr 60px 70px 100px 100px 100px",padding:"8px 12px",background:"#2E2F8A",fontSize:9,color:"#fff",textTransform:"uppercase",letterSpacing:".08em",fontWeight:700,gap:8,borderRadius:"5px 5px 0 0"}},
-            e("span",null,"Route"),e("span",null,"Units"),e("span",null,"% of scheme"),e("span",null,"@ Full MV"),e("span",null,"Discount %"),e("span",null,"Realised")
+            e("span",null,"Sale route"),e("span",null,"Units"),e("span",null,"% of scheme"),e("span",null,"Sale @ Full MV"),e("span",null,"Discount %"),e("span",null,"Realised sale")
           ),
           routeOrder.map(function(route){
             var r = byRoute[route];
@@ -499,11 +504,14 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
             return e("div",{key:route,style:{display:"grid",gridTemplateColumns:"1.8fr 60px 70px 100px 100px 100px",padding:"10px 12px",borderBottom:"1px solid #DDE0ED",gap:8,alignItems:"center",fontSize:11}},
               e("div",null,
                 e("div",{style:{fontSize:11,fontWeight:700,color:rd.col}},rd.label),
-                e("div",{style:{fontSize:9,color:"#7278A0",marginTop:2}},rd.note),
-                // v9.33 / v9.40 — Profit breakdown line
-                // Fixed v9.40: removed string concatenation with React element which rendered as [object Object]
+                e("div",{style:{fontSize:9,color:"#7278A0",marginTop:2}},
+                  e("span",{style:{fontWeight:700,color:"#3A3D6A"}},"Sale route. "),rd.note
+                ),
+                // v9.53 — Build COST is clearly separated from the SALE route above.
+                // "£212/sqft" is what it COSTS to build — NOT a bulk-sale price.
                 e("div",{style:{fontSize:9,color:profitCol,marginTop:4,fontWeight:600,lineHeight:1.5}},
-                  "Build £"+fmtCompact(r.buildCost)+" · Fees+S106+roads £"+fmtCompact(r.fees+r.s106+r.roads+r.contingency)+" · Finance £"+fmtCompact(r.financeCost),
+                  e("span",{style:{color:"#7278A0"}},"Cost to build & deliver: "),
+                  "build £"+fmtCompact(r.buildCost)+" (£"+routeBuildPsf+"/sqft) · fees/S106/roads £"+fmtCompact(r.fees+r.s106+r.roads+r.contingency)+" · finance £"+fmtCompact(r.financeCost),
                   e("br",null),
                   e("span",{style:{fontWeight:800,color:profitCol}},"Profit "+(r.profit<0?"−":"")+"£"+fmtCompact(Math.abs(r.profit))+" · Margin "+Math.round(r.marginPct)+"%")
                 ),
@@ -533,7 +541,7 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
           e("div",{style:{marginTop:14,padding:"14px 16px",background:"linear-gradient(135deg,#F8F9FC,#FBFCFF)",border:"1px solid #C5C8E0",borderRadius:8}},
             e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}},
               e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em"}},"Deal evolution — full P&L across all routes"),
-              e("div",{style:{fontSize:9,color:"#7278A0"}},"Build £"+routeBuildPsf+"/sqft · Profit target "+Math.round(routeProfitTargetPct*100)+"% · From SFH inputs")
+              e("div",{style:{fontSize:9,color:"#7278A0"}},"Build cost £"+routeBuildPsf+"/sqft (to construct, not a sale price) · Profit target "+Math.round(routeProfitTargetPct*100)+"% · From SFH inputs")
             ),
             e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginTop:8}},
               // Total Revenue (Realised)
@@ -559,6 +567,18 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
                 e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".06em",fontWeight:700}},"Blended Margin"),
                 e("div",{style:{fontSize:16,fontWeight:800,color:blendedMarginPct>=15?"#2D7A65":blendedMarginPct>=10?"#9A7B3E":"#B05A35",marginTop:3}},Math.round(blendedMarginPct)+"%"),
                 e("div",{style:{fontSize:9,color:"#7278A0",marginTop:2}},(blendedMarginPct>=17.5?"Above target ✓":blendedMarginPct>=15?"Near target":blendedMarginPct>=10?"Below target":"Loss-making"))
+              )
+            ),
+            // v9.53 — S106 ALLOWANCE — its own clearly-labelled line (total £ and £/unit).
+            // Previously S106 was only buried inside "Build + fees + S106 + roads".
+            e("div",{style:{marginTop:10,padding:"10px 12px",background:"rgba(154,123,62,0.08)",borderLeft:"3px solid #9A7B3E",borderRadius:4,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}},
+              e("div",null,
+                e("span",{style:{fontSize:10,fontWeight:800,color:"#9A7B3E",textTransform:"uppercase",letterSpacing:".08em"}},"S106 / planning obligations allowance"),
+                e("div",{style:{fontSize:10,color:"#7278A0",marginTop:2}},"Included in Total Costs above · set per-unit on the SFH House Mix")
+              ),
+              e("div",{style:{textAlign:"right"}},
+                e("div",{style:{fontSize:16,fontWeight:800,color:"#9A7B3E"}},fmt(totalUnits*routeS106Pu)),
+                e("div",{style:{fontSize:10,color:"#7278A0",marginTop:2}},"£"+fmtN(routeS106Pu)+"/unit × "+totalUnits+" units")
               )
             ),
             // Private-sales specific spotlight
@@ -595,8 +615,12 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
 
           // Footer note
           e("div",{style:{marginTop:12,padding:"10px 12px",background:"#F8F9FC",borderLeft:"3px solid #2D7A65",borderRadius:4,fontSize:10,color:"#7278A0",lineHeight:1.6}},
+            e("strong",{style:{color:"#3A3D6A"}},"Build cost vs sale price: "),
+            "the £/sqft figure on each row is the ",e("strong",null,"cost to build"),", not a sale price. The ",e("strong",null,"sale route"),
+            " (private / pension bulk / AHP / PRS) sets the realised sale via the discount column. ",
+            e("br",null),
             e("strong",{style:{color:"#3A3D6A"}},"Discount sources: "),
-            "Pension/SFR bulk = 12% institutional (Savills/Knight Frank benchmarks). AHP discounts = Homes England valuation methodology. First Homes = National Planning Policy cap. Retained PRS = NPV of rent stream at target yield. ",
+            "Pension/SFR bulk = 12% institutional (Savills/Knight Frank benchmarks). AHP discounts = Homes England valuation methodology. First Homes = National Planning Policy cap. Retained PRS = NPV of rent stream at the net initial yield. ",
             "Override any unit price by entering it manually in SFH House Mix."
           )
         );
@@ -688,7 +712,7 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
           var typeLabel=at2==="btr"?"Build-to-Rent (BTR)":at2==="pbsa"?"Purpose-Built Student (PBSA)":at2==="sfh"?"Single-family housing":at2==="property"?"Existing property":"Residential";
           return e("div",{style:{margin:"0 0 14px",padding:"12px 14px",background:"rgba(74,75,174,0.06)",border:"1px solid rgba(74,75,174,0.25)",borderRadius:8}},
             e("div",{style:{fontSize:11,color:"#3A3D6A",marginBottom:8,lineHeight:1.5}},
-              e("strong",null,"This is a "+typeLabel+" scheme.")," It's valued by capitalising the net rent at your target yield ("+(num(cap.targetYield||4.5))+"%). Market homes rent at 100% of the local area rent above."
+              e("strong",null,"This is a "+typeLabel+" scheme.")," It's valued by capitalising the net rent at the net initial yield ("+yieldPct+"%"+(num(cap.targetYield)>0?", your override":", "+cityName(city||"")+" benchmark")+"). Market homes rent at 100% of the local area rent above."
             ),
             e("div",{style:{fontSize:11,fontWeight:800,color:"#2E2F8A",marginBottom:6}},
               "🏷 Affordable rent discount"+(ahFracCap>0?" — applied to "+Math.round(ahFracCap*100)+"% of units (from the Tenure Mix)":" — set the affordable % in Tenure Mix or Planning to use this")
@@ -801,19 +825,27 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
         )
       ),
 
-      // ── TARGET YIELD SELECTOR + CAPITALISED VALUE ─────────────────────────
+      // ── NET INITIAL YIELD SELECTOR + CAPITALISED VALUE ────────────────────
       e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",marginBottom:14}},
-        e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}},
-          e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em"}},"Capitalised Value — Set Your Target Yield"),
+        e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}},
+          e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em"}},"Capitalised Value — Net Initial Yield (%)"),
           e("div",{style:{fontSize:12,color:"#7278A0"}},"Lower yield = higher price. Pension funds buy at lowest yields.")
+        ),
+        // v9.53 — single net initial yield, clearly labelled and sourced. Used on Exit & HRA too.
+        e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:14,lineHeight:1.6}},
+          "This is the ",e("strong",{style:{color:"#3A3D6A"}},"net initial yield"),
+          " (net of voids, management, maintenance & insurance) — the ",e("strong",null,"one yield used across this whole appraisal")," (Capitalisation, Exit & HRA). ",
+          num(cap.targetYield)>0
+            ? e("span",null,"Currently your override of ",e("strong",{style:{color:"#2E2F8A"}},yieldPct+"%"),". ",e("button",{onClick:function(){up("capitalise","targetYield","");},style:{background:"none",border:"none",color:"#4A4BAE",fontSize:11,fontWeight:700,cursor:"pointer",padding:0,textDecoration:"underline",fontFamily:"DM Sans,sans-serif"}},"Reset to "+cityName(city||"")+" benchmark ("+areaYieldPct+"%)"))
+            : e("span",null,"Defaulting to the ",e("strong",{style:{color:"#2E2F8A"}},cityName(city||"")+" benchmark ("+areaYieldPct+"%)"),". Move the slider to override.")
         ),
         e("div",{style:{marginBottom:16}},
           e("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:6}},
-            e("span",{style:{fontSize:12,color:"#2E2F8A",fontWeight:600}},"Target yield: "+pct(selYield*100)),
+            e("span",{style:{fontSize:12,color:"#2E2F8A",fontWeight:600}},"Net initial yield: "+pct(selYield*100)),
             e("span",{style:{fontSize:20,fontWeight:800,color:"#2D7A65"}},fmt(capValue))
           ),
           e("input",{type:"range",min:3,max:9,step:0.25,
-            value:num(cap.targetYield||4.5),
+            value:yieldPct,
             onChange:function(ev){up("capitalise","targetYield",Number(ev.target.value));},
             style:{width:"100%",accentColor:"#2D7A65",cursor:"pointer"}
           }),
@@ -898,7 +930,9 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
         var ffContPct   = num(cap.ffContPct!==undefined?cap.ffContPct:5);      // contingency
         var ffFinPct    = num(cap.ffFinPct!==undefined?cap.ffFinPct:7.5);      // finance cost % of (build+fees)
         var ffProfitPct = num(cap.ffProfitPct!==undefined?cap.ffProfitPct:17.5); // developer profit % on cost
-        var ffS106pu    = num(cap.ffS106pu!==undefined?cap.ffS106pu:8000);     // S106 per unit
+        // v9.53 — S106/unit defaults to the deal's shared figure (SFH/Fin/Planning/RLV) so the
+        // S106 allowance is the SAME number everywhere, not a stray 8000.
+        var ffS106pu    = num(cap.ffS106pu!==undefined && cap.ffS106pu!=="" ? cap.ffS106pu : ((data.sfh&&data.sfh.s106pu)||(data.fin&&data.fin.s106pu)||(data.planning&&data.planning.s106pu)||8000)); // S106 per unit
         var ffFarmerAsk = num(cap.ffFarmerAsk||l.price||0);
         var ffAssetType = cap.ffAssetType||"BTR (multi-family)";
 

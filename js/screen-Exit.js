@@ -27,6 +27,10 @@ function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi,
 
     // ── EXIT INTELLIGENCE CALCULATIONS ─────────────────────────────────────────
     var cityMkt=MKT[city]||MKT.manchester;
+    // v9.53 — ONE net initial yield across the appraisal: the Capitalisation override if
+    // set, otherwise the area benchmark. Keeps Exit in step with Capitalisation & HRA.
+    var dealY=(typeof dealYield==="function")?dealYield(data)/100:(cityMkt.yield||0.047);
+    var dealYieldSourced=num(data.capitalise&&data.capitalise.targetYield)>0;
     var rlvVal2=num(data.rlv&&data.rlv.rlv||lc||0);
     var units2=num(data.planning&&data.planning.units||data.rlv&&data.rlv.units||0)||units||50;
     var ahPct2=num(data.planning&&data.planning.ahPct||0);
@@ -82,7 +86,7 @@ function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi,
         calc:function(){
           // BTR fund values on yield
           var noiVal=noi>0?noi:(units2*cityMkt.btr*12*0.72); // 72% NRI after voids/costs
-          var btrYield=cityMkt.yield||0.055;
+          var btrYield=dealY; // v9.53 — single net initial yield (Cap override or area benchmark)
           var btrVal=noiVal/btrYield;
           // Less: construction cost + developer profit they want
           var devCost=buildCostTotal*(1+finRate2+0.08); // build + finance + fees
@@ -91,10 +95,10 @@ function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi,
         },
         metrics:function(val){
           var noiVal=noi>0?noi:(units2*cityMkt.btr*12*0.72);
-          var btrYield=cityMkt.yield||0.055;
+          var btrYield=dealY; // v9.53 — single net initial yield
           return[
             {l:"Capitalised value",v:fmt(noiVal/(btrYield))},
-            {l:"Target yield",v:pct(btrYield*100)},
+            {l:"Net initial yield",v:pct(btrYield*100)+(dealYieldSourced?" (your input)":" ("+cityName(city||"")+" benchmark)")},
             {l:"Estimated NOI pa",v:fmt(noiVal)},
             {l:"Typical units",v:"150+ preferred, 80+ minimum"},
             {l:"Forward fund premium",v:"Pays during construction"},
@@ -229,7 +233,7 @@ function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi,
     // Hold vs Sell analysis
     var currentValue=rlvVal2>0?rlvVal2:(gdv*0.88);
     var holdNOI=noi>0?noi:(units2*cityMkt.btr*12*0.72);
-    var holdYield=(cityMkt.yield||0.055);
+    var holdYield=dealY; // v9.53 — single net initial yield
     var stabilisedValue=holdNOI/holdYield;
     var holdGain=stabilisedValue-currentValue;
     var holdGainPct=currentValue>0?holdGain/currentValue*100:0;
@@ -356,9 +360,14 @@ function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi,
         // Yield benchmarks
         e("div",{style:{padding:"12px 16px",background:"#F7F8FC",borderRadius:8,border:"1px solid #DDE0ED"}},
           e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".08em",marginBottom:8}},"Yield Benchmarks — "+cityName(city||"")+" Market"),
+          // v9.53 — the single net initial yield this whole appraisal runs on, called out first.
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.25)",borderRadius:6,marginBottom:8}},
+            e("span",{style:{fontSize:11,fontWeight:700,color:"#2D7A65"}},"Net initial yield (this deal)"),
+            e("span",{style:{fontSize:13,fontWeight:800,color:"#2D7A65"}},pct(dealY*100)+(dealYieldSourced?" · your input":" · "+cityName(city||"")+" benchmark"))
+          ),
           e("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:6}},
             [
-              {l:"BTR institutional",v:pct((cityMkt.yield||0.055)*100)},
+              {l:"BTR institutional (this deal)",v:pct(dealY*100)},
               {l:"PBSA",v:"5.5-6.5%"},
               {l:"Pension / sovereign",v:"4.0-5.0%"},
               {l:"Social rent (RP)",v:"3.5-4.5%"},
@@ -399,7 +408,7 @@ function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi,
               {value:"retain",label:"Retain & Refinance — hold as long term income"},
               {value:"phased",label:"Phased Exit — sell plots in phases over 2-4 years"},
             ]}),
-          e(Inp,{label:"Target Exit Yield (%) — market: "+pct(m.yield*100),type:"number",value:ex.exitYield,onChange:function(v){up("exit","exitYield",v);},placeholder:(m.yield*100).toFixed(2)}),
+          e(Inp,{label:"Target Exit Yield (%) — net initial yield: "+pct(dealY*100),type:"number",value:ex.exitYield,onChange:function(v){up("exit","exitYield",v);},placeholder:(dealY*100).toFixed(2)}),
           e(Sel,{label:"Target Investor Type",value:ex.investorType,onChange:function(v){up("exit","investorType",v);},
             options:[{value:"",label:"Select..."},{value:"pension_fund",label:"UK Pension Fund"},{value:"sovereign_wealth",label:"Sovereign Wealth"},{value:"reit",label:"Listed REIT"},{value:"private_equity",label:"Private Equity"},{value:"asset_manager",label:"Specialist Asset Manager"},{value:"family_office",label:"Family Office"}]}),
           e(Inp,{label:"Transaction Agent",value:ex.agent,onChange:function(v){up("exit","agent",v);},placeholder:"e.g. CBRE, JLL, Savills"})

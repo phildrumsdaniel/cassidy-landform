@@ -1555,6 +1555,22 @@ function areaRentPcm(data, beds){
   var b = Math.max(0, Math.min(6, Math.round(num(beds) || 3)));
   return Math.round(mk.btr * (RENT_BED_FACTOR[b] != null ? RENT_BED_FACTOR[b] : 1));
 }
+// areaYield — the area's benchmark NET INITIAL yield as a PERCENT (e.g. 4.7 for Maldon).
+// Falls back to 4.7% if the area has no benchmark.
+function areaYield(data){
+  var mk = MKT[dealCityKey(data)];
+  var y = (mk && mk.yield) ? mk.yield : 0.047;
+  return Math.round(y * 1000) / 10;   // percent, 1 dp
+}
+// dealYield — the ONE net initial yield used everywhere (Capitalisation, Exit, HRA).
+// Returns the user's Capitalisation override if set, otherwise the area benchmark.
+// Always returned as a PERCENT (e.g. 4.7). Tolerates a value stored as a fraction.
+function dealYield(data){
+  data = data || {};
+  var t = num((data.capitalise && data.capitalise.targetYield));
+  if(t > 0) return t > 1 ? t : t * 100;   // stored as percent normally; tolerate fraction
+  return areaYield(data);
+}
 
 // Capitalisation yields by buyer type (lower = higher price)
 var CAP_YIELDS = {

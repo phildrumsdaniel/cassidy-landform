@@ -138,7 +138,7 @@ function renderFin(LiveMarketBanner, at, bc, buildPsf, city, data, ey, gia, gr, 
           e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:12}},
             e("div",null,
               e("div",{style:{fontSize:9,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,marginBottom:10}},"COSTS"),
-              [["Land",lc],["Build ("+Math.round(gia).toLocaleString()+" sqft @ £"+buildPsf+"/sqft)",bc],["S106/CIL",data.planning&&data.planning.s106?num(data.planning.s106):0],["Contingency ("+finContPct+"%)",bc*(finContPct/100)],["Prof Fees (12%)",bc*0.12],["Finance ("+finRatePct+"%)",(bc+lc)*(finRatePct/100)],["SDLT (5%)",lc*0.05]].map(function(row){
+              [["Land",lc],["Build ("+Math.round(gia).toLocaleString()+" sqft @ £"+buildPsf+"/sqft)",bc],["S106/CIL allowance (£"+fmtN(finS106Pu)+"/unit)",s106fin],["Contingency ("+finContPct+"%)",bc*(finContPct/100)],["Prof Fees (12%)",bc*0.12],["Finance ("+finRatePct+"%)",(bc+lc)*(finRatePct/100)],["SDLT (5%)",lc*0.05]].map(function(row){
                 return e("div",{key:row[0],style:{display:"flex",justifyContent:"space-between",fontSize:12,color:"#7278A0",padding:"4px 0",borderBottom:"1px solid #F0F0F0"}},
                   e("span",null,row[0]),e("span",null,fmt(row[1]))
                 );

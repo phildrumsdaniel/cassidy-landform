@@ -502,6 +502,24 @@ console.log("Landform engine consistency tests\n");
   ok("dealCityKey resolves the deal area", dealCityKey({sfh:{city:"sheffield"}}) === "sheffield");
 })();
 
+// 29 — ONE net initial yield: area benchmark by default, Cap override sticks everywhere
+(function(){
+  // Default = area benchmark, as a PERCENT
+  near("areaYield(Maldon) = 4.7% benchmark", areaYield({land:{city:"maldon"}}), 4.7, 0.01);
+  near("areaYield(Sheffield) = 4.9% benchmark", areaYield({land:{city:"sheffield"}}), 4.9, 0.01);
+  near("dealYield defaults to the area benchmark", dealYield({land:{city:"maldon"}}), 4.7, 0.01);
+  // A Capitalisation override (stored as percent) wins and is returned as a percent
+  near("dealYield honours a Cap override", dealYield({land:{city:"maldon"}, capitalise:{targetYield:4.2}}), 4.2, 0.001);
+  // Tolerates an override stored as a fraction
+  near("dealYield tolerates a fraction override", dealYield({capitalise:{targetYield:0.05}}), 5, 0.001);
+  // No area at all → safe 4.7% fallback (not 0)
+  ok("dealYield never returns 0", dealYield({}) > 0);
+  // The override is single-sourced: Maldon area is 4.7 but override forces 4.0 everywhere
+  ok("override differs from benchmark (single source of truth)",
+     dealYield({land:{city:"maldon"}, capitalise:{targetYield:4.0}}) === 4.0 &&
+     areaYield({land:{city:"maldon"}}) === 4.7);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);
