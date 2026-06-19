@@ -10,8 +10,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.61";
+var CURRENT_VERSION = "9.62";
 var VERSION_HISTORY = [
+  {v:"9.62", date:"Jun 2026", headline:"Fix: 'Make this scheme stack' Apply buttons now work",
+   affectsCalc:false,
+   changes:["The Apply buttons in the Land Valuation 'How to make this scheme stack' box did nothing if the SFH House Mix stage had been marked complete — a completed stage silently blocked changes coming from another screen. Apply now writes through directly (still forward-filling to any non-completed stages), so it always takes effect.","Tip: if editing a figure on one screen seems to do nothing, check whether that stage has been marked complete — a completed stage locks its shared figures against edits from other screens."]},
   {v:"9.61", date:"Jun 2026", headline:"Land Appraisal uses your full house mix to answer 'can we pay the farmer?'",
    affectsCalc:true,
    changes:["Once you've built your SFH House Mix, the Land Appraisal 'What You Should Pay' panel now values the land off the FULL project — your real house types, sale prices and any rents capitalised — instead of a rough 'assumed homes × £/sqft' estimate. So the developer's exit value flows straight through to whether there's enough margin to meet the landowner's asking price.","Added buttons on the panel to jump to the SFH House Mix and Capitalisation, and a banner showing whether the figures are from your full mix or a quick estimate.","The 'does it stack at the asking price' check now always measures profit against the actual asking price (not a previously-applied scenario land value)."]},

@@ -773,12 +773,19 @@ function renderRLV(city, data, m, navTo, setData, up, user){
             if(opt.stacks || (opt.levers.length===0 && !opt.allInOption)) return null;
             var applyBtn={padding:"5px 12px",background:"#B05A35",color:"#fff",border:"none",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"};
             var rowSt={display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,padding:"8px 0",borderBottom:"1px dashed #EADBC8"};
+            // v9.62 — apply DIRECTLY through the shared-input engine with SFH as the
+            // "current" stage, so an explicit Apply is never silently blocked when the
+            // SFH stage is marked complete (the cause of "tap Apply, nothing happens").
+            // It still forward-fills to any non-completed sibling stages.
+            function applySfh(key,val){
+              setData(function(d){ return applySharedInput(d,"sfh",key,val,"sfh"); });
+            }
             function applyLever(lv){
               if(lv.key==="sales"){
                 var f=1+lv.required/100;
                 var nm=((data.sfh&&data.sfh.mix)||[]).map(function(r){var c=Object.assign({},r); if(num(c.unitPrice))c.unitPrice=String(Math.round(num(c.unitPrice)*f)); else if(num(c.psf))c.psf=String(Math.round(num(c.psf)*f)); return c;});
-                up("sfh","mix",nm);
-              } else { up("sfh",lv.key,lv.required); }
+                applySfh("mix",nm);
+              } else { applySfh(lv.key,lv.required); }
             }
             return e("div",{style:{marginTop:12,background:"#FFF8F0",border:"1px solid rgba(176,90,53,0.35)",borderRadius:8,padding:"14px 16px"}},
               e("div",{style:{fontSize:13,fontWeight:800,color:"#B05A35",marginBottom:4}},"🔧 How to make this scheme stack"),
@@ -789,7 +796,7 @@ function renderRLV(city, data, m, navTo, setData, up, user){
               ),
               opt.allInOption && e("div",{style:rowSt},
                 e("div",{style:{fontSize:11,color:"#4A4B6E",flex:1}},e("strong",null,"Mark build cost as all-in")," — "+opt.allInOption.note),
-                e("button",{onClick:function(){up("sfh","buildInclusive",true);},style:applyBtn},"Apply")
+                e("button",{onClick:function(){applySfh("buildInclusive",true);},style:applyBtn},"Apply")
               ),
               opt.levers.map(function(lv){
                 return e("div",{key:lv.key,style:rowSt},
