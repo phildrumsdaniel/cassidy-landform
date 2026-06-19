@@ -836,7 +836,7 @@ function renderRLV(city, data, m, navTo, setData, up, user){
 
           // ── PROJECT TIMELINE ESTIMATOR ──────────────────────────────────
           (function(){
-            var planSt=(data.planning&&data.planning.status)||"none";
+            var planSt=(data.planning&&data.planning.status)||"full consent (assumed — consent basis)";
             var units2=rUnits||num(data.planning&&data.planning.units)||50;
             var schType2=r.schType||"Residential houses";
             var isApart=schType2.indexOf("apart")>=0||schType2.indexOf("BTR")>=0||schType2.indexOf("PBSA")>=0;

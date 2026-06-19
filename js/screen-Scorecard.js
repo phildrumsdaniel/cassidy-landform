@@ -21,7 +21,10 @@ function renderScorecard(city, data, gdv, lc, up, user){
       var prob=num(cc.planningScore||p.planningProb||0);
       if(prob>=70)return{s:6,l:"Good probability"};
       if(prob>=50)return{s:4,l:"Moderate probability"};
-      return{s:3,l:"Speculative"};
+      if(prob>0)return{s:3,l:"Speculative"};
+      // v9.57 — nothing set yet: lead with full consent (assumed) so the score
+      // reflects the consented, profitable basis. Set the real status to refine.
+      return{s:9,l:"Full consent (assumed)"};
     }
     function scoreMarket(){
       var c2=city||l.city||"manchester";
