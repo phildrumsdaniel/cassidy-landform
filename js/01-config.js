@@ -10,8 +10,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.60";
+var CURRENT_VERSION = "9.61";
 var VERSION_HISTORY = [
+  {v:"9.61", date:"Jun 2026", headline:"Land Appraisal uses your full house mix to answer 'can we pay the farmer?'",
+   affectsCalc:true,
+   changes:["Once you've built your SFH House Mix, the Land Appraisal 'What You Should Pay' panel now values the land off the FULL project — your real house types, sale prices and any rents capitalised — instead of a rough 'assumed homes × £/sqft' estimate. So the developer's exit value flows straight through to whether there's enough margin to meet the landowner's asking price.","Added buttons on the panel to jump to the SFH House Mix and Capitalisation, and a banner showing whether the figures are from your full mix or a quick estimate.","The 'does it stack at the asking price' check now always measures profit against the actual asking price (not a previously-applied scenario land value)."]},
   {v:"9.60", date:"Jun 2026", headline:"Set build cost & sale price right on the Land Appraisal",
    affectsCalc:false,
    changes:["The Land Deal 'What You Should Pay' panel now has Build cost (£/sqft) and Sale price (£/sqft) boxes built in — pre-filled with the area benchmark and editable — so the two numbers that drive the land value are set where you make the land decision, instead of having to go to another screen. They feed the same engine, so figures stay consistent everywhere."]},

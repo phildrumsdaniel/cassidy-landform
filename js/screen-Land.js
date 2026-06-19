@@ -634,7 +634,12 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
       // landowner offer under each deal structure against the asking price.
       // It NEVER shows a bare negative as "what to pay".
       (typeof calcDealMetrics==="function") && (function(){
-        var assumedUnits = num(l.assumedUnits);
+        // v9.61 — if a real house mix exists, drive the land affordability off the FULL
+        // project (sales + capitalised rents + real costs) from the canonical engine;
+        // otherwise fall back to a quick "assumed homes × £/sqft" estimate.
+        var realUnits = (typeof computeSFHMetrics==="function") ? num(computeSFHMetrics(data).totalUnits) : 0;
+        var hasRealScheme = realUnits > 0;
+        var assumedUnits = hasRealScheme ? realUnits : num(l.assumedUnits);
         var agriPerAcre  = numOr(l.agriValPerAcre, 15000);          // £/acre agricultural (existing use)
         var structure    = l.dealStructure || "option";
         var STRUCTS = {
@@ -652,9 +657,27 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
           e("div",{style:{fontSize:10,color:"#7278A0"}},"Reuses the canonical appraisal engine — same GDV & RLV as the rest of the tool")
         );
 
-        // Assumed-homes input (required before any land value is shown)
+        // Jump to build the real scheme / see the exit value
+        var ctaRow = e("div",{style:{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}},
+          e("button",{onClick:function(){navTo("sfh");},style:{padding:"7px 14px",background:hasRealScheme?"#fff":"#2D7A65",color:hasRealScheme?"#2D7A65":"#fff",border:"1px solid #2D7A65",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}, hasRealScheme?"✎ Edit house mix":"🏡 Build your full house mix →"),
+          e("button",{onClick:function(){navTo("capitalise");},style:{padding:"7px 14px",background:"#fff",color:"#4A4BAE",border:"1px solid #4A4BAE",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}, "£ Capitalisation / exit →")
+        );
+        // Where the figures come from
+        var sourceNote = hasRealScheme
+          ? e("div",{style:{fontSize:10,color:"#1d5446",background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.3)",borderRadius:6,padding:"8px 12px",marginBottom:12,lineHeight:1.5}},
+              e("strong",null,"Using your full house mix"),": "+realUnits+" homes, your real sale prices and any rents capitalised — the GDV & RLV below match the SFH House Mix and Capitalisation.")
+          : e("div",{style:{fontSize:10,color:"#9A7B3E",background:"rgba(154,123,62,0.08)",border:"1px solid rgba(154,123,62,0.3)",borderRadius:6,padding:"8px 12px",marginBottom:12,lineHeight:1.5}},
+              e("strong",null,"Quick estimate"),": no house mix built yet, so this uses assumed homes × area £/sqft. Build the mix (button above) for your real sales, rents and exit value.");
+
+        // Assumed-homes input (required before any land value is shown — unless a mix exists)
         var unitsInput = e("div",{style:{display:"grid",gridTemplateColumns:"1.4fr 1fr",gap:12,marginBottom:12}},
-          e("div",null,
+          hasRealScheme
+          ? e("div",null,
+              e("label",{style:{fontSize:10,color:"#7278A0",fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:3}},"Homes (from your house mix)"),
+              e("div",{style:{padding:"8px 10px",background:"#F0F1FA",borderRadius:6,fontSize:14,fontFamily:"DM Mono,monospace",fontWeight:700,color:"#2E2F8A"}}, realUnits+" homes"),
+              e("div",{style:{fontSize:9,color:"#9A9AAE",marginTop:3}}, "From SFH House Mix"+(acresVal>0?" · "+(realUnits/acresVal).toFixed(1)+" homes/acre":"")+" — edit it there")
+            )
+          : e("div",null,
             e("label",{style:{fontSize:10,color:"#7278A0",fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:3}},"Assumed homes (if consent granted)"),
             e("input",{type:"number",min:0,value:l.assumedUnits!==undefined?l.assumedUnits:"",placeholder:"e.g. 220",
               onChange:function(ev){up("land","assumedUnits",ev.target.value);},
@@ -673,7 +696,7 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
         // No homes yet → explain why, don't show a scary negative
         if(!(assumedUnits>0)){
           return e("div",{style:S.card},
-            header, unitsInput,
+            header, ctaRow, unitsInput,
             e("div",{style:{padding:"14px 16px",background:"rgba(154,123,62,0.08)",border:"1px solid rgba(154,123,62,0.35)",borderRadius:8,fontSize:12,lineHeight:1.7,color:"#3A3D6A"}},
               e("div",{style:{fontWeight:700,color:"#9A7B3E",marginBottom:6}},"Enter the homes you'd get with consent to value the land"),
               "Raw land with no planning has no residential value — only ",e("strong",null,"agricultural value")," (~£",fmtN(agriPerAcre),"/acre). ",
@@ -701,10 +724,15 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
           }
           return c;
         }
-        // cmBase = what the engine resolves WITHOUT the land-stage overrides (area / shared
-        // settings) — used to pre-fill the build & sale boxes. cm = the effective figures.
-        var cmBase = calcDealMetrics(landClone(false));
-        var cm = (assumedBuildPsf>0 || assumedSalePsf>0) ? calcDealMetrics(landClone(true)) : cmBase;
+        // Real mix → value the ACTUAL deal (sales + capitalised rents + real costs).
+        // No mix → cmBase is the area/shared estimate; cm applies any £/sqft overrides above.
+        var cmBase, cm;
+        if(hasRealScheme){
+          cm = cmBase = calcDealMetrics(data);
+        } else {
+          cmBase = calcDealMetrics(landClone(false));
+          cm = (assumedBuildPsf>0 || assumedSalePsf>0) ? calcDealMetrics(landClone(true)) : cmBase;
+        }
         var defBuildPsf = Math.round(num(cmBase.buildPsf));
         var defSalePsf  = Math.round(num(cmBase.salePsf));
         var consentedRlv = Math.max(0, num(cm.rlv));
@@ -794,7 +822,7 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
         };
 
         return e("div",{style:Object.assign({},S.card,{borderLeft:"4px solid #2D7A65"})},
-          header, unitsInput, costInput,
+          header, ctaRow, sourceNote, unitsInput, (hasRealScheme ? null : costInput),
 
           // Three layers of value
           e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}},
@@ -835,8 +863,8 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
           (function(){
             var schemeCost  = num(cm.totalCost);     // build + fees + contingency + S106 + finance (+ infra)
             var targetProfit= num(cm.profit);        // developer's required profit at target margin
-            var atAskProfit = num(cm.actualProfit);  // profit if you pay the asking land price
-            var atAskMargin = num(cm.marginPct);
+            var atAskProfit = consentedGdv - schemeCost - ask;   // profit if you pay the asking land price
+            var atAskMargin = consentedGdv>0 ? (atAskProfit/consentedGdv)*100 : 0;
             var stacks = ask>0 ? atAskMargin>=15 : (consentedRlv>0);
             var verdictCol = stacks ? "#1d5446" : (atAskMargin>=10 ? "#9A7B3E" : "#B05A35");
             return e("div",{style:{marginBottom:14,padding:"14px 16px",background:"linear-gradient(135deg,#F8F9FC,#FBFCFF)",border:"1px solid #C5C8E0",borderRadius:8}},
