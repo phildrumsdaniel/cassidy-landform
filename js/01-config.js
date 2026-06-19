@@ -10,11 +10,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.62";
+var CURRENT_VERSION = "9.63";
 var VERSION_HISTORY = [
-  {v:"9.62", date:"Jun 2026", headline:"Fix: 'Make this scheme stack' Apply buttons now work",
-   affectsCalc:false,
-   changes:["The Apply buttons in the Land Valuation 'How to make this scheme stack' box did nothing if the SFH House Mix stage had been marked complete — a completed stage silently blocked changes coming from another screen. Apply now writes through directly (still forward-filling to any non-completed stages), so it always takes effect.","Tip: if editing a figure on one screen seems to do nothing, check whether that stage has been marked complete — a completed stage locks its shared figures against edits from other screens."]},
+  {v:"9.63", date:"Jun 2026", headline:"Fix: edits no longer silently blocked by 'completed' stages",
+   affectsCalc:true,
+   changes:["ROOT-CAUSE FIX: a stage marked 'complete' used to silently block any change reaching it from another screen — so the 'How to make this scheme stack' Apply buttons did nothing, and editing build cost / profit / S106 on the Land Valuation screen had no effect once the SFH House Mix was ticked complete. 'Complete' is now a progress marker only: every edit takes effect and flows to all the linked stages.","Reminder: for a houses scheme the SFH House Mix is the source of truth — house prices live in the mix rows, so change a price there (not the single sale £/sqft) to move the GDV."]},
   {v:"9.61", date:"Jun 2026", headline:"Land Appraisal uses your full house mix to answer 'can we pay the farmer?'",
    affectsCalc:true,
    changes:["Once you've built your SFH House Mix, the Land Appraisal 'What You Should Pay' panel now values the land off the FULL project — your real house types, sale prices and any rents capitalised — instead of a rough 'assumed homes × £/sqft' estimate. So the developer's exit value flows straight through to whether there's enough margin to meet the landowner's asking price.","Added buttons on the panel to jump to the SFH House Mix and Capitalisation, and a banner showing whether the figures are from your full mix or a quick estimate.","The 'does it stack at the asking price' check now always measures profit against the actual asking price (not a previously-applied scenario land value)."]},
@@ -2046,11 +2046,13 @@ function _sharedGroupsFor(section, key){
 function applySharedInput(d, section, key, val, currentStage, isStageId){
   d = d || {};
   isStageId = isStageId || function(){ return true; };
-  var completed = d._completedStages || {};
-  if(section !== currentStage && isStageId(section) && completed[section]) return d;  // can't edit a completed cross-stage
+  // v9.62 — "complete" is a PROGRESS MARKER ONLY; it no longer blocks edits or shared-field
+  // propagation. Previously a stage marked complete silently swallowed any change reaching it
+  // from another screen, which made the tool feel broken ("I change a figure and nothing
+  // happens" — e.g. the Make-It-Stack Apply buttons, or editing build/profit on RLV when the
+  // SFH stage was ticked complete). Edits now always take effect and flow to every sibling.
   var next = Object.assign({}, d);
   function writeOne(sec, k, v){
-    if(sec !== currentStage && isStageId(sec) && completed[sec]) return;   // never clobber a finalised sibling
     var o = Object.assign({}, next[sec] || {});
     o[k] = v;
     next[sec] = o;

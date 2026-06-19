@@ -317,8 +317,10 @@ console.log("Landform engine consistency tests\n");
   ok("sale £/sqft alias: rlv.salePsf → sfh.basePsf", d3.sfh && d3.sfh.basePsf === 420);
   var d4 = applySharedInput({}, "planning", "ahPct", 40, "planning", anyStage);
   ok("affordable % flows planning → sfh & tenure", d4.sfh.ahPct === 40 && d4.tenure.ahPct === 40);
+  // v9.62 — completion is a marker only; it no longer blocks edits, so shared edits now
+  // propagate to every sibling INCLUDING a stage that was marked complete.
   var d5 = applySharedInput({_completedStages:{rlv:true}}, "fin", "buildPsf", 300, "fin", anyStage);
-  ok("a completed/locked sibling stage is never clobbered", !(d5.rlv && d5.rlv.buildPsf === 300));
+  ok("shared edits propagate even to a stage marked complete (no silent blocking)", d5.rlv && d5.rlv.buildPsf === 300);
   var d6 = applySharedInput({}, "land", "address", "1 Test St", "land", anyStage);
   ok("a non-shared field stays local (no spurious propagation)", d6.land.address === "1 Test St" && !d6.rlv);
 })();
