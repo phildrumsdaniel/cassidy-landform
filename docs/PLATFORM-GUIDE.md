@@ -149,3 +149,78 @@ Same as BTR, but step 5 is skipped (no tenure split) — go **RLV → BTR/PBSA B
 
 - **Enter once, flows everywhere.** Key numbers (city, units, affordable %, S106, build/sale £/sqft, finance rate, **net initial yield**) are shared — type them on one page and they populate the others. The **Propagation Audit** is your safety net: it flags anything that's drifted out of sync and fixes it in one click.
 - **One source of truth per number.** The appraisal uses a single canonical engine, so the GDV and residual land value you see on the Dashboard are the same ones in the SFH/Block appraisal, the Exit page and the reports — they always reconcile.
+
+---
+
+## 5. What each page pulls in, pushes out, and where it sends you next
+
+**How the "enter once" wiring works.** A set of fields are *shared* — type them on any page and they auto-fill on the others in the same group. These groups are:
+
+| Shared field | Flows between these pages |
+|---|---|
+| **City / town** | Land Appraisal · SFH · BTR/PBSA Block · RLV · Property Evaluator |
+| **Postcode** | Land Appraisal · RLV · Property Evaluator |
+| **Site acres** | Land Appraisal · SFH |
+| **Number of units** | Planning · Land Appraisal · RLV · Financial Modelling |
+| **Affordable housing %** | Planning · SFH · Tenure Mix |
+| **Sale £/sqft** | SFH ↔ RLV |
+| **Build £/sqft** | SFH · Financial Modelling · RLV |
+| **Profit %** | SFH · Financial Modelling · RLV |
+| **Finance rate** | SFH · Financial Modelling · RLV |
+| **Contingency %** | SFH · Financial Modelling · RLV |
+| **S106 per unit** | SFH · Financial Modelling · Planning · RLV |
+| **Net initial yield** | Capitalisation ↔ Financial Modelling (and read by Exit & BTR/PBSA Block) |
+
+On top of that, three pages do a **bulk pre-fill** (they fill many fields at once), and a few have an explicit **"go to next stage" button**. Everywhere else you move with the **Next →** button, which walks the pages in journey order.
+
+Below, for each page: **Pulls in** (what arrives pre-filled) · **Pushes out** (what it sends onward) · **Next** (where it sends you).
+
+### Phase 0 — Start
+- **Process Navigator** — *Pulls:* nothing. *Pushes:* your **scheme type** (journey) and likely exit routes — this is what makes every other page show or hide. *Next:* → the first page of your chosen journey (or **Asset Exit Optimiser** for an owned asset).
+- **Asset Exit Optimiser** — *Pulls:* the asset details you enter. *Pushes:* nothing downstream (it's a standalone ranking). *Next:* → **Investor Marketing Suite** if you decide to sell.
+
+### Phase 1 — Find
+- **Placona Agent** — *Pulls:* your county/size search settings. *Pushes:* on **"Load into Landform"** it bulk-pre-fills address, postcode, acres, asking price, LPA, planning status and agent across Land/RLV/Planning, and estimates units, build/sale £/sqft, yield and S106. *Next:* → **Land Appraisal**.
+- **Planning Monitor** — *Pulls:* the LPA/postcode you enter. *Pushes:* the watched **LPA** into Land Appraisal on request. *Next:* → **Land Appraisal**.
+- **Constraint Check** — *Pulls:* the address/postcode you enter. *Pushes:* the **address + postcode** into Land Appraisal and RLV automatically. *Next:* → **Land Appraisal**.
+- **Land Finder** — *Pulls:* a listing URL or pasted text. *Pushes:* a **full bulk pre-fill** of every appraisal page (address, postcode, acres, price, LPA, planning, agent) plus estimated units, build/sale £/sqft, yield and S106. *Next:* → **Land Appraisal**.
+- **Land Appraisal** — *Pulls:* city, postcode, acres (shared) + planning status. *Pushes:* city/postcode/acres outward automatically; **"Apply scenario"** pushes the chosen scenario's land value, affordable %, S106, finance rate, yield and timeline into **RLV, Planning, Financial Modelling, Capitalisation and Exit**. The **Land Deal panel** uses your *assumed homes* to value the consented scheme. *Next:* → **Land Valuation (RLV)** (button + Next).
+- **Property Evaluator** — *Pulls:* city, postcode. *Pushes:* the redevelopment scheme it picks. *Next:* → **RLV**, then → **SFH House Mix** or **BTR/PBSA Block** depending on the chosen scheme.
+
+### Phase 2 — Value
+- **Land Valuation (RLV)** — *Pulls:* units, sale £/sqft (↔ SFH), build £/sqft, profit %, finance, contingency, S106, city, postcode — plus **live Land Registry** sold prices to set the sale £/sqft. *Pushes:* all those shared cost/value fields back out. *Next:* → **SFH House Mix** (housing) / **BTR/PBSA Block** / **Tenure Mix** / **Capitalisation** per journey.
+- **SFH House Mix** — *Pulls:* acres, sale £/sqft (↔ RLV), build £/sqft, profit %, finance, contingency, S106, affordable %, city. *Pushes:* those shared fields, and its **house mix drives the GDV, unit count and RLV** used by Capitalisation, Exit and the Dashboard. *Next:* → **Tenure Mix** or **Capitalisation**.
+- **Tenure Mix** — *Pulls:* units, affordable %, average size. *Pushes:* **affordable %** (→ Planning & SFH) and a blended GDV used downstream. *Next:* → **Capitalisation** / **Planning**.
+- **BTR / PBSA Block** — *Pulls:* city, units, the **net initial yield** (shared). *Pushes:* the block's GDV into the deal-state. *Next:* → **Capitalisation**.
+- **Capitalisation** — *Pulls:* bedroom mix (from SFH), area rents, affordable %, and the **net initial yield** (defaults to the area benchmark, ↔ Financial Modelling). *Pushes:* the yield and the multi-route blended GDV used by the Teaser, IM and Dashboard. *Next:* → **Grant & Funding** / **Planning**.
+- **Grant & Funding** — *Pulls:* site flags, affordable %, units, costs. *Pushes:* grant figures into the funding gap and improved margin. *Next:* → **Planning & Viability**.
+
+### Phase 3 — Develop
+- **Planning & Viability** — *Pulls:* units, affordable %, S106 (shared). *Pushes:* **units, affordable %, S106 and planning status** outward (a refusal here routes you to Planning Recovery). *Next:* → **Financial Modelling**.
+- **Financial Modelling** — *Pulls:* build £/sqft, profit %, finance, contingency, S106, units, exit yield (↔ Capitalisation). *Pushes:* those shared fields, plus any manual GDV override. *Next:* → **Detailed Appraisal** / **Due Diligence**.
+- **Detailed Appraisal** — *Pulls:* revenue by tenure and the cost assumptions. *Pushes:* nothing shared (a self-contained institutional model). *Next:* → **Due Diligence**.
+- **Due Diligence** — *Pulls:* the whole deal (for the AI gap analysis). *Pushes:* nothing. *Next:* → **Risk Register**.
+- **Risk Register** — *Pulls:* nothing. *Pushes:* nothing. *Next:* → **Exit Strategy**.
+
+### Phase 4 — Exit
+- **Exit Strategy** — *Pulls:* GDV, NOI, the **net initial yield**, units, affordable %, city. *Pushes:* nothing shared. *Next:* → **Site Scorecard**.
+- **Planning Recovery** — *Pulls:* the refusal details and prices. *Pushes:* the recovery route. *Next:* → **Executive Summary**.
+
+### Phase 5 — Report
+- **Site Scorecard** — *Pulls:* every stage (to score them). *Next:* → **Teaser PDF**.
+- **Teaser PDF** — *Pulls:* GDV, RLV, margin, area, planning status, S106, constraint verdict. *Next:* → **Investor Memorandum**.
+- **Investor Memorandum** — *Pulls:* the deal figures (for its AI sections). *Next:* → **Data Room**.
+- **Data Room** — *Pulls:* everything; serves an internal vs external view. *Next:* → **Investor Marketing Suite**.
+- **Investor Marketing Suite** — *Pulls:* the Teaser, IM and Data Room. *Pushes:* trackable share links. *Next:* → **Executive Summary** / **Dashboard**.
+- **Executive Summary** — *Pulls:* the whole deal into a one-page roll-up. *Next:* → **Dashboard**.
+
+### Phase 6 — Records
+- **Deal Dashboard** — *Pulls:* the canonical deal-state (GDV, cost, profit, margin, NOI, yield, units) and which stages are still incomplete. *Next:* your home base — jump to any page.
+- **Deal Portfolio** — *Pulls:* your saved deals. *Next:* → **Dashboard** when you open one.
+- **Meeting Transcripts** — *Pulls:* uploaded transcripts. *Pushes:* extracted decisions/actions linked to the deal.
+
+### Phase 7 — Audit
+- **Propagation Audit** — *Pulls:* every shared field across every page. *Pushes:* the **master value into all pages** via per-row Sync or "Auto-fix all". This is the page that guarantees the numbers agree.
+- **Build Cost Library** — *Pulls:* nothing. *Pushes:* the £/sqft build rates that feed the **Auto-cost** buttons on every appraisal.
+
+> **In short:** you only ever type a shared number once — the tool carries it forward. The three Find pages and the Land Appraisal "Apply scenario" do the big bulk pre-fills; the **Next →** button walks you through your journey in order; and the **Propagation Audit** is the safety net that keeps every page in agreement.
