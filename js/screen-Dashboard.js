@@ -198,20 +198,40 @@ function renderDashboard(ALL_STAGES, JOURNEYS, at, city, data, effUnits, ey, gdv
         );
       })(),
 
-      // Active scenario banner — tells the user which planning world this deal is modelled in
-      data.land&&data.land.appliedScenario&&e("div",{style:{margin:"6px 0 14px",padding:"12px 16px",background:"linear-gradient(135deg,rgba(45,122,101,0.10),rgba(45,122,101,0.04))",border:"1px solid rgba(45,122,101,0.4)",borderRadius:8,fontSize:12,color:"#1d5446",lineHeight:1.5,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}},
-        e("div",null,
-          e("div",{style:{fontSize:10,letterSpacing:".15em",textTransform:"uppercase",fontWeight:700,color:"#2D7A65",marginBottom:3}},"Active planning scenario"),
-          e("div",{style:{fontWeight:700,fontSize:14,color:"#1d5446"}},data.land.appliedScenarioLabel||data.land.appliedScenario),
-          e("div",{style:{fontSize:11,color:"#3A6B5C",marginTop:3}},
-            "Land value: "+fmt(num(data.land.scenarioLandValue||0))+
-            " · AH: "+(num(data.land.scenarioAhPct||0))+"%"+
-            " · Timeline: "+(num(data.land.scenarioTimelineMo||0))+" months"+
-            " · Finance: "+(num(data.land.scenarioFinanceRate||0))+"%"
-          )
-        ),
-        e("button",{onClick:function(){navTo("land");},style:{padding:"7px 14px",background:"transparent",border:"1px solid #2D7A65",color:"#2D7A65",borderRadius:4,fontSize:10,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Change scenario →")
-      ),
+      // Active scenario banner — tells the user which planning world this deal is modelled in.
+      // v9.58 — when no scenario is applied, the deal is modelled on a Full consent (assumed)
+      // basis (mirroring Land Appraisal), so the Dashboard reflects the profitable consented
+      // picture and tells the user it's an assumption to refine.
+      (function(){
+        var ld = data.land || {};
+        if(ld.appliedScenario){
+          return e("div",{style:{margin:"6px 0 14px",padding:"12px 16px",background:"linear-gradient(135deg,rgba(45,122,101,0.10),rgba(45,122,101,0.04))",border:"1px solid rgba(45,122,101,0.4)",borderRadius:8,fontSize:12,color:"#1d5446",lineHeight:1.5,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}},
+            e("div",null,
+              e("div",{style:{fontSize:10,letterSpacing:".15em",textTransform:"uppercase",fontWeight:700,color:"#2D7A65",marginBottom:3}},"Active planning scenario"),
+              e("div",{style:{fontWeight:700,fontSize:14,color:"#1d5446"}},ld.appliedScenarioLabel||ld.appliedScenario),
+              e("div",{style:{fontSize:11,color:"#3A6B5C",marginTop:3}},
+                "Land value: "+fmt(num(ld.scenarioLandValue||0))+
+                " · AH: "+(num(ld.scenarioAhPct||0))+"%"+
+                " · Timeline: "+(num(ld.scenarioTimelineMo||0))+" months"+
+                " · Finance: "+(num(ld.scenarioFinanceRate||0))+"%"
+              )
+            ),
+            e("button",{onClick:function(){navTo("land");},style:{padding:"7px 14px",background:"transparent",border:"1px solid #2D7A65",color:"#2D7A65",borderRadius:4,fontSize:10,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Change scenario →")
+          );
+        }
+        // No scenario applied yet — only show once there's a modelled scheme
+        if(!(gdv>0)) return null;
+        return e("div",{style:{margin:"6px 0 14px",padding:"12px 16px",background:"linear-gradient(135deg,rgba(45,122,101,0.10),rgba(45,122,101,0.04))",border:"1px solid rgba(45,122,101,0.4)",borderRadius:8,fontSize:12,color:"#1d5446",lineHeight:1.5,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}},
+          e("div",null,
+            e("div",{style:{fontSize:10,letterSpacing:".15em",textTransform:"uppercase",fontWeight:700,color:"#2D7A65",marginBottom:3}},"Planning basis"),
+            e("div",{style:{fontWeight:700,fontSize:14,color:"#1d5446"}},"Full consent (assumed)"),
+            e("div",{style:{fontSize:11,color:"#3A6B5C",marginTop:3}},
+              "These figures assume planning is granted, so the Dashboard leads with the profitable consented scheme. Apply a planning scenario in Land Appraisal to weigh the real planning risk."
+            )
+          ),
+          e("button",{onClick:function(){navTo("land");},style:{padding:"7px 14px",background:"transparent",border:"1px solid #2D7A65",color:"#2D7A65",borderRadius:4,fontSize:10,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Set planning scenario →")
+        );
+      })(),
 
       // Reconciliation note: explain why RLV's margin and Dashboard's margin look different
       gdv>0 && tc>0 && num((data.land&&data.land.price)||0) > 0 && e("div",{style:{margin:"6px 0 14px",padding:"10px 14px",background:"rgba(74,75,174,0.05)",border:"1px solid rgba(74,75,174,0.2)",borderRadius:6,fontSize:11,color:"#3A3D6A",lineHeight:1.6}},
