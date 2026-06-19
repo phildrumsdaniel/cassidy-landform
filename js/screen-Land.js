@@ -765,6 +765,41 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
             "; opening offer (65%) = ",fmt(openingBid),"."
           ),
 
+          // ── Assuming planning is granted — does the scheme stack? ──────────
+          // v9.55 — Model the consented scheme FIRST so you can see it's profitable,
+          // then weigh the planning risk via the scenarios above / the "today" figure.
+          (function(){
+            var schemeCost  = num(cm.totalCost);     // build + fees + contingency + S106 + finance (+ infra)
+            var targetProfit= num(cm.profit);        // developer's required profit at target margin
+            var atAskProfit = num(cm.actualProfit);  // profit if you pay the asking land price
+            var atAskMargin = num(cm.marginPct);
+            var stacks = ask>0 ? atAskMargin>=15 : (consentedRlv>0);
+            var verdictCol = stacks ? "#1d5446" : (atAskMargin>=10 ? "#9A7B3E" : "#B05A35");
+            return e("div",{style:{marginBottom:14,padding:"14px 16px",background:"linear-gradient(135deg,#F8F9FC,#FBFCFF)",border:"1px solid #C5C8E0",borderRadius:8}},
+              e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".08em",marginBottom:4}},
+                "Assuming planning is granted for "+assumedUnits+" homes — does it stack?"
+              ),
+              e("div",{style:{fontSize:10,color:"#7278A0",marginBottom:10,lineHeight:1.5}},"Prove the scheme is profitable on a fully-consented basis first; the planning risk is the separate layer above (today's value & the scenarios)."),
+              e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}},
+                tile("Gross dev value (GDV)", fmt(consentedGdv), assumedUnits+" homes", "#2E2F8A"),
+                tile("Build + all costs", fmt(schemeCost), "excl. land", "#B05A35"),
+                tile("Developer profit", fmt(targetProfit), Math.round(num(cm.profitPctTarget))+"% target margin", "#4A4BAE"),
+                tile("Max land (RLV)", fmt(consentedRlv), "to hit that margin", "#2D7A65", true)
+              ),
+              ask>0 && e("div",{style:{marginTop:10,padding:"10px 12px",borderRadius:6,background:stacks?"rgba(45,122,101,0.08)":"rgba(176,90,53,0.08)",borderLeft:"3px solid "+verdictCol}},
+                e("div",{style:{fontSize:11,fontWeight:700,color:verdictCol,marginBottom:2}},
+                  stacks ? "✓ Profitable even at the asking price" : (atAskMargin>=10 ? "⚠ Thin at the asking price" : "✗ Loss-making at the asking price")
+                ),
+                e("div",{style:{fontSize:11,color:"#3A3D6A",lineHeight:1.6}},
+                  "Pay the ",e("strong",null,fmt(ask))," ask and the consented scheme makes ",
+                  e("strong",{style:{color:verdictCol}},(atAskProfit<0?"−":"")+fmt(Math.abs(atAskProfit))),
+                  " profit — a ",e("strong",{style:{color:verdictCol}},Math.round(atAskMargin)+"% margin"),
+                  stacks ? " (above the 15% viability floor)." : (atAskMargin>=10 ? " (below the 15% floor — push density, price or the land price down)." : " — the land price needs to come down to "+fmt(consentedRlv)+" or below to work.")
+                )
+              )
+            );
+          })(),
+
           // Deal-structure selector
           e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".08em",marginBottom:8}},"How are you structuring the deal?"),
           e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:8,marginBottom:12}},
