@@ -316,10 +316,10 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
             yieldAdj:0,  // no yield penalty — ready to fund
             exitConfidence:"High",
             verifyNeeded:"Existing consent + planning conditions discharged + reserved matters approved (if outline already moved through)",
-            // v9.56 — at the START (no planning status set yet) lead with FULL consent
-            // so the model shows the profitable, consented scheme first. Once a real
-            // status is set, the realistic status-aware weighting returns.
-            defaultProb: planTier==="full" ? 70 : (planTier==="unknown" ? 100 : 5)
+            // v9.56 — at the START (no planning status set yet) OR once consent is
+            // granted, lead with FULL consent at 100% so the model shows the profitable,
+            // consented scheme. Other tiers keep their status-aware weighting.
+            defaultProb: (planTier==="full"||planTier==="unknown") ? 100 : 5
           },
           {
             key:"outline",
@@ -332,7 +332,7 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
             yieldAdj:0.0025,
             exitConfidence:"Medium-High",
             verifyNeeded:"Outline consent + housing numbers agreed + reserved matters timeline visible",
-            defaultProb: planTier==="unknown" ? 0 : (planTier==="outline" ? 60 : (planTier==="full"?15:10))
+            defaultProb: (planTier==="full"||planTier==="unknown") ? 0 : (planTier==="outline" ? 60 : 10)
           },
           {
             key:"allocated",
@@ -345,7 +345,7 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
             yieldAdj:0.005,
             exitConfidence:"Medium",
             verifyNeeded:"Local Plan allocation confirmed + LPA officer support + pre-app feedback positive",
-            defaultProb: planTier==="unknown" ? 0 : (planTier==="allocated" ? 55 : 25)
+            defaultProb: (planTier==="full"||planTier==="unknown") ? 0 : (planTier==="allocated" ? 55 : 25)
           },
           {
             key:"likely",
@@ -358,7 +358,7 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
             yieldAdj:0.0075,
             exitConfidence:"Speculative",
             verifyNeeded:"Emerging plan inclusion + 5YHLS shortfall evidence + member-level political support",
-            defaultProb: planTier==="unknown" ? 0 : 20
+            defaultProb: (planTier==="full"||planTier==="unknown") ? 0 : 20
           },
           {
             key:"hope",
@@ -371,7 +371,7 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
             yieldAdj:0.0125,
             exitConfidence:"Strategic only",
             verifyNeeded:"Strategic land play — 5-10 year horizon, willingness to fund planning promotion",
-            defaultProb: planTier==="unknown" ? 0 : 20
+            defaultProb: (planTier==="full"||planTier==="unknown") ? 0 : 20
           }
         ];
 
@@ -393,7 +393,9 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
         });
 
         var totalProb = scenarioCalcs.reduce(function(a,b){return a+b.probPct;},0);
-        var expectedValue = scenarioCalcs.reduce(function(a,b){return a+b.weighted;},0);
+        // v9.59 — normalise so the expected value is always a proper weighted average,
+        // even if the probabilities don't sum to exactly 100% (fixes the inflated figure).
+        var expectedValue = totalProb>0 ? (scenarioCalcs.reduce(function(a,b){return a+b.weighted;},0) / (totalProb/100)) : 0;
         var activeScenario = l.appliedScenario || "";
         var askingVsExpected = askingPrice>0 && expectedValue>0 ? ((askingPrice-expectedValue)/expectedValue*100) : null;
 
@@ -773,6 +775,27 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
             " less build, fees, finance, S106, infrastructure and your profit. Negotiation ceiling (",e("strong",null,"85% of RLV"),") = ",e("strong",{style:{color:"#2D7A65"}},fmt(maxBid)),
             "; opening offer (65%) = ",fmt(openingBid),"."
           ),
+
+          // v9.59 — Reconcile the two land figures that otherwise look contradictory:
+          // the market comparable (scenario/benchmark sections) vs this worked residual.
+          (function(){
+            var benchMid = (typeof fullyConsentedPerAcre!=="undefined" && acresVal>0) ? fullyConsentedPerAcre*acresVal : 0;
+            if(!(benchMid>0)) return null;
+            var density = acresVal>0 ? assumedUnits/acresVal : 0;
+            var bigGap = benchMid > consentedRlv*1.5;
+            return e("div",{style:{marginBottom:14,padding:"12px 14px",background:bigGap?"rgba(176,90,53,0.07)":"rgba(74,75,174,0.06)",border:"1px solid "+(bigGap?"rgba(176,90,53,0.35)":"rgba(74,75,174,0.25)"),borderRadius:8,fontSize:11,lineHeight:1.7,color:"#3A3D6A"}},
+              e("div",{style:{fontWeight:800,color:bigGap?"#B05A35":"#2E2F8A",marginBottom:4}},
+                bigGap ? "⚠ Why the two land figures differ" : "How the two land figures line up"
+              ),
+              "The ",e("strong",null,"Market Benchmark / Scenarios")," above (≈",e("strong",null,fmt(benchMid)),") is a ",e("strong",null,"rough market comparable")," — what similar consented land tends to trade at. The ",e("strong",null,"Consented ceiling here")," (",e("strong",{style:{color:"#2D7A65"}},fmt(consentedRlv)),") is the ",e("strong",null,"worked residual")," — what your actual ",assumedUnits,"-home scheme can afford and still profit. ",
+              e("strong",null,"Always trust the residual for what to pay."),
+              bigGap ? e("div",{style:{marginTop:6}},
+                "They diverge a lot here, which usually means one of: ",
+                e("strong",null,"density is low"),
+                " ("+(density?density.toFixed(1):"?")+" homes/acre"+(density&&density<10?" — typical is 12–15, so more homes would lift the land value a lot":"")+"), build costs are high, or sale prices are set low. Revisit your homes / costs / sale £-per-sqft — or, if the scheme really is this size, the land is only worth the residual no matter what comparables say."
+              ) : null
+            );
+          })(),
 
           // ── Assuming planning is granted — does the scheme stack? ──────────
           // v9.55 — Model the consented scheme FIRST so you can see it's profitable,
