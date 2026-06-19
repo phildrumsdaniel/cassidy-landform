@@ -316,7 +316,10 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
             yieldAdj:0,  // no yield penalty — ready to fund
             exitConfidence:"High",
             verifyNeeded:"Existing consent + planning conditions discharged + reserved matters approved (if outline already moved through)",
-            defaultProb: planTier==="full" ? 70 : 5
+            // v9.56 — at the START (no planning status set yet) lead with FULL consent
+            // so the model shows the profitable, consented scheme first. Once a real
+            // status is set, the realistic status-aware weighting returns.
+            defaultProb: planTier==="full" ? 70 : (planTier==="unknown" ? 100 : 5)
           },
           {
             key:"outline",
@@ -329,7 +332,7 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
             yieldAdj:0.0025,
             exitConfidence:"Medium-High",
             verifyNeeded:"Outline consent + housing numbers agreed + reserved matters timeline visible",
-            defaultProb: planTier==="outline" ? 60 : (planTier==="full"?15:10)
+            defaultProb: planTier==="unknown" ? 0 : (planTier==="outline" ? 60 : (planTier==="full"?15:10))
           },
           {
             key:"allocated",
@@ -342,7 +345,7 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
             yieldAdj:0.005,
             exitConfidence:"Medium",
             verifyNeeded:"Local Plan allocation confirmed + LPA officer support + pre-app feedback positive",
-            defaultProb: planTier==="allocated" ? 55 : 25
+            defaultProb: planTier==="unknown" ? 0 : (planTier==="allocated" ? 55 : 25)
           },
           {
             key:"likely",
@@ -355,7 +358,7 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
             yieldAdj:0.0075,
             exitConfidence:"Speculative",
             verifyNeeded:"Emerging plan inclusion + 5YHLS shortfall evidence + member-level political support",
-            defaultProb:20
+            defaultProb: planTier==="unknown" ? 0 : 20
           },
           {
             key:"hope",
@@ -368,7 +371,7 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
             yieldAdj:0.0125,
             exitConfidence:"Strategic only",
             verifyNeeded:"Strategic land play — 5-10 year horizon, willingness to fund planning promotion",
-            defaultProb:20
+            defaultProb: planTier==="unknown" ? 0 : 20
           }
         ];
 
@@ -532,6 +535,12 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
             "Adjust the probability % for each scenario based on your evidence (defaults are illustrative). The Expected Value at the bottom is probability-weighted across all scenarios. ",
             e("strong",null,"Click 'Apply' on the scenario you want to model in detail "),
             "— Landform will propagate the planning, AH%, S106, finance rate and yield assumptions to RLV, Planning & Viability, Financial Modelling and Exit Strategy."
+          ),
+
+          // v9.56 — when no planning status is set yet, the model leads with FULL consent
+          planTier==="unknown" && e("div",{style:{padding:"10px 14px",background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.35)",borderRadius:6,fontSize:11,color:"#1d5446",lineHeight:1.6,marginBottom:14}},
+            e("strong",null,"Starting on Full Planning Granted. "),
+            "No planning status is set yet, so the model assumes consent is in place — showing the profitable, consented scheme first. Set the Planning Status (below or in Planning & Viability), or dial the probabilities, to weigh the real planning risk."
           ),
 
           // Active scenario banner
