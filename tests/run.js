@@ -520,6 +520,21 @@ console.log("Landform engine consistency tests\n");
      areaYield({land:{city:"maldon"}}) === 4.7);
 })();
 
+// 30 — Land Deal "what to pay": consented RLV from assumed homes is positive & scales
+(function(){
+  function consentedRlv(units){
+    var d = { assetType:"land", land:{city:"maldon", acres:30, units:units},
+              rlv:{units:units}, planning:{units:units}, sfh:{mix:[]} };
+    return calcDealMetrics(d).rlv;
+  }
+  var r100 = consentedRlv(100), r200 = consentedRlv(200);
+  ok("consented RLV is positive once homes are assumed", r100 > 0);
+  ok("more homes ⇒ higher consented land value", r200 > r100);
+  // No homes assumed ⇒ engine must NOT invent a residential land value
+  var none = calcDealMetrics({ assetType:"land", land:{city:"maldon", acres:30}, sfh:{mix:[]} }).rlv;
+  ok("no assumed homes ⇒ no positive residential RLV (panel shows agri floor instead)", !(none > 0));
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

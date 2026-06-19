@@ -614,6 +614,221 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
         );
       })(),
 
+      // ── LAND DEAL — WHAT YOU SHOULD PAY ────────────────────────────────────
+      // v9.54 — Bridges the landowner's ask and the worked residual. The land has
+      // NO residential value until you assume a consented scheme, so this panel
+      // (a) makes you enter assumed homes, (b) values that CONSENTED scheme via the
+      // same canonical engine the rest of the tool uses, (c) shows the agricultural
+      // floor → today's risk-adjusted value → consented ceiling, and (d) lays a fair
+      // landowner offer under each deal structure against the asking price.
+      // It NEVER shows a bare negative as "what to pay".
+      (typeof calcDealMetrics==="function") && (function(){
+        var assumedUnits = num(l.assumedUnits);
+        var agriPerAcre  = numOr(l.agriValPerAcre, 15000);          // £/acre agricultural (existing use)
+        var structure    = l.dealStructure || "option";
+        var STRUCTS = {
+          option:     {label:"Option agreement",   shareLabel:"Discount to consented value", shareKey:"optionDiscPct",  shareDef:15, note:"Pay a small option fee now; buy at a discount to the consented value once planning is granted."},
+          promotion:  {label:"Promotion agreement", shareLabel:"Promoter fee (% of proceeds)", shareKey:"promoterPct",    shareDef:15, note:"Promoter funds the planning push; land sold with consent; landowner keeps proceeds less the promoter's fee."},
+          overage:    {label:"Overage / clawback",  shareLabel:"Landowner share of the uplift", shareKey:"overageSharePct", shareDef:50, note:"Pay agricultural-plus now; landowner shares in the uplift when consent is achieved."},
+          conditional:{label:"Conditional purchase",shareLabel:"Discount to consented value", shareKey:"condDiscPct",    shareDef:10, note:"Exchange now, complete on planning, at an agreed price — you carry more of the planning risk."}
+        };
+        var sInfo = STRUCTS[structure] || STRUCTS.option;
+        var sharePct = numOr(l[sInfo.shareKey], sInfo.shareDef);
+
+        // Header is always shown
+        var header = e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6,flexWrap:"wrap",gap:8}},
+          e("div",{style:S.cardTitle},"💷 Land Deal — What You Should Pay"),
+          e("div",{style:{fontSize:10,color:"#7278A0"}},"Reuses the canonical appraisal engine — same GDV & RLV as the rest of the tool")
+        );
+
+        // Assumed-homes input (required before any land value is shown)
+        var unitsInput = e("div",{style:{display:"grid",gridTemplateColumns:"1.4fr 1fr",gap:12,marginBottom:12}},
+          e("div",null,
+            e("label",{style:{fontSize:10,color:"#7278A0",fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:3}},"Assumed homes (if consent granted)"),
+            e("input",{type:"number",min:0,value:l.assumedUnits!==undefined?l.assumedUnits:"",placeholder:"e.g. 220",
+              onChange:function(ev){up("land","assumedUnits",ev.target.value);},
+              style:{width:"100%",padding:"8px 10px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:14,fontFamily:"DM Mono,monospace",fontWeight:700}}),
+            e("div",{style:{fontSize:9,color:"#9A9AAE",marginTop:3}},acresVal>0?("≈ "+(acresVal>0?Math.round(assumedUnits/acresVal):0)+" homes/acre on "+acresVal.toFixed(1)+" acres"):"Set the site acreage above for a per-acre check")
+          ),
+          e("div",null,
+            e("label",{style:{fontSize:10,color:"#7278A0",fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:3}},"Agricultural value (£/acre)"),
+            e("input",{type:"number",min:0,step:1000,value:l.agriValPerAcre!==undefined?l.agriValPerAcre:"",placeholder:"15000",
+              onChange:function(ev){up("land","agriValPerAcre",ev.target.value);},
+              style:{width:"100%",padding:"8px 10px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:14,fontFamily:"DM Mono,monospace"}}),
+            e("div",{style:{fontSize:9,color:"#9A9AAE",marginTop:3}},"Existing-use value — typically £10k–25k/acre")
+          )
+        );
+
+        // No homes yet → explain why, don't show a scary negative
+        if(!(assumedUnits>0)){
+          return e("div",{style:S.card},
+            header, unitsInput,
+            e("div",{style:{padding:"14px 16px",background:"rgba(154,123,62,0.08)",border:"1px solid rgba(154,123,62,0.35)",borderRadius:8,fontSize:12,lineHeight:1.7,color:"#3A3D6A"}},
+              e("div",{style:{fontWeight:700,color:"#9A7B3E",marginBottom:6}},"Enter the homes you'd get with consent to value the land"),
+              "Raw land with no planning has no residential value — only ",e("strong",null,"agricultural value")," (~£",fmtN(agriPerAcre),"/acre). ",
+              "The land is only worth more ",e("em",null,"once you assume planning is granted"),". Tell us how many homes you'd expect consent for and we'll work out the most you should pay, how that's worth it, and a fair offer to the landowner — including against their asking price."
+            )
+          );
+        }
+
+        // ── Value the CONSENTED scheme through the canonical engine ──────────
+        // Clear any stale mix / applied scenario so we get a clean "assume N homes
+        // at area sale & build £/sqft" residual; inject the unit count everywhere
+        // the engine looks for it; force the generic land residual path.
+        var clone = JSON.parse(JSON.stringify(data || {}));
+        clone.assetType = "land";
+        clone.sfh = Object.assign({}, clone.sfh || {}, {mix:[]});
+        clone.land = Object.assign({}, clone.land || {}, {units:assumedUnits, scenarioLandValue:0});
+        clone.rlv = Object.assign({}, clone.rlv || {}, {units:assumedUnits});
+        clone.planning = Object.assign({}, clone.planning || {}, {units:assumedUnits});
+        var cm = calcDealMetrics(clone);
+        var consentedRlv = Math.max(0, num(cm.rlv));
+        var consentedGdv = num(cm.gdv);
+
+        var agriValue = Math.max(0, acresVal * agriPerAcre);
+        var uplift = Math.max(0, consentedRlv - agriValue);
+        var maxBid = consentedRlv * 0.85;          // negotiation discipline — 85% of RLV
+        var openingBid = consentedRlv * 0.65;       // opening offer — 65%
+
+        // Today's risk-adjusted value: consented ceiling scaled by planning probability,
+        // floored at agricultural value. Factors mirror the scenario bands above.
+        var probFactor = ({full:0.95, outline:0.70, allocated:0.45, speculative:0.18, stalled:0.30, unknown:0.25})[planTier] || 0.25;
+        var todayValue = Math.max(agriValue, consentedRlv * probFactor);
+
+        // ── Deal-structure economics (flow from the chosen structure) ────────
+        var optionFee = acresVal * numOr(l.optionFeePerAcre, 2000);
+        var payNow=0, payOnConsent=0, landownerTotal=0, devKeeps=0, structureExplain="";
+        if(structure==="option"){
+          var disc = sharePct/100;
+          payNow = optionFee;
+          payOnConsent = consentedRlv * (1 - disc);
+          landownerTotal = payNow + payOnConsent;
+          devKeeps = consentedRlv - payOnConsent;   // the discount is your reward for de-risking planning
+          structureExplain = "Pay a "+fmt(optionFee)+" option fee now ("+acresVal.toFixed(1)+" acres × £"+fmtN(numOr(l.optionFeePerAcre,2000))+"). On consent, buy for "+fmt(payOnConsent)+" — "+(100-sharePct)+"% of the consented value, a "+sharePct+"% discount that is your reward for funding and de-risking the planning.";
+        } else if(structure==="promotion"){
+          var fee = sharePct/100;
+          payNow = 0;
+          payOnConsent = consentedRlv * (1 - fee);  // landowner's net of the promoter fee
+          landownerTotal = payOnConsent;
+          devKeeps = consentedRlv * fee;            // promoter fee is your return
+          structureExplain = "No purchase. You promote the land through planning, it's sold with consent (≈ "+fmt(consentedRlv)+"), and you take a "+sharePct+"% promoter fee ("+fmt(devKeeps)+"). The landowner keeps "+fmt(payOnConsent)+".";
+        } else if(structure==="overage"){
+          var upfront = Math.max(agriValue, agriValue * 1.5);   // agricultural-plus now
+          var oShare = sharePct/100;
+          var ownerUpliftShare = Math.max(0, (consentedRlv - upfront)) * oShare;
+          payNow = upfront;
+          payOnConsent = ownerUpliftShare;
+          landownerTotal = upfront + ownerUpliftShare;
+          devKeeps = consentedRlv - landownerTotal;
+          structureExplain = "Pay "+fmt(upfront)+" now (agricultural value + ~50% premium). When consent lands, the landowner also gets "+sharePct+"% of the uplift above that — "+fmt(ownerUpliftShare)+". Total to landowner "+fmt(landownerTotal)+".";
+        } else { // conditional
+          var cdisc = sharePct/100;
+          payNow = 0;
+          payOnConsent = consentedRlv * (1 - cdisc);
+          landownerTotal = payOnConsent;
+          devKeeps = consentedRlv - payOnConsent;
+          structureExplain = "Exchange now, complete on planning at a fixed "+fmt(payOnConsent)+" — "+(100-sharePct)+"% of the consented value. A smaller "+sharePct+"% discount reflects that you carry more of the planning risk by committing up front.";
+        }
+
+        // ── Asking-price reconciliation ──────────────────────────────────────
+        var ask = askingPrice;
+        var askGap = ask - landownerTotal;                 // +ve = they want more than the fair offer
+        var askVsMax = ask - maxBid;                       // +ve = above your ceiling
+        // Approx homes needed to justify their ask (RLV ≈ linear in units near this point)
+        var rlvNeeded = structure==="overage"
+          ? ( (ask - Math.max(agriValue, agriValue*1.5)) / Math.max(0.01, (sharePct/100)) + Math.max(agriValue, agriValue*1.5) )
+          : (structure==="promotion" || structure==="conditional" || structure==="option")
+            ? ( (ask - payNow) / Math.max(0.01, (1 - sharePct/100)) )
+            : ask;
+        var homesToJustify = (consentedRlv>0 && assumedUnits>0) ? Math.round(assumedUnits * rlvNeeded / consentedRlv) : 0;
+
+        var tile = function(label,val,sub,col,strong){
+          return e("div",{style:{background:strong?"linear-gradient(135deg,#F0F1FA,#E4E4F4)":"#fff",border:"1px solid "+(strong?"#4A4BAE":"#DDE0ED"),borderRadius:8,padding:12}},
+            e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".08em",marginBottom:4}},label),
+            e("div",{style:{fontSize:18,fontWeight:800,color:col||"#2E2F8A",lineHeight:1.1}},val),
+            e("div",{style:{fontSize:9,color:"#7278A0",fontStyle:"italic",marginTop:2}},sub)
+          );
+        };
+
+        return e("div",{style:Object.assign({},S.card,{borderLeft:"4px solid #2D7A65"})},
+          header, unitsInput,
+
+          // Three layers of value
+          e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}},
+            tile("Agricultural (floor)", fmt(agriValue), "£"+fmtN(agriPerAcre)+"/acre × "+acresVal.toFixed(1)+" acres", "#9A7B3E"),
+            tile("Today — pre-consent", fmt(todayValue), Math.round(probFactor*100)+"% planning probability ("+tierInfo.label+")", "#4A4BAE"),
+            tile("Consented (ceiling)", fmt(consentedRlv), "max you can pay at "+assumedUnits+" homes", "#2D7A65", true)
+          ),
+          e("div",{style:{fontSize:10,color:"#7278A0",marginBottom:14,lineHeight:1.6}},
+            "Consented value is the residual on a worked scheme of ",e("strong",null,assumedUnits+" homes"),": GDV ",e("strong",null,fmt(consentedGdv)),
+            " less build, fees, finance, S106, infrastructure and your profit. Negotiation ceiling (",e("strong",null,"85% of RLV"),") = ",e("strong",{style:{color:"#2D7A65"}},fmt(maxBid)),
+            "; opening offer (65%) = ",fmt(openingBid),"."
+          ),
+
+          // Deal-structure selector
+          e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".08em",marginBottom:8}},"How are you structuring the deal?"),
+          e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:8,marginBottom:12}},
+            Object.keys(STRUCTS).map(function(k){
+              var sel = structure===k;
+              return e("button",{key:k,onClick:function(){up("land","dealStructure",k);},
+                style:{padding:"9px 12px",background:sel?"#2D7A65":"#fff",color:sel?"#fff":"#2E2F8A",border:"1px solid "+(sel?"#2D7A65":"#DDE0ED"),borderRadius:6,fontSize:11,fontWeight:sel?700:500,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
+                STRUCTS[k].label);
+            })
+          ),
+
+          // Structure parameter + explanation
+          e("div",{style:{display:"grid",gridTemplateColumns:"1fr 2fr",gap:12,marginBottom:14,alignItems:"start"}},
+            e("div",null,
+              e("label",{style:{fontSize:10,color:"#7278A0",fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:3}},sInfo.shareLabel),
+              e("div",{style:{display:"flex",alignItems:"center",gap:6}},
+                e("input",{type:"number",min:0,max:100,step:1,value:l[sInfo.shareKey]!==undefined?l[sInfo.shareKey]:sInfo.shareDef,
+                  onChange:function(ev){up("land",sInfo.shareKey,ev.target.value);},
+                  style:{width:"100%",padding:"8px 10px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:14,fontFamily:"DM Mono,monospace",fontWeight:700}}),
+                e("span",{style:{fontSize:13,color:"#7278A0",fontWeight:700}},"%")
+              ),
+              structure==="option" && e("div",{style:{marginTop:8}},
+                e("label",{style:{fontSize:10,color:"#7278A0",fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:3}},"Option fee (£/acre)"),
+                e("input",{type:"number",min:0,step:500,value:l.optionFeePerAcre!==undefined?l.optionFeePerAcre:2000,
+                  onChange:function(ev){up("land","optionFeePerAcre",ev.target.value);},
+                  style:{width:"100%",padding:"6px 8px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:12,fontFamily:"DM Mono,monospace"}})
+              )
+            ),
+            e("div",{style:{fontSize:11,color:"#3A3D6A",lineHeight:1.7,padding:"10px 12px",background:"#F7F8FC",borderRadius:6}},
+              e("div",{style:{fontWeight:700,color:"#2E2F8A",marginBottom:4}},sInfo.label),
+              structureExplain
+            )
+          ),
+
+          // What changes hands
+          e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:14}},
+            tile("Pay now", payNow>0?fmt(payNow):"—", structure==="option"?"option fee":structure==="overage"?"agri-plus":"nothing up front", "#4A4BAE"),
+            tile("Pay on consent", payOnConsent>0?fmt(payOnConsent):"—", structure==="promotion"?"landowner's net":structure==="overage"?"uplift share":"purchase price", "#9A7B3E"),
+            tile("Total to landowner", fmt(landownerTotal), structure==="promotion"?"after "+sharePct+"% promoter fee":"across the deal", "#2D7A65", true)
+          ),
+
+          // Asking-price verdict
+          ask>0 && e("div",{style:{padding:"14px 16px",borderRadius:8,background:askVsMax>0?"rgba(176,90,53,0.08)":"rgba(45,122,101,0.08)",border:"1px solid "+(askVsMax>0?"rgba(176,90,53,0.4)":"rgba(45,122,101,0.4)")}},
+            e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,flexWrap:"wrap",gap:8}},
+              e("div",{style:{fontWeight:800,fontSize:13,color:askVsMax>0?"#B05A35":"#1d5446"}},
+                askVsMax>0 ? "⚠ Their ask is above your ceiling" : "✓ Their ask is within reach"
+              ),
+              e("div",{style:{fontSize:13,fontWeight:800,color:"#2E2F8A"}},"Ask "+fmt(ask)+" · fair offer "+fmt(landownerTotal))
+            ),
+            e("div",{style:{fontSize:11,color:"#3A3D6A",lineHeight:1.7}},
+              "Under a "+sInfo.label.toLowerCase()+", a fair total to the landowner is ",e("strong",null,fmt(landownerTotal)),". ",
+              askGap>0
+                ? e("span",null,"They're asking ",e("strong",{style:{color:"#B05A35"}},fmt(askGap))," more. ",
+                    (homesToJustify>assumedUnits
+                      ? e("span",null,"To make their "+fmt(ask)+" stack you'd need consent for roughly ",e("strong",null,"~"+homesToJustify+" homes")," (vs your "+assumedUnits+" assumed) — or bridge the gap with an ",e("strong",null,"overage clause")," so they share the upside if density/values come in higher.")
+                      : e("span",null,"That's within striking distance — close it on density, a higher sale £/sqft, or a modest overage.")
+                    )
+                  )
+                : e("span",null,"Their ask is ",e("strong",{style:{color:"#1d5446"}},fmt(-askGap))," below the fair offer — engage; verify there's no encumbrance or planning risk you've not priced.")
+            )
+          )
+        );
+      })(),
+
       city&&m&&e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Market Benchmarks — "+cityName(city)+(benchmarkIsFallback?" (using national average — see note)":"")),
 
