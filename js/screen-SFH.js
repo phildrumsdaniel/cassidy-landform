@@ -64,7 +64,8 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
     function updMix(i,k,v){var m=mix.slice();m[i]=Object.assign({},m[i]);m[i][k]=v;up("sfh","mix",m);}
 
     var houseCalcs=mix.map(function(row){
-      var cnt=num(row.count); if(!cnt||!row.type)return null;
+      var cnt=num(row.count); if(!cnt)return null;
+      if(!(row.type||num(row.sqft)||num(row.unitPrice||row.psf)))return null;  // v9.69 — count rows even if the type label is blank
       var info=HOUSE_TYPES[row.type]||HOUSE_TYPES["3-bed semi"]||{sqft:900,adj:1.0};
       var rowSqft=numOr(row.sqft, info.sqft);
       var unitPrice=num(row.unitPrice||0);
@@ -309,7 +310,7 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
             )
           ),
           // v9.29 — Single header row with Exit Route column added
-          e("div",{style:{display:"grid",gridTemplateColumns:"1.5fr 56px 56px 74px 88px 96px 150px 90px 70px 26px",padding:"8px 12px",background:"#2E2F8A",fontSize:9,color:"#fff",textTransform:"uppercase",letterSpacing:".06em",fontWeight:700,borderBottom:"1px solid #DDE0ED",minWidth:820,gap:7}},
+          e("div",{style:{display:"grid",gridTemplateColumns:"160px 56px 56px 74px 88px 96px 150px 90px 70px 26px",padding:"8px 12px",background:"#2E2F8A",fontSize:9,color:"#fff",textTransform:"uppercase",letterSpacing:".06em",fontWeight:700,borderBottom:"1px solid #DDE0ED",minWidth:930,gap:7}},
             e("span",null,"House Type"),e("span",null,"Plots"),e("span",null,"Sqft"),e("span",null,"£/sqft"),e("span",null,"Unit £"),e("span",null,"Revenue"),e("span",null,"Tenure / exit route"),e("span",null,"Hold"),e("span",null,"Build £"),e("span",null,"")
           ),
           mix.map(function(row,i){
@@ -327,7 +328,7 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
               "#FAFDF9"
             ) : "#fff";
             var defHold=/apartment|flat|maisonette|penthouse|duplex|coach/i.test(row.type||"")?"leasehold":"freehold";
-            return e("div",{key:i,style:{display:"grid",gridTemplateColumns:"1.5fr 56px 56px 74px 88px 96px 150px 90px 70px 26px",padding:"8px 12px",borderBottom:"1px solid #DDE0ED",gap:7,alignItems:"center",background:rowTint,minWidth:820}},
+            return e("div",{key:i,style:{display:"grid",gridTemplateColumns:"160px 56px 56px 74px 88px 96px 150px 90px 70px 26px",padding:"8px 12px",borderBottom:"1px solid #DDE0ED",gap:7,alignItems:"center",background:rowTint,minWidth:930}},
               e("select",{value:row.type,onChange:function(ev){updMix(i,"type",ev.target.value);},style:Object.assign({},S.select,{fontSize:11,padding:"5px 6px"})},
                 Object.keys(HOUSE_TYPES).map(function(t){return e("option",{key:t,value:t},t);})
               ),
@@ -362,7 +363,7 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
               e("button",{onClick:function(){up("sfh","mix",mix.filter(function(_,j){return j!==i;}));},title:"Remove this row",style:{background:"none",border:"none",color:"#B05A35",fontSize:16,fontWeight:700,cursor:"pointer",padding:0,lineHeight:1}},"×")
             );
           }),
-          totalUnits>0&&e("div",{style:{display:"grid",gridTemplateColumns:"1.5fr 56px 56px 74px 88px 96px 150px 90px 70px 26px",padding:"10px 12px",background:"#F7F8FC",borderTop:"2px solid #DDE0ED",fontSize:12,fontWeight:700,color:"#2E2F8A",minWidth:820,gap:7}},
+          totalUnits>0&&e("div",{style:{display:"grid",gridTemplateColumns:"160px 56px 56px 74px 88px 96px 150px 90px 70px 26px",padding:"10px 12px",background:"#F7F8FC",borderTop:"2px solid #DDE0ED",fontSize:12,fontWeight:700,color:"#2E2F8A",minWidth:930,gap:7}},
             e("span",null,"TOTAL"),e("span",null,totalUnits+" plots"),e("span",null,""),e("span",null,""),e("span",null,""),
             e("span",{style:{color:"#4A4BAE",fontWeight:800}},fmt(totalGdv)),
             e("span",{style:{fontSize:9,color:"#7278A0",fontWeight:600}},"see Cap →"),
