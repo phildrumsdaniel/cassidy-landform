@@ -134,6 +134,25 @@ function renderPropagationAudit(data, setData, up){
       });
     });
 
+    // v9.67 — authoritative cross-field check. SHARED_FIELD_GROUPS defines the fields that
+    // MUST hold the same value. The per-row map above checks each field in isolation, so a
+    // mismatch like Tenure ahPct 35 vs Planning/SFH 30 slipped through as "all in sync".
+    // This compares the actual values within each shared group and flags real disagreement.
+    var sharedDrift = [];
+    if(typeof SHARED_FIELD_GROUPS !== "undefined"){
+      SHARED_FIELD_GROUPS.forEach(function(group){
+        var seen = [];
+        group.forEach(function(t){
+          var sec = data[t[0]], v = sec ? sec[t[1]] : undefined;
+          if(v === null || v === undefined || v === "" || v === 0) return;
+          seen.push({label:t[0]+"."+t[1], v:String(v)});
+        });
+        var distinct = seen.filter(function(x,i,a){return a.findIndex(function(y){return y.v===x.v;})===i;});
+        if(seen.length > 1 && distinct.length > 1) sharedDrift.push({fields:seen});
+      });
+    }
+    totals.drift += sharedDrift.length;
+
     function autoFixAll(){
       if(!confirm("Auto-fix all detectable propagation drift?\n\nThis will:\n• Copy land.scenarioAhPct → Planning, SFH, HRA, Tenure where empty or different\n• Copy land.scenarioS106pu → Planning, RLV, SFH, HRA, Fin where empty or different\n• Copy land.scenarioFinanceRate → RLV, Fin, SFH, HRA where empty or different\n• Copy land.scenarioTimelineMo → Exit.planningMo where empty\n\nWill NOT touch: GDV figures, build cost overrides, sale PSF overrides, or any field clearly set as a manual override.\n\nProceed?")) return;
       setData(function(prev){
@@ -195,6 +214,17 @@ function renderPropagationAudit(data, setData, up){
             e("div",{style:{fontSize:22,fontWeight:800,color:t.color}},t.value)
           );
         })
+      ),
+
+      // v9.67 — explicit list of shared fields that disagree (caught by the cross-field check)
+      sharedDrift.length > 0 && e("div",{style:{padding:"12px 16px",background:"rgba(176,90,53,0.07)",border:"1px solid rgba(176,90,53,0.4)",borderRadius:8,marginBottom:14}},
+        e("div",{style:{fontSize:12,fontWeight:800,color:"#B05A35",marginBottom:6}},"⚠ "+sharedDrift.length+" shared field"+(sharedDrift.length>1?"s":"")+" disagree across stages — these should match"),
+        sharedDrift.map(function(d,i){
+          return e("div",{key:i,style:{fontSize:11,color:"#3A3D6A",fontFamily:"DM Mono,monospace",padding:"3px 0",borderTop:i?"1px solid rgba(176,90,53,0.15)":"none"}},
+            d.fields.map(function(f){return f.label+" = "+f.v;}).join("   ·   ")
+          );
+        }),
+        e("div",{style:{fontSize:10,color:"#9A7B3E",marginTop:6,fontStyle:"italic"}},"Set them to the same value (on whichever stage is wrong), or use Auto-fix to push the scenario value everywhere.")
       ),
 
       // Auto-fix CTA

@@ -10,8 +10,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.67";
+var CURRENT_VERSION = "9.68";
 var VERSION_HISTORY = [
+  {v:"9.68", date:"Jun 2026", headline:"Propagation Audit now catches shared fields that disagree",
+   affectsCalc:false,
+   changes:["The Propagation Audit checked each field in isolation, so a real mismatch (e.g. affordable housing 30% on Planning/SFH but 35% on Tenure Mix) showed as 'all in sync'. It now cross-checks every shared-field group and lists any that genuinely disagree, so a drift like that can't hide."]},
   {v:"9.67", date:"Jun 2026", headline:"Audit fix: reported target margin % now matches the profit used (SFH)",
    affectsCalc:false,
    changes:["Found during a Maldon audit: for a houses scheme the profit £ correctly used the SFH stage's profit % (e.g. 15%), but the REPORTED 'target margin %' still showed the finance default (17.5%) — so a screen could display '17.5% target' next to a 15% profit figure. The reported target margin now always matches the profit actually used."]},
