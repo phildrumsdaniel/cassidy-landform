@@ -10,8 +10,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.64";
+var CURRENT_VERSION = "9.65";
 var VERSION_HISTORY = [
+  {v:"9.65", date:"Jun 2026", headline:"Fix: Financial Modelling cost breakdown now reconciles with its total",
+   affectsCalc:false,
+   changes:["On the Financial Modelling appraisal the Build line (and the fees/contingency/finance derived from it) used a legacy area figure that could read several times too high — so 'Build' showed e.g. £226m while 'Total Dev Cost' was £103m and the breakdown didn't add up. The cost lines now use the same canonical build cost as the total, so every line reconciles."]},
   {v:"9.64", date:"Jun 2026", headline:"Stop the rental-hold view misleading build-and-sell schemes",
    affectsCalc:false,
    changes:["On Capitalisation, the 'Forward Funding Stack' values the scheme as if every home were kept and rented — which always shows big negatives and a scary 'deal does not stack' verdict for a build-and-SELL houses scheme, where it doesn't apply. For a sell scheme it's now replaced by a calm, clearly-labelled note pointing to the real land value (Max Land Bid on Land Valuation), with the full rental detail tucked behind a 'show anyway' toggle so it can't be mistaken for your verdict."]},

@@ -55,6 +55,11 @@ function renderFin(LiveMarketBanner, at, bc, buildPsf, city, data, ey, gia, gr, 
     var roc = DM.roc !== 0 ? DM.roc : (tc4>0?(profit2/tc4)*100:0);
     var rlv = DM.rlv || (gdv2>0 ? gdv2 - tc4 - gdv2*(DM.profitPctTarget/100) : 0);
     var totalBuild = effBuildCost;
+    // v9.65 — the appraisal line items must reconcile with Total Dev Cost (tc4). Derive the
+    // displayed build sqft/£psf from the SAME canonical build cost, not the legacy gia/bc
+    // params (which could read ~4× too high and made Build exceed the total).
+    var finBuildPsf = num(DM.buildPsf) || num(buildPsf) || 0;
+    var finSqft = finBuildPsf>0 ? Math.round(effBuildCost/finBuildPsf) : num(gia);
     var scV=margin2>=15?"#2D7A65":"#B05A35";
 
     var scens=[{l:"Bear",sm:-0.10,bm:+0.15},{l:"Base",sm:0,bm:0},{l:"Bull",sm:+0.08,bm:-0.05}].map(function(sc3){
@@ -138,7 +143,7 @@ function renderFin(LiveMarketBanner, at, bc, buildPsf, city, data, ey, gia, gr, 
           e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:12}},
             e("div",null,
               e("div",{style:{fontSize:9,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,marginBottom:10}},"COSTS"),
-              [["Land",lc],["Build ("+Math.round(gia).toLocaleString()+" sqft @ £"+buildPsf+"/sqft)",bc],["S106/CIL allowance (£"+fmtN(finS106Pu)+"/unit)",s106fin],["Contingency ("+finContPct+"%)",bc*(finContPct/100)],["Prof Fees (12%)",bc*0.12],["Finance ("+finRatePct+"%)",(bc+lc)*(finRatePct/100)],["SDLT (5%)",lc*0.05]].map(function(row){
+              [["Land",lc],["Build ("+finSqft.toLocaleString()+" sqft @ £"+finBuildPsf+"/sqft)",effBuildCost],["S106/CIL allowance (£"+fmtN(finS106Pu)+"/unit)",s106fin],["Contingency ("+finContPct+"%)",effBuildCost*(finContPct/100)],["Prof Fees (12%)",effBuildCost*0.12],["Finance ("+finRatePct+"%)",(effBuildCost+lc)*(finRatePct/100)],["SDLT (5%)",lc*0.05]].map(function(row){
                 return e("div",{key:row[0],style:{display:"flex",justifyContent:"space-between",fontSize:12,color:"#7278A0",padding:"4px 0",borderBottom:"1px solid #F0F0F0"}},
                   e("span",null,row[0]),e("span",null,fmt(row[1]))
                 );
