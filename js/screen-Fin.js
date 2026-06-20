@@ -127,15 +127,23 @@ function renderFin(LiveMarketBanner, at, bc, buildPsf, city, data, ey, gia, gr, 
           e(Inp,{label:"Finance Rate (%) — typical 7.5-9.0% senior debt",type:"number",value:f.finRate,onChange:function(v){up("fin","finRate",v);},placeholder:"7.5"}),
           e(Inp,{label:"Contingency (%)",type:"number",value:f.contingency,onChange:function(v){up("fin","contingency",v);},placeholder:"5"}),
           e(Inp,{label:"Professional Fees (% of build)",type:"number",value:f.feesPct,onChange:function(v){up("fin","feesPct",v);},placeholder:"12"}),
-        e("div",{style:{background:"rgba(154,123,62,0.06)",border:"1px solid rgba(154,123,62,0.2)",borderRadius:7,padding:"10px 14px",fontSize:11,marginTop:8}},
-          e("div",{style:{fontWeight:700,color:"#9A7B3E",marginBottom:6}},"BCIS Benchmarks Q1 2025 — Worcestershire / South West"),
-          e("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:6}},
-            e("div",null,e("span",{style:{color:"#7278A0",fontSize:10}},"2-storey houses: "),e("span",{style:{fontWeight:700,fontSize:11}},"£148/sqft")),
-            e("div",null,e("span",{style:{color:"#7278A0",fontSize:10}},"3-storey: "),e("span",{style:{fontWeight:700,fontSize:11}},"£160/sqft")),
-            e("div",null,e("span",{style:{color:"#7278A0",fontSize:10}},"4-5 storey flats: "),e("span",{style:{fontWeight:700,fontSize:11}},"£181/sqft")),
-            e("div",null,e("span",{style:{color:"#7278A0",fontSize:10}},"Add externals/infra: "),e("span",{style:{fontWeight:700,fontSize:11}},"+15-25%"))
-          )
-        )
+        (function(){
+          // v9.66 — region label + rates now follow the DEAL's area (was hard-coded to
+          // "Worcestershire / South West"). Rates keep the BCIS base ratios, scaled by the
+          // area's build index vs the national baseline so they're directionally right.
+          var benchRegion = (typeof ukRegionFor==="function") ? ukRegionFor(data) : "UK (national average)";
+          var bf = (num(m&&m.build)||188)/188;
+          var b2 = Math.round(148*bf), b3 = Math.round(160*bf), bFlat = Math.round(181*bf);
+          return e("div",{style:{background:"rgba(154,123,62,0.06)",border:"1px solid rgba(154,123,62,0.2)",borderRadius:7,padding:"10px 14px",fontSize:11,marginTop:8}},
+            e("div",{style:{fontWeight:700,color:"#9A7B3E",marginBottom:6}},"BCIS build benchmarks — "+benchRegion),
+            e("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:6}},
+              e("div",null,e("span",{style:{color:"#7278A0",fontSize:10}},"2-storey houses: "),e("span",{style:{fontWeight:700,fontSize:11}},"£"+b2+"/sqft")),
+              e("div",null,e("span",{style:{color:"#7278A0",fontSize:10}},"3-storey: "),e("span",{style:{fontWeight:700,fontSize:11}},"£"+b3+"/sqft")),
+              e("div",null,e("span",{style:{color:"#7278A0",fontSize:10}},"4-5 storey flats: "),e("span",{style:{fontWeight:700,fontSize:11}},"£"+bFlat+"/sqft")),
+              e("div",null,e("span",{style:{color:"#7278A0",fontSize:10}},"Add externals/infra: "),e("span",{style:{fontWeight:700,fontSize:11}},"+15-25%"))
+            )
+          );
+        })()
       ),
       units>0&&gia>0&&e("div",null,
         e("div",{style:S.card},

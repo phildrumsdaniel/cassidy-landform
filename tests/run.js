@@ -544,6 +544,13 @@ console.log("Landform engine consistency tests\n");
   ok("higher build £/sqft ⇒ lower land value", rlvWith(260, 400) < rlvWith(200, 400));
 })();
 
+// 31 — Region label follows the deal's area (was hard-coded)
+(function(){
+  ok("Maldon resolves to East of England", ukRegionFor({land:{city:"maldon"}}) === "East of England");
+  ok("Bristol resolves to South West", ukRegionFor({land:{city:"bristol"}}) === "South West");
+  ok("unknown area falls back to a national label", /national/i.test(ukRegionFor({})));
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

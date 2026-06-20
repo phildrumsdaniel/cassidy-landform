@@ -10,8 +10,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.65";
+var CURRENT_VERSION = "9.66";
 var VERSION_HISTORY = [
+  {v:"9.66", date:"Jun 2026", headline:"Fix: build-cost benchmark now shows the deal's real region",
+   affectsCalc:false,
+   changes:["The BCIS build-cost benchmark box on Financial Modelling was hard-coded to 'Worcestershire / South West' regardless of where the site was. It now shows the deal's actual region (e.g. Maldon → East of England), with the indicative rates scaled to the local area."]},
   {v:"9.65", date:"Jun 2026", headline:"Fix: Financial Modelling cost breakdown now reconciles with its total",
    affectsCalc:false,
    changes:["On the Financial Modelling appraisal the Build line (and the fees/contingency/finance derived from it) used a legacy area figure that could read several times too high — so 'Build' showed e.g. £226m while 'Total Dev Cost' was £103m and the breakdown didn't add up. The cost lines now use the same canonical build cost as the total, so every line reconciles."]},
@@ -1572,6 +1575,25 @@ function areaRentPcm(data, beds){
   if(!mk || !mk.btr) return 0;
   var b = Math.max(0, Math.min(6, Math.round(num(beds) || 3)));
   return Math.round(mk.btr * (RENT_BED_FACTOR[b] != null ? RENT_BED_FACTOR[b] : 1));
+}
+// UK region for the deal's area — used to label regional build-cost benchmarks correctly
+// (e.g. Maldon → "East of England", not a hard-coded "Worcestershire / South West").
+var UK_REGION_BY_CITY = {
+  london:"London",
+  manchester:"North West", liverpool:"North West", chester:"North West",
+  newcastle:"North East",
+  leeds:"Yorkshire & Humber", sheffield:"Yorkshire & Humber", york:"Yorkshire & Humber", harrogate:"Yorkshire & Humber", hull:"Yorkshire & Humber", wakefield:"Yorkshire & Humber", doncaster:"Yorkshire & Humber",
+  birmingham:"West Midlands", coventry:"West Midlands", worcester:"West Midlands",
+  nottingham:"East Midlands", leicester:"East Midlands", derby:"East Midlands", northampton:"East Midlands",
+  bristol:"South West", bath:"South West", exeter:"South West", plymouth:"South West", truro:"South West", torquay:"South West", taunton:"South West", bridgwater:"South West", yeovil:"South West", tewkesbury:"South West", bournemouth:"South West",
+  oxford:"South East", reading:"South East", brighton:"South East", guildford:"South East", woking:"South East", canterbury:"South East", maidstone:"South East", tunbridge_wells:"South East", southampton:"South East", portsmouth:"South East", milton_keynes:"South East",
+  cambridge:"East of England", chelmsford:"East of England", maldon:"East of England", colchester:"East of England", basildon:"East of England", chigwell:"East of England", brentwood:"East of England", southend:"East of England", peterborough:"East of England", stevenage:"East of England", st_albans:"East of England", watford:"East of England",
+  edinburgh:"Scotland", glasgow:"Scotland", aberdeen:"Scotland", dundee:"Scotland", inverness:"Scotland",
+  cardiff:"Wales", swansea:"Wales"
+};
+function ukRegionFor(data){
+  var c = (typeof dealCityKey === "function") ? dealCityKey(data) : "";
+  return UK_REGION_BY_CITY[c] || "UK (national average)";
 }
 // areaYield — the area's benchmark NET INITIAL yield as a PERCENT (e.g. 4.7 for Maldon).
 // Falls back to 4.7% if the area has no benchmark.
