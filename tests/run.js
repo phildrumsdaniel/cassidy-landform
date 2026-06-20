@@ -544,6 +544,17 @@ console.log("Landform engine consistency tests\n");
   ok("higher build £/sqft ⇒ lower land value", rlvWith(260, 400) < rlvWith(200, 400));
 })();
 
+// 30b — Reported target margin % matches the profit actually used for SFH
+(function(){
+  var d = { assetType:"sfh", land:{city:"maldon", acres:32},
+    sfh:{ city:"maldon", buildPsf:250, profitPct:15,
+      mix:[{type:"4-bed detached",count:100,sqft:1000,unitPrice:480000,tenure:"private"}] },
+    planning:{units:100} };   // note: fin.profitPct deliberately unset
+  var m = calcDealMetrics(d);
+  near("profitPctTarget reflects the SFH 15% (not the 17.5% default)", m.profitPctTarget, 15, 0.01);
+  ok("profit £ equals that % of GDV", Math.abs(m.profit - m.gdv*0.15) < 1000);
+})();
+
 // 31 — Region label follows the deal's area (was hard-coded)
 (function(){
   ok("Maldon resolves to East of England", ukRegionFor({land:{city:"maldon"}}) === "East of England");

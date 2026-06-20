@@ -10,8 +10,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.66";
+var CURRENT_VERSION = "9.67";
 var VERSION_HISTORY = [
+  {v:"9.67", date:"Jun 2026", headline:"Audit fix: reported target margin % now matches the profit used (SFH)",
+   affectsCalc:false,
+   changes:["Found during a Maldon audit: for a houses scheme the profit £ correctly used the SFH stage's profit % (e.g. 15%), but the REPORTED 'target margin %' still showed the finance default (17.5%) — so a screen could display '17.5% target' next to a 15% profit figure. The reported target margin now always matches the profit actually used."]},
   {v:"9.66", date:"Jun 2026", headline:"Fix: build-cost benchmark now shows the deal's real region",
    affectsCalc:false,
    changes:["The BCIS build-cost benchmark box on Financial Modelling was hard-coded to 'Worcestershire / South West' regardless of where the site was. It now shows the deal's actual region (e.g. Maldon → East of England), with the indicative rates scaled to the local area."]},
@@ -2289,6 +2292,10 @@ function calcDealMetrics(data){
     roads       = sfhMetrics.roads;
     infra       = sfhMetrics.infra;
     profit      = sfhMetrics.profit;
+    // v9.67 — keep the REPORTED target margin % in step with the profit £ actually used
+    // for SFH (which comes from the SFH stage's profit %, not the finance default), so a
+    // screen can't show "17.5% target" beside a profit figure that's really 15%.
+    profitPctTarget = gdv > 0 ? (profit / gdv) * 100 : profitPctTarget;
   }
 
   // ── TOTAL COST ────────────────────────────────────────────────────────
