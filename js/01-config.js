@@ -10,8 +10,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.69";
+var CURRENT_VERSION = "9.70";
 var VERSION_HISTORY = [
+  {v:"9.70", date:"Jun 2026", headline:"House-mix type column now shows the selected house type",
+   affectsCalc:false,
+   changes:["The house-type dropdown on the SFH House Mix was squeezed to about 50px — only the arrow showed, so a selected type (e.g. '3-bed detached') looked blank until you tapped it. It now has a proper width and shows the selection at a glance."]},
   {v:"9.69", date:"Jun 2026", headline:"Fix: house-mix rows with a blank type are now counted",
    affectsCalc:true,
    changes:["The engine skipped any SFH House Mix row that didn't have a house-TYPE selected — so a mix could show 225 plots on screen while the engine (and Planning/RLV) counted only the typed rows (e.g. 200). Any row with plots and sale data is now counted, type or no type; only a genuinely empty row is ignored. This was the cause of the 225-vs-200 unit mismatch."]},
