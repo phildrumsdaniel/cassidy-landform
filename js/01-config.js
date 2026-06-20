@@ -10,8 +10,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.68";
+var CURRENT_VERSION = "9.69";
 var VERSION_HISTORY = [
+  {v:"9.69", date:"Jun 2026", headline:"Fix: house-mix rows with a blank type are now counted",
+   affectsCalc:true,
+   changes:["The engine skipped any SFH House Mix row that didn't have a house-TYPE selected — so a mix could show 225 plots on screen while the engine (and Planning/RLV) counted only the typed rows (e.g. 200). Any row with plots and sale data is now counted, type or no type; only a genuinely empty row is ignored. This was the cause of the 225-vs-200 unit mismatch."]},
   {v:"9.68", date:"Jun 2026", headline:"Propagation Audit now catches shared fields that disagree",
    affectsCalc:false,
    changes:["The Propagation Audit checked each field in isolation, so a real mismatch (e.g. affordable housing 30% on Planning/SFH but 35% on Tenure Mix) showed as 'all in sync'. It now cross-checks every shared-field group and lists any that genuinely disagree, so a drift like that can't hide."]},
@@ -1881,7 +1884,12 @@ function computeSFHMetrics(data){
   var rows = [];
   var totalUnits = 0, retailGdv = 0, blendedGdv = 0, buildCost = 0, totalSqft = 0;
   mix.forEach(function(row){
-    var count = num(row.count); if(!count || !row.type) return;
+    var count = num(row.count); if(!count) return;
+    // v9.69 — count any row that has plots + sale data, even if the house-TYPE label is
+    // blank. Previously a missing type made the engine skip the whole row, so the screen
+    // could show 225 plots while the engine counted only 200. Only a truly empty row
+    // (no size and no price and no type) is ignored.
+    if(!(row.type || num(row.sqft) || num(row.unitPrice||row.salePrice||row.psf))) return;
     var info = HOUSE_TYPES[row.type] || HOUSE_TYPES["3-bed semi"] || {sqft:900, adj:1};
     var sqft = numOr(row.sqft, info.sqft || 900);
     var unitPrice = num(row.unitPrice || row.salePrice || 0);
@@ -1895,7 +1903,7 @@ function computeSFHMetrics(data){
     retailGdv += rowRetail;
     blendedGdv += rowBlended;
     buildCost += sqft * (num(row.buildPsf) || buildPsf) * count;   // per-row build £/sqft (e.g. conversion vs new-build) overrides the scheme rate
-    rows.push({type:row.type,count:count,sqft:sqft,psf:psf,tenure:tenure,retailGdv:rowRetail,blendedGdv:rowBlended});
+    rows.push({type:row.type||"House",count:count,sqft:sqft,psf:psf,tenure:tenure,retailGdv:rowRetail,blendedGdv:rowBlended});
   });
   var hasNonPrivate = rows.some(function(r){return r.tenure && r.tenure !== "private";});
   // v9.46 — Canonical blended GDV. Priority: (1) if rows carry per-row tenure,

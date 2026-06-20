@@ -555,6 +555,21 @@ console.log("Landform engine consistency tests\n");
   ok("profit £ equals that % of GDV", Math.abs(m.profit - m.gdv*0.15) < 1000);
 })();
 
+// 30c — Mix rows with plots + price but a BLANK house type must still be counted
+(function(){
+  var d = { assetType:"sfh", land:{city:"maldon"},
+    sfh:{ city:"maldon", mix:[
+      { count:100, sqft:1000, unitPrice:450000, tenure:"private" },          // no type
+      { type:"4-bed detached", count:125, sqft:1200, unitPrice:600000, tenure:"private" }
+    ] } };
+  var m = computeSFHMetrics(d);
+  ok("typeless row is still counted (225, not 125)", m.totalUnits === 225);
+  ok("typeless row contributes to GDV", m.retailGdv > 100*1000*450*0.99);
+  // A genuinely empty placeholder row (no count) is still ignored
+  var d2 = { assetType:"sfh", sfh:{ mix:[ {count:0}, {count:"",sqft:""} ] } };
+  ok("empty placeholder rows ignored", computeSFHMetrics(d2).totalUnits === 0);
+})();
+
 // 31 — Region label follows the deal's area (was hard-coded)
 (function(){
   ok("Maldon resolves to East of England", ukRegionFor({land:{city:"maldon"}}) === "East of England");
