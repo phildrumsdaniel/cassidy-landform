@@ -10,8 +10,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.63";
+var CURRENT_VERSION = "9.64";
 var VERSION_HISTORY = [
+  {v:"9.64", date:"Jun 2026", headline:"Stop the rental-hold view misleading build-and-sell schemes",
+   affectsCalc:false,
+   changes:["On Capitalisation, the 'Forward Funding Stack' values the scheme as if every home were kept and rented — which always shows big negatives and a scary 'deal does not stack' verdict for a build-and-SELL houses scheme, where it doesn't apply. For a sell scheme it's now replaced by a calm, clearly-labelled note pointing to the real land value (Max Land Bid on Land Valuation), with the full rental detail tucked behind a 'show anyway' toggle so it can't be mistaken for your verdict."]},
   {v:"9.63", date:"Jun 2026", headline:"Fix: edits no longer silently blocked by 'completed' stages",
    affectsCalc:true,
    changes:["ROOT-CAUSE FIX: a stage marked 'complete' used to silently block any change reaching it from another screen — so the 'How to make this scheme stack' Apply buttons did nothing, and editing build cost / profit / S106 on the Land Valuation screen had no effect once the SFH House Mix was ticked complete. 'Complete' is now a progress marker only: every edit takes effect and flows to all the linked stages.","Reminder: for a houses scheme the SFH House Mix is the source of truth — house prices live in the mix rows, so change a price there (not the single sale £/sqft) to move the GDV."]},

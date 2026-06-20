@@ -936,6 +936,25 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
         var ffFarmerAsk = num(cap.ffFarmerAsk||l.price||0);
         var ffAssetType = cap.ffAssetType||"BTR (multi-family)";
 
+        // v9.63 — For a BUILD-AND-SELL houses scheme this rental-capitalisation stack is NOT
+        // the exit (you sell homes, you don't keep and rent them), so it always shows big
+        // negatives and misleads. Replace it with a calm, clearly-labelled summary and tuck
+        // the full rental detail behind a toggle so it can't be mistaken for the real verdict.
+        var _mix = (data.sfh && data.sfh.mix) || [];
+        var _isSellScheme = _mix.length>0
+          && !_mix.some(function(r){ return r.tenure==="retained_prs" && num(r.count)>0; })
+          && (data.assetType==="sfh" || !data.assetType);
+        if(_isSellScheme && !cap.showRentalStack){
+          return e("div",{style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",marginBottom:14}},
+            e("div",{style:{fontSize:10,fontWeight:800,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",marginBottom:8}},"Rental-hold scenario — not your exit"),
+            e("div",{style:{fontSize:12,color:"#3A3D6A",lineHeight:1.7}},
+              e("strong",null,"You're building homes to SELL"),", so this rental view doesn't apply. It values the scheme as if you kept every home and rented it — which always looks negative for houses, because their rental value is far below what they cost to build. ",
+              e("strong",{style:{color:"#2D7A65"}},"Your real land value is the Max Land Bid on the Land Valuation screen"),", from selling the homes."
+            ),
+            e("button",{onClick:function(){up("capitalise","showRentalStack",true);},style:{marginTop:12,padding:"7px 14px",background:"#fff",border:"1px solid #DDE0ED",borderRadius:6,fontSize:11,fontWeight:700,color:"#7278A0",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Show rental/hold scenario anyway (advanced)")
+          );
+        }
+
         // Calculation engine — returns the full stack for a given capital value
         function calcStack(capVal){
           var buildCost  = ffBuildPsf * ffSqftPerUnit * totalUnitsCalc;
@@ -968,6 +987,12 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
         var worstStack = stackByBuyer[stackByBuyer.length-1];
 
         return e("div",{style:{background:"linear-gradient(135deg,#F8F8FE 0%,#F0F1FA 100%)",border:"2px solid #2D7A65",borderRadius:10,padding:"20px 22px",marginBottom:14}},
+
+          // v9.63 — collapse control when this rental view was opened on a sell scheme
+          _isSellScheme && e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,padding:"8px 12px",background:"rgba(154,123,62,0.08)",border:"1px solid rgba(154,123,62,0.3)",borderRadius:6}},
+            e("div",{style:{fontSize:10,color:"#9A7B3E",lineHeight:1.5}},e("strong",null,"Rental-hold scenario (advanced)")," — not your exit; you're selling these homes."),
+            e("button",{onClick:function(){up("capitalise","showRentalStack",false);},style:{padding:"5px 10px",background:"#fff",border:"1px solid #DDE0ED",borderRadius:5,fontSize:10,fontWeight:700,color:"#7278A0",cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"▲ Hide")
+          ),
 
           // v9.40 — BTR-only note for SFH multi-tenure schemes
           (function(){
