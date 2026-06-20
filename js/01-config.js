@@ -3,6 +3,11 @@ var useEffect = React.useEffect;
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjEIxzfbaFPCeWA2pLbNRy6-fXx2boVURdBmyHO2M3uE0/exec";
+// v9.71 — shared token sent with every backend request. The Apps Script rejects calls that
+// don't carry it, which stops casual/automated abuse of the AI proxy and lets you revoke
+// access by rotating this value (change it here AND in the Apps Script). NOTE: a client-side
+// app cannot truly hide this — it raises the bar, it is not full server authentication.
+var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 
 // ──────────────────────────────────────────────────────────────────────────
 // VERSION TRACKING — v9.16
@@ -10,8 +15,11 @@ var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjE
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.70";
+var CURRENT_VERSION = "9.71";
 var VERSION_HISTORY = [
+  {v:"9.71", date:"Jun 2026", headline:"Backend requests now carry a shared token (basic abuse protection)",
+   affectsCalc:false,
+   changes:["Every AI and logging call to the backend now includes a shared token. Once the Apps Script is set to require it, calls without the token are rejected — stopping casual/automated abuse of the AI proxy, and letting you revoke access by rotating the token. Note: a client-side app can't fully hide the token, so this raises the bar rather than being full server authentication."]},
   {v:"9.70", date:"Jun 2026", headline:"House-mix type column now shows the selected house type",
    affectsCalc:false,
    changes:["The house-type dropdown on the SFH House Mix was squeezed to about 50px — only the arrow showed, so a selected type (e.g. '3-bed detached') looked blank until you tapped it. It now has a proper width and shows the selection at a glance."]},
@@ -2769,6 +2777,7 @@ function logEvent(user,event,details){
     var detailStr=typeof details==="object"?JSON.stringify(details).substring(0,400):String(details).substring(0,400);
     var params=new URLSearchParams({
       action:"log",
+      token:WEBHOOK_TOKEN,
       timestamp:new Date().toISOString(),
       user:(user&&user.name)||"Unknown",
       company:(user&&user.company)||"Unknown",
@@ -2804,7 +2813,7 @@ async function callAI(user,stage,systemPrompt,userPrompt){
   // POST avoids URL length limits AND CORS preflight (text/plain content-type is a simple request).
   // Apps Script accepts both GET and POST for action=ai now.
   var body = {
-    action:"ai", stage:stage,
+    action:"ai", stage:stage, token:WEBHOOK_TOKEN,
     user:(user&&user.name)||"", company:(user&&user.company)||"",
     system:(systemPrompt||"You are a senior UK real estate development advisor. Be specific, commercially sharp, use UK conventions. Plain text only.").substring(0,2000),
     prompt:userPrompt.substring(0,12000)  // doubled — POST has no URL limit
