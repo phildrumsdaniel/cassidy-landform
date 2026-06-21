@@ -672,6 +672,12 @@ console.log("Landform engine consistency tests\n");
   var auto = computeForwardFundMetrics({ assetType:"ff", land:{city:"maldon"},
     ff:{ yield:4.5, mix:[{type:"3-bed semi", count:10, sqft:1000, tenure:"private"}] } });
   ok("rent auto-fills from the area when omitted", auto.grossRentPa > 0);
+
+  // Profit basis: "on cost" (Patric/Howells brief) vs default "on GDV".
+  var onCost = computeForwardFundMetrics(ffDeal({ ff:{ profitBasis:"cost" } }));
+  near("profit on cost == 17.5% of development cost", onCost.profit, onCost.devCost*0.175, 2);
+  near("default profit basis is on GDV", F.profit, F.gdv*0.175, 2);
+  ok("profit basis is reported", onCost.profitBasis === "cost" && F.profitBasis === "gdv");
 })();
 
 // ── Report ───────────────────────────────────────────────────────────────────

@@ -19,7 +19,7 @@ var CURRENT_VERSION = "9.73";
 var VERSION_HISTORY = [
   {v:"9.73", date:"Jun 2026", headline:"Forward-fund (rent-capitalised) engine + true multi-year development finance",
    affectsCalc:true,
-   changes:["New 'Forward Fund' appraisal route (assetType 'ff') that values a scheme as an income asset the way a housing association forward-funding the whole development would: realistic rent mix → gross rent, less ~25% management → net rent, capitalised at the target yield → GDV. Built for the Maldon / Delta / Latimer-Clarion appraisal.","The HA low-carbon spec build uplift now actually flows into the cost engine — the affordable units in a forward-fund are costed at the Delta/CHP brief (ASHP, PV + battery, EPC B, NDSS sizes), not a flat £250/sqft. Previously the uplift only moved the Build Cost Library benchmark, not the residual.","Development finance is now modelled as a TRUE multi-year cost (planning period + S-curve build drawdown, interest rolled up to completion) instead of a flat one-year '(build+fees) × rate' screening estimate, which materially understated interest on a 3-to-4-year project. Exposed as developmentFinanceCost() for reuse.","calcDealMetrics adopts the forward-fund engine's GDV and cost stack for 'ff' deals, so every screen and the deal-state quote the same rent, GDV and residual land value."]},
+   changes:["New 'Forward Fund' appraisal route (assetType 'ff') that values a scheme as an income asset the way a housing association forward-funding the whole development would: realistic rent mix → gross rent, less ~25% management → net rent, capitalised at the target yield → GDV. Built for the Maldon / Delta / Latimer-Clarion appraisal.","The HA low-carbon spec build uplift now actually flows into the cost engine — the affordable units in a forward-fund are costed at the Delta/CHP brief (ASHP, PV + battery, EPC B, NDSS sizes), not a flat £250/sqft. Previously the uplift only moved the Build Cost Library benchmark, not the residual.","Development finance is now modelled as a TRUE multi-year cost (planning period + S-curve build drawdown, interest rolled up to completion) instead of a flat one-year '(build+fees) × rate' screening estimate, which materially understated interest on a 3-to-4-year project. Exposed as developmentFinanceCost() for reuse.","calcDealMetrics adopts the forward-fund engine's GDV and cost stack for 'ff' deals, so every screen and the deal-state quote the same rent, GDV and residual land value.","Profit can be taken as a % of GDV (the Landform convention) or a % of development cost ('17.5% on cost', as the Howells Farm brief specifies) via ff.profitBasis."]},
   {v:"9.72", date:"Jun 2026", headline:"HA low-carbon spec build cost + NDSS sizes (Delta/CHP brief)",
    affectsCalc:true,
    changes:["Added a 'HA low-carbon spec' build-cost uplift to the Build Cost Library, capturing a housing-association brief: Air Source Heat Pumps, roof PV + battery storage, EPC band B fabric, NDSS minimum sizes and a 12-year NHBC warranty (~12% / ~£20-30/sqft over a standard build, editable).","New '🌱 HA low-carbon spec' toggle on the SFH House Mix — when on, Auto-cost applies the premium to the affordable rows automatically (or scheme-wide if the scheme is HA-led). So the residual land value reflects what Delta/CHP actually require, not a standard £250/sqft.","Added an NDSS minimum-size reference (the floor area each affordable unit type must meet) to the Build Cost Library."]},
@@ -2058,6 +2058,7 @@ function computeForwardFundMetrics(data){
   var feesPct = numOr(ff.feesPct, 0);
   var contingencyPct = numOr(ff.contingencyPct, 0);
   var haSpecAffordable = ff.haSpecAffordable !== false;   // default ON: HA low-carbon spec on affordable rows
+  var profitBasis = (ff.profitBasis === "cost") ? "cost" : "gdv";   // "gdv" (tool default) or "cost" (% of dev cost)
   var marketRent3bed = num(ff.marketRentPcm) || areaRentPcm(data, 3);
 
   var rows = [], totalUnits = 0, totalSqft = 0, grossRentPa = 0, buildCost = 0, affordableUnits = 0;
@@ -2099,8 +2100,11 @@ function computeForwardFundMetrics(data){
     softCost: fees,
     ratePa: finRate, buildYears: buildYears, planningYears: planningYears
   });
-  var profit = gdv * (profitPct / 100);
   var devCost = buildCost + fees + contingency + s106 + finance;
+  // Profit basis: % of GDV (the Landform convention) or % of development cost (some
+  // briefs — e.g. "17.5% on cost"). On-cost is taken on the dev cost ex-land, to
+  // avoid the circularity of charging profit on the land value we are solving for.
+  var profit = (profitBasis === "cost") ? devCost * (profitPct / 100) : gdv * (profitPct / 100);
   var rlv = gdv - devCost - profit;
 
   return {
@@ -2109,7 +2113,7 @@ function computeForwardFundMetrics(data){
     grossRentPa:grossRentPa, netRentPa:netRentPa, gdv:gdv,
     buildPsf:baseBuildPsf, buildCost:buildCost, fees:fees, feesPct:feesPct, contingency:contingency, contingencyPct:contingencyPct,
     s106:s106, s106pu:s106pu, finance:finance, finRate:finRate, buildYears:buildYears, planningYears:planningYears,
-    profit:profit, profitPct:profitPct, devCost:devCost, rlv:rlv
+    profit:profit, profitPct:profitPct, profitBasis:profitBasis, devCost:devCost, rlv:rlv
   };
 }
 
