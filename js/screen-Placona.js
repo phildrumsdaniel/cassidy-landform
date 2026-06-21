@@ -10,6 +10,14 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
     var selectedSite=pl.selectedSite||null;
     var view=pl.view||"search"; // "search" | "inbox" | "detail"
 
+    // v9.75 — Scout opportunity scoring: rank the inbox by the Cassidy Opportunity
+    // Score and let the user set a shortlist threshold (protects against overload).
+    var oppScored=inbox.map(function(s){ return {site:s, opp:(typeof scoreOpportunity==="function")?scoreOpportunity(s):{score:0,confidence:0,band:""}}; })
+      .sort(function(a,b){ return b.opp.score-a.opp.score; });
+    var oppMin=num(pl.minScore)||0;
+    var oppShown=oppScored.filter(function(x){ return x.opp.score>=oppMin; });
+    function oppCol(sc){ return sc>=75?"#2D7A65":sc>=60?"#4A4BAE":sc>=45?"#9A7B3E":"#B05A35"; }
+
     var COUNTIES=[
       // ── NORTH EAST ENGLAND ───────────────────────────────────────────
       {id:"tyne_wear",        label:"Tyne & Wear",        region:"North East"},
@@ -386,14 +394,20 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
             style:{padding:"10px 20px",background:"#4A4BAE",border:"none",borderRadius:6,color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
           },"Go to Search")
         ):e("div",null,
-          // Inbox header
-          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}},
-            e("div",{style:{fontSize:12,fontWeight:700,color:"#2E2F8A"}},inbox.length+" site"+(inbox.length!==1?"s":"")+" found — click a site to view full details or load directly into Landform"),
+          // Inbox header + shortlist threshold
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,flexWrap:"wrap",gap:8}},
+            e("div",{style:{fontSize:12,fontWeight:700,color:"#2E2F8A"}},oppShown.length+" of "+inbox.length+" site"+(inbox.length!==1?"s":"")+" — ranked by Cassidy Opportunity Score"),
             e("button",{onClick:function(){up("placona","inbox",[]);},
               style:{padding:"5px 12px",background:"none",border:"1px solid #DDE0ED",borderRadius:4,color:"#B05A35",fontSize:10,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Clear all")
           ),
-          // Site cards
-          inbox.map(function(site,si){
+          e("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:12,padding:"8px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:6}},
+            e("span",{style:{fontSize:11,color:"#7278A0",fontWeight:700}},"Shortlist: score ≥"),
+            e("input",{type:"range",min:0,max:90,step:5,value:oppMin,onChange:function(ev){up("placona","minScore",Number(ev.target.value));},style:{flex:1,accentColor:"#2D7A65"}}),
+            e("span",{style:{fontSize:13,fontWeight:800,color:oppCol(oppMin),minWidth:38,textAlign:"right"}},oppMin+"%")
+          ),
+          // Site cards (ranked)
+          oppShown.map(function(rec,si){
+            var site=rec.site, opp=rec.opp;
             var score=num(site.placona_score)||0;
             var cat=site.placona_category||"";
             var col=catCol(cat);
@@ -402,10 +416,11 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
               onClick:function(){up("placona","selectedSite",site);up("placona","view","detail");}
             },
               e("div",{style:{display:"flex",alignItems:"stretch"}},
-                // Score column
-                e("div",{style:{width:64,background:col,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0,padding:"12px 0"}},
-                  e("div",{style:{fontSize:20,fontWeight:800,color:"#fff",lineHeight:1}},score||"—"),
-                  e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.85)",fontWeight:700,marginTop:2}},cat?"CAT "+cat:"—")
+                // Score column — Cassidy Opportunity Score (with confidence)
+                e("div",{style:{width:72,background:oppCol(opp.score),display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0,padding:"12px 0"}},
+                  e("div",{style:{fontSize:22,fontWeight:800,color:"#fff",lineHeight:1}},opp.score+"%"),
+                  e("div",{style:{fontSize:8,color:"rgba(255,255,255,0.9)",fontWeight:700,marginTop:2,textTransform:"uppercase"}},opp.band),
+                  e("div",{style:{fontSize:8,color:"rgba(255,255,255,0.75)",marginTop:3}},"conf "+opp.confidence+"%")
                 ),
                 // Main content
                 e("div",{style:{flex:1,padding:"12px 14px"}},
@@ -420,8 +435,12 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
                     [site.county,site.local_planning_authority,site.planning_status].filter(function(v){return v&&v!=="Not found";}).join(" · ")
                   ),
                   site.asking_price&&site.asking_price!=="Not found"&&e("div",{style:{fontSize:11,color:"#2D7A65",fontWeight:600}},"Ask: "+site.asking_price),
-                  scoreBar(score),
-                  e("div",{style:{fontSize:10,color:"#9A7B3E",marginTop:4}},site.recommended_action||"")
+                  // top pillars driving the score
+                  e("div",{style:{fontSize:10,color:"#7278A0",marginTop:4,lineHeight:1.5}},
+                    opp.pillars.map(function(p){ return p.label.split(" ")[0]+" "+p.score; }).join(" · ")
+                  ),
+                  opp.confidence<50 && e("div",{style:{fontSize:9,color:"#B05A35",fontWeight:700,marginTop:2}},"⚠ Low confidence — thin data, verify before relying on the score"),
+                  e("div",{style:{fontSize:10,color:"#9A7B3E",marginTop:3}},"Placona "+(score||"—")+(cat?" · Cat "+cat:"")+(site.recommended_action?" · "+site.recommended_action:""))
                 ),
                 // Actions
                 e("div",{style:{display:"flex",flexDirection:"column",justifyContent:"center",gap:6,padding:"12px 14px",flexShrink:0}},
@@ -436,7 +455,7 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
                   e("button",{
                     onClick:function(ev){
                       ev.stopPropagation();
-                      var newInbox=inbox.filter(function(_,i2){return i2!==si;});
+                      var newInbox=inbox.filter(function(s2){return s2!==site;});
                       up("placona","inbox",newInbox);
                       // Also delete from sheet if has _row
                       if(site._row){
@@ -475,6 +494,34 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
             },"🚀 Load into Landform — Pre-fill All Fields")
           )
         ),
+
+        // v9.75 — Cassidy Opportunity Score breakdown (transparent pillars)
+        (typeof scoreOpportunity==="function") && (function(){
+          var opp=scoreOpportunity(selectedSite);
+          return e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"16px 18px",marginBottom:14}},
+            e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}},
+              e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em"}},"Cassidy Opportunity Score"),
+              e("div",{style:{display:"flex",alignItems:"baseline",gap:8}},
+                e("span",{style:{fontSize:26,fontWeight:800,color:oppCol(opp.score)}},opp.score+"%"),
+                e("span",{style:{fontSize:11,fontWeight:700,color:oppCol(opp.score)}},opp.band),
+                e("span",{style:{fontSize:11,color:opp.confidence<50?"#B05A35":"#7278A0"}},"· confidence "+opp.confidence+"%")
+              )
+            ),
+            opp.confidence<50 && e("div",{style:{fontSize:11,color:"#B05A35",marginBottom:8,lineHeight:1.5}},"⚠ Scored on thin data — treat as a steer, not a verdict. Verify acreage, price, planning and demographics before promoting."),
+            opp.pillars.map(function(p){
+              return e("div",{key:p.key,style:{marginBottom:8}},
+                e("div",{style:{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}},
+                  e("span",{style:{color:"#3A3D6A",fontWeight:600}},p.label+" ("+p.weight+"%)"),
+                  e("span",{style:{color:oppCol(p.score),fontWeight:700}},p.score)
+                ),
+                e("div",{style:{height:6,background:"#F0F1FA",borderRadius:3,overflow:"hidden"}},
+                  e("div",{style:{width:p.score+"%",height:"100%",background:oppCol(p.score),borderRadius:3}})
+                ),
+                e("div",{style:{fontSize:9,color:"#9A9AAE",marginTop:2}},p.note)
+              );
+            })
+          );
+        })(),
 
         // Score header
         e("div",{style:{background:"linear-gradient(135deg,"+catCol(selectedSite.placona_category)+",rgba(30,31,92,0.8))",borderRadius:10,padding:"20px 24px",marginBottom:14,color:"#fff"}},

@@ -32,6 +32,7 @@ try {
   eval(fs.readFileSync(path.join(__dirname, "..", "js", "lib-migrateLoadedDeal.js"), "utf8"));
   eval(fs.readFileSync(path.join(__dirname, "..", "js", "lib-isStageComplete.js"), "utf8"));
   eval(fs.readFileSync(path.join(__dirname, "..", "js", "lib-dealSchema.js"), "utf8"));
+  eval(fs.readFileSync(path.join(__dirname, "..", "js", "lib-scoreOpportunity.js"), "utf8"));
 } catch (e) {
   console.error("Could not load engine files:", e.message);
   process.exit(1);
@@ -641,6 +642,27 @@ console.log("Landform engine consistency tests\n");
   var deal = buildDealFromBrief(brief);
   ok("Placona→Keystone → land journey (raw land, no scheme yet)", deal.assetType === "land");
   ok("city carried to land/sfh for benchmarks", deal.land.city === "maldon");
+})();
+
+// 34 — Scout opportunity scoring: composite %, confidence, pillars
+(function(){
+  var strong = scoreOpportunity({
+    address:"Land at Maldon, Essex", town:"Maldon", site_area_acres:"32",
+    asking_price:"£3m", estimated_units:"200", planning_status:"outline",
+    constraintVerdict:"GO", populationGrowthPct:1.4, affordabilityRatio:11, jobsGrowthPct:1.8, housingNeedIndex:75
+  });
+  ok("score is a 0-100 percentage", strong.score >= 0 && strong.score <= 100);
+  ok("five pillars returned", strong.pillars.length === 5);
+  ok("rich data ⇒ high confidence", strong.confidence >= 70);
+  var thin = scoreOpportunity({ town:"Maldon", asking_price:"£3m" });
+  ok("thin data ⇒ low confidence", thin.confidence < thin.confidence + 1 && thin.confidence <= 60);
+  // A cheap, well-located site should out-score an overpriced one
+  var cheap = scoreOpportunity({ town:"Maldon", site_area_acres:"32", asking_price:"£2m", planning_status:"outline" });
+  var dear  = scoreOpportunity({ town:"Maldon", site_area_acres:"32", asking_price:"£40m", planning_status:"outline" });
+  ok("cheaper land scores higher (viability pillar works)", cheap.score > dear.score);
+  // dealStatus carried through the builder
+  ok("buildDealFromBrief defaults dealStatus to owned", buildDealFromBrief({town:"Maldon"}).dealStatus === "owned");
+  ok("dealStatus override honoured", buildDealFromBrief({town:"Maldon", dealStatus:"for_introduction"}).dealStatus === "for_introduction");
 })();
 
 // ── Report ───────────────────────────────────────────────────────────────────

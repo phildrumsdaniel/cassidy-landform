@@ -143,6 +143,16 @@ function renderKeystone(data, setData, up, navTo, user){
       e("div",{style:{fontSize:12,color:"#3A3D6A",lineHeight:1.7,marginBottom:12}},
         "Keystone builds a complete deal from the brief — units, mix, tenures, costs, yield — and loads it so you can run and edit it. It saves nothing automatically; use ",e("strong",null,"💾 Save Current Deal")," (top bar) to put it in your portfolio and share with the team."
       ),
+      // v9.75 — origination status, carried from the start
+      e("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap"}},
+        e("span",{style:{fontSize:11,color:"#7278A0",fontWeight:700}},"This deal is:"),
+        e("select",{value:data.dealStatus||"owned",onChange:function(ev){var v=ev.target.value;setData(function(d){return Object.assign({},d,{dealStatus:v});});},
+          style:{padding:"6px 10px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:12,fontFamily:"DM Sans,sans-serif",color:"#2E2F8A"}},
+          e("option",{value:"owned"},"Ours to develop"),
+          e("option",{value:"for_introduction"},"For introduction / sale to another developer"),
+          e("option",{value:"prospect"},"Prospect — evaluating only")
+        )
+      ),
       k.builtJourney && e("div",{style:{padding:"10px 12px",background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.35)",borderRadius:6,fontSize:12,color:"#1d5446",marginBottom:12,lineHeight:1.6}},
         e("strong",null,"✓ Built. "),"Loaded as a "+(journeyLabel[k.builtJourney]||k.builtJourney)+" deal. Open the ",e("strong",null,"Deal Dashboard")," to see the figures, or step through from ",e("strong",null,"Land Appraisal"),"."
       ),

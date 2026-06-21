@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.74";
+var CURRENT_VERSION = "9.75";
 var VERSION_HISTORY = [
+  {v:"9.75", date:"Jun 2026", headline:"Scout scoring — rank land finds by a transparent Opportunity Score",
+   affectsCalc:false,
+   changes:["New Cassidy Opportunity Score (0-100%) on every Placona find: a transparent, weighted blend of five pillars — Viability (35%, run through the real engine), Market strength (20%), Demographics & demand (20%), Planning probability (15%) and Constraints (10%) — each shown with its own sub-score.","A separate CONFIDENCE score flags finds scored on thin data, so false positives can't be promoted blind. The inbox now ranks by score with a shortlist threshold slider, protecting against overload — only the best surface.","Each deal now carries an origination status (Ours to develop / For introduction-sale / Prospect), set in Keystone — future-proofing the sell-on/origination path without building it yet.","The scoring brain is its own module (lib-scoreOpportunity.js) — the Scout agent (external) finds & enriches; Landform scores. 214 engine tests."]},
   {v:"9.74", date:"Jun 2026", headline:"Keystone reads PDFs/Word + Placona sends finds straight to Keystone",
    affectsCalc:false,
    changes:["Keystone now reads text from PDFs (pdf.js) and Word docs (mammoth), as well as spreadsheets — so design & construction briefs, rent reports and ER's can be dropped in directly. (Scanned/image-only PDFs still need pasting by hand.)","New '🪨 Evaluate in Keystone' button on a Placona site: find land in Placona, send it straight to Keystone, and it builds the brief (acreage, price, units, LPA, planning) ready to evaluate and turn into a scheme — find → evaluate → build, one flow."]},

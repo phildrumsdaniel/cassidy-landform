@@ -129,6 +129,9 @@ function buildDealFromBrief(brief){
 
   var deal = {
     assetType: journey,
+    // v9.75 — origination status, carried from day one: are we developing this, or
+    // sourcing it to introduce/sell to another developer? Defaults to "owned".
+    dealStatus: brief.dealStatus || "owned",
     land: {
       address: brief.address || "",
       city: cityKey,
