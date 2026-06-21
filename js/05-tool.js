@@ -1837,7 +1837,7 @@ function loadSiteIntoDeal(site){
   function renderStage(){
     if(stage==="portfolio")return renderPortfolio(data, logMigration, navTo, saveDeal, setData, user);
     if(stage==="scorecard")return renderScorecard(city, data, gdv, lc, up, user);
-    if(stage==="placona")return renderPlacona(data, loadSiteIntoDeal, up, user);
+    if(stage==="placona")return renderPlacona(data, loadSiteIntoDeal, up, user, navTo);
     if(stage==="keystone")return renderKeystone(data, setData, up, navTo, user);
     if(stage==="navigator")return renderProcessNavigator(ALL_STAGES, data, exitUnlocksStage, exits, isExitOn, isSchemeOn, navTo, schemes, setFlowAssetType, setSchemes, toggleExit, up);
     if(stage==="assetOptimiser")return renderAssetOptimiser(data, up, user);

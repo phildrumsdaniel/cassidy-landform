@@ -13,29 +13,55 @@ function renderKeystone(data, setData, up, navTo, user){
 
   function setK(patch){ setData(function(d){ return Object.assign({}, d, {keystone:Object.assign({}, d.keystone||{}, patch)}); }); }
 
-  // ── File upload (reuses the Meetings pattern: Excel via SheetJS, else text) ──
+  // ── File upload: Excel via SheetJS, PDF via pdf.js, Word via mammoth, else text ──
+  function appendSource(name, text){
+    setData(function(d){
+      var src = (d.keystone&&d.keystone.source)||"";
+      return Object.assign({}, d, {keystone:Object.assign({}, d.keystone||{}, {source: src + (src?"\n\n":"") + "=== FILE: "+name+" ===\n" + text})});
+    });
+  }
+  async function readPdf(buf){
+    if(typeof pdfjsLib === "undefined") throw new Error("PDF reader still loading — try again in a moment");
+    if(pdfjsLib.GlobalWorkerOptions && !pdfjsLib.GlobalWorkerOptions.workerSrc){
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+    }
+    var pdf = await pdfjsLib.getDocument({data:new Uint8Array(buf)}).promise;
+    var out = [];
+    for(var p=1; p<=pdf.numPages; p++){
+      var page = await pdf.getPage(p);
+      var tc = await page.getTextContent();
+      out.push(tc.items.map(function(it){ return it.str; }).join(" "));
+    }
+    var joined = out.join("\n\n").replace(/[ \t]{2,}/g," ").trim();
+    if(!joined) throw new Error("no selectable text (looks like a scanned/image PDF)");
+    return joined;
+  }
   function handleFiles(ev){
     var files = ev.target.files; if(!files || !files.length) return;
     Array.prototype.forEach.call(files, function(file){
       var nm = (file.name||"").toLowerCase();
       var isExcel = /\.(xlsx|xlsm|xlsb|xls|csv)$/.test(nm);
+      var isPdf = /\.pdf$/.test(nm);
+      var isWord = /\.docx?$/.test(nm);
       var reader = new FileReader();
-      reader.onload = function(e2){
+      reader.onload = async function(e2){
         var text = "";
         try{
           if(isExcel && typeof XLSX !== "undefined"){
             var wb = XLSX.read(new Uint8Array(e2.target.result), {type:"array"});
             text = wb.SheetNames.map(function(sn){ return "=== Sheet: "+sn+" ===\n"+XLSX.utils.sheet_to_csv(wb.Sheets[sn]); }).join("\n\n");
+          } else if(isPdf){
+            text = await readPdf(e2.target.result);
+          } else if(isWord && typeof mammoth !== "undefined"){
+            var r = await mammoth.extractRawText({arrayBuffer:e2.target.result});
+            text = (r.value||"").trim() || "[no text found in "+file.name+"]";
           } else {
             text = e2.target.result;
           }
-        }catch(err){ text = "[Could not read "+file.name+"]"; }
-        setData(function(d){
-          var src = (d.keystone&&d.keystone.source)||"";
-          return Object.assign({}, d, {keystone:Object.assign({}, d.keystone||{}, {source: src + (src?"\n\n":"") + "=== FILE: "+file.name+" ===\n" + text})});
-        });
+        }catch(err){ text = "[Could not read "+file.name+": "+(err&&err.message||err)+" — paste its contents by hand if needed]"; }
+        appendSource(file.name, text);
       };
-      if(isExcel) reader.readAsArrayBuffer(file); else reader.readAsText(file);
+      if(isExcel || isPdf || isWord) reader.readAsArrayBuffer(file); else reader.readAsText(file);
     });
   }
 

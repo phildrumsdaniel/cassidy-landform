@@ -1,6 +1,6 @@
 // ── renderPlacona  (params: data, loadSiteIntoDeal, up, user) (setToast inside loadSiteIntoDeal stays in Tool — cosmetic)
 // Lifted out of Tool; body byte-unchanged. Loaded before 05-tool.js.
-function renderPlacona(data, loadSiteIntoDeal, up, user){
+function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
     var pl=data.placona||{};
     var inbox=(pl.inbox)||[];
     var running=pl.running||false;
@@ -458,10 +458,22 @@ function renderPlacona(data, loadSiteIntoDeal, up, user){
           e("button",{onClick:function(){up("placona","view","inbox");},
             style:{padding:"6px 12px",background:"#F0F1FA",border:"1px solid #DDE0ED",borderRadius:5,color:"#4A4BAE",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
           },"← Back to Inbox"),
-          e("button",{
-            onClick:function(){loadSiteIntoDeal(selectedSite);},
-            style:{padding:"10px 22px",background:"linear-gradient(135deg,#2D7A65,#4A4BAE)",border:"none",borderRadius:6,color:"#fff",fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",boxShadow:"0 4px 10px rgba(74,75,174,0.3)"}
-          },"🚀 Load into Landform — Pre-fill All Fields")
+          e("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+            // v9.74 — send the found site to Keystone to evaluate & build the scheme
+            (typeof keystoneBriefFromPlaconaSite==="function") && e("button",{
+              onClick:function(){
+                var brief=keystoneBriefFromPlaconaSite(selectedSite);
+                up("keystone","brief",JSON.stringify(brief,null,2));
+                up("keystone","source","=== From Placona ===\n"+JSON.stringify(selectedSite,null,2));
+                if(typeof navTo==="function") navTo("keystone");
+              },
+              style:{padding:"10px 18px",background:"#fff",border:"2px solid #2D7A65",borderRadius:6,color:"#1d5446",fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
+            },"🪨 Evaluate in Keystone →"),
+            e("button",{
+              onClick:function(){loadSiteIntoDeal(selectedSite);},
+              style:{padding:"10px 22px",background:"linear-gradient(135deg,#2D7A65,#4A4BAE)",border:"none",borderRadius:6,color:"#fff",fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",boxShadow:"0 4px 10px rgba(74,75,174,0.3)"}
+            },"🚀 Load into Landform — Pre-fill All Fields")
+          )
         ),
 
         // Score header

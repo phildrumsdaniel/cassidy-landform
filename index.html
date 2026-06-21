@@ -14,6 +14,9 @@
 <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
 <!-- SheetJS: lets the Meeting Transcripts area read Excel (.xlsx/.xls) and CSV files -->
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- Keystone Deal Builder: read text from PDFs (pdf.js) and Word docs (mammoth) -->
+<script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script src="https://unpkg.com/mammoth@1.6.0/mammoth.browser.min.js"></script>
 <!-- Styles, formerly the inline <style> block, now in one editable file -->
 <link rel="stylesheet" href="css/app.css?v=844db09b72"/>
 </head>
@@ -31,7 +34,7 @@
        05-tool        Tool — the main app (still large; carved up in Phase 2)
        06-root        Root / PublicShareViewer + ReactDOM.render bootstrap
      ────────────────────────────────────────────────────────────────────────── -->
-<script src="js/01-config.js?v=2fdd325027"></script>
+<script src="js/01-config.js?v=a9781f1356"></script>
 <script src="js/02-primitives.js?v=86dff7141d"></script>
 <script src="js/03-ai-panel.js?v=0958b11c93"></script>
 <script src="js/04-access-gate.js?v=64c8b3efe2"></script>
@@ -39,7 +42,7 @@
 <script src="js/lib-isStageComplete.js?v=4407aada7e"></script>
 <script src="js/lib-landReconciliation.js?v=a9af907a32"></script>
 <script src="js/lib-migrateLoadedDeal.js?v=e2c9889666"></script>
-<script src="js/lib-dealSchema.js?v=5235b7a328"></script>
+<script src="js/lib-dealSchema.js?v=45ed646250"></script>
 <script src="js/components-S106Table.js?v=10d547f99d"></script>
 <script src="js/screen-DueDiligence.js?v=2265630305"></script>
 <script src="js/screen-RiskRegister.js?v=4bdfcb2917"></script>
@@ -73,11 +76,11 @@
 <script src="js/screen-Capitalise.js?v=f9a06ca7cb"></script>
 <script src="js/screen-RLV.js?v=c7babac70a"></script>
 <script src="js/screen-Dashboard.js?v=1d4deb4f21"></script>
-<script src="js/screen-Placona.js?v=eac80abe6f"></script>
+<script src="js/screen-Placona.js?v=d440e456ef"></script>
 <script src="js/screen-InvestorMedia.js?v=06f7c656da"></script>
 <script src="js/screen-InvestorSuite.js?v=dc435d43a5"></script>
-<script src="js/screen-Keystone.js?v=9edb74d76b"></script>
-<script src="js/05-tool.js?v=980bd703b7"></script>
+<script src="js/screen-Keystone.js?v=5f887465ca"></script>
+<script src="js/05-tool.js?v=81510e97d7"></script>
 <script src="js/06-root.js?v=2eb164b02f"></script>
 </body>
 </html>

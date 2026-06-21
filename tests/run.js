@@ -623,6 +623,26 @@ console.log("Landform engine consistency tests\n");
   ok("net annual income computed (after 25% mgmt)", Math.abs(num(rb.capitalise.netAnnualIncome) - 200*1300*12*0.75) < 1000);
 })();
 
+// 33 — Keystone ← Placona: a found site maps to a brief that builds a deal
+(function(){
+  var site = {
+    site_name:"Land South of Howells Farm",
+    address_or_location:"Land South of Howells Farm, Maldon, Essex",
+    county:"Essex", local_planning_authority:"Maldon District Council",
+    site_area_acres:"32", estimated_units:"200-250", asking_price:"£14m",
+    planning_status:"None", placona_score:78, placona_category:"A"
+  };
+  var brief = keystoneBriefFromPlaconaSite(site);
+  near("Placona acres parsed (32)", brief.acres, 32, 0);
+  near("Placona asking '£14m' parsed", brief.askingPrice, 14000000, 0);
+  near("Placona units range '200-250' → midpoint 225", brief.units, 225, 0);
+  ok("Placona town resolves to a benchmarkable area (Maldon)", brief.town.toLowerCase() === "maldon");
+  ok("Placona import flagged as estimates", (brief.assumptions||[]).join(" ").toLowerCase().indexOf("placona") >= 0);
+  var deal = buildDealFromBrief(brief);
+  ok("Placona→Keystone → land journey (raw land, no scheme yet)", deal.assetType === "land");
+  ok("city carried to land/sfh for benchmarks", deal.land.city === "maldon");
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

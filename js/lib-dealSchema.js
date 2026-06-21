@@ -196,7 +196,55 @@ function buildDealFromBrief(brief){
   return deal;
 }
 
+// Parse a loose human/AI string into a number: "£12,000,000", "£12m", "850k",
+// "32 acres", "200-250" (→ midpoint), "Not found" (→ 0).
+function _parseLooseNum(v){
+  if(v == null) return 0;
+  if(typeof v === "number") return v;
+  var s = String(v).toLowerCase().replace(/not found|tbc|n\/a|circa|approx\.?/g, "").trim();
+  if(!s) return 0;
+  var range = s.match(/([\d.,]+)\s*(?:-|to|–|—)\s*([\d.,]+)/);
+  if(range){ var a = parseFloat(range[1].replace(/,/g, "")), b = parseFloat(range[2].replace(/,/g, "")); if(!isNaN(a) && !isNaN(b)) return (a + b) / 2; }
+  var m = s.match(/([\d.,]+)\s*(m|k)?/);
+  if(!m) return 0;
+  var n = parseFloat(m[1].replace(/,/g, ""));
+  if(isNaN(n)) return 0;
+  if(m[2] === "m") n *= 1e6; else if(m[2] === "k") n *= 1e3;
+  return n;
+}
+
+// keystoneBriefFromPlaconaSite — turn a Placona search result into a Keystone brief,
+// so a found site can flow straight into evaluation/scheme-building.
+function keystoneBriefFromPlaconaSite(site){
+  site = site || {};
+  function clean(v){ return (v && String(v) !== "Not found") ? String(v).trim() : ""; }
+  var addr = clean(site.address_or_location) || clean(site.site_name);
+  var town = clean(site.town);
+  if(!town && addr){
+    var parts = addr.split(",").map(function(p){ return p.trim(); }).filter(Boolean);
+    for(var i = 0; i < parts.length; i++){
+      var key = parts[i].toLowerCase().replace(/\s+/g, "_");
+      if(typeof MKT !== "undefined" && MKT[key]){ town = parts[i]; break; }
+    }
+    if(!town && parts.length >= 2) town = parts[parts.length - 2]; // town usually sits before the county
+  }
+  if(!town) town = clean(site.county);
+  return {
+    dealName: (clean(site.site_name) || addr || "Placona site") + " (Placona)",
+    address: addr,
+    town: town,
+    postcode: clean(site.postcode),
+    acres: _parseLooseNum(site.site_area_acres),
+    askingPrice: _parseLooseNum(site.asking_price),
+    units: _parseLooseNum(site.estimated_units),
+    lpa: clean(site.local_planning_authority),
+    planningStatus: clean(site.planning_status),
+    notes: [clean(site.recommended_action), site.placona_score ? ("Placona score " + site.placona_score) : "", clean(site.site_type)].filter(Boolean).join(" · "),
+    assumptions: ["Imported from Placona — figures are AI-sourced estimates; verify acreage, price, units and planning before relying on them."]
+  };
+}
+
 // Expose to the headless test harness (Node) without breaking the browser global scope.
 if(typeof module !== "undefined" && module.exports){
-  module.exports = { buildDealFromBrief: buildDealFromBrief, detectJourney: detectJourney, KEYSTONE_BRIEF_SCHEMA: KEYSTONE_BRIEF_SCHEMA };
+  module.exports = { buildDealFromBrief: buildDealFromBrief, detectJourney: detectJourney, keystoneBriefFromPlaconaSite: keystoneBriefFromPlaconaSite, KEYSTONE_BRIEF_SCHEMA: KEYSTONE_BRIEF_SCHEMA };
 }
