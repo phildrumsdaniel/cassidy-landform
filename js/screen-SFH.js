@@ -220,6 +220,25 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
         );
       })(),
 
+      // v9.72 — HA low-carbon spec toggle (ASHP + PV + battery, EPC B, NDSS, 12-yr NHBC).
+      // Adds the housing-association build premium when Auto-cost runs.
+      (function(){
+        var hs = !!(s.haSpecBuild);
+        return e("div",{style:{margin:"-8px 0 14px",padding:"12px 14px",background:hs?"rgba(45,122,101,0.07)":"rgba(243,244,248,0.6)",border:"1px solid "+(hs?"rgba(45,122,101,0.35)":"#E0E2EC"),borderRadius:6,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}},
+          e("label",{style:{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,color:"#3A3D6A",fontWeight:600}},
+            e("input",{type:"checkbox",checked:hs,onChange:function(ev){
+              setData(function(prev){ return Object.assign({},prev,{sfh:Object.assign({},prev.sfh||{},{haSpecBuild:ev.target.checked})}); });
+            },style:{width:16,height:16,cursor:"pointer",accentColor:"#2D7A65"}}),
+            "🌱 HA low-carbon spec (ASHP + PV + battery, EPC B, NDSS)"
+          ),
+          e("div",{style:{flex:1,minWidth:220,fontSize:10,color:hs?"#1d5446":"#7278A0",lineHeight:1.5}},
+            hs
+              ? e("span",null,e("strong",null,"Active (+"+Math.round((HA_SPEC_UPLIFT-1)*100)+"%). "),"Auto-cost adds the housing-association build premium (heat pumps, solar PV + battery, EPC-B fabric, NDSS minimum sizes, 12-yr NHBC). Confirm against the contractor's cost plan.")
+              : "Tick when building to a HA brief (e.g. CHP/Delta) — the affordable units must meet it. Then press Auto-cost to apply the premium. Set the % in the Build Cost Library."
+          )
+        );
+      })(),
+
       // v9.47 — Build-inclusive toggle: avoid double-counting infrastructure.
       // When the build £/sqft already includes roads/drainage/site infra, the
       // separate Roads & Sewers and Site Infra/SuDS lines are zeroed.
@@ -289,13 +308,19 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
             // Auto-cost the BUILD £/sqft of every row from the per-type BCIS benchmark
             // (× region × Tier-1 uplift if the Tier-1 toggle is on). A QS-grade starting point.
             e("button",{onClick:function(){
+              // v9.72 — apply the HA low-carbon spec to affordable rows (they must meet the
+              // HA brief); if the scheme has NO affordable rows, treat it as HA-led and apply
+              // the premium scheme-wide when the toggle is on.
+              var anyAff = mix.some(function(x){return /^ahp_|first_homes|rent_to_buy|dms/.test(x.tenure||"");});
               var nm=mix.map(function(r){
                 var c=Object.assign({},r);
-                c.buildPsf=String(typicalBuildPsf(r.type,{city:sfhCity,tier1:!!s.tier1Build}));
+                var rowIsAff = /^ahp_|first_homes|rent_to_buy|dms/.test(r.tenure||"");
+                var ha = !!s.haSpecBuild && (rowIsAff || !anyAff);
+                c.buildPsf=String(typicalBuildPsf(r.type,{city:sfhCity,tier1:!!s.tier1Build,haSpec:ha}));
                 return c;
               });
               up("sfh","mix",nm);
-            },title:"Fill each row's build £/sqft from the BCIS-style benchmark for that house type"+(s.tier1Build?" (incl. Tier-1 main-contractor uplift)":""),style:{padding:"5px 12px",background:"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",flexShrink:0}},"🧱 Auto-cost build / type"),
+            },title:"Fill each row's build £/sqft from the BCIS-style benchmark for that house type"+(s.tier1Build?" (incl. Tier-1 main-contractor uplift)":"")+(s.haSpecBuild?" + HA low-carbon spec on affordable rows":""),style:{padding:"5px 12px",background:"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",flexShrink:0}},"🧱 Auto-cost build / type"),
             e("button",{onClick:function(){
               var totalU2=Math.floor(sAcres*0.404686*(numOr(s.dph, 30)));
               if(totalU2<1)totalU2=20;

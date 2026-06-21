@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.71";
+var CURRENT_VERSION = "9.72";
 var VERSION_HISTORY = [
+  {v:"9.72", date:"Jun 2026", headline:"HA low-carbon spec build cost + NDSS sizes (Delta/CHP brief)",
+   affectsCalc:true,
+   changes:["Added a 'HA low-carbon spec' build-cost uplift to the Build Cost Library, capturing a housing-association brief: Air Source Heat Pumps, roof PV + battery storage, EPC band B fabric, NDSS minimum sizes and a 12-year NHBC warranty (~12% / ~£20-30/sqft over a standard build, editable).","New '🌱 HA low-carbon spec' toggle on the SFH House Mix — when on, Auto-cost applies the premium to the affordable rows automatically (or scheme-wide if the scheme is HA-led). So the residual land value reflects what Delta/CHP actually require, not a standard £250/sqft.","Added an NDSS minimum-size reference (the floor area each affordable unit type must meet) to the Build Cost Library."]},
   {v:"9.71", date:"Jun 2026", headline:"Backend requests now carry a shared token (basic abuse protection)",
    affectsCalc:false,
    changes:["Every AI and logging call to the backend now includes a shared token. Once the Apps Script is set to require it, calls without the token are rejected — stopping casual/automated abuse of the AI proxy, and letting you revoke access by rotating the token. Note: a client-side app can't fully hide the token, so this raises the bar rather than being full server authentication."]},
@@ -1489,6 +1492,23 @@ var BUILD_REGION_INDEX = {
 // Tier-1 main contractor (Winvic, Vinci, Wates etc.) adds main-contractor prelims,
 // overheads & profit and programme certainty over a self-delivered/sub-let rate.
 var TIER1_BUILD_UPLIFT = 1.12;  // ~12%
+// v9.72 — HA low-carbon spec uplift. Captures the build-cost premium of a housing-
+// association brief (e.g. CHP/Delta): Air Source Heat Pumps, roof PV + battery storage,
+// EPC band B fabric, NDSS minimum sizes, 12-yr NHBC. ~£20-30/sqft on a ~£250 base.
+var HA_SPEC_UPLIFT = 1.12;  // ~12% — editable in the Build Cost Library
+
+// Nationally Described Space Standards (NDSS) — minimum gross internal area for a
+// 2-storey house, by bed/person size. Used as a floor for affordable units that the
+// CHP/Delta brief requires. (m² and the sqft equivalent.)
+var NDSS_MIN = {
+  "1b2p":{m2:58, sqft:624},
+  "2b3p":{m2:70, sqft:753},
+  "2b4p":{m2:79, sqft:850},
+  "3b4p":{m2:84, sqft:904},
+  "3b5p":{m2:93, sqft:1001},
+  "4b5p":{m2:97, sqft:1044},
+  "4b6p":{m2:106, sqft:1141}
+};
 
 // typicalBuildPsf — the benchmark construction cost £/sqft for a house type, with
 // optional regional index and Tier-1 main-contractor uplift. A QS-grade starting
@@ -1498,7 +1518,7 @@ function typicalBuildPsf(type, opts){
   var t = HOUSE_TYPES[type];
   var base = (t && t.build) || 185;
   var region = num(opts.regionIndex) || (opts.city && BUILD_REGION_INDEX[(opts.city||"").toLowerCase()]) || 1.0;
-  var f = base * region * (opts.tier1 ? TIER1_BUILD_UPLIFT : 1);
+  var f = base * region * (opts.tier1 ? TIER1_BUILD_UPLIFT : 1) * (opts.haSpec ? HA_SPEC_UPLIFT : 1);
   return Math.round(f);
 }
 
@@ -1512,7 +1532,7 @@ function benchmarkBuildPsf(schemeType, opts){
   var bt = BUILD_TYPES[schemeType] || BUILD_TYPES["Residential apartments"];
   var band = opts.band === "lo" ? bt.lo : opts.band === "hi" ? bt.hi : bt.mid;
   var region = num(opts.regionIndex) || (opts.city && BUILD_REGION_INDEX[(opts.city||"").toLowerCase()]) || 1.0;
-  return Math.round(band * region * (opts.tier1 ? TIER1_BUILD_UPLIFT : 1));
+  return Math.round(band * region * (opts.tier1 ? TIER1_BUILD_UPLIFT : 1) * (opts.haSpec ? HA_SPEC_UPLIFT : 1));
 }
 // Map a Landform asset type to its BUILD_TYPES key.
 function buildTypeForAsset(assetType){
@@ -1526,16 +1546,18 @@ function buildTypeForAsset(assetType){
 var BUILD_TYPES_DEFAULTS = JSON.parse(JSON.stringify(BUILD_TYPES));
 var HOUSE_BUILD_DEFAULTS = (function(){ var o={}; Object.keys(HOUSE_TYPES).forEach(function(k){ o[k]=HOUSE_TYPES[k].build; }); return o; })();
 var TIER1_BUILD_UPLIFT_DEFAULT = TIER1_BUILD_UPLIFT;
+var HA_SPEC_UPLIFT_DEFAULT = HA_SPEC_UPLIFT;
 function applyBuildCostSettings(bc){
   if(!bc) return;
   if(num(bc.tier1Uplift) > 0) TIER1_BUILD_UPLIFT = num(bc.tier1Uplift);
+  if(num(bc.haSpecUplift) > 0) HA_SPEC_UPLIFT = num(bc.haSpecUplift);
   if(bc.types) Object.keys(bc.types).forEach(function(k){ if(BUILD_TYPES[k]) ["lo","mid","hi"].forEach(function(b){ if(num(bc.types[k][b]) > 0) BUILD_TYPES[k][b] = num(bc.types[k][b]); }); });
   if(bc.houses) Object.keys(bc.houses).forEach(function(k){ if(HOUSE_TYPES[k] && num(bc.houses[k]) > 0) HOUSE_TYPES[k].build = num(bc.houses[k]); });
 }
 function currentBuildCostSettings(){
   var types = {}; Object.keys(BUILD_TYPES).forEach(function(k){ types[k] = {lo:BUILD_TYPES[k].lo, mid:BUILD_TYPES[k].mid, hi:BUILD_TYPES[k].hi}; });
   var houses = {}; Object.keys(HOUSE_TYPES).forEach(function(k){ houses[k] = HOUSE_TYPES[k].build; });
-  return {tier1Uplift:TIER1_BUILD_UPLIFT, types:types, houses:houses};
+  return {tier1Uplift:TIER1_BUILD_UPLIFT, haSpecUplift:HA_SPEC_UPLIFT, types:types, houses:houses};
 }
 function saveBuildCostSettings(bc){ try{ localStorage.setItem("cassidy_build_costs", JSON.stringify(bc)); }catch(e){} applyBuildCostSettings(bc); }
 function resetBuildCostSettings(){
@@ -1543,6 +1565,7 @@ function resetBuildCostSettings(){
   Object.keys(BUILD_TYPES_DEFAULTS).forEach(function(k){ BUILD_TYPES[k] = Object.assign({}, BUILD_TYPES[k], BUILD_TYPES_DEFAULTS[k]); });
   Object.keys(HOUSE_BUILD_DEFAULTS).forEach(function(k){ if(HOUSE_TYPES[k]) HOUSE_TYPES[k].build = HOUSE_BUILD_DEFAULTS[k]; });
   TIER1_BUILD_UPLIFT = TIER1_BUILD_UPLIFT_DEFAULT;
+  HA_SPEC_UPLIFT = HA_SPEC_UPLIFT_DEFAULT;
 }
 (function(){ try{ var bc = JSON.parse(localStorage.getItem("cassidy_build_costs") || "null"); if(bc) applyBuildCostSettings(bc); }catch(e){} })();
 

@@ -570,6 +570,15 @@ console.log("Landform engine consistency tests\n");
   ok("empty placeholder rows ignored", computeSFHMetrics(d2).totalUnits === 0);
 })();
 
+// 30d — HA low-carbon spec uplift raises the benchmark build cost
+(function(){
+  var base = typicalBuildPsf("3-bed semi", {city:"maldon"});
+  var ha   = typicalBuildPsf("3-bed semi", {city:"maldon", haSpec:true});
+  ok("HA-spec build cost is higher than standard", ha > base);
+  near("HA-spec uplift ~12% over standard", ha/base, 1.12, 0.02);
+  ok("NDSS reference exists with sensible 3b5p size", NDSS_MIN["3b5p"] && NDSS_MIN["3b5p"].sqft > 900);
+})();
+
 // 31 — Region label follows the deal's area (was hard-coded)
 (function(){
   ok("Maldon resolves to East of England", ukRegionFor({land:{city:"maldon"}}) === "East of England");

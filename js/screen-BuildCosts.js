@@ -9,6 +9,7 @@ function renderBuildCosts(data, setData, user){
   function setRate(k, band, v){ var n=num(v); if(n>0){ BUILD_TYPES[k][band]=n; commit(); } }
   function setHouse(k, v){ var n=num(v); if(n>0){ HOUSE_TYPES[k].build=n; commit(); } }
   function setTier1(pct){ var n=num(pct); if(n>=0){ TIER1_BUILD_UPLIFT = 1 + n/100; commit(); } }
+  function setHaSpec(pct){ var n=num(pct); if(n>=0){ HA_SPEC_UPLIFT = 1 + n/100; commit(); } }
 
   var inp={width:64,padding:"4px 6px",border:"1px solid #DDE0ED",borderRadius:4,fontSize:12,textAlign:"right",fontFamily:"DM Sans,sans-serif"};
   var th={fontSize:9,color:"#fff",textTransform:"uppercase",letterSpacing:".06em",fontWeight:700};
@@ -24,6 +25,36 @@ function renderBuildCosts(data, setData, user){
           e("span",{style:{fontSize:12,color:"#7278A0"}},"Adds main-contractor prelims + OH&P when the Tier-1 toggle is on:"),
           e("input",{type:"number",value:Math.round((TIER1_BUILD_UPLIFT-1)*100),onChange:function(ev){setTier1(ev.target.value);},style:inp}),
           e("span",{style:{fontSize:12,fontWeight:700,color:"#2E2F8A"}},"%")
+        )
+      )
+    ),
+
+    // v9.72 — HA low-carbon spec uplift (ASHP + PV + battery, EPC B, NDSS, 12-yr NHBC)
+    e("div",{style:S.card},
+      e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:8}},
+        e("div",{style:S.cardTitle},"HA low-carbon spec uplift"),
+        e("div",{style:{display:"flex",alignItems:"center",gap:8}},
+          e("span",{style:{fontSize:12,color:"#7278A0"}},"Added when the HA-spec toggle is on:"),
+          e("input",{type:"number",value:Math.round((HA_SPEC_UPLIFT-1)*100),onChange:function(ev){setHaSpec(ev.target.value);},style:inp}),
+          e("span",{style:{fontSize:12,fontWeight:700,color:"#2E2F8A"}},"%")
+        )
+      ),
+      e("div",{style:{fontSize:11,color:"#7278A0",lineHeight:1.6}},
+        "The premium for building to a housing-association brief (e.g. CHP/Delta): ",
+        e("strong",null,"Air Source Heat Pumps, roof PV + battery storage, EPC band B fabric, NDSS minimum sizes and a 12-year NHBC warranty"),
+        ". Apply it to the affordable units (or the whole scheme if HA-led) via the HA-spec toggle on the SFH / Block screens. Typically ~£20–30/sqft on a ~£250 base. ",
+        e("strong",{style:{color:"#9A7B3E"}},"Confirm against the contractor's (e.g. Caddick's) cost plan.")
+      ),
+      // NDSS minimum sizes reference — the floor for affordable unit areas
+      e("div",{style:{marginTop:12,overflowX:"auto"}},
+        e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".08em",marginBottom:6}},"NDSS minimum sizes (2-storey house) — affordable floor area"),
+        e("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
+          Object.keys(NDSS_MIN).map(function(k){
+            return e("div",{key:k,style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:6,padding:"6px 10px",fontSize:11}},
+              e("span",{style:{fontWeight:800,color:"#2E2F8A"}},k.toUpperCase().replace("B","b ").replace("P","p")),
+              e("span",{style:{color:"#7278A0"}}," · "+NDSS_MIN[k].m2+"m² ("+NDSS_MIN[k].sqft+" sqft)")
+            );
+          })
         )
       )
     ),
