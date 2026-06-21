@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.72";
+var CURRENT_VERSION = "9.73";
 var VERSION_HISTORY = [
+  {v:"9.73", date:"Jun 2026", headline:"Forward-fund (rent-capitalised) engine + true multi-year development finance",
+   affectsCalc:true,
+   changes:["New 'Forward Fund' appraisal route (assetType 'ff') that values a scheme as an income asset the way a housing association forward-funding the whole development would: realistic rent mix → gross rent, less ~25% management → net rent, capitalised at the target yield → GDV. Built for the Maldon / Delta / Latimer-Clarion appraisal.","The HA low-carbon spec build uplift now actually flows into the cost engine — the affordable units in a forward-fund are costed at the Delta/CHP brief (ASHP, PV + battery, EPC B, NDSS sizes), not a flat £250/sqft. Previously the uplift only moved the Build Cost Library benchmark, not the residual.","Development finance is now modelled as a TRUE multi-year cost (planning period + S-curve build drawdown, interest rolled up to completion) instead of a flat one-year '(build+fees) × rate' screening estimate, which materially understated interest on a 3-to-4-year project. Exposed as developmentFinanceCost() for reuse.","calcDealMetrics adopts the forward-fund engine's GDV and cost stack for 'ff' deals, so every screen and the deal-state quote the same rent, GDV and residual land value."]},
   {v:"9.72", date:"Jun 2026", headline:"HA low-carbon spec build cost + NDSS sizes (Delta/CHP brief)",
    affectsCalc:true,
    changes:["Added a 'HA low-carbon spec' build-cost uplift to the Build Cost Library, capturing a housing-association brief: Air Source Heat Pumps, roof PV + battery storage, EPC band B fabric, NDSS minimum sizes and a 12-year NHBC warranty (~12% / ~£20-30/sqft over a standard build, editable).","New '🌱 HA low-carbon spec' toggle on the SFH House Mix — when on, Auto-cost applies the premium to the affordable rows automatically (or scheme-wide if the scheme is HA-led). So the residual land value reflects what Delta/CHP actually require, not a standard £250/sqft.","Added an NDSS minimum-size reference (the floor area each affordable unit type must meet) to the Build Cost Library."]},
@@ -1969,6 +1972,148 @@ function computeSFHMetrics(data){
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// developmentFinanceCost (v9.73) — TRUE multi-year development finance, replacing
+// the flat "(build+fees) × rate" screening estimate that every engine used. On a
+// real 3-to-4-year project a flat one-year % materially understates the interest:
+// the debt is drawn down over the build, rolls up (interest on interest), and is
+// only repaid at completion (or, for a forward-fund, when the buyer pays on PC).
+//
+// Model (fully deterministic so a test can replicate it exactly):
+//   • hardCost (build + contingency + S106 + infra) is drawn over the BUILD period
+//     on an S-curve (normal distribution — slow start, peak mid-build, tail off),
+//     the same cashflow shape the Detailed Appraisal screen uses.
+//   • softCost (professional/planning fees) is drawn evenly over the PLANNING
+//     period that precedes the build (so a 1-yr planning run carries cost too).
+//   • Interest accrues monthly on the outstanding balance and is itself financed
+//     (rolled up), through to project completion.
+// Returns the total rolled-up interest. ratePa tolerates 10 or 0.10.
+// ──────────────────────────────────────────────────────────────────────────
+function developmentFinanceCost(opts){
+  opts = opts || {};
+  var rate = num(opts.ratePa); if(rate > 1) rate = rate / 100;     // tolerate 10 (%) or 0.10
+  var hard = Math.max(0, num(opts.hardCost));
+  var soft = Math.max(0, num(opts.softCost));
+  var buildMonths = Math.round(numOr(opts.buildYears, 0) * 12);
+  var planMonths  = Math.round(numOr(opts.planningYears, 0) * 12);
+  var total = planMonths + buildMonths;
+  if(rate <= 0 || total <= 0 || (hard + soft) <= 0) return 0;
+  var mr = rate / 12;
+  // S-curve drawdown weights for the hard cost across the build period.
+  var w = [], sum = 0, mean = buildMonths / 2, sd = (buildMonths / 4) || 1;
+  for(var i = 1; i <= buildMonths; i++){ var p = Math.exp(-Math.pow(i - mean, 2) / (2 * sd * sd)); w.push(p); sum += p; }
+  w = w.map(function(x){ return sum > 0 ? x / sum : 0; });
+  var softPerMonth = planMonths > 0 ? soft / planMonths : 0;
+  var bal = 0, interest = 0;
+  for(var m = 0; m < total; m++){
+    if(m < planMonths) bal += softPerMonth;                         // planning-period soft costs
+    if(m === planMonths && planMonths === 0) bal += soft;           // no planning run → soft at build start
+    if(m >= planMonths) bal += hard * w[m - planMonths];            // build-period S-curve draw
+    var it = bal * mr; bal += it; interest += it;                   // roll up (compound) the interest
+  }
+  return interest;
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// computeForwardFundMetrics (v9.73) — canonical engine for a FORWARD-FUND /
+// forward-commit to a housing association that takes the whole scheme on its
+// RENT (Patric's method, e.g. the Maldon / Delta / Latimer-Clarion appraisal).
+// Unlike computeSFHMetrics (sale-based: sqft × £/sqft × tenure discount) this
+// values the scheme as an INCOME asset:
+//   1. realistic rent mix            → gross rent
+//   2. less management (~25%)        → net rent
+//   3. capitalise net rent at yield  → GDV
+//   4. build £/sqft base, + HA low-carbon spec uplift on the affordable units
+//   5. less S106 £/unit
+//   6. TRUE multi-year finance (planning + build), via developmentFinanceCost
+//   7. developer profit % of GDV
+//   8. = residual land value
+// Pure + deterministic so the maths sits in the CI safety net. Reuses the SFH
+// mix row shape (type/count/sqft/tenure) plus a per-unit rent (rentPcm/rentPa).
+// ──────────────────────────────────────────────────────────────────────────
+var FF_AFFORDABLE_TENURES = {ahp_affordable:1, ahp_social:1, ahp_so:1, ar:1, sr:1, so:1, shared_ownership:1, first_homes:1, dms:1, rent_to_buy:1};
+// Rent as a fraction of the local OPEN-MARKET rent, by forward-fund tenure. Used
+// only to auto-fill a row's rent when none is entered; an explicit rent always wins.
+var FF_RENT_FACTOR = {private:1.00, prs:1.00, market:1.00, btr:1.00,
+  ahp_affordable:0.80, ar:0.80, ahp_social:0.60, sr:0.60, ahp_so:0.50, so:0.50, shared_ownership:0.50,
+  first_homes:0.90, dms:0.90, rent_to_buy:0.85};
+function computeForwardFundMetrics(data){
+  data = data || {};
+  var ff = data.ff || {};
+  var l = data.land || {};
+  // Capitalisation yield (net initial): ff.yield > Capitalisation override > area benchmark.
+  var yld = num(ff.yield);
+  if(!yld) yld = num(data.capitalise && data.capitalise.targetYield);
+  if(yld > 1) yld = yld / 100;                       // tolerate 4.5 or 0.045
+  if(!yld) yld = dealYield(data) / 100;
+  var mgmtPct = numOr(ff.mgmtPct, 25);               // gross-to-net management deduction
+  var baseBuildPsf = numOr(ff.buildPsf, 250);        // Patric base build £/sqft
+  var s106pu = numOr(ff.s106pu, 10000);
+  var profitPct = numOr(ff.profitPct, 17.5);
+  var finRate = numOr(ff.finRate, 10);
+  var buildYears = numOr(ff.buildYears, 3);
+  var planningYears = numOr(ff.planningYears, 1);
+  // Patric's literal 8-step stack has NO separate professional-fees / contingency
+  // lines, so these default to 0 (headline RLV reconciles with his method). Set
+  // them to layer the standard Landform dev-appraisal fees/contingency on top.
+  var feesPct = numOr(ff.feesPct, 0);
+  var contingencyPct = numOr(ff.contingencyPct, 0);
+  var haSpecAffordable = ff.haSpecAffordable !== false;   // default ON: HA low-carbon spec on affordable rows
+  var marketRent3bed = num(ff.marketRentPcm) || areaRentPcm(data, 3);
+
+  var rows = [], totalUnits = 0, totalSqft = 0, grossRentPa = 0, buildCost = 0, affordableUnits = 0;
+  (ff.mix || []).forEach(function(row){
+    var count = num(row.count); if(!count) return;
+    if(!(row.type || num(row.sqft) || num(row.rentPcm) || num(row.rentPa))) return;
+    var info = HOUSE_TYPES[row.type] || HOUSE_TYPES["3-bed semi"] || {sqft:900, beds:3};
+    var sqft = numOr(row.sqft, info.sqft || 900);
+    var beds = numOr(row.beds, info.beds || 3);
+    var tenure = row.tenure || "private";
+    var affordable = !!FF_AFFORDABLE_TENURES[tenure] || !!row.affordable;
+    // Rent per unit per month: explicit (rentPcm or rentPa) wins; else tenure factor of the area market rent.
+    var rentPcm = num(row.rentPcm) || (num(row.rentPa) ? num(row.rentPa) / 12 : 0);
+    if(!rentPcm && marketRent3bed){
+      var b = Math.max(0, Math.min(6, Math.round(beds)));
+      var mktForBeds = marketRent3bed * (RENT_BED_FACTOR[b] != null ? RENT_BED_FACTOR[b] : 1);
+      rentPcm = mktForBeds * (FF_RENT_FACTOR[tenure] != null ? FF_RENT_FACTOR[tenure] : 1.0);
+    }
+    var rowGrossRentPa = rentPcm * 12 * count;
+    // Build £/sqft: base (or per-row override), + HA low-carbon spec uplift on the affordable units.
+    var rowBuildPsf = num(row.buildPsf) || baseBuildPsf;
+    var haSpec = (row.haSpec != null) ? !!row.haSpec : (affordable && haSpecAffordable);
+    if(haSpec) rowBuildPsf = rowBuildPsf * HA_SPEC_UPLIFT;
+    var rowBuild = sqft * rowBuildPsf * count;
+    totalUnits += count; totalSqft += sqft * count; grossRentPa += rowGrossRentPa; buildCost += rowBuild;
+    if(affordable) affordableUnits += count;
+    rows.push({type:row.type || "Unit", count:count, sqft:sqft, beds:beds, tenure:tenure, affordable:affordable,
+      rentPcm:rentPcm, grossRentPa:rowGrossRentPa, buildPsf:rowBuildPsf, haSpec:haSpec, build:rowBuild});
+  });
+
+  var netRentPa = grossRentPa * (1 - mgmtPct / 100);
+  var gdv = (yld > 0) ? netRentPa / yld : 0;
+
+  var fees = buildCost * (feesPct / 100);
+  var contingency = buildCost * (contingencyPct / 100);
+  var s106 = totalUnits * s106pu;
+  var finance = developmentFinanceCost({
+    hardCost: buildCost + contingency + s106,
+    softCost: fees,
+    ratePa: finRate, buildYears: buildYears, planningYears: planningYears
+  });
+  var profit = gdv * (profitPct / 100);
+  var devCost = buildCost + fees + contingency + s106 + finance;
+  var rlv = gdv - devCost - profit;
+
+  return {
+    rows:rows, totalUnits:totalUnits, affordableUnits:affordableUnits, affordablePct:totalUnits>0?affordableUnits/totalUnits*100:0,
+    avgSqft:totalUnits>0?totalSqft/totalUnits:0, yield:yld, mgmtPct:mgmtPct,
+    grossRentPa:grossRentPa, netRentPa:netRentPa, gdv:gdv,
+    buildPsf:baseBuildPsf, buildCost:buildCost, fees:fees, feesPct:feesPct, contingency:contingency, contingencyPct:contingencyPct,
+    s106:s106, s106pu:s106pu, finance:finance, finRate:finRate, buildYears:buildYears, planningYears:planningYears,
+    profit:profit, profitPct:profitPct, devCost:devCost, rlv:rlv
+  };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // computeHRAMetrics (v9.49) — canonical engine for high-rise / apartment (BTR/
 // PBSA) blocks. Mirrors the BTR/PBSA Block screen EXACTLY for the sales-based
 // value (so screen == engine), and ALSO returns the rent-capitalised investment
@@ -2223,9 +2368,12 @@ function calcDealMetrics(data){
   var landPriceIsScenario = !!num(l.scenarioLandValue);  // for downstream awareness
   var sfhMetrics = computeSFHMetrics(data);
   var tenureMetrics = computeTenureMetrics(data);
+  var ffMetrics = (at === "ff") ? computeForwardFundMetrics(data) : null;
   var units = at === "sfh"
     ? num(l.units || p.units || sfh.totalUnits || rlvD.units || sfhMetrics.totalUnits || tenureMetrics.totalUnits || 0)
-    : num(p.units || rlvD.units || l.units || sfhMetrics.totalUnits || sfh.totalUnits || tenureMetrics.totalUnits || 0);
+    : at === "ff"
+      ? num(l.units || p.units || rlvD.units || ffMetrics.totalUnits || 0)
+      : num(p.units || rlvD.units || l.units || sfhMetrics.totalUnits || sfh.totalUnits || tenureMetrics.totalUnits || 0);
 
   // City for market lookups
   var cityKey = (l.city || sfh.city || rlvD.city || "").toLowerCase();
@@ -2274,6 +2422,7 @@ function calcDealMetrics(data){
   // The Tenure Mix capitalised blend is only used for non-SFH multi-tenure schemes.
   var gdv = 0;
   if (manualGdv > 0) gdv = manualGdv;
+  else if (at === "ff" && ffMetrics && ffMetrics.gdv > 0) gdv = ffMetrics.gdv;   // forward-fund: rent-capitalised
   else if (at === "sfh" && sfhGdv > 0) gdv = sfhGdv;       // SFH: canonical AH-aware mix blend
   else if (tenureBlendedGdv > 0) gdv = tenureBlendedGdv;  // other mixed-tenure scheme
   else if ((at === "btr" || at === "pbsa") && btrGdv > 0) gdv = btrGdv;
@@ -2328,6 +2477,18 @@ function calcDealMetrics(data){
   // the SFH House Mix screen exactly (one engine). Includes roads/infra (subject
   // to the build-inclusive toggle); fees 10%, finance & S106 from the SFH tab. ──
   var roads = 0, infra = 0;
+  // ── FORWARD-FUND: adopt the rent-capitalised engine's cost stack so the deal-state
+  // RLV equals computeForwardFundMetrics exactly (one engine). True multi-year finance,
+  // HA low-carbon spec on the affordable build, S106 £/unit, profit % of GDV. ──
+  if (at === "ff" && ffMetrics && ffMetrics.totalUnits > 0) {
+    buildCost   = ffMetrics.buildCost;
+    fees        = ffMetrics.fees;
+    contingency = ffMetrics.contingency;
+    finance     = ffMetrics.finance;
+    s106        = ffMetrics.s106;
+    profit      = ffMetrics.profit;
+    profitPctTarget = ffMetrics.profitPct;
+  }
   if (at === "sfh" && sfhMetrics.totalUnits > 0) {
     buildCost   = sfhMetrics.buildCost;
     fees        = sfhMetrics.fees;
@@ -2390,6 +2551,11 @@ function calcDealMetrics(data){
     gdv: gdv,
     sfhGdv: sfhGdv,
     btrGdv: btrGdv,
+    // Forward-fund (rent-capitalised) detail, when assetType === "ff"
+    ffGrossRentPa: ffMetrics ? ffMetrics.grossRentPa : 0,
+    ffNetRentPa: ffMetrics ? ffMetrics.netRentPa : 0,
+    ffYield: ffMetrics ? ffMetrics.yield : 0,
+    ffAffordableUnits: ffMetrics ? ffMetrics.affordableUnits : 0,
     gdvSource: manualGdv > 0 ? "manual" : (at === "sfh" && sfhGdv > 0) ? "sfh" : ((at === "btr" || at === "pbsa") && btrGdv > 0) ? "btr" : (at !== "btr" && at !== "pbsa" && sfhGdv > 0) ? "sfh-fallback" : btrGdv > 0 ? "btr-fallback" : "derived",
     normalisedTargetYield: normalisedTargetYield,
     // Costs

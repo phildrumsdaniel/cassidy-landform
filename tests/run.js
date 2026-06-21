@@ -586,6 +586,94 @@ console.log("Landform engine consistency tests\n");
   ok("unknown area falls back to a national label", /national/i.test(ukRegionFor({})));
 })();
 
+// 32 — True multi-year development finance (developmentFinanceCost)
+(function(){
+  // A flat one-year estimate the OLD engines used: (build+fees) × rate
+  var build = 40000000, fees = build*0.10, rate = 0.10;
+  var flat = (build + fees) * rate;
+  // True 4-year (1 planning + 3 build) rolled-up finance must exceed a flat 1-yr %,
+  // because the debt rolls up across the programme (interest on interest).
+  var multi = developmentFinanceCost({ hardCost:build, softCost:fees, ratePa:10, buildYears:3, planningYears:1 });
+  ok("multi-year finance > flat 1-yr estimate (the understatement we fixed)", multi > flat);
+  // Tolerates rate as a percent (10) or a fraction (0.10)
+  near("ratePa tolerates 10 and 0.10 identically", multi, developmentFinanceCost({ hardCost:build, softCost:fees, ratePa:0.10, buildYears:3, planningYears:1 }), 1);
+  // Monotonic in the obvious levers
+  var longer = developmentFinanceCost({ hardCost:build, softCost:fees, ratePa:10, buildYears:5, planningYears:1 });
+  ok("longer build ⇒ more finance", longer > multi);
+  var dearer = developmentFinanceCost({ hardCost:build, softCost:fees, ratePa:12, buildYears:3, planningYears:1 });
+  ok("higher rate ⇒ more finance", dearer > multi);
+  ok("a longer planning run carries cost (soft drawn earlier)", developmentFinanceCost({ hardCost:build, softCost:fees, ratePa:10, buildYears:3, planningYears:2 }) > multi);
+  ok("zero rate ⇒ zero finance", developmentFinanceCost({ hardCost:build, softCost:fees, ratePa:0, buildYears:3, planningYears:1 }) === 0);
+
+  // Exact replica of the deterministic monthly roll-up, proving the published number.
+  function replica(hard, soft, rate, by, py){
+    var r = rate>1?rate/100:rate, bm = Math.round(by*12), pm = Math.round(py*12), mr = r/12;
+    var w=[], sum=0, mean=bm/2, sd=(bm/4)||1;
+    for(var i=1;i<=bm;i++){ var p=Math.exp(-Math.pow(i-mean,2)/(2*sd*sd)); w.push(p); sum+=p; }
+    w=w.map(function(x){return sum>0?x/sum:0;});
+    var spm = pm>0?soft/pm:0, bal=0, intr=0;
+    for(var m=0;m<pm+bm;m++){ if(m<pm)bal+=spm; if(m===pm&&pm===0)bal+=soft; if(m>=pm)bal+=hard*w[m-pm]; var it=bal*mr; bal+=it; intr+=it; }
+    return intr;
+  }
+  near("developmentFinanceCost == its documented monthly roll-up", multi, replica(build, fees, 10, 3, 1), 1);
+})();
+
+// 33 — Forward-fund engine (Patric's method): rent → net → capitalise → RLV,
+// with HA low-carbon spec on the affordable build, and engine == deal-state.
+(function(){
+  // Clearly-labelled MALDON PLACEHOLDER scheme: 200 units, ~50% affordable.
+  function ffDeal(over){
+    over = over || {};
+    var ff = Object.assign({
+      city:"maldon", yield:4.5, mgmtPct:25, buildPsf:250, s106pu:10000,
+      profitPct:17.5, finRate:10, buildYears:3, planningYears:1, haSpecAffordable:true,
+      mix:[
+        // private/PRS at market rent
+        {type:"3-bed semi",    count:100, sqft:1000, tenure:"private",        rentPcm:1400},
+        // affordable: Affordable Rent + Social Rent (get the HA low-carbon spec uplift)
+        {type:"2-bed terrace", count:60,  sqft:850,  tenure:"ahp_affordable", rentPcm:1000},
+        {type:"3-bed semi",    count:40,  sqft:1000, tenure:"ahp_social",     rentPcm:760}
+      ]
+    }, over.ff || {});
+    return { assetType:"ff", land:{city:"maldon", price:over.price||0}, ff:ff };
+  }
+  var d = ffDeal();
+  var F = computeForwardFundMetrics(d), dm = calcDealMetrics(d);
+  ok("forward-fund units summed (200)", F.totalUnits === 200);
+  ok("affordable units identified (100 = 50%)", F.affordableUnits === 100 && Math.round(F.affordablePct) === 50);
+  // Step 1-3: gross → net (less 25%) → capitalise at 4.5%
+  var gross = (1400*100 + 1000*60 + 760*40) * 12;
+  near("gross rent pa == rent mix × 12", F.grossRentPa, gross, 1);
+  near("net rent == gross less 25% management", F.netRentPa, gross*0.75, 1);
+  near("GDV == net rent / 4.5% yield", F.gdv, (gross*0.75)/0.045, 2);
+  // Step 4: HA low-carbon spec uplift lands on the affordable build only
+  var privBuild = 1000*250*100;
+  var affBuild  = (850*250*HA_SPEC_UPLIFT*60) + (1000*250*HA_SPEC_UPLIFT*40);
+  near("build cost: HA spec uplift on affordable rows only", F.buildCost, privBuild + affBuild, 5);
+  ok("affordable build £/sqft > £250 base (HA spec applied)", F.rows[1].buildPsf > 250 && F.rows[0].buildPsf === 250);
+  // Step 5-7: S106 £10k/unit, true multi-year finance, profit 17.5% of GDV
+  near("S106 == £10,000 × units", F.s106, 200*10000, 1);
+  near("profit == 17.5% of GDV", F.profit, F.gdv*0.175, 2);
+  ok("finance uses the multi-year model (matches helper)", Math.abs(F.finance - developmentFinanceCost({hardCost:F.buildCost+F.s106, softCost:0, ratePa:10, buildYears:3, planningYears:1})) < 2);
+  // Step 8: RLV = GDV − devCost − profit; engine == deal-state
+  near("RLV == GDV − devCost − profit", F.rlv, F.gdv - F.devCost - F.profit, 2);
+  near("forward-fund: deal-state GDV == engine", dm.gdv, F.gdv, 2);
+  near("forward-fund: deal-state RLV == engine", dm.rlv, F.rlv, 2);
+  ok("deal-state surfaces gross/net rent", Math.round(dm.ffGrossRentPa) === Math.round(gross) && dm.ffNetRentPa > 0);
+
+  // Sensitivity direction: a keener (lower) yield lifts GDV and RLV; turning the HA
+  // spec off lowers the build cost and lifts the residual.
+  var keener = computeForwardFundMetrics(ffDeal({ ff:{ yield:4.0 } }));
+  ok("lower yield ⇒ higher GDV and RLV", keener.gdv > F.gdv && keener.rlv > F.rlv);
+  var noHa = computeForwardFundMetrics(ffDeal({ ff:{ haSpecAffordable:false } }));
+  ok("HA spec off ⇒ lower build, higher RLV", noHa.buildCost < F.buildCost && noHa.rlv > F.rlv);
+
+  // Rent auto-fills from the area when a row omits it (Maldon market rent benchmark).
+  var auto = computeForwardFundMetrics({ assetType:"ff", land:{city:"maldon"},
+    ff:{ yield:4.5, mix:[{type:"3-bed semi", count:10, sqft:1000, tenure:"private"}] } });
+  ok("rent auto-fills from the area when omitted", auto.grossRentPa > 0);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);
