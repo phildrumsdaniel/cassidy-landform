@@ -1,0 +1,130 @@
+// ── renderKeystone (params: data, setData, up, navTo, user) ──────────────────
+// KEYSTONE — the Deal Builder PA. Sits at the very front of the journey. Paste
+// emails/notes and upload documents/spreadsheets; the AI extracts a structured
+// brief; Keystone builds a complete, engine-valid deal and AUTO-CHOOSES the
+// journey from the data. The AI never does the maths — it extracts facts; the
+// tested engine (buildDealFromBrief + calcDealMetrics) does every calculation.
+// Loaded before 05-tool.js. Uses globals: e, S, callAI, buildDealFromBrief,
+// detectJourney, KEYSTONE_BRIEF_SCHEMA, num, XLSX.
+function renderKeystone(data, setData, up, navTo, user){
+  var k = data.keystone || {};
+  var journeyLabel = {sfh:"Single Family Housing", btr:"Build to Rent", pbsa:"PBSA / Student",
+    land:"Land & Development", property:"Property Evaluator", recovery:"Planning Recovery"};
+
+  function setK(patch){ setData(function(d){ return Object.assign({}, d, {keystone:Object.assign({}, d.keystone||{}, patch)}); }); }
+
+  // ── File upload (reuses the Meetings pattern: Excel via SheetJS, else text) ──
+  function handleFiles(ev){
+    var files = ev.target.files; if(!files || !files.length) return;
+    Array.prototype.forEach.call(files, function(file){
+      var nm = (file.name||"").toLowerCase();
+      var isExcel = /\.(xlsx|xlsm|xlsb|xls|csv)$/.test(nm);
+      var reader = new FileReader();
+      reader.onload = function(e2){
+        var text = "";
+        try{
+          if(isExcel && typeof XLSX !== "undefined"){
+            var wb = XLSX.read(new Uint8Array(e2.target.result), {type:"array"});
+            text = wb.SheetNames.map(function(sn){ return "=== Sheet: "+sn+" ===\n"+XLSX.utils.sheet_to_csv(wb.Sheets[sn]); }).join("\n\n");
+          } else {
+            text = e2.target.result;
+          }
+        }catch(err){ text = "[Could not read "+file.name+"]"; }
+        setData(function(d){
+          var src = (d.keystone&&d.keystone.source)||"";
+          return Object.assign({}, d, {keystone:Object.assign({}, d.keystone||{}, {source: src + (src?"\n\n":"") + "=== FILE: "+file.name+" ===\n" + text})});
+        });
+      };
+      if(isExcel) reader.readAsArrayBuffer(file); else reader.readAsText(file);
+    });
+  }
+
+  // ── AI extraction: source text → a structured brief (JSON) ──
+  async function extractBrief(){
+    if(!(k.source||"").trim()){ alert("Paste some source text or upload a document first."); return; }
+    setK({extracting:true, error:""});
+    var schemaKeys = Object.keys(KEYSTONE_BRIEF_SCHEMA).map(function(f){ return f+": "+KEYSTONE_BRIEF_SCHEMA[f]; }).join("\n");
+    var sys = "You are a UK residential development analyst building a deal brief for the Landform appraisal tool. Extract ONLY facts that are present or clearly implied. Do NOT invent figures. Output STRICT JSON only — no prose, no markdown fences.";
+    var prompt = "From the SOURCE below, produce a single JSON object for this Landform deal brief. Use these fields (omit any you can't fill):\n\n"+schemaKeys+
+      "\n\nRules: numbers as numbers (no £ or commas); houseMix and rents as arrays; put anything you assumed or couldn't find into an 'assumptions' array; choose assetType only if obvious, else leave it out (Landform auto-detects). \n\nSOURCE:\n"+(k.source||"").substring(0,12000);
+    try{
+      var res = await callAI(user, "keystone", sys, prompt);
+      // pull the JSON object out of the response
+      var s = res.indexOf("{"), e2 = res.lastIndexOf("}");
+      var jsonStr = (s>=0 && e2>s) ? res.substring(s, e2+1) : res;
+      var brief = JSON.parse(jsonStr);
+      setK({brief: JSON.stringify(brief, null, 2), extracting:false, error:""});
+    }catch(err){
+      setK({extracting:false, error:"Couldn't parse a brief from that. You can paste/edit the brief JSON manually below. ("+err.message+")"});
+    }
+  }
+
+  // ── Build the deal from the brief and load it ──
+  function buildDeal(){
+    var brief;
+    try{ brief = JSON.parse(k.brief||"{}"); }
+    catch(err){ alert("The brief isn't valid JSON. Fix it or re-run Extract.\n\n"+err.message); return; }
+    var deal = buildDealFromBrief(brief);
+    var hasExisting = !!(data.land && (data.land.address || data.land.city)) || !!(data.sfh && data.sfh.mix && data.sfh.mix.length);
+    if(hasExisting && !confirm("This will replace the deal currently open with the new one Keystone built. (Your saved portfolio deals are untouched.) Continue?")) return;
+    var journey = deal.assetType;
+    setData(function(prev){ return Object.assign({}, deal, {_cloudDealId: undefined, keystone: Object.assign({}, prev.keystone||{}, {builtJourney:journey, builtAt:Date.now()}) }); });
+  }
+
+  var detected = (function(){ try{ return detectJourney(JSON.parse(k.brief||"{}")); }catch(e2){ return ""; } })();
+
+  return e("div", null,
+    e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8,flexWrap:"wrap",gap:10}},
+      e("div",null,
+        e("div",{style:{fontSize:11,color:"#7278A0",textTransform:"uppercase",letterSpacing:".12em",fontWeight:700,marginBottom:4}},"Keystone · Deal Builder"),
+        e("h2",{style:{fontSize:22,fontWeight:800,color:"#2E2F8A",margin:"0 0 4px"}},"🪨 Start a deal — drop in your data"),
+        e("p",{style:{fontSize:12,color:"#7278A0",lineHeight:1.6,maxWidth:640}},"Paste emails and notes, and upload documents or spreadsheets. Keystone reads them, builds the deal, and chooses the right journey automatically. The AI only extracts the facts — Landform does every calculation, so the numbers stay correct. Review before it builds; you keep full edit rights.")
+      )
+    ),
+
+    // 1 — Source
+    e("div",{style:S.card},
+      e("div",{style:S.cardTitle},"1 · Source material"),
+      e("div",{style:{display:"flex",gap:10,flexWrap:"wrap",marginBottom:10}},
+        e("label",{style:{padding:"7px 14px",background:"#4A4BAE",color:"#fff",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
+          "📎 Upload documents / spreadsheets",
+          e("input",{type:"file",multiple:true,accept:".txt,.md,.csv,.xlsx,.xls,.xlsm,.xlsb,.pdf,.doc,.docx",onChange:handleFiles,style:{display:"none"}})
+        ),
+        (k.source||"") && e("button",{onClick:function(){setK({source:""});},style:{padding:"7px 14px",background:"#fff",border:"1px solid #DDE0ED",borderRadius:6,fontSize:12,fontWeight:700,color:"#7278A0",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Clear")
+      ),
+      e("textarea",{value:k.source||"",onChange:function(ev){up("keystone","source",ev.target.value);},
+        placeholder:"Paste the email thread, agent particulars, rent schedule, planning notes, land terms — anything. Then press Extract.",
+        style:{width:"100%",minHeight:140,padding:"10px 12px",border:"1px solid #DDE0ED",borderRadius:8,fontSize:12,fontFamily:"DM Sans,sans-serif",lineHeight:1.6,resize:"vertical"}}),
+      e("div",{style:{fontSize:10,color:"#9A7B3E",marginTop:6,fontStyle:"italic"}},"Spreadsheets and text read fully. PDFs/Word read only where they contain selectable text (scanned/image PDFs won't extract — paste those by hand for now).")
+    ),
+
+    // 2 — Extract brief
+    e("div",{style:S.card},
+      e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:8}},
+        e("div",{style:S.cardTitle},"2 · The brief (review & edit)"),
+        e("button",{onClick:extractBrief,disabled:!!k.extracting,style:{padding:"7px 14px",background:k.extracting?"#9AA":"#2D7A65",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:700,cursor:k.extracting?"wait":"pointer",fontFamily:"DM Sans,sans-serif"}},k.extracting?"⏳ Reading…":"🧠 Extract brief with AI")
+      ),
+      k.error && e("div",{style:{padding:"8px 12px",background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.35)",borderRadius:6,fontSize:11,color:"#B05A35",marginBottom:8,lineHeight:1.5}},k.error),
+      e("textarea",{value:k.brief||"",onChange:function(ev){up("keystone","brief",ev.target.value);},
+        placeholder:'The extracted brief (JSON) appears here for you to check and edit. You can also paste/type one directly, e.g.\n{ "town":"Maldon", "acres":32, "askingPrice":14000000, "affordablePct":50, "houseMix":[ ... ] }',
+        style:{width:"100%",minHeight:200,padding:"10px 12px",border:"1px solid #DDE0ED",borderRadius:8,fontSize:12,fontFamily:"DM Mono,monospace",lineHeight:1.5,resize:"vertical"}}),
+      detected && e("div",{style:{marginTop:8,fontSize:11,color:"#2D7A65",fontWeight:700}},"→ Keystone will set this up as a "+(journeyLabel[detected]||detected)+" deal (auto-detected). You can change the journey later.")
+    ),
+
+    // 3 — Build
+    e("div",{style:Object.assign({},S.card,{borderLeft:"4px solid #2D7A65"})},
+      e("div",{style:S.cardTitle},"3 · Build the deal"),
+      e("div",{style:{fontSize:12,color:"#3A3D6A",lineHeight:1.7,marginBottom:12}},
+        "Keystone builds a complete deal from the brief — units, mix, tenures, costs, yield — and loads it so you can run and edit it. It saves nothing automatically; use ",e("strong",null,"💾 Save Current Deal")," (top bar) to put it in your portfolio and share with the team."
+      ),
+      k.builtJourney && e("div",{style:{padding:"10px 12px",background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.35)",borderRadius:6,fontSize:12,color:"#1d5446",marginBottom:12,lineHeight:1.6}},
+        e("strong",null,"✓ Built. "),"Loaded as a "+(journeyLabel[k.builtJourney]||k.builtJourney)+" deal. Open the ",e("strong",null,"Deal Dashboard")," to see the figures, or step through from ",e("strong",null,"Land Appraisal"),"."
+      ),
+      e("div",{style:{display:"flex",gap:10,flexWrap:"wrap"}},
+        e("button",{onClick:buildDeal,disabled:!(k.brief||"").trim(),style:{padding:"9px 18px",background:(k.brief||"").trim()?"#2D7A65":"#9AA",border:"none",color:"#fff",borderRadius:6,fontSize:13,fontWeight:700,cursor:(k.brief||"").trim()?"pointer":"not-allowed",fontFamily:"DM Sans,sans-serif"}},"🏗 Build deal & load it"),
+        k.builtJourney && e("button",{onClick:function(){navTo("dashboard");},style:{padding:"9px 18px",background:"#fff",border:"1px solid #4A4BAE",color:"#4A4BAE",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Go to Deal Dashboard →"),
+        k.builtJourney && e("button",{onClick:function(){navTo("land");},style:{padding:"9px 18px",background:"#fff",border:"1px solid #DDE0ED",color:"#3A3D6A",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Open Land Appraisal →")
+      )
+    )
+  );
+}

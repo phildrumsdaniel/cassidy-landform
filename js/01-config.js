@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.72";
+var CURRENT_VERSION = "9.73";
 var VERSION_HISTORY = [
+  {v:"9.73", date:"Jun 2026", headline:"Keystone — the Deal Builder PA (front of the journey, auto-picks the journey)",
+   affectsCalc:false,
+   changes:["New 🪨 Keystone screen at the very start: paste emails/notes and upload documents or spreadsheets, and Keystone builds the whole deal for you and AUTO-CHOOSES the journey (SFH / BTR / PBSA / Land / Property / Recovery) from the data.","The AI only extracts the facts into a brief you review and edit — Landform does every calculation through the one tested engine (buildDealFromBrief), so the numbers stay correct and consistent. You keep full edit rights and save/share it like any deal.","Foundation shipped: lib-dealSchema.js (the brief schema + buildDealFromBrief + auto-journey detection) with engine tests. PDF/Word reading and a saved-agent profile are the next phase."]},
   {v:"9.72", date:"Jun 2026", headline:"HA low-carbon spec build cost + NDSS sizes (Delta/CHP brief)",
    affectsCalc:true,
    changes:["Added a 'HA low-carbon spec' build-cost uplift to the Build Cost Library, capturing a housing-association brief: Air Source Heat Pumps, roof PV + battery storage, EPC band B fabric, NDSS minimum sizes and a 12-year NHBC warranty (~12% / ~£20-30/sqft over a standard build, editable).","New '🌱 HA low-carbon spec' toggle on the SFH House Mix — when on, Auto-cost applies the premium to the affordable rows automatically (or scheme-wide if the scheme is HA-led). So the residual land value reflects what Delta/CHP actually require, not a standard £250/sqft.","Added an NDSS minimum-size reference (the floor area each affordable unit type must meet) to the Build Cost Library."]},

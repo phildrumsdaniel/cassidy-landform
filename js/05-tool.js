@@ -55,6 +55,7 @@ function Tool(props){
 // ── STAGES ───────────────────────────────────────────────────────────────────
 var ALL_STAGES = [
   // ── 0. START ─────────────────────────────────────────────────────────────
+  {id:"keystone",        label:"Keystone — Deal Builder", icon:"🪨", group:"0. Start", journeys:["all","land","property","sfh","btr","pbsa","recovery","asset"]},
   {id:"navigator",       label:"Process Navigator",  icon:"🧭", group:"0. Start",    journeys:["all","land","property","sfh","btr","pbsa","recovery","asset"]},
   {id:"assetOptimiser",  label:"Asset Exit Optimiser", icon:"🏛", group:"0. Start",    journeys:["asset","all"]},
   // ── 1. FIND ──────────────────────────────────────────────────────────────
@@ -104,6 +105,7 @@ var ALL_STAGES = [
 // ──────────────────────────────────────────────────────────────────────
 var STAGE_RELEVANCE = {
   // Always required regardless of journey
+  keystone:     {required:[],                        recommended:["all"]},
   navigator:    {required:["all"],                  recommended:[]},
   land:         {required:["land","sfh","btr","pbsa"], recommended:["property"]},
   rlv:          {required:["land","sfh","btr","pbsa"], recommended:["property"]},
@@ -308,7 +310,7 @@ var JOURNEYS = {
   function stageVisibleForFlow(s){
     if(!s || !s.journeys)return true;
     var flowSchemes=activeSchemeFilters();
-    if(flowSchemes.length===0&&exits.length===0)return s.id==="navigator" || s.id==="portfolio" || s.id==="dashboard";
+    if(flowSchemes.length===0&&exits.length===0)return s.id==="keystone" || s.id==="navigator" || s.id==="portfolio" || s.id==="dashboard";
     for(var sj=0;sj<flowSchemes.length;sj++){
       if(s.journeys.indexOf(flowSchemes[sj])>=0)return true;
     }
@@ -1836,6 +1838,7 @@ function loadSiteIntoDeal(site){
     if(stage==="portfolio")return renderPortfolio(data, logMigration, navTo, saveDeal, setData, user);
     if(stage==="scorecard")return renderScorecard(city, data, gdv, lc, up, user);
     if(stage==="placona")return renderPlacona(data, loadSiteIntoDeal, up, user);
+    if(stage==="keystone")return renderKeystone(data, setData, up, navTo, user);
     if(stage==="navigator")return renderProcessNavigator(ALL_STAGES, data, exitUnlocksStage, exits, isExitOn, isSchemeOn, navTo, schemes, setFlowAssetType, setSchemes, toggleExit, up);
     if(stage==="assetOptimiser")return renderAssetOptimiser(data, up, user);
     if(stage==="investor")return renderInvestorSuite(data, navTo, saveDeal, up, user);

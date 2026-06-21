@@ -31,6 +31,7 @@ try {
   // still load and compute on the corrected engine (back-compat).
   eval(fs.readFileSync(path.join(__dirname, "..", "js", "lib-migrateLoadedDeal.js"), "utf8"));
   eval(fs.readFileSync(path.join(__dirname, "..", "js", "lib-isStageComplete.js"), "utf8"));
+  eval(fs.readFileSync(path.join(__dirname, "..", "js", "lib-dealSchema.js"), "utf8"));
 } catch (e) {
   console.error("Could not load engine files:", e.message);
   process.exit(1);
@@ -584,6 +585,42 @@ console.log("Landform engine consistency tests\n");
   ok("Maldon resolves to East of England", ukRegionFor({land:{city:"maldon"}}) === "East of England");
   ok("Bristol resolves to South West", ukRegionFor({land:{city:"bristol"}}) === "South West");
   ok("unknown area falls back to a national label", /national/i.test(ukRegionFor({})));
+})();
+
+// 32 — Keystone: auto-journey detection + build a valid deal the engine can run
+(function(){
+  // auto-journey
+  ok("houses → sfh", detectJourney({houseMix:[{type:"3-bed semi",count:10}]}) === "sfh");
+  ok("rents only → btr", detectJourney({rents:[{beds:2,count:50,rentPcm:1200}]}) === "btr");
+  ok("student → pbsa", detectJourney({rents:[{count:100,rentPcm:160}], notes:"PBSA student scheme"}) === "pbsa");
+  ok("refused → recovery", detectJourney({planningStatus:"refused at appeal"}) === "recovery");
+  ok("bare land → land", detectJourney({acres:40, askingPrice:5000000}) === "land");
+  ok("explicit assetType wins", detectJourney({assetType:"btr", houseMix:[{count:5}]}) === "btr");
+
+  // Build a Maldon-style brief → deal, and run it through the real engine
+  var brief = {
+    dealName:"Maldon test", town:"Maldon", acres:32, askingPrice:14000000,
+    affordablePct:50, buildPsf:250, haSpec:true, s106PerUnit:11000, profitPct:17.5,
+    houseMix:[
+      {type:"3-bed semi", count:113, sqft:950, salePrice:380000, tenure:"social rent"},
+      {type:"4-bed detached", count:112, sqft:1200, salePrice:560000, tenure:"private"}
+    ]
+  };
+  var deal = buildDealFromBrief(brief);
+  ok("Keystone chose the sfh journey", deal.assetType === "sfh");
+  ok("units total carried (225)", num(deal.land.units) === 225);
+  ok("affordable % set across stages", num(deal.planning.ahPct) === 50 && num(deal.sfh.ahPct) === 50);
+  ok("HA spec flag carried", deal.sfh.haSpecBuild === true);
+  ok("social-rent tenure mapped", deal.sfh.mix[0].tenure === "ahp_social");
+  var m = calcDealMetrics(deal);
+  ok("built deal computes a positive GDV", m.gdv > 0);
+  ok("built deal computes units = 225", m.units === 225);
+  ok("affordable blend applied (blended < retail)", computeSFHMetrics(deal).blendedGdv < computeSFHMetrics(deal).retailGdv);
+
+  // A rents brief → btr → capitalised GDV from net rent
+  var rb = buildDealFromBrief({ town:"Maldon", rents:[{beds:2,count:200,rentPcm:1300}], mgmtPct:25, netInitialYield:4.5 });
+  ok("rents brief → btr", rb.assetType === "btr");
+  ok("net annual income computed (after 25% mgmt)", Math.abs(num(rb.capitalise.netAnnualIncome) - 200*1300*12*0.75) < 1000);
 })();
 
 // ── Report ───────────────────────────────────────────────────────────────────
