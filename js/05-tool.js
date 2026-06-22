@@ -2008,7 +2008,7 @@ function loadSiteIntoDeal(site){
             },
             style:{fontSize:10,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"3px 8px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0,border:"1px solid rgba(154,123,62,0.3)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
           },"v"+CURRENT_VERSION+" ▾"),
-          !isMobile&&e("div",{style:{fontSize:11,color:"#7278A0",marginLeft:6}},at.toUpperCase()+" · "+cityName(city))
+          !isMobile&&(data.assetType||city)&&e("div",{style:{fontSize:11,color:"#7278A0",marginLeft:6}},[data.assetType?String(data.assetType).toUpperCase():null,city?cityName(city):null].filter(Boolean).join(" · "))
         ),
 
         // ── ACTIONS ZONE — horizontally scrollable on mobile ────────────────
