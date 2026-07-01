@@ -125,6 +125,17 @@ function buildDealFromBrief(brief){
   var netPa = grossPa * (1 - mgmtPct / 100);
 
   var units = num(brief.units) || mixUnits || rentUnits || 0;
+  // v9.77 — if no unit count is given, estimate it from the acreage × density so Keystone
+  // sizes the scheme to the land mass. Uses the brief's density (homes/acre) or a sensible
+  // greenfield default (~12/acre gross), and records it as an assumption to verify.
+  var acres = num(brief.acres);
+  var density = num(brief.density || brief.homesPerAcre);
+  var autoUnitNote = "";
+  if(!units && acres > 0){
+    var d = density > 0 ? density : 12;
+    units = Math.round(acres * d);
+    autoUnitNote = "Units estimated from density: " + acres + " acres × " + d + " homes/acre ≈ " + units + " (no unit count supplied — verify).";
+  }
   var yieldPct = num(brief.netInitialYield) || 0;
 
   var deal = {
@@ -139,6 +150,8 @@ function buildDealFromBrief(brief){
       acres: num(brief.acres) || "",
       price: num(brief.askingPrice) || "",
       units: units || "",
+      assumedUnits: (mix.length ? "" : (units || "")),                  // feeds the "What You Should Pay" panel
+      assumedDensity: (density > 0 ? density : (autoUnitNote ? 12 : "")),
       planningStatus: brief.planningStatus || ""
     },
     planning: {
@@ -188,7 +201,7 @@ function buildDealFromBrief(brief){
       builtAt: new Date().toISOString(),
       journey: journey,
       dealName: brief.dealName || brief.address || "Keystone deal",
-      assumptions: (brief.assumptions || []).slice(),
+      assumptions: (brief.assumptions || []).slice().concat(autoUnitNote ? [autoUnitNote] : []),
       notes: brief.notes || ""
     }
   };

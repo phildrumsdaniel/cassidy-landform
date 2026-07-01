@@ -665,6 +665,20 @@ console.log("Landform engine consistency tests\n");
   ok("dealStatus override honoured", buildDealFromBrief({town:"Maldon", dealStatus:"for_introduction"}).dealStatus === "for_introduction");
 })();
 
+// 35 — Keystone estimates units from density when no count is given
+(function(){
+  // explicit density
+  var d1 = buildDealFromBrief({ town:"Rugby", acres:88, density:12 });
+  near("88 acres × 12/acre ≈ 1056 units", num(d1.land.units), 1056, 0);
+  // default greenfield density when none supplied
+  var d2 = buildDealFromBrief({ town:"Rugby", acres:88 });
+  near("no count, no density → default 12/acre → 1056", num(d2.land.units), 1056, 0);
+  ok("estimation recorded as an assumption", (d2._keystone.assumptions.join(" ").toLowerCase().indexOf("density") >= 0));
+  // an explicit unit count still wins
+  var d3 = buildDealFromBrief({ town:"Rugby", acres:88, units:200, density:12 });
+  ok("explicit unit count overrides density estimate", num(d3.land.units) === 200);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

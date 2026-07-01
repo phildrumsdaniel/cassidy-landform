@@ -693,10 +693,26 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
           )
         );
 
+        // v9.77 — density calculator: set homes/acre and it works out the units from the
+        // acreage (so you evaluate the land mass, not guess the count). Greenfield estates
+        // run ~10–14 homes/acre GROSS once roads, open space and buffers are allowed for.
+        var densityHelper = (!hasRealScheme && acresVal>0) ? e("div",{style:{marginBottom:12,padding:"9px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:6}},
+          e("div",{style:{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}},
+            e("span",{style:{fontSize:11,color:"#7278A0",fontWeight:700}},"Or set by density:"),
+            e("input",{type:"number",min:0,step:0.5,value:l.assumedDensity!==undefined&&l.assumedDensity!==""?l.assumedDensity:"",placeholder:"/acre",
+              onChange:function(ev){ var d=Number(ev.target.value); up("land","assumedDensity",ev.target.value); if(d>0) up("land","assumedUnits",Math.round(acresVal*d)); },
+              style:{width:72,padding:"6px 8px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:13,fontFamily:"DM Mono,monospace",fontWeight:700,textAlign:"center"}}),
+            e("span",{style:{fontSize:11,color:"#7278A0"}},"homes/acre"),
+            [10,12,14].map(function(d){ return e("button",{key:d,onClick:function(){ up("land","assumedDensity",d); up("land","assumedUnits",Math.round(acresVal*d)); },
+              style:{padding:"4px 10px",background:num(l.assumedDensity)===d?"#4A4BAE":"#fff",color:num(l.assumedDensity)===d?"#fff":"#4A4BAE",border:"1px solid #4A4BAE",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},d+"/ac"); })
+          ),
+          e("div",{style:{fontSize:10,color:"#9A9AAE",marginTop:5}}, acresVal.toFixed(0)+" acres × "+(num(l.assumedDensity)>0?num(l.assumedDensity):"?")+"/acre ≈ "+(num(l.assumedDensity)>0?Math.round(acresVal*num(l.assumedDensity)).toLocaleString():"—")+" homes · greenfield estates ~10–14/acre gross")
+        ) : null;
+
         // No homes yet → explain why, don't show a scary negative
         if(!(assumedUnits>0)){
           return e("div",{style:S.card},
-            header, ctaRow, unitsInput,
+            header, ctaRow, unitsInput, densityHelper,
             e("div",{style:{padding:"14px 16px",background:"rgba(154,123,62,0.08)",border:"1px solid rgba(154,123,62,0.35)",borderRadius:8,fontSize:12,lineHeight:1.7,color:"#3A3D6A"}},
               e("div",{style:{fontWeight:700,color:"#9A7B3E",marginBottom:6}},"Enter the homes you'd get with consent to value the land"),
               "Raw land with no planning has no residential value — only ",e("strong",null,"agricultural value")," (~£",fmtN(agriPerAcre),"/acre). ",
@@ -822,7 +838,7 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
         };
 
         return e("div",{style:Object.assign({},S.card,{borderLeft:"4px solid #2D7A65"})},
-          header, ctaRow, sourceNote, unitsInput, (hasRealScheme ? null : costInput),
+          header, ctaRow, sourceNote, unitsInput, densityHelper, (hasRealScheme ? null : costInput),
 
           // Three layers of value
           e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}},
