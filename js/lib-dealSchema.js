@@ -98,6 +98,29 @@ function detectJourney(brief){
   return "land";
 }
 
+// keystoneGenerateMix — a typical estate house-type blend for a unit count, sized and
+// priced off the area's sale benchmark. A STARTING DRAFT to refine, not a market claim.
+function keystoneGenerateMix(units, cityKey){
+  units = num(units); if(units <= 0) return [];
+  var mk = (typeof MKT !== "undefined") ? MKT[cityKey] : null;
+  var basePsf = (mk && mk.btr && typeof estSalePsfFromRent === "function")
+    ? Math.max(150, Math.min(650, Math.round(estSalePsfFromRent(mk.btr)))) : 260;
+  var ratios = [
+    { type:"2-bed semi",     pct:0.10, sqft:820,  adj:0.90 },
+    { type:"3-bed semi",     pct:0.35, sqft:1020, adj:1.00 },
+    { type:"3-bed detached", pct:0.30, sqft:1150, adj:1.08 },
+    { type:"4-bed detached", pct:0.25, sqft:1500, adj:1.18 }
+  ];
+  var rows = ratios.map(function(r){ return { type:r.type, count:Math.round(units * r.pct), sqft:r.sqft, adj:r.adj }; });
+  // reconcile rounding so the counts sum to the target
+  var diff = units - rows.reduce(function(a, r){ return a + r.count; }, 0);
+  rows[1].count += diff;   // put any remainder on the largest group (3-bed semi)
+  return rows.map(function(r){
+    return { type:r.type, count:String(Math.max(0, r.count)), sqft:String(r.sqft),
+      unitPrice:String(Math.round(r.sqft * basePsf * r.adj)), tenure:"private", buildPsf:"" };
+  });
+}
+
 // buildDealFromBrief — expand a brief into a complete, engine-valid Landform deal.
 function buildDealFromBrief(brief){
   brief = brief || {};
@@ -136,6 +159,16 @@ function buildDealFromBrief(brief){
     units = Math.round(acres * d);
     autoUnitNote = "Units estimated from density: " + acres + " acres × " + d + " homes/acre ≈ " + units + " (no unit count supplied — verify).";
   }
+  // v9.78 — if it's a housing scheme with a unit count but no house mix, auto-generate a
+  // typical estate blend so the deal has a full scheme (GDV/RLV, and the rental
+  // capitalisation) straight away. A starting draft to refine in SFH House Mix.
+  var genMixNote = "";
+  if(!mix.length && units > 0 && (journey === "sfh" || journey === "land") && typeof keystoneGenerateMix === "function"){
+    mix = keystoneGenerateMix(units, cityKey);
+    journey = "sfh";
+    genMixNote = "House mix auto-generated as a typical estate blend for " + units + " homes, priced off area benchmarks — refine the types and prices in SFH House Mix.";
+  }
+
   var yieldPct = num(brief.netInitialYield) || 0;
 
   var deal = {
@@ -201,7 +234,7 @@ function buildDealFromBrief(brief){
       builtAt: new Date().toISOString(),
       journey: journey,
       dealName: brief.dealName || brief.address || "Keystone deal",
-      assumptions: (brief.assumptions || []).slice().concat(autoUnitNote ? [autoUnitNote] : []),
+      assumptions: (brief.assumptions || []).slice().concat(autoUnitNote ? [autoUnitNote] : []).concat(genMixNote ? [genMixNote] : []),
       notes: brief.notes || ""
     }
   };

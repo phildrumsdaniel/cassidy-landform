@@ -15,7 +15,7 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.77";
+var CURRENT_VERSION = "9.78";
 var VERSION_HISTORY = [
   {v:"9.75", date:"Jun 2026", headline:"Scout scoring — rank land finds by a transparent Opportunity Score",
    affectsCalc:false,

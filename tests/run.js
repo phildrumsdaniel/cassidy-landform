@@ -640,7 +640,7 @@ console.log("Landform engine consistency tests\n");
   ok("Placona town resolves to a benchmarkable area (Maldon)", brief.town.toLowerCase() === "maldon");
   ok("Placona import flagged as estimates", (brief.assumptions||[]).join(" ").toLowerCase().indexOf("placona") >= 0);
   var deal = buildDealFromBrief(brief);
-  ok("Placona→Keystone → land journey (raw land, no scheme yet)", deal.assetType === "land");
+  ok("Placona→Keystone builds a housing scheme with an auto mix", deal.assetType === "sfh" && deal.sfh.mix.length >= 3);
   ok("city carried to land/sfh for benchmarks", deal.land.city === "maldon");
 })();
 
@@ -677,6 +677,21 @@ console.log("Landform engine consistency tests\n");
   // an explicit unit count still wins
   var d3 = buildDealFromBrief({ town:"Rugby", acres:88, units:200, density:12 });
   ok("explicit unit count overrides density estimate", num(d3.land.units) === 200);
+})();
+
+// 36 — Keystone auto-creates a house mix + full scheme from a land find
+(function(){
+  // a Placona-style raw land find: acres + price, no mix, no units
+  var deal = buildDealFromBrief({ town:"Rugby", acres:88, askingPrice:12500000, density:12 });
+  ok("switched to sfh journey once a mix was generated", deal.assetType === "sfh");
+  ok("house mix auto-generated (multiple types)", deal.sfh.mix.length >= 3);
+  var mixUnits = deal.sfh.mix.reduce(function(a,r){ return a + num(r.count); }, 0);
+  near("generated mix totals the estimated units (~1056)", mixUnits, 1056, 2);
+  ok("mix rows are priced", num(deal.sfh.mix[0].unitPrice) > 0);
+  var m = computeSFHMetrics(deal);
+  ok("full scheme has a real GDV now", m.gdv > 0);
+  ok("and a residual land value", m.rlv !== 0);
+  ok("auto-generation flagged as an assumption", deal._keystone.assumptions.join(" ").toLowerCase().indexOf("auto-generated") >= 0);
 })();
 
 // ── Report ───────────────────────────────────────────────────────────────────
