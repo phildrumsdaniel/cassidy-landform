@@ -57,13 +57,16 @@ function scoreOpportunity(site, opts){
   }
 
   // ── Demographics & demand pillar — from agent-provided fields ──
+  // Tolerant of camelCase or snake_case naming (whatever Placona/Scout returns).
   var dmg = site.demographics || site;
+  function _pick(){ for(var i=0;i<arguments.length;i++){ var v=arguments[i]; if(v!=null && v!=="" && String(v).toLowerCase()!=="not found") return v; } return null; }
   var demogParts = [];
   function dscore(v, lo, hi){ if(v == null || v === "") return null; return _oppScale(num(v), lo, hi); }
-  var popG   = dscore(dmg.populationGrowthPct, -0.5, 2.0);   // % pa
-  var afford = (dmg.affordabilityRatio != null && dmg.affordabilityRatio !== "") ? _oppScale(num(dmg.affordabilityRatio), 4, 14) : null; // higher ratio → more rental/affordable demand
-  var jobs   = dscore(dmg.jobsGrowthPct, -1, 3);
-  var need   = dscore(dmg.housingNeedIndex, 0, 100);
+  var popG   = dscore(_pick(dmg.populationGrowthPct, dmg.population_growth_pct, dmg.populationGrowth), -0.5, 2.0);   // % pa
+  var affordV = _pick(dmg.affordabilityRatio, dmg.affordability_ratio, dmg.affordability);
+  var afford = (affordV != null) ? _oppScale(num(affordV), 4, 14) : null;   // higher ratio → more rental/affordable demand
+  var jobs   = dscore(_pick(dmg.jobsGrowthPct, dmg.jobs_growth_pct, dmg.employmentGrowthPct), -1, 3);
+  var need   = dscore(_pick(dmg.housingNeedIndex, dmg.housing_need_index, dmg.housingNeed), 0, 100);
   [popG, afford, jobs, need].forEach(function(s){ if(s != null) demogParts.push(s); });
   var demographics = demogParts.length ? Math.round(demogParts.reduce(function(a, b){ return a + b; }, 0) / demogParts.length) : 50;
   var demogNote = demogParts.length ? (demogParts.length + " demographic signal(s)") : "No demographic data — Scout to supply";
@@ -78,7 +81,7 @@ function scoreOpportunity(site, opts){
 
   // ── Constraints & deliverability pillar — from a verdict or flags ──
   var constraints = 60, constraintNote = "Not assessed";
-  var verdict = (site.constraintVerdict || site.constraint_verdict || "").toString().toUpperCase();
+  var verdict = String(_pick(site.constraintVerdict, site.constraint_verdict, site.constraint_status) || "").toUpperCase();
   if(verdict === "GO"){ constraints = 85; constraintNote = "GO"; }
   else if(verdict === "CAUTION"){ constraints = 50; constraintNote = "Caution"; }
   else if(verdict === "AVOID"){ constraints = 15; constraintNote = "Avoid"; }
