@@ -12,7 +12,7 @@ function AccessGate(props){
   if(new Date()>EXPIRY){
     return e("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#F4F5F9",fontFamily:"DM Sans,sans-serif"}},
       e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:16,padding:"48px 40px",maxWidth:400,textAlign:"center"}},
-        e("img",{src:"data:image/webp;base64,"+LOGO,style:{width:100,marginBottom:20}}),
+        e("img",{src:"data:image/png;base64,"+LOGO,style:{width:100,marginBottom:20}}),
         e("h2",{style:{color:"#2E2F8A",marginBottom:12}},"Access Unavailable"),
         e("p",{style:{color:"#7278A0",fontSize:14}},"Please contact Cassidy Group to arrange access.")
       )
@@ -75,7 +75,7 @@ function AccessGate(props){
   return e("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",fontFamily:"DM Sans,sans-serif",padding:20}},
     e("div",{style:{background:"#fff",borderRadius:16,padding:"40px 36px",maxWidth:440,width:"100%",boxShadow:"0 8px 40px rgba(0,0,0,0.25)"}},
       e("div",{style:{textAlign:"center",marginBottom:24}},
-        e("img",{src:"data:image/webp;base64,"+LOGO,alt:"Cassidy Group",style:{width:120,height:"auto",marginBottom:14}}),
+        e("img",{src:"data:image/png;base64,"+LOGO,alt:"Cassidy Group",style:{width:120,height:"auto",marginBottom:14}}),
         e("h1",{style:{color:"#2E2F8A",fontWeight:800,fontSize:18,marginBottom:4}},"Land & Development Intelligence"),
         e("p",{style:{color:"#7278A0",fontSize:12}},mode==="login"?"Sign in to access your deals from any device":"Create your account — deals sync across all devices")
       ),

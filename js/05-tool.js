@@ -908,7 +908,7 @@ var JOURNEYS = {
 
     // COVER PAGE
     '<div class="cover">'+
-    '<img class="cover-logo" src="data:image/webp;base64,'+LOGO+'" alt="Cassidy Group"/>'+
+    '<img class="cover-logo" src="data:image/png;base64,'+LOGO+'" alt="Cassidy Group"/>'+
     '<h1>Development Appraisal</h1>'+
     '<h2>'+addr+'</h2>'+
     '<div class="cover-bar"></div>'+
@@ -1880,7 +1880,7 @@ function loadSiteIntoDeal(site){
     isMobile&&mobileMenuOpen&&e("div",{onClick:closeMobile,style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.6)",zIndex:999,touchAction:"none"}}),
     e("aside",{style:{width:240,background:"#1E1F5C",display:"flex",flexDirection:"column",position:"fixed",left:0,top:0,bottom:0,overflowY:"auto",zIndex:1001,transition:"transform .25s cubic-bezier(.4,0,.2,1)",transform:isMobile?(mobileMenuOpen?"translateX(0)":"translateX(-100%)"):"translateX(0)"}},
       e("div",{style:{padding:"14px 16px 12px",borderBottom:"1px solid rgba(255,255,255,0.1)",display:"flex",alignItems:"center",justifyContent:"space-between"}},
-        e("img",{src:"data:image/webp;base64,"+LOGO,alt:"Cassidy Group",style:{width:120,height:"auto",filter:"drop-shadow(0 1px 4px rgba(0,0,0,0.25))"}})
+        e("img",{src:"data:image/png;base64,"+LOGO,alt:"Cassidy Group",style:{width:120,height:"auto",filter:"drop-shadow(0 1px 4px rgba(0,0,0,0.25))"}})
       ),
       e("div",{style:{padding:"8px 0",flex:1}},
         (function(){

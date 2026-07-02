@@ -109,7 +109,7 @@ function PublicShareViewer(props){
   if(loading){
     return e("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#F4F5F9",fontFamily:"DM Sans,sans-serif"}},
       e("div",{style:{textAlign:"center"}},
-        e("img",{src:"data:image/webp;base64,"+LOGO,style:{width:80,marginBottom:14,opacity:0.7}}),
+        e("img",{src:"data:image/png;base64,"+LOGO,style:{width:80,marginBottom:14,opacity:0.7}}),
         e("div",{style:{fontSize:13,color:"#7278A0"}},"Loading investment package…")
       )
     );
@@ -118,7 +118,7 @@ function PublicShareViewer(props){
   if(err){
     return e("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#F4F5F9",fontFamily:"DM Sans,sans-serif",padding:20}},
       e("div",{style:{background:"#fff",borderRadius:12,padding:"40px 36px",maxWidth:440,textAlign:"center"}},
-        e("img",{src:"data:image/webp;base64,"+LOGO,style:{width:100,marginBottom:18}}),
+        e("img",{src:"data:image/png;base64,"+LOGO,style:{width:100,marginBottom:18}}),
         e("h2",{style:{color:"#B05A35",fontSize:18,marginBottom:10}},"Link unavailable"),
         e("p",{style:{color:"#7278A0",fontSize:13,lineHeight:1.6}},err),
         e("p",{style:{color:"#A0A4C0",fontSize:11,marginTop:14}},"Please contact the sender to request a new link.")
@@ -129,7 +129,7 @@ function PublicShareViewer(props){
   if(needPasscode){
     return e("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#F4F5F9",fontFamily:"DM Sans,sans-serif",padding:20}},
       e("div",{style:{background:"#fff",borderRadius:12,padding:"40px 36px",maxWidth:380,textAlign:"center"}},
-        e("img",{src:"data:image/webp;base64,"+LOGO,style:{width:100,marginBottom:18}}),
+        e("img",{src:"data:image/png;base64,"+LOGO,style:{width:100,marginBottom:18}}),
         e("h2",{style:{color:"#2E2F8A",fontSize:18,marginBottom:8}},"Passcode required"),
         e("p",{style:{color:"#7278A0",fontSize:12,marginBottom:18}},"This investment pack is passcode-protected."),
         e("input",{type:"password",value:passcode,onChange:function(ev){setPasscode(ev.target.value);},onKeyDown:function(ev){if(ev.key==="Enter")loadShare(passcode);},placeholder:"Enter passcode",style:{width:"100%",padding:"10px 12px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:13,marginBottom:12,fontFamily:"DM Sans,sans-serif",boxSizing:"border-box"}}),
@@ -143,7 +143,7 @@ function PublicShareViewer(props){
     return e("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",fontFamily:"DM Sans,sans-serif",padding:20}},
       e("div",{style:{background:"#fff",borderRadius:12,padding:"40px 36px",maxWidth:440,boxShadow:"0 8px 40px rgba(0,0,0,0.25)"}},
         e("div",{style:{textAlign:"center",marginBottom:20}},
-          e("img",{src:"data:image/webp;base64,"+LOGO,style:{width:110,marginBottom:14}}),
+          e("img",{src:"data:image/png;base64,"+LOGO,style:{width:110,marginBottom:14}}),
           e("h2",{style:{color:"#2E2F8A",fontSize:18,fontWeight:800,marginBottom:6}},shareData.title||"Investment Opportunity"),
           e("p",{style:{color:"#7278A0",fontSize:12}},"Please introduce yourself to view this opportunity")
         ),
@@ -186,7 +186,7 @@ function PublicShareViewer(props){
     // Header bar
     e("div",{style:{background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",color:"#fff",padding:"18px 24px"}},
       e("div",{style:{maxWidth:1100,margin:"0 auto",display:"flex",alignItems:"center",gap:14}},
-        e("img",{src:"data:image/webp;base64,"+LOGO,style:{width:60,height:"auto",filter:"brightness(0) invert(1)"}}),
+        e("img",{src:"data:image/png;base64,"+LOGO,style:{width:60,height:"auto",filter:"brightness(0) invert(1)"}}),
         e("div",null,
           e("div",{style:{fontSize:10,letterSpacing:".25em",textTransform:"uppercase",color:"#EDE84A",fontWeight:700}},"Cassidy Group — "+(tier==="teaser"?"Teaser":tier==="im"?"Investment Memorandum":"Data Room")),
           e("div",{style:{fontSize:17,fontWeight:800,marginTop:2}},shareData.title||"Investment Opportunity")
