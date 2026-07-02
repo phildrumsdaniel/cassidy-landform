@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.80";
+var CURRENT_VERSION = "9.81";
 var VERSION_HISTORY = [
+  {v:"9.81", date:"Jul 2026", headline:"Full 'CASSIDY GROUP LTD' branding on the sign-in screen",
+   affectsCalc:false,
+   changes:["The sign-in screen now shows the full Cassidy Group Ltd lockup — the shield mark plus a 'CASSIDY GROUP LTD' wordmark in the brand navy and gold — instead of just the bare shield mark. Purely cosmetic branding; no change to any figure or calculation."]},
   {v:"9.80", date:"Jul 2026", headline:"Forgot-password reset flow — never get locked out again",
    affectsCalc:false,
    changes:["New 'Forgot password?' link on the sign-in screen. Enter your email, receive a 6-digit code by email, then set a new password — a two-step flow with an on-screen success message and a 'send another code' fallback.","The code expires after 15 minutes and is single-use. Any new password is accepted, including one you've used before — there is no password-reuse restriction.","Backend: paste docs/apps-script-password-reset.js into the Apps Script and re-deploy (adds request_reset + reset_password actions using Google's built-in MailApp; codes live in a separate 'Resets' sheet so the Users schema is untouched). Purely account/login plumbing — no change to any figure or calculation."]},
