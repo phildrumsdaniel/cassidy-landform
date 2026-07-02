@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.84";
+var CURRENT_VERSION = "9.85";
 var VERSION_HISTORY = [
+  {v:"9.85", date:"Jul 2026", headline:"Brand slogan on the sign-in screen",
+   affectsCalc:false,
+   changes:["Added the slogan \"Built by property developers, for property developers\" as a gold tagline under the title on the sign-in screen. Cosmetic only."]},
   {v:"9.84", date:"Jul 2026", headline:"Real Cassidy Group Ltd logo on the sign-in screen",
    affectsCalc:false,
    changes:["The sign-in screen now uses the actual Cassidy Group Ltd brand logo — the navy + gold interlocking 3D C's with the CASSIDY GROUP LTD wordmark — lifted from the brand artwork onto a white background, replacing the earlier vector stand-ins (heart, then drawn C's). It is a touch soft because the source image was low-resolution; a high-res PNG or the vector original can be dropped in for a perfectly crisp version. Cosmetic only."]},

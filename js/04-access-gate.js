@@ -148,7 +148,9 @@ function AccessGate(props){
       e("div",{style:{textAlign:"center",marginBottom:24}},
         // v9.84 — the real Cassidy Group Ltd logo (from brand artwork) on the white card
         e("img",{src:"data:image/png;base64,"+BRAND_LOGO_PNG,alt:"Cassidy Group Ltd",style:{width:220,maxWidth:"100%",height:"auto",marginBottom:14}}),
-        e("h1",{style:{color:"#2E2F8A",fontWeight:800,fontSize:18,marginBottom:4}},"Land & Development Intelligence"),
+        e("h1",{style:{color:"#2E2F8A",fontWeight:800,fontSize:18,marginBottom:6}},"Land & Development Intelligence"),
+        // v9.85 — brand slogan
+        e("p",{style:{color:"#B8912E",fontSize:11,fontWeight:700,letterSpacing:0.4,textTransform:"uppercase",marginBottom:8}},"Built by property developers, for property developers"),
         e("p",{style:{color:"#7278A0",fontSize:12}},subtitle)
       ),
 
