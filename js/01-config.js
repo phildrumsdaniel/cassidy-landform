@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.79";
+var CURRENT_VERSION = "9.80";
 var VERSION_HISTORY = [
+  {v:"9.80", date:"Jul 2026", headline:"Forgot-password reset flow — never get locked out again",
+   affectsCalc:false,
+   changes:["New 'Forgot password?' link on the sign-in screen. Enter your email, receive a 6-digit code by email, then set a new password — a two-step flow with an on-screen success message and a 'send another code' fallback.","The code expires after 15 minutes and is single-use. Any new password is accepted, including one you've used before — there is no password-reuse restriction.","Backend: paste docs/apps-script-password-reset.js into the Apps Script and re-deploy (adds request_reset + reset_password actions using Google's built-in MailApp; codes live in a separate 'Resets' sheet so the Users schema is untouched). Purely account/login plumbing — no change to any figure or calculation."]},
   {v:"9.79", date:"Jul 2026", headline:"Cassidy logo now shows on older iPads/Safari (PNG, not WebP)",
    affectsCalc:false,
    changes:["The Cassidy Group logo was stored as a WebP image, which older iPads and older Safari versions can't display — so it appeared as an empty box on the sign-in screen and elsewhere. The logo is now a PNG, which every device and browser supports. Purely cosmetic; no change to any figure or calculation."]},
