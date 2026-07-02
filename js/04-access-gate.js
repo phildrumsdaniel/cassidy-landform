@@ -146,8 +146,8 @@ function AccessGate(props){
   return e("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",fontFamily:"DM Sans,sans-serif",padding:20}},
     e("div",{style:{background:"#fff",borderRadius:16,padding:"40px 36px",maxWidth:440,width:"100%",boxShadow:"0 8px 40px rgba(0,0,0,0.25)"}},
       e("div",{style:{textAlign:"center",marginBottom:24}},
-        // v9.82 — full Cassidy Group Ltd lockup, crisp inline SVG on the white card
-        e("div",{style:{width:150,margin:"0 auto 14px"},dangerouslySetInnerHTML:{__html:BRAND_LOGO_SVG}}),
+        // v9.84 — the real Cassidy Group Ltd logo (from brand artwork) on the white card
+        e("img",{src:"data:image/png;base64,"+BRAND_LOGO_PNG,alt:"Cassidy Group Ltd",style:{width:220,maxWidth:"100%",height:"auto",marginBottom:14}}),
         e("h1",{style:{color:"#2E2F8A",fontWeight:800,fontSize:18,marginBottom:4}},"Land & Development Intelligence"),
         e("p",{style:{color:"#7278A0",fontSize:12}},subtitle)
       ),
