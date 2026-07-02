@@ -146,10 +146,8 @@ function AccessGate(props){
   return e("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",fontFamily:"DM Sans,sans-serif",padding:20}},
     e("div",{style:{background:"#fff",borderRadius:16,padding:"40px 36px",maxWidth:440,width:"100%",boxShadow:"0 8px 40px rgba(0,0,0,0.25)"}},
       e("div",{style:{textAlign:"center",marginBottom:24}},
-        // v9.81 — full Cassidy Group Ltd lockup: shield mark + wordmark (brand navy + gold)
-        e("img",{src:"data:image/png;base64,"+LOGO,alt:"Cassidy Group Ltd",style:{width:66,height:"auto",marginBottom:8}}),
-        e("div",{style:{color:"#1E1F5C",fontWeight:800,fontSize:24,letterSpacing:3,lineHeight:1}},"CASSIDY"),
-        e("div",{style:{color:"#B8912E",fontWeight:700,fontSize:12,letterSpacing:6,marginTop:3,marginBottom:14}},"GROUP LTD"),
+        // v9.82 — full Cassidy Group Ltd lockup, crisp inline SVG on the white card
+        e("div",{style:{width:150,margin:"0 auto 14px"},dangerouslySetInnerHTML:{__html:BRAND_LOGO_SVG}}),
         e("h1",{style:{color:"#2E2F8A",fontWeight:800,fontSize:18,marginBottom:4}},"Land & Development Intelligence"),
         e("p",{style:{color:"#7278A0",fontSize:12}},subtitle)
       ),
