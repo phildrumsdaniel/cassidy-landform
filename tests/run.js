@@ -694,6 +694,25 @@ console.log("Landform engine consistency tests\n");
      unknown._keystone.assumptions.join(" ").toLowerCase().indexOf("national average") >= 0);
 })();
 
+// 35c — Keystone best-practice assumption set fills a thin brief completely
+(function(){
+  var d = buildDealFromBrief({ town:"Rugby", acres:88 });   // nothing but a place + acreage
+  near("default affordable applied (30%)", num(d.planning.ahPct), 30, 0);
+  near("default S106 applied (£15k/unit)", num(d.sfh.s106pu), 15000, 0);
+  near("default profit applied (17.5%)", num(d.sfh.profitPct), 17.5, 0.1);
+  near("default finance applied (7.5%)", num(d.sfh.finRate), 7.5, 0.1);
+  near("default contingency applied (5%)", num(d.sfh.contingency), 5, 0.1);
+  ok("assumptions register records affordable + S106",
+     d._keystone.assumptions.join(" ").toLowerCase().indexOf("affordable housing: 30%") >= 0 &&
+     d._keystone.assumptions.join(" ").toLowerCase().indexOf("cycleways") >= 0);
+  // brief-supplied values still win over the defaults
+  var d2 = buildDealFromBrief({ town:"Rugby", acres:88, affordablePct:40, s106PerUnit:20000, profitPct:20 });
+  ok("brief affordable % overrides default", num(d2.planning.ahPct) === 40);
+  ok("brief S106 overrides default", num(d2.sfh.s106pu) === 20000);
+  ok("brief profit overrides default", num(d2.sfh.profitPct) === 20);
+  ok("S106_BREAKDOWN sums to the default per-unit", S106_BREAKDOWN.reduce(function(a,r){return a+r.perUnit;},0) === KEYSTONE_DEFAULTS.s106PerUnit);
+})();
+
 // 36 — Keystone auto-creates a house mix + full scheme from a land find
 (function(){
   // a Placona-style raw land find: acres + price, no mix, no units

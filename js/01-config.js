@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.87";
+var CURRENT_VERSION = "9.88";
 var VERSION_HISTORY = [
+  {v:"9.88", date:"Jul 2026", headline:"Best-practice assumption set — a complete appraisal from a thin brief, every figure tweakable",
+   affectsCalc:true,
+   changes:["Keystone now fills EVERY scheme and cost lever with a sensible, flagged default, so a deal built from just a location + acreage is a complete appraisal on day one — you then tweak as you go. Forward-looking basis: full consent assumed, scheme sized to the land, priced to new-build.","Realistic (not rosy) defaults: 30% affordable housing (70/30 rented/shared-ownership) and £15,000/unit S106/CIL — itemised so obligations like cycleways are visible (Education £5k, Highways & cycleways £3k, Health £1.5k, Open space £2.5k, Sport/community £2k, Monitoring £1k). Plus profit 17.5%, finance 7.5%, contingency 5%, fees 10%. Any value supplied in the brief still wins.","New Assumptions register on the Keystone screen: lists every default it applied and where to change it, with the gaps flagged in amber. Honest note that disposal/marketing costs (~3% of GDV) and programme-based finance are not yet modelled, so the residual is slightly optimistic until they are added.","235 engine tests."]},
   {v:"9.87", date:"Jul 2026", headline:"Density slider on Keystone — size the scheme to the land before you build",
    affectsCalc:false,
    changes:["New \"Scheme density\" control on the Keystone screen: once the brief has an acreage, drag homes/acre (or tap a preset — 8/12/16/20 per acre) and watch the unit count update live, with the gross density in dph. It writes the resulting count straight into the brief, so the mix, GDV and residual land value all size to it before you even build. A draft to refine — trim for constraints, buffers and open space."]},

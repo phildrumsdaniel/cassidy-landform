@@ -176,6 +176,30 @@ function keystoneMarketKey(town){
     flag:"Location '" + raw + "' isn't in the market table — pricing, build cost and yield fall back to UK national averages. Verify these against local comparables." };
 }
 
+// v9.88 — Best-practice ASSUMPTION SET. So a scheme built from a thin brief is a
+// COMPLETE appraisal on day one: every input carries a sensible, flagged default you
+// then tweak. Forward-looking — assume consent, size to the land, price to new-build,
+// and load policy-typical affordable + full S106/CIL so the result is realistic, not rosy.
+var KEYSTONE_DEFAULTS = {
+  affordablePct: 30,   // policy-typical
+  affordableSplit: "70% affordable/social rent, 30% shared ownership",
+  s106PerUnit: 15000,  // strategic greenfield, all-in (see S106_BREAKDOWN)
+  contingencyPct: 5,
+  feesPct: 10,
+  profitPct: 17.5,
+  financeRate: 7.5
+};
+// What the £15k/unit S106/CIL is assumed to cover — itemised so it's visible (your
+// cycleways sit under Highways). £/unit; sums to KEYSTONE_DEFAULTS.s106PerUnit.
+var S106_BREAKDOWN = [
+  { item:"Education (primary / secondary)",        perUnit:5000 },
+  { item:"Highways, travel plan & cycleways",      perUnit:3000 },
+  { item:"Healthcare / NHS",                       perUnit:1500 },
+  { item:"Open space, play & landscaping",         perUnit:2500 },
+  { item:"Sport, community & libraries",           perUnit:2000 },
+  { item:"Monitoring & commuted sums",             perUnit:1000 }
+];
+
 // buildDealFromBrief — expand a brief into a complete, engine-valid Landform deal.
 function buildDealFromBrief(brief){
   brief = brief || {};
@@ -249,6 +273,31 @@ function buildDealFromBrief(brief){
   var autoSalePsf = (journey === "sfh" || journey === "land")
     ? Math.round(keystoneSalePsf(cityKey, brief.postcode)) : 0;
 
+  // ── Best-practice assumption set — fill every cost/scheme lever so the appraisal is
+  // complete on day one. Brief-supplied values always win; otherwise sensible defaults.
+  var isHousing = (journey === "sfh" || journey === "land");
+  function _has(kf){ return brief[kf] != null && brief[kf] !== ""; }
+  var ahPctVal   = _has("affordablePct") ? num(brief.affordablePct) : (isHousing ? KEYSTONE_DEFAULTS.affordablePct : 0);
+  var s106Val    = _has("s106PerUnit")   ? num(brief.s106PerUnit)   : (isHousing ? KEYSTONE_DEFAULTS.s106PerUnit : 0);
+  var contVal    = _has("contingencyPct")? num(brief.contingencyPct): KEYSTONE_DEFAULTS.contingencyPct;
+  var profitVal  = _has("profitPct")     ? num(brief.profitPct)     : KEYSTONE_DEFAULTS.profitPct;
+  var finRateVal = _has("financeRate")   ? num(brief.financeRate)   : KEYSTONE_DEFAULTS.financeRate;
+
+  // Record the applied assumption set so it's fully visible and tweakable (the
+  // Assumptions register on the Keystone screen reads these).
+  var assumeNotes = [];
+  if(isHousing){
+    assumeNotes.push("Planning: full consent assumed (forward-looking basis).");
+    assumeNotes.push("Affordable housing: " + ahPctVal + "%" + (_has("affordablePct") ? " (from brief)" :
+      " (assumed policy-typical — " + KEYSTONE_DEFAULTS.affordableSplit + ")") + ".");
+    assumeNotes.push("S106 / CIL: £" + s106Val.toLocaleString() + "/unit" + (_has("s106PerUnit") ? " (from brief)" :
+      " (assumed — Education £5k, Highways & cycleways £3k, Health £1.5k, Open space £2.5k, Sport/community £2k, Monitoring £1k)") + ".");
+    assumeNotes.push("Developer profit " + profitVal + "% of GDV; finance " + finRateVal + "%; contingency " + contVal +
+      "% of build; professional fees 10%; roads £12k/unit; site infrastructure £53k/acre." +
+      ((_has("profitPct")||_has("financeRate")||_has("contingencyPct")) ? " (some from brief)" : " (assumed)"));
+    assumeNotes.push("NOT YET IN THE MODEL: disposal/marketing costs (~3% of GDV) and programme-based finance — treat the residual as slightly optimistic until these are added. Tweak every figure in Land Appraisal, SFH House Mix and Financials.");
+  }
+
   var deal = {
     assetType: journey,
     // v9.75 — origination status, carried from day one: are we developing this, or
@@ -267,10 +316,10 @@ function buildDealFromBrief(brief){
     },
     planning: {
       units: units || "",
-      ahPct: num(brief.affordablePct) || "",
+      ahPct: ahPctVal || "",
       status: keystoneMapPlanning(brief.planningStatus),
       lpa: brief.lpa || "",
-      s106pu: num(brief.s106PerUnit) || ""
+      s106pu: s106Val || ""
     },
     sfh: {
       city: cityKey,
@@ -278,11 +327,12 @@ function buildDealFromBrief(brief){
       mix: mix,
       buildPsf: num(brief.buildPsf) || "",
       basePsf: num(brief.salePsf) || autoSalePsf || "",
-      profitPct: num(brief.profitPct) || "",
-      finRate: num(brief.financeRate) || "",
-      contingency: num(brief.contingencyPct) || "",
-      s106pu: num(brief.s106PerUnit) || "",
-      ahPct: num(brief.affordablePct) || "",
+      profitPct: profitVal || "",
+      finRate: finRateVal || "",
+      contingency: contVal || "",
+      s106pu: s106Val || "",
+      ahPct: ahPctVal || "",
+      ahTenure: brief.ahTenure || (isHousing && ahPctVal ? "ahp_affordable" : ""),
       haSpecBuild: !!brief.haSpec
     },
     rlv: {
@@ -296,10 +346,10 @@ function buildDealFromBrief(brief){
     fin: {
       units: units || "",
       buildPsf: num(brief.buildPsf) || "",
-      profitPct: num(brief.profitPct) || "",
-      finRate: num(brief.financeRate) || "",
-      contingency: num(brief.contingencyPct) || "",
-      s106pu: num(brief.s106PerUnit) || "",
+      profitPct: profitVal || "",
+      finRate: finRateVal || "",
+      contingency: contVal || "",
+      s106pu: s106Val || "",
       exitYield: yieldPct || "",
       programmeMths: num(brief.programmeYears) ? num(brief.programmeYears) * 12 : ""
     },
@@ -312,7 +362,7 @@ function buildDealFromBrief(brief){
       builtAt: new Date().toISOString(),
       journey: journey,
       dealName: brief.dealName || brief.address || "Keystone deal",
-      assumptions: (brief.assumptions || []).slice().concat(locNote ? [locNote] : []).concat(autoUnitNote ? [autoUnitNote] : []).concat(genMixNote ? [genMixNote] : []),
+      assumptions: (brief.assumptions || []).slice().concat(locNote ? [locNote] : []).concat(autoUnitNote ? [autoUnitNote] : []).concat(genMixNote ? [genMixNote] : []).concat(assumeNotes),
       notes: brief.notes || ""
     }
   };

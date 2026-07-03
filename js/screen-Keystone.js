@@ -204,6 +204,18 @@ function renderKeystone(data, setData, up, navTo, user){
       k.builtJourney && e("div",{style:{padding:"10px 12px",background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.35)",borderRadius:6,fontSize:12,color:"#1d5446",marginBottom:12,lineHeight:1.6}},
         e("strong",null,"✓ Built. "),"Loaded as a "+(journeyLabel[k.builtJourney]||k.builtJourney)+" deal. Open the ",e("strong",null,"Deal Dashboard")," to see the figures, or step through from ",e("strong",null,"Land Appraisal"),"."
       ),
+      // v9.88 — Assumptions register: every default Keystone applied, so the appraisal is
+      // complete on day one and you can see (and then tweak) exactly what it assumed.
+      (data._keystone && data._keystone.assumptions && data._keystone.assumptions.length) ? e("div",{style:{border:"1px solid #DDE0ED",borderRadius:8,padding:"12px 14px",marginBottom:12,background:"#FBFBFE"}},
+        e("div",{style:{fontSize:12,fontWeight:800,color:"#2E2F8A",marginBottom:2}},"📋 Assumptions applied — the appraisal is complete on these, now tweak"),
+        e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:8,lineHeight:1.5}},"Every figure below is a best-practice default filled in so you get a result straight away. Change any of them in Land Appraisal, SFH House Mix, Planning or Financials — the whole model re-runs."),
+        e("ul",{style:{margin:0,paddingLeft:18}},
+          data._keystone.assumptions.map(function(a,i){
+            var warn = /not yet in the model|verify|optimistic|underestimate|national average|isn't/i.test(a);
+            return e("li",{key:i,style:{fontSize:11,color:warn?"#9A5B2E":"#3A3D6A",lineHeight:1.6,marginBottom:3,fontWeight:warn?700:400}}, a);
+          })
+        )
+      ) : null,
       e("div",{style:{display:"flex",gap:10,flexWrap:"wrap"}},
         e("button",{onClick:buildDeal,disabled:!(k.brief||"").trim(),style:{padding:"9px 18px",background:(k.brief||"").trim()?"#2D7A65":"#9AA",border:"none",color:"#fff",borderRadius:6,fontSize:13,fontWeight:700,cursor:(k.brief||"").trim()?"pointer":"not-allowed",fontFamily:"DM Sans,sans-serif"}},"🏗 Build deal & load it"),
         k.builtJourney && e("button",{onClick:function(){navTo("dashboard");},style:{padding:"9px 18px",background:"#fff",border:"1px solid #4A4BAE",color:"#4A4BAE",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Go to Deal Dashboard →"),
