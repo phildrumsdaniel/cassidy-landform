@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.90";
+var CURRENT_VERSION = "9.91";
 var VERSION_HISTORY = [
+  {v:"9.91", date:"Jul 2026", headline:"Universal location resolution — any UK village resolves from its postcode, no manual list needed",
+   affectsCalc:true,
+   changes:["Keystone now resolves ANY UK location automatically from its POSTCODE. Every postcode area (NE, TS, CV, LS, EX, …) is mapped to its nearest anchor market, so a village outside Newcastle (NE20), Middlesbrough (TS9) or anywhere else gets the right region, build cost, yield and pricing without being listed by name — and without needing a code change. Sale £/sqft still uses the site's own postcode Land Registry value where available, so it stays hyper-local.","Resolution order: named market → known village alias → POSTCODE area → (last resort) national averages, always clearly flagged with how it resolved. The clear message when nothing resolves: add a postcode.","Region lookup (BCIS build cost) also falls back to the postcode when the town isn't a named market. 255 engine tests."]},
   {v:"9.90", date:"Jul 2026", headline:"Investor yield slider on the exit comparison; finance set to a conservative 12%",
    affectsCalc:true,
    changes:["New INVESTOR YIELD SLIDER on the sell-vs-capitalise comparison (Capitalisation screen): drag the net initial yield the fund would buy on (3.5–6.5%, plus 4.0/4.5/5.0/5.5 presets) and the capitalised value and Cassidy's profit update live — showing the exact yield at which a forward-fund exit beats selling the homes. Built for investor marketing.","Finance now defaults to a conservative 12% all-in (was 7.5%) so headroom is real and not flattered — the prudent basis for deciding what to pay for land. Editable per deal.","Cashflow / programme-based finance is earmarked next as an investor-marketing and data-room deliverable.","246 engine tests."]},
@@ -1694,9 +1697,69 @@ var UK_REGION_BY_CITY = {
   edinburgh:"Scotland", glasgow:"Scotland", aberdeen:"Scotland", dundee:"Scotland", inverness:"Scotland",
   cardiff:"Wales", swansea:"Wales"
 };
+// POSTCODE_AREA_TO_MARKET (v9.91) — every UK postcode AREA (the letters before the
+// first digit) mapped to its nearest ANCHOR market that exists in MKT. This is how
+// Keystone resolves ANY village automatically: a site's postcode → area → anchor city,
+// which then gives the region (via UK_REGION_BY_CITY), the yield/rents (via MKT) and a
+// sale-price fallback — with no need to list every village by name. Sale £/sqft still
+// prefers the site's own postcode (PC_PSF) where available, so it stays hyper-local.
+var POSTCODE_AREA_TO_MARKET = {
+  // ── North East ──
+  NE:"newcastle", SR:"newcastle", DH:"newcastle", DL:"newcastle", TS:"newcastle",
+  // ── Yorkshire & Humber ──
+  LS:"leeds", BD:"leeds", WF:"wakefield", HD:"leeds", HX:"leeds", HG:"harrogate",
+  YO:"york", HU:"hull", S:"sheffield", DN:"doncaster",
+  // ── North West ──
+  M:"manchester", BL:"manchester", BB:"manchester", OL:"manchester", SK:"manchester",
+  WN:"manchester", WA:"manchester", PR:"manchester", FY:"manchester", LA:"manchester",
+  CA:"manchester", L:"liverpool", CH:"chester", CW:"chester",
+  // ── West Midlands ──
+  B:"birmingham", CV:"coventry", WS:"birmingham", WV:"birmingham", DY:"birmingham",
+  ST:"birmingham", TF:"birmingham", WR:"worcester", HR:"worcester", SY:"worcester",
+  // ── East Midlands ──
+  NG:"nottingham", LE:"leicester", DE:"derby", NN:"northampton", LN:"nottingham",
+  // ── East of England ──
+  CB:"cambridge", PE:"peterborough", IP:"cambridge", NR:"cambridge", CO:"colchester",
+  CM:"chelmsford", SS:"southend", SG:"stevenage", AL:"st_albans", LU:"watford",
+  EN:"watford", WD:"watford", HP:"watford",
+  // ── South East ──
+  OX:"oxford", RG:"reading", SL:"reading", MK:"milton_keynes", GU:"guildford",
+  RH:"guildford", KT:"guildford", ME:"maidstone", CT:"canterbury", TN:"tunbridge_wells",
+  DA:"maidstone", BN:"brighton", PO:"portsmouth", SO:"southampton", SP:"southampton",
+  // ── London ──
+  E:"london", EC:"london", WC:"london", N:"london", NW:"london", SE:"london",
+  SW:"london", W:"london", HA:"london", UB:"london", IG:"london", RM:"london",
+  BR:"london", CR:"london", SM:"london", TW:"london",
+  // ── South West ──
+  BS:"bristol", BA:"bath", GL:"tewkesbury", SN:"bristol", TA:"taunton", DT:"bournemouth",
+  BH:"bournemouth", EX:"exeter", PL:"plymouth", TQ:"torquay", TR:"truro",
+  // ── Wales ──
+  CF:"cardiff", NP:"cardiff", SA:"swansea", LL:"chester", LD:"cardiff",
+  // ── Scotland ──
+  EH:"edinburgh", G:"glasgow", AB:"aberdeen", DD:"dundee", IV:"inverness", KY:"edinburgh",
+  FK:"glasgow", ML:"glasgow", PA:"glasgow", KA:"glasgow", DG:"glasgow", TD:"edinburgh",
+  PH:"edinburgh", KW:"inverness", HS:"inverness", ZE:"inverness"
+};
+// The letter area of a UK postcode, e.g. "NE20 9AB" → "NE", "B15" → "B".
+function postcodeArea(pc){
+  var m = String(pc || "").toUpperCase().replace(/\s+/g, "").match(/^[A-Z]{1,2}/);
+  return m ? m[0] : "";
+}
+// Postcode → nearest anchor market key (must exist in MKT), else "".
+function postcodeMarketKey(pc){
+  var area = postcodeArea(pc);
+  if(!area) return "";
+  var mk = POSTCODE_AREA_TO_MARKET[area];
+  return (mk && typeof MKT !== "undefined" && MKT[mk]) ? mk : "";
+}
 function ukRegionFor(data){
   var c = (typeof dealCityKey === "function") ? dealCityKey(data) : "";
-  return UK_REGION_BY_CITY[c] || "UK (national average)";
+  if(UK_REGION_BY_CITY[c]) return UK_REGION_BY_CITY[c];
+  // Fallback: resolve the region from the site's postcode area → anchor market.
+  var pc = (data.land && data.land.postcode) || (data.rlv && data.rlv.postcode) || (data.epe && data.epe.postcode) || "";
+  var pcMk = postcodeMarketKey(pc);
+  if(pcMk && UK_REGION_BY_CITY[pcMk]) return UK_REGION_BY_CITY[pcMk];
+  return "UK (national average)";
 }
 // areaYield — the area's benchmark NET INITIAL yield as a PERCENT (e.g. 4.7 for Maldon).
 // Falls back to 4.7% if the area has no benchmark.

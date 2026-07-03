@@ -694,6 +694,25 @@ console.log("Landform engine consistency tests\n");
      unknown._keystone.assumptions.join(" ").toLowerCase().indexOf("national average") >= 0);
 })();
 
+// 35b2 — UNIVERSAL postcode resolution: any village resolves via its postcode area
+(function(){
+  ok("postcodeArea('NE20 9AB') → NE", postcodeArea("NE20 9AB") === "NE");
+  ok("postcodeArea('B15') → B", postcodeArea("B15") === "B");
+  ok("NE postcode → newcastle market", postcodeMarketKey("NE20") === "newcastle");
+  ok("TS (Middlesbrough) postcode → newcastle anchor", postcodeMarketKey("TS9 5AB") === "newcastle");
+  // a village NOT listed anywhere, but with a postcode, still resolves + gets the region
+  var v = buildDealFromBrief({ town:"Ponteland", postcode:"NE20 9AA", acres:40 });
+  ok("unlisted village resolves to the anchor market via postcode", v.land.city === "newcastle");
+  ok("region derived from postcode (North East)", ukRegionFor(v) === "North East");
+  ok("resolution is flagged as postcode-derived", v._keystone.assumptions.join(" ").toLowerCase().indexOf("resolved from postcode") >= 0);
+  // a village near Middlesbrough
+  var v2 = buildDealFromBrief({ town:"Great Ayton", postcode:"TS9 6QF", acres:25 });
+  ok("Middlesbrough-area village → newcastle anchor + North East", v2.land.city === "newcastle" && ukRegionFor(v2) === "North East");
+  // ukRegionFor postcode fallback works even with an unknown city string
+  ok("ukRegionFor falls back to postcode when city unknown",
+     ukRegionFor({ land:{ city:"somewhereville", postcode:"EX15 2AA" } }) === "South West");
+})();
+
 // 35c — Keystone best-practice assumption set fills a thin brief completely
 (function(){
   var d = buildDealFromBrief({ town:"Rugby", acres:88 });   // nothing but a place + acreage

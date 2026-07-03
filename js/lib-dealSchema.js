@@ -163,17 +163,27 @@ var KEYSTONE_MARKET_ALIAS = {
   binley_woods:"coventry", bulkington:"coventry", kenilworth:"coventry"
 };
 function _keystoneTitle(s){ return String(s).replace(/_/g, " ").replace(/\b\w/g, function(c){ return c.toUpperCase(); }); }
-function keystoneMarketKey(town){
+function keystoneMarketKey(town, postcode){
   var raw = (town == null ? "" : String(town)).trim();
-  if(!raw) return { key:"", flag:"" };
-  var key = raw.toLowerCase().replace(/[\s\-]+/g, "_").replace(/[^a-z0-9_]/g, "");
   var has = (typeof MKT !== "undefined");
-  if(has && MKT[key]) return { key:key, flag:"" };
-  var alias = KEYSTONE_MARKET_ALIAS[key];
+  var key = raw ? raw.toLowerCase().replace(/[\s\-]+/g, "_").replace(/[^a-z0-9_]/g, "") : "";
+  // 1) the town is itself a named market
+  if(key && has && MKT[key]) return { key:key, flag:"" };
+  // 2) a known village/suburb alias → its nearest market
+  var alias = key ? KEYSTONE_MARKET_ALIAS[key] : "";
   if(alias && has && MKT[alias]) return { key:alias,
     flag:"Location '" + raw + "' isn't a named market — using the nearest market, " + _keystoneTitle(alias) + ", for pricing, build cost and yield. Verify against local comparables." };
+  // 3) UNIVERSAL: resolve ANY location from its postcode area → nearest anchor market.
+  // This is how a village outside Newcastle, Middlesbrough, etc. resolves automatically
+  // without being listed by name — as long as a postcode is supplied.
+  if(postcode && typeof postcodeMarketKey === "function"){
+    var pcMk = postcodeMarketKey(postcode);
+    if(pcMk && has && MKT[pcMk]) return { key:pcMk,
+      flag:"Location '" + (raw || postcode) + "' resolved from postcode " + (typeof postcodeArea === "function" ? postcodeArea(postcode) : "") + " to the nearest market, " + _keystoneTitle(pcMk) + " (" + (typeof ukRegionFor === "function" ? ukRegionFor({land:{postcode:postcode}}) : "") + "). Sale prices still use the postcode's own Land Registry value where available. Verify against local comparables." };
+  }
+  // 4) nothing to go on → national averages, clearly flagged
   return { key:key,
-    flag:"Location '" + raw + "' isn't in the market table — pricing, build cost and yield fall back to UK national averages. Verify these against local comparables." };
+    flag:"Location '" + (raw || "(none)") + "' isn't in the market table and no postcode was given — pricing, build cost and yield fall back to UK national averages. Add a postcode so Keystone can resolve the area automatically." };
 }
 
 // v9.88 — Best-practice ASSUMPTION SET. So a scheme built from a thin brief is a
@@ -205,7 +215,7 @@ var S106_BREAKDOWN = [
 function buildDealFromBrief(brief){
   brief = brief || {};
   var journey = detectJourney(brief);
-  var _mk = keystoneMarketKey(brief.town || brief.city || "");
+  var _mk = keystoneMarketKey(brief.town || brief.city || "", brief.postcode);
   var cityKey = _mk.key;
   var locNote = _mk.flag;
 
