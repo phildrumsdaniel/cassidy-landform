@@ -99,6 +99,51 @@ function renderKeystone(data, setData, up, navTo, user){
 
   var detected = (function(){ try{ return detectJourney(JSON.parse(k.brief||"{}")); }catch(e2){ return ""; } })();
 
+  // v9.87 — density control: size the scheme to the land before building. Reads acres
+  // from the brief, lets you set homes/acre, and writes the resulting unit count straight
+  // into the brief so the build (and the whole appraisal) uses it.
+  var briefObj = (function(){ try{ return JSON.parse(k.brief||"{}"); }catch(e2){ return null; } })();
+  var briefAcres = briefObj ? num(briefObj.acres) : 0;
+  var briefDensity = (briefObj && num(briefObj.density||briefObj.homesPerAcre)) || 12;
+  briefDensity = Math.max(4, Math.min(40, briefDensity));
+  function patchBrief(patch){
+    var o; try{ o = JSON.parse(k.brief||"{}"); }catch(e2){ return; }
+    Object.assign(o, patch);
+    up("keystone","brief", JSON.stringify(o, null, 2));
+  }
+  function setDensity(d){
+    d = Math.max(4, Math.min(40, Math.round(d)));
+    patchBrief({ density:d, units: Math.round(briefAcres * d) });
+  }
+  var densityUnits = Math.round(briefAcres * briefDensity);
+  var densityCard = (briefObj && briefAcres > 0) ? e("div",{style:Object.assign({},S.card,{borderLeft:"4px solid #4A4BAE"})},
+    e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:8}},
+      e("div",{style:S.cardTitle},"2b · Scheme density — size it to the land"),
+      e("div",{style:{fontSize:12,color:"#7278A0"}}, briefAcres+" acres")
+    ),
+    e("p",{style:{fontSize:11,color:"#7278A0",lineHeight:1.6,margin:"0 0 12px",maxWidth:640}},
+      "Landform is forward-looking: assume the scheme can be consented and set the density you'd expect to achieve. The whole scheme — mix, GDV and residual land value — sizes to this. A draft to refine; typical greenfield is ~10–14 homes/acre gross."),
+    e("div",{style:{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}},
+      e("input",{type:"range",min:4,max:40,step:1,value:briefDensity,
+        onChange:function(ev){ setDensity(num(ev.target.value)); },
+        style:{flex:"1 1 240px",accentColor:"#4A4BAE",cursor:"pointer"}}),
+      e("div",{style:{textAlign:"center",minWidth:150}},
+        e("div",{style:{fontSize:26,fontWeight:800,color:"#2E2F8A",lineHeight:1}}, densityUnits.toLocaleString()+" homes"),
+        e("div",{style:{fontSize:11,color:"#7278A0",marginTop:2}}, briefDensity+" /acre  ·  ~"+Math.round(briefDensity*2.471)+" dph")
+      )
+    ),
+    e("div",{style:{display:"flex",gap:6,flexWrap:"wrap",marginTop:12}},
+      [["8","Low / large plots"],["12","Typical estate"],["16","Suburban"],["20","Higher density"]].map(function(p){
+        var v = num(p[0]); var on = briefDensity === v;
+        return e("button",{key:p[0],onClick:function(){ setDensity(v); },
+          style:{padding:"6px 12px",background:on?"#4A4BAE":"#fff",color:on?"#fff":"#3A3D6A",border:"1px solid "+(on?"#4A4BAE":"#DDE0ED"),borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
+          p[0]+"/acre · "+p[1]);
+      })
+    ),
+    e("div",{style:{fontSize:10,color:"#9A7B3E",marginTop:10,fontStyle:"italic"}},
+      "Sets the unit count in the brief to "+densityUnits.toLocaleString()+". Net developable area is usually less than the gross site — trim the density if there are constraints, buffers or open space.")
+  ) : null;
+
   return e("div", null,
     e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8,flexWrap:"wrap",gap:10}},
       e("div",null,
@@ -136,6 +181,9 @@ function renderKeystone(data, setData, up, navTo, user){
         style:{width:"100%",minHeight:200,padding:"10px 12px",border:"1px solid #DDE0ED",borderRadius:8,fontSize:12,fontFamily:"DM Mono,monospace",lineHeight:1.5,resize:"vertical"}}),
       detected && e("div",{style:{marginTop:8,fontSize:11,color:"#2D7A65",fontWeight:700}},"→ Keystone will set this up as a "+(journeyLabel[detected]||detected)+" deal (auto-detected). You can change the journey later.")
     ),
+
+    // 2b — Density (only when the brief has an acreage)
+    densityCard,
 
     // 3 — Build
     e("div",{style:Object.assign({},S.card,{borderLeft:"4px solid #2D7A65"})},
