@@ -674,9 +674,24 @@ console.log("Landform engine consistency tests\n");
   var d2 = buildDealFromBrief({ town:"Rugby", acres:88 });
   near("no count, no density → default 12/acre → 1056", num(d2.land.units), 1056, 0);
   ok("estimation recorded as an assumption", (d2._keystone.assumptions.join(" ").toLowerCase().indexOf("density") >= 0));
-  // an explicit unit count still wins
-  var d3 = buildDealFromBrief({ town:"Rugby", acres:88, units:200, density:12 });
-  ok("explicit unit count overrides density estimate", num(d3.land.units) === 200);
+  // a PLAUSIBLE explicit unit count is honoured (10/acre on 20 acres)
+  var d3 = buildDealFromBrief({ town:"Rugby", acres:20, units:200, density:12 });
+  ok("plausible explicit unit count honoured", num(d3.land.units) === 200);
+  // v9.86 — an implausibly LOW count on a strategic greenfield (2.3/acre on 88 acres,
+  // e.g. a portal/AI underestimate) is upsized to what the land can carry, and flagged.
+  var d4 = buildDealFromBrief({ town:"Rugby", acres:88, units:200 });
+  near("200 on 88 acres upsized to ~1056 at 12/acre", num(d4.land.units), 1056, 0);
+  ok("low-count upsize flagged", d4._keystone.assumptions.join(" ").toLowerCase().indexOf("homes/acre") >= 0);
+})();
+
+// 35b — Keystone flags an unrecognised location (Ryton/Wolston) and maps it to a market
+(function(){
+  var ry = buildDealFromBrief({ town:"Ryton-on-Dunsmore", acres:88, askingPrice:12500000 });
+  ok("Ryton-on-Dunsmore mapped to a known market (rugby)", ry.land.city === "rugby");
+  ok("nearest-market use is flagged", ry._keystone.assumptions.join(" ").toLowerCase().indexOf("nearest market") >= 0);
+  var unknown = buildDealFromBrief({ town:"Nowhereville", acres:40 });
+  ok("truly unknown location flagged as national-average fallback",
+     unknown._keystone.assumptions.join(" ").toLowerCase().indexOf("national average") >= 0);
 })();
 
 // 36 — Keystone auto-creates a house mix + full scheme from a land find

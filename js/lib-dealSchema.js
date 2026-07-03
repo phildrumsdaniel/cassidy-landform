@@ -98,13 +98,43 @@ function detectJourney(brief){
   return "land";
 }
 
-// keystoneGenerateMix — a typical estate house-type blend for a unit count, sized and
-// priced off the area's sale benchmark. A STARTING DRAFT to refine, not a market claim.
-function keystoneGenerateMix(units, cityKey){
-  units = num(units); if(units <= 0) return [];
+// keystoneSalePsf — a realistic NEW-BUILD sale £/sqft for auto-pricing a scheme.
+// Order of preference:
+//   1) the postcode's Land Registry £/sqft (PC_PSF) + the regional new-build premium —
+//      the engine's own basis (e.g. CV8 Ryton/Wolston → ~£380 × 1.16 ≈ £441).
+//   2) a market-level Land Registry £/sqft (MKT[key].lrPsf) + premium.
+//   3) a rent-capitalised estimate at an OWNER-OCCUPIER cap rate (~4.2%), not the
+//      conservative ~5% rental yield — the rental yield understated sale values and
+//      made otherwise-viable schemes look unprofitable.
+//   4) a sensible new-build default.
+function keystoneSalePsf(cityKey, postcode){
+  if(postcode && typeof PC_PSF !== "undefined" && typeof newBuildPsf === "function"){
+    var clean = String(postcode).toUpperCase().replace(/\s/g, "");
+    for(var len = 4; len >= 2; len--){
+      var pref = clean.substring(0, len);
+      if(PC_PSF[pref] != null){
+        var nb = newBuildPsf(postcode, PC_PSF[pref]);
+        if(nb && nb.newBuild) return nb.newBuild;
+      }
+    }
+  }
   var mk = (typeof MKT !== "undefined") ? MKT[cityKey] : null;
-  var basePsf = (mk && mk.btr && typeof estSalePsfFromRent === "function")
-    ? Math.max(150, Math.min(650, Math.round(estSalePsfFromRent(mk.btr)))) : 260;
+  if(mk && mk.lrPsf && typeof newBuildPsf === "function"){
+    var nb2 = newBuildPsf(postcode || "", mk.lrPsf);
+    if(nb2 && nb2.newBuild) return nb2.newBuild;
+  }
+  if(mk && mk.btr && typeof estSalePsfFromRent === "function"){
+    var v = estSalePsfFromRent(mk.btr, { yield:0.042 });
+    if(v) return v;
+  }
+  return 300;
+}
+
+// keystoneGenerateMix — a typical estate house-type blend for a unit count, sized and
+// priced off the area's NEW-BUILD sale benchmark. A STARTING DRAFT to refine, not a market claim.
+function keystoneGenerateMix(units, cityKey, postcode){
+  units = num(units); if(units <= 0) return [];
+  var basePsf = Math.max(180, Math.min(650, Math.round(keystoneSalePsf(cityKey, postcode))));
   var ratios = [
     { type:"2-bed semi",     pct:0.10, sqft:820,  adj:0.90 },
     { type:"3-bed semi",     pct:0.35, sqft:1020, adj:1.00 },
@@ -121,11 +151,38 @@ function keystoneGenerateMix(units, cityKey){
   });
 }
 
+// keystoneMarketKey — resolve a free-text town to a known market key that drives
+// pricing, build cost and yield. Normalises spaces AND hyphens (so "Ryton-on-Dunsmore"
+// can match), maps nearby villages to their nearest named market, and — crucially —
+// FLAGS when a location isn't recognised, so a deal is never silently priced on
+// national averages without the user knowing.
+var KEYSTONE_MARKET_ALIAS = {
+  ryton_on_dunsmore:"rugby", ryton:"rugby", wolston:"rugby", dunchurch:"rugby",
+  bilton:"rugby", long_lawford:"rugby", brandon:"rugby", stretton_on_dunsmore:"rugby",
+  hillmorton:"rugby", clifton_upon_dunsmore:"rugby",
+  binley_woods:"coventry", bulkington:"coventry", kenilworth:"coventry"
+};
+function _keystoneTitle(s){ return String(s).replace(/_/g, " ").replace(/\b\w/g, function(c){ return c.toUpperCase(); }); }
+function keystoneMarketKey(town){
+  var raw = (town == null ? "" : String(town)).trim();
+  if(!raw) return { key:"", flag:"" };
+  var key = raw.toLowerCase().replace(/[\s\-]+/g, "_").replace(/[^a-z0-9_]/g, "");
+  var has = (typeof MKT !== "undefined");
+  if(has && MKT[key]) return { key:key, flag:"" };
+  var alias = KEYSTONE_MARKET_ALIAS[key];
+  if(alias && has && MKT[alias]) return { key:alias,
+    flag:"Location '" + raw + "' isn't a named market — using the nearest market, " + _keystoneTitle(alias) + ", for pricing, build cost and yield. Verify against local comparables." };
+  return { key:key,
+    flag:"Location '" + raw + "' isn't in the market table — pricing, build cost and yield fall back to UK national averages. Verify these against local comparables." };
+}
+
 // buildDealFromBrief — expand a brief into a complete, engine-valid Landform deal.
 function buildDealFromBrief(brief){
   brief = brief || {};
   var journey = detectJourney(brief);
-  var cityKey = ((brief.town || brief.city || "")).toString().toLowerCase().replace(/\s+/g, "_");
+  var _mk = keystoneMarketKey(brief.town || brief.city || "");
+  var cityKey = _mk.key;
+  var locNote = _mk.flag;
 
   // ── House mix ──
   var mix = (brief.houseMix || []).map(function(r){
@@ -147,29 +204,50 @@ function buildDealFromBrief(brief){
   var mgmtPct = numOr(brief.mgmtPct, 25);
   var netPa = grossPa * (1 - mgmtPct / 100);
 
-  var units = num(brief.units) || mixUnits || rentUnits || 0;
-  // v9.77 — if no unit count is given, estimate it from the acreage × density so Keystone
-  // sizes the scheme to the land mass. Uses the brief's density (homes/acre) or a sensible
-  // greenfield default (~12/acre gross), and records it as an assumption to verify.
+  var suppliedUnits = num(brief.units) || mixUnits || rentUnits || 0;
+  // v9.77/v9.86 — size the scheme to the land mass. Landform is forward-looking: we
+  // assume a scheme CAN be consented and test whether it stacks. So the unit count must
+  // reflect what the acreage can carry, not a low portal/AI guess.
+  //   • No count given      → estimate from acres × density (brief density or ~12/acre gross).
+  //   • Count given, sane    → honour it.
+  //   • Count given, far too
+  //     low for a strategic
+  //     greenfield (<5/acre
+  //     on ≥15 acres, no mix) → treat as an underestimate and size to the land, recording
+  //                             the original so it can be restored in one field.
   var acres = num(brief.acres);
   var density = num(brief.density || brief.homesPerAcre);
+  var d = density > 0 ? density : 12;
+  var densityUnits = acres > 0 ? Math.round(acres * d) : 0;
+  var units = suppliedUnits;
   var autoUnitNote = "";
-  if(!units && acres > 0){
-    var d = density > 0 ? density : 12;
-    units = Math.round(acres * d);
+  if(!units && densityUnits > 0){
+    units = densityUnits;
     autoUnitNote = "Units estimated from density: " + acres + " acres × " + d + " homes/acre ≈ " + units + " (no unit count supplied — verify).";
+  } else if(units && !mix.length && densityUnits > 0 && acres >= 15 &&
+            (journey === "sfh" || journey === "land") && (units / acres) < 5){
+    autoUnitNote = "Supplied unit count " + units + " on " + acres + " acres is only ~" +
+      (Math.round((units / acres) * 10) / 10) + " homes/acre — well below a typical scheme. " +
+      "Sized to " + densityUnits + " at " + d + " homes/acre so the appraisal reflects the land. " +
+      "If the scheme really is low-density, set the unit count in Land Appraisal.";
+    units = densityUnits;
   }
   // v9.78 — if it's a housing scheme with a unit count but no house mix, auto-generate a
   // typical estate blend so the deal has a full scheme (GDV/RLV, and the rental
   // capitalisation) straight away. A starting draft to refine in SFH House Mix.
   var genMixNote = "";
   if(!mix.length && units > 0 && (journey === "sfh" || journey === "land") && typeof keystoneGenerateMix === "function"){
-    mix = keystoneGenerateMix(units, cityKey);
+    mix = keystoneGenerateMix(units, cityKey, brief.postcode);
     journey = "sfh";
     genMixNote = "House mix auto-generated as a typical estate blend for " + units + " homes, priced off area benchmarks — refine the types and prices in SFH House Mix.";
   }
 
   var yieldPct = num(brief.netInitialYield) || 0;
+
+  // A realistic new-build sale £/sqft benchmark for housing schemes, so the SFH mix,
+  // the RLV "does it stack" screen and the tenure calc all price off the same basis.
+  var autoSalePsf = (journey === "sfh" || journey === "land")
+    ? Math.round(keystoneSalePsf(cityKey, brief.postcode)) : 0;
 
   var deal = {
     assetType: journey,
@@ -184,7 +262,7 @@ function buildDealFromBrief(brief){
       price: num(brief.askingPrice) || "",
       units: units || "",
       assumedUnits: (mix.length ? "" : (units || "")),                  // feeds the "What You Should Pay" panel
-      assumedDensity: (density > 0 ? density : (autoUnitNote ? 12 : "")),
+      assumedDensity: (density > 0 ? density : (autoUnitNote ? d : "")),
       planningStatus: brief.planningStatus || ""
     },
     planning: {
@@ -199,7 +277,7 @@ function buildDealFromBrief(brief){
       acres: num(brief.acres) || "",
       mix: mix,
       buildPsf: num(brief.buildPsf) || "",
-      basePsf: num(brief.salePsf) || "",
+      basePsf: num(brief.salePsf) || autoSalePsf || "",
       profitPct: num(brief.profitPct) || "",
       finRate: num(brief.financeRate) || "",
       contingency: num(brief.contingencyPct) || "",
@@ -209,7 +287,7 @@ function buildDealFromBrief(brief){
     },
     rlv: {
       units: units || "",
-      salePsf: num(brief.salePsf) || "",
+      salePsf: num(brief.salePsf) || autoSalePsf || "",
       buildPsf: num(brief.buildPsf) || "",
       avgSqft: num(brief.avgSqft) || "",
       city: cityKey,
@@ -234,7 +312,7 @@ function buildDealFromBrief(brief){
       builtAt: new Date().toISOString(),
       journey: journey,
       dealName: brief.dealName || brief.address || "Keystone deal",
-      assumptions: (brief.assumptions || []).slice().concat(autoUnitNote ? [autoUnitNote] : []).concat(genMixNote ? [genMixNote] : []),
+      assumptions: (brief.assumptions || []).slice().concat(locNote ? [locNote] : []).concat(autoUnitNote ? [autoUnitNote] : []).concat(genMixNote ? [genMixNote] : []),
       notes: brief.notes || ""
     }
   };

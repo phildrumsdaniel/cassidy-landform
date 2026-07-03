@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.85";
+var CURRENT_VERSION = "9.86";
 var VERSION_HISTORY = [
+  {v:"9.86", date:"Jul 2026", headline:"Keystone sizes the scheme to the land, recognises more locations, prices realistically",
+   affectsCalc:true,
+   changes:["Keystone now sizes the scheme to the LAND. A supplied unit count that implies an implausibly low density on a strategic greenfield (under ~5 homes/acre on 15+ acres — e.g. a portal/AI underestimate of 200 on 88 acres) is treated as an underestimate and upsized to what the acreage can carry (e.g. 1,056 at 12/acre), with the original recorded so it can be restored in one field. Landform is forward-looking: assume the scheme can be consented and test whether it stacks.","Location recognition improved: added Rugby to the market table, mapped Warwickshire villages (Ryton-on-Dunsmore, Wolston, Dunchurch, Bilton and more) to their nearest market, and normalised hyphens so places like \"Ryton-on-Dunsmore\" match. When a location still isn't recognised, Keystone now clearly FLAGS that pricing/build/yield have fallen back to national averages, instead of doing it silently.","Auto-generated house mixes are now priced off a realistic NEW-BUILD sale £/sqft — the postcode's Land Registry value plus the regional new-build premium (e.g. CV8 ≈ £380 +16%), or an owner-occupier cap rate — rather than a conservative rental yield that understated sale values and made viable schemes look unprofitable. The SFH mix, the RLV \"does it stack\" screen and the tenure calc now all price off the same basis.","Net effect on the Ryton/Wolston 88-acre test: units 200 → 1,056, GDV and RLV computed properly, and the land clears its asking price instead of failing on an under-sized, under-priced scheme. All auto-figures remain drafts to refine in SFH House Mix. 230 engine tests."]},
   {v:"9.85", date:"Jul 2026", headline:"Brand slogan on the sign-in screen",
    affectsCalc:false,
    changes:["Added the slogan \"Built by property developers, for property developers\" as a gold tagline under the title on the sign-in screen. Cosmetic only."]},
@@ -248,6 +251,7 @@ var MKT = {
   sheffield:{btr:950,pbsa:148,yield:0.049,land:2200000,build:198},
   nottingham:{btr:850,pbsa:148,yield:0.049,land:1800000,build:192},
   coventry:{btr:820,pbsa:145,yield:0.050,land:1600000,build:190},
+  rugby:{btr:900,pbsa:140,yield:0.049,land:1700000,build:190},
   leicester:{btr:800,pbsa:142,yield:0.050,land:1500000,build:188},
   newcastle:{btr:820,pbsa:145,yield:0.049,land:1600000,build:190},
   glasgow:{btr:900,pbsa:158,yield:0.049,land:1900000,build:198},
@@ -1670,7 +1674,7 @@ var UK_REGION_BY_CITY = {
   manchester:"North West", liverpool:"North West", chester:"North West",
   newcastle:"North East",
   leeds:"Yorkshire & Humber", sheffield:"Yorkshire & Humber", york:"Yorkshire & Humber", harrogate:"Yorkshire & Humber", hull:"Yorkshire & Humber", wakefield:"Yorkshire & Humber", doncaster:"Yorkshire & Humber",
-  birmingham:"West Midlands", coventry:"West Midlands", worcester:"West Midlands",
+  birmingham:"West Midlands", coventry:"West Midlands", rugby:"West Midlands", worcester:"West Midlands",
   nottingham:"East Midlands", leicester:"East Midlands", derby:"East Midlands", northampton:"East Midlands",
   bristol:"South West", bath:"South West", exeter:"South West", plymouth:"South West", truro:"South West", torquay:"South West", taunton:"South West", bridgwater:"South West", yeovil:"South West", tewkesbury:"South West", bournemouth:"South West",
   oxford:"South East", reading:"South East", brighton:"South East", guildford:"South East", woking:"South East", canterbury:"South East", maidstone:"South East", tunbridge_wells:"South East", southampton:"South East", portsmouth:"South East", milton_keynes:"South East",
