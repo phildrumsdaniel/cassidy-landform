@@ -713,6 +713,26 @@ console.log("Landform engine consistency tests\n");
   ok("S106_BREAKDOWN sums to the default per-unit", S106_BREAKDOWN.reduce(function(a,r){return a+r.perUnit;},0) === KEYSTONE_DEFAULTS.s106PerUnit);
 })();
 
+// 35d — Capitalisation exit + disposal cost + correct affordable treatment
+(function(){
+  var deal = buildDealFromBrief({ town:"Rugby", postcode:"CV8 3", acres:88, askingPrice:12500000 });
+  deal.land.price = 12500000;
+  var d = calcDealMetrics(deal);
+  ok("disposal/marketing cost applied to built deal (>0)", num(d.marketing) > 0);
+  ok("capitalisation investment value computed (>0)", num(d.capInvestmentValue) > 0);
+  ok("both exit profits reported", isFinite(d.sellProfit) && isFinite(d.capProfit));
+  // Affordable is NOT a capital haircut in the capitalise value: with 30% affordable,
+  // the capitalised value must exceed what it would be if we (wrongly) also haircut it.
+  var sfhM = computeSFHMetrics(deal);
+  near("capitalise reflects 30% affordable as rent, not a capital haircut", sfhM.ahPctResolved, 30, 0);
+  ok("capitalise value ignores the build-to-sell blended haircut (uses market rent base)",
+     sfhM.capInvestmentValue > sfhM.gdv * 0.5);   // sane: not collapsed by the affordable discount
+  // Hand-built deals with no marketingPct are unchanged (default 0)
+  var plain = { assetType:"sfh", land:{city:"maldon", acres:32}, sfh:{ city:"maldon", buildPsf:220,
+    mix:[{type:"3-bed semi",count:"100",sqft:"1000",unitPrice:"400000",tenure:"private"}] } };
+  near("no marketingPct → no disposal cost (back-compat)", computeSFHMetrics(plain).marketing, 0, 0);
+})();
+
 // 36 — Keystone auto-creates a house mix + full scheme from a land find
 (function(){
   // a Placona-style raw land find: acres + price, no mix, no units

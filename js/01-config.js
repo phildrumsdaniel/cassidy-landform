@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.88";
+var CURRENT_VERSION = "9.89";
 var VERSION_HISTORY = [
+  {v:"9.89", date:"Jul 2026", headline:"Sell vs capitalise — developer profit both ways, with the affordable treatment corrected; disposal costs added",
+   affectsCalc:true,
+   changes:["NEW capitalisation / forward-fund exit for housing schemes: values the finished scheme as a rented investment sold to an institution (e.g. a pension fund) — net rent capitalised at a yield — alongside the build-to-sell figure. The Capitalisation screen now shows developer PROFIT and margin BOTH ways so you can see which exit pays Cassidy more.","AFFORDABLE TREATMENT CORRECTED for capitalisation: the 30% affordable discount that cuts Cassidy's GDV when selling homes individually is NOT applied to the capitalised value. In a forward-fund deal the affordable is a lower-RENT effect the end investor carries, not a capital haircut on the developer — so the two exits now reflect who actually bears the affordable cost.","House rents for the capitalisation are derived from the scheme's own market values (a gross rental yield), not a flat city apartment rent, so the investment value is realistic. Rent yield, management % and cap yield are all assumptions you can tune.","DISPOSAL / MARKETING costs now modelled (agent + marketing + legal, ~3% of GDV on Keystone-built deals; 0 on hand-built deals for back-compatibility) and flow through the headline RLV and profit.","245 engine tests. Still simplified: finance remains a flat all-in rate rather than a full programme cashflow."]},
   {v:"9.88", date:"Jul 2026", headline:"Best-practice assumption set — a complete appraisal from a thin brief, every figure tweakable",
    affectsCalc:true,
    changes:["Keystone now fills EVERY scheme and cost lever with a sensible, flagged default, so a deal built from just a location + acreage is a complete appraisal on day one — you then tweak as you go. Forward-looking basis: full consent assumed, scheme sized to the land, priced to new-build.","Realistic (not rosy) defaults: 30% affordable housing (70/30 rented/shared-ownership) and £15,000/unit S106/CIL — itemised so obligations like cycleways are visible (Education £5k, Highways & cycleways £3k, Health £1.5k, Open space £2.5k, Sport/community £2k, Monitoring £1k). Plus profit 17.5%, finance 7.5%, contingency 5%, fees 10%. Any value supplied in the brief still wins.","New Assumptions register on the Keystone screen: lists every default it applied and where to change it, with the gaps flagged in amber. Honest note that disposal/marketing costs (~3% of GDV) and programme-based finance are not yet modelled, so the residual is slightly optimistic until they are added.","235 engine tests."]},
@@ -2014,12 +2017,43 @@ function computeSFHMetrics(data){
   var sfhS106 = totalUnits * numOr(sfh.s106pu, 8000);
   var sfhRoads = buildInclusive ? 0 : totalUnits * numOr(sfh.roads, 12000);
   var sfhInfra = buildInclusive ? 0 : sfhAcres * 53000;
+  // v9.89 — disposal / marketing costs (agent + marketing + legal on the sale). Defaults
+  // to 0 so hand-built deals are unchanged; Keystone-built deals set ~3% of GDV.
+  var sfhMarketing = effectiveBlended * (numOr(sfh.marketingPct, 0) / 100);
   var sfhProfit = effectiveBlended * (numOr(sfh.profitPct, 17.5) / 100);
-  var sfhDevCost = buildCost + sfhFees + sfhContingency + sfhFinance + sfhS106 + sfhRoads + sfhInfra;
+  var sfhDevCost = buildCost + sfhFees + sfhContingency + sfhFinance + sfhS106 + sfhRoads + sfhInfra + sfhMarketing;
   var sfhGrossRlv = effectiveBlended - sfhDevCost - sfhProfit;
 
+  // ── v9.89 — CAPITALISATION / FORWARD-FUND EXIT ─────────────────────────────
+  // Value the finished scheme as a rented investment sold to an institution (e.g. a
+  // pension fund) rather than sold home-by-home. KEY POINT: the build-to-sell affordable
+  // discount (which cuts Cassidy's GDV above) is NOT applied here — in a capitalised deal
+  // the affordable units simply produce a lower rent, which the INVESTOR capitalises and
+  // lives with. So Cassidy's revenue is the investment value, and affordable is an income
+  // effect (lower rent) borne by the end holder, not a capital haircut on the developer.
+  var cap = data.capitalise || {};
+  var capMk = MKT[(sfh.city || l.city || "").toLowerCase()] || null;
+  var ahPctR = num(sfh.ahPct) || num((data.planning || {}).ahPct) || num((data.planning || {}).afhPct) || num((data.tenure || {}).ahPct) || 0;
+  // House rent is derived from the scheme's OWN market values (a flat city BTR rent
+  // badly understates house rents): market unit value × a gross rental yield.
+  var capGrossRentYield = numOr(cap.grossRentYield, 4.5) / 100;
+  var avgUnitMktValue = totalUnits > 0 ? retailGdv / totalUnits : 0;
+  var mktRentPerUnitPa = num(cap.marketRentPerUnitPa) || (avgUnitMktValue * capGrossRentYield) || areaMarketRentPa(data) || (capMk && capMk.btr ? capMk.btr * 12 : 0);
+  var ahRentFactor = numOr(cap.ahRentFactor, 0.65);   // affordable/social rent ~65% of market
+  var privUnits = totalUnits * (1 - ahPctR / 100), ahUnits = totalUnits * (ahPctR / 100);
+  var capGrossRentPa = (privUnits + ahUnits * ahRentFactor) * mktRentPerUnitPa;
+  var capMgmtRate = numOr(cap.mgmtRate, 25);
+  var capNetRentPa = capGrossRentPa * (1 - capMgmtRate / 100);
+  var capYield = num(cap.targetYield); capYield = capYield > 1 ? capYield / 100 : capYield;
+  capYield = capYield || (capMk && capMk.yield) || 0.05;
+  var capInvestmentValue = (capYield > 0 && capNetRentPa > 0) ? capNetRentPa / capYield : 0;
+  // Same development cost stack; developer profit taken on the investment value.
+  var capProfit = capInvestmentValue * (numOr(sfh.profitPct, 17.5) / 100);
+  var capRlv = capInvestmentValue > 0 ? capInvestmentValue - sfhDevCost - capProfit : 0;
+
   return {rows:rows,totalUnits:totalUnits,avgSqft:totalUnits>0?totalSqft/totalUnits:0,retailGdv:retailGdv,blendedGdv:effectiveBlended,gdv:effectiveBlended,ahFactor:ahFactor,buildCost:buildCost,hasNonPrivate:hasNonPrivate,basePsf:basePsf,buildPsf:buildPsf,
-    acres:sfhAcres,buildInclusive:buildInclusive,fees:sfhFees,contingency:sfhContingency,finance:sfhFinance,s106:sfhS106,roads:sfhRoads,infra:sfhInfra,profit:sfhProfit,devCost:sfhDevCost,rlv:sfhGrossRlv};
+    acres:sfhAcres,buildInclusive:buildInclusive,fees:sfhFees,contingency:sfhContingency,finance:sfhFinance,s106:sfhS106,roads:sfhRoads,infra:sfhInfra,marketing:sfhMarketing,profit:sfhProfit,devCost:sfhDevCost,rlv:sfhGrossRlv,
+    capMarketRentPerUnitPa:mktRentPerUnitPa,capGrossRentPa:capGrossRentPa,capNetRentPa:capNetRentPa,capYield:capYield,capInvestmentValue:capInvestmentValue,capProfit:capProfit,capRlv:capRlv,ahPctResolved:ahPctR};
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -2381,7 +2415,7 @@ function calcDealMetrics(data){
   // ── SFH: adopt the canonical gross cost stack so the deal-state RLV equals
   // the SFH House Mix screen exactly (one engine). Includes roads/infra (subject
   // to the build-inclusive toggle); fees 10%, finance & S106 from the SFH tab. ──
-  var roads = 0, infra = 0;
+  var roads = 0, infra = 0, marketing = 0;
   if (at === "sfh" && sfhMetrics.totalUnits > 0) {
     buildCost   = sfhMetrics.buildCost;
     fees        = sfhMetrics.fees;
@@ -2390,6 +2424,7 @@ function calcDealMetrics(data){
     s106        = sfhMetrics.s106;
     roads       = sfhMetrics.roads;
     infra       = sfhMetrics.infra;
+    marketing   = sfhMetrics.marketing || 0;
     profit      = sfhMetrics.profit;
     // v9.67 — keep the REPORTED target margin % in step with the profit £ actually used
     // for SFH (which comes from the SFH stage's profit %, not the finance default), so a
@@ -2401,7 +2436,7 @@ function calcDealMetrics(data){
   // Development cost (what it costs to build) is separate from acquisition cost
   // (what it costs to buy the land). The headline residual is GROSS of purchase
   // costs; the net land bid then deducts them.
-  var devCost = buildCost + fees + contingency + s106 + finance + roads + infra;
+  var devCost = buildCost + fees + contingency + s106 + finance + roads + infra + marketing;
   var totalCost = devCost + totalAcqCosts;
 
   // ── RLV / RESIDUAL ────────────────────────────────────────────────────
@@ -2452,8 +2487,20 @@ function calcDealMetrics(data){
     contingency: contingency, contingencyPct: contPct,
     s106: s106, s106pu: s106pu,
     finance: finance, finRate: finRate,
-    roads: roads, infra: infra,
+    roads: roads, infra: infra, marketing: marketing,
     devCost: devCost,
+    // ── Capitalisation / forward-fund exit (SFH) — sell the scheme as a rented
+    // investment. Affordable is an income effect (lower rent), NOT a capital haircut
+    // on the developer, so the profit here can differ materially from build-to-sell. ──
+    capInvestmentValue: (at === "sfh") ? (sfhMetrics.capInvestmentValue || 0) : 0,
+    capNetRentPa: (at === "sfh") ? (sfhMetrics.capNetRentPa || 0) : 0,
+    capYield: (at === "sfh") ? (sfhMetrics.capYield || 0) : 0,
+    capRlv: (at === "sfh") ? (sfhMetrics.capRlv || 0) : 0,
+    // Developer profit under each exit at the actual land price (sell vs capitalise):
+    sellProfit: (gdv > 0) ? (gdv - devCost - landPrice) : 0,
+    sellMarginPct: (gdv > 0) ? ((gdv - devCost - landPrice) / gdv) * 100 : 0,
+    capProfit: (at === "sfh" && sfhMetrics.capInvestmentValue > 0) ? (sfhMetrics.capInvestmentValue - devCost - landPrice) : 0,
+    capMarginPct: (at === "sfh" && sfhMetrics.capInvestmentValue > 0) ? ((sfhMetrics.capInvestmentValue - devCost - landPrice) / sfhMetrics.capInvestmentValue) * 100 : 0,
     // Acquisition (only populated if toggle on)
     includeAcqCosts: includeAcq,
     sdlt: sdlt, agentFees: agentFees, legalFees: legalFees, landFinance: landFinance,

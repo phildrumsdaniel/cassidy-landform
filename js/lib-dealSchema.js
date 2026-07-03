@@ -187,7 +187,8 @@ var KEYSTONE_DEFAULTS = {
   contingencyPct: 5,
   feesPct: 10,
   profitPct: 17.5,
-  financeRate: 7.5
+  financeRate: 7.5,
+  marketingPct: 3    // disposal: agent + marketing + legal on the sale, % of GDV
 };
 // What the £15k/unit S106/CIL is assumed to cover — itemised so it's visible (your
 // cycleways sit under Highways). £/unit; sums to KEYSTONE_DEFAULTS.s106PerUnit.
@@ -282,6 +283,7 @@ function buildDealFromBrief(brief){
   var contVal    = _has("contingencyPct")? num(brief.contingencyPct): KEYSTONE_DEFAULTS.contingencyPct;
   var profitVal  = _has("profitPct")     ? num(brief.profitPct)     : KEYSTONE_DEFAULTS.profitPct;
   var finRateVal = _has("financeRate")   ? num(brief.financeRate)   : KEYSTONE_DEFAULTS.financeRate;
+  var mktgVal    = _has("marketingPct")  ? num(brief.marketingPct)  : (isHousing ? KEYSTONE_DEFAULTS.marketingPct : 0);
 
   // Record the applied assumption set so it's fully visible and tweakable (the
   // Assumptions register on the Keystone screen reads these).
@@ -293,9 +295,10 @@ function buildDealFromBrief(brief){
     assumeNotes.push("S106 / CIL: £" + s106Val.toLocaleString() + "/unit" + (_has("s106PerUnit") ? " (from brief)" :
       " (assumed — Education £5k, Highways & cycleways £3k, Health £1.5k, Open space £2.5k, Sport/community £2k, Monitoring £1k)") + ".");
     assumeNotes.push("Developer profit " + profitVal + "% of GDV; finance " + finRateVal + "%; contingency " + contVal +
-      "% of build; professional fees 10%; roads £12k/unit; site infrastructure £53k/acre." +
+      "% of build; professional fees 10%; disposal/marketing " + mktgVal + "% of GDV; roads £12k/unit; site infrastructure £53k/acre." +
       ((_has("profitPct")||_has("financeRate")||_has("contingencyPct")) ? " (some from brief)" : " (assumed)"));
-    assumeNotes.push("NOT YET IN THE MODEL: disposal/marketing costs (~3% of GDV) and programme-based finance — treat the residual as slightly optimistic until these are added. Tweak every figure in Land Appraisal, SFH House Mix and Financials.");
+    assumeNotes.push("EXIT: profit is shown BOTH ways — build-to-sell (affordable discount borne by Cassidy) and capitalise/forward-fund to an investor (affordable is a lower-rent effect borne by the end holder, not a capital haircut). Compare them on the Capitalisation screen.");
+    assumeNotes.push("Still simplified: finance is a flat all-in rate, not a programme cashflow. Tweak every figure in Land Appraisal, SFH House Mix, Planning and Financials.");
   }
 
   var deal = {
@@ -331,6 +334,7 @@ function buildDealFromBrief(brief){
       finRate: finRateVal || "",
       contingency: contVal || "",
       s106pu: s106Val || "",
+      marketingPct: mktgVal || "",
       ahPct: ahPctVal || "",
       ahTenure: brief.ahTenure || (isHousing && ahPctVal ? "ahp_affordable" : ""),
       haSpecBuild: !!brief.haSpec

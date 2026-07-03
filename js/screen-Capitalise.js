@@ -945,13 +945,37 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
           && !_mix.some(function(r){ return r.tenure==="retained_prs" && num(r.count)>0; })
           && (data.assetType==="sfh" || !data.assetType);
         if(_isSellScheme && !cap.showRentalStack){
+          // v9.89 — SELL vs CAPITALISE developer-profit comparison. In the capitalise
+          // column the affordable housing is a LOWER-RENT effect borne by the end
+          // investor, NOT the capital discount Cassidy takes selling homes individually.
+          var DMc = (typeof calcDealMetrics === "function") ? calcDealMetrics(data) : null;
+          var mm = function(n){ return (n < 0 ? "–£" : "£") + (Math.round(Math.abs(n) / 1e5) / 10) + "m"; };
+          var canCompare = DMc && DMc.gdv > 0 && DMc.capInvestmentValue > 0;
+          var kv = function(label, val, strong){ return e("div",{style:{display:"flex",justifyContent:"space-between",gap:10,padding:"4px 0",fontSize:11,color:"#3A3D6A"}}, e("span",null,label), e("span",{style:{fontWeight:strong?800:600,color:strong?"#2E2F8A":"#3A3D6A"}}, val)); };
           return e("div",{style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",marginBottom:14}},
-            e("div",{style:{fontSize:10,fontWeight:800,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",marginBottom:8}},"Rental-hold scenario — not your exit"),
-            e("div",{style:{fontSize:12,color:"#3A3D6A",lineHeight:1.7}},
-              e("strong",null,"You're building homes to SELL"),", so this rental view doesn't apply. It values the scheme as if you kept every home and rented it — which always looks negative for houses, because their rental value is far below what they cost to build. ",
-              e("strong",{style:{color:"#2D7A65"}},"Your real land value is the Max Land Bid on the Land Valuation screen"),", from selling the homes."
+            e("div",{style:{fontSize:10,fontWeight:800,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",marginBottom:12}},"Exit comparison — sell the homes vs capitalise (forward-fund)"),
+            canCompare ? e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}},
+              e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,padding:"14px 16px"}},
+                e("div",{style:{fontSize:12,fontWeight:800,color:"#2E2F8A",marginBottom:6}},"① Build to sell"),
+                kv("Revenue — GDV (affordable sold at a discount by Cassidy)", mm(DMc.gdv)),
+                kv("Developer profit (after land)", mm(DMc.sellProfit), true),
+                kv("Margin on GDV", DMc.sellMarginPct.toFixed(1) + "%")
+              ),
+              e("div",{style:{background:"#fff",border:"1px solid #2D7A65",borderRadius:8,padding:"14px 16px"}},
+                e("div",{style:{fontSize:12,fontWeight:800,color:"#2D7A65",marginBottom:6}},"② Capitalise / forward-fund to investor"),
+                kv("Net rent p.a. @ " + (DMc.capYield * 100).toFixed(2) + "% yield", mm(DMc.capNetRentPa)),
+                kv("Investment value (whole-scheme sale to fund)", mm(DMc.capInvestmentValue)),
+                kv("Developer profit (after land)", mm(DMc.capProfit), true),
+                kv("Margin on value", DMc.capMarginPct.toFixed(1) + "%")
+              )
+            ) : e("div",{style:{fontSize:12,color:"#7278A0",marginBottom:12}}, "Build the scheme (units + house mix) first, then this compares the two exits."),
+            canCompare && e("div",{style:{fontSize:12,color:"#3A3D6A",lineHeight:1.7,padding:"10px 12px",background:"rgba(45,122,101,0.06)",borderLeft:"3px solid #2D7A65",borderRadius:4}},
+              e("strong",null, DMc.sellProfit >= DMc.capProfit ? "Selling the homes pays Cassidy more here" : "Capitalising pays Cassidy more here"),
+              " — by " + mm(Math.abs(DMc.sellProfit - DMc.capProfit)) + ". ",
+              "Key point: in the capitalise column the ", e("strong",null, (computeSFHMetrics(data).ahPctResolved || 30) + "% affordable"),
+              " is a ", e("strong",null,"lower-rent"), " effect the end investor carries — NOT the capital discount Cassidy takes when selling affordable homes individually. Houses usually sell for more than they capitalise, so build-to-sell often wins; capitalising can win where affordable is heavy or the fund pays a keen yield."
             ),
-            e("button",{onClick:function(){up("capitalise","showRentalStack",true);},style:{marginTop:12,padding:"7px 14px",background:"#fff",border:"1px solid #DDE0ED",borderRadius:6,fontSize:11,fontWeight:700,color:"#7278A0",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Show rental/hold scenario anyway (advanced)")
+            e("button",{onClick:function(){up("capitalise","showRentalStack",true);},style:{marginTop:12,padding:"7px 14px",background:"#fff",border:"1px solid #DDE0ED",borderRadius:6,fontSize:11,fontWeight:700,color:"#7278A0",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Show full rental/hold detail (advanced)")
           );
         }
 
