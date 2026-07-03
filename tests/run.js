@@ -711,6 +711,14 @@ console.log("Landform engine consistency tests\n");
   // ukRegionFor postcode fallback works even with an unknown city string
   ok("ukRegionFor falls back to postcode when city unknown",
      ukRegionFor({ land:{ city:"somewhereville", postcode:"EX15 2AA" } }) === "South West");
+  // MANUAL path (hand-built deal, no Keystone): a village typed in the city box + a
+  // postcode resolves the market through dealCityKey → engine benchmarks.
+  ok("dealCityKey resolves an unlisted village by postcode",
+     dealCityKey({ land:{ city:"ponteland", postcode:"NE20 9AA" } }) === "newcastle");
+  var manual = { assetType:"sfh", land:{ city:"ponteland", postcode:"NE20 9AA", acres:20 },
+    sfh:{ mix:[{type:"3-bed semi",count:"200",sqft:"1000",unitPrice:"300000",tenure:"private"}] } };
+  ok("manual deal region resolves from postcode (North East)", ukRegionFor(manual) === "North East");
+  ok("manual deal capitalisation uses the resolved market yield", computeSFHMetrics(manual).capYield > 0);
 })();
 
 // 35c — Keystone best-practice assumption set fills a thin brief completely

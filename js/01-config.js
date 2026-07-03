@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.91";
+var CURRENT_VERSION = "9.92";
 var VERSION_HISTORY = [
+  {v:"9.92", date:"Jul 2026", headline:"Manual Land Appraisal path also resolves any village by postcode",
+   affectsCalc:true,
+   changes:["The universal postcode resolution now applies to deals built by hand (not just via Keystone): dealCityKey resolves an unlisted village or suburb to its nearest anchor market from the postcode area, so the engine's pricing, build-cost region, yield and rents all follow the site's postcode wherever the deal was created. Type a village in the city box and add a postcode and it resolves automatically. 258 engine tests."]},
   {v:"9.91", date:"Jul 2026", headline:"Universal location resolution — any UK village resolves from its postcode, no manual list needed",
    affectsCalc:true,
    changes:["Keystone now resolves ANY UK location automatically from its POSTCODE. Every postcode area (NE, TS, CV, LS, EX, …) is mapped to its nearest anchor market, so a village outside Newcastle (NE20), Middlesbrough (TS9) or anywhere else gets the right region, build cost, yield and pricing without being listed by name — and without needing a code change. Sale £/sqft still uses the site's own postcode Land Registry value where available, so it stays hyper-local.","Resolution order: named market → known village alias → POSTCODE area → (last resort) national averages, always clearly flagged with how it resolved. The clear message when nothing resolves: add a postcode.","Region lookup (BCIS build cost) also falls back to the postcode when the town isn't a named market. 255 engine tests."]},
@@ -1671,6 +1674,11 @@ function dealCityKey(data){
   if(MKT[c]) return c;
   var pc = (data.land && data.land.postcode) || (data.rlv && data.rlv.postcode) || (data.epe && data.epe.postcode) || "";
   var pcd = (pc && typeof lookupPostcode === "function") ? lookupPostcode(pc) : null;
+  if(pcd && pcd.city && MKT[pcd.city]) return pcd.city;
+  // v9.92 — universal fallback: postcode AREA → nearest anchor market (guaranteed in
+  // MKT). So the MANUAL Land Appraisal path resolves any village by postcode too, not
+  // just Keystone-built deals.
+  if(pc && typeof postcodeMarketKey === "function"){ var a = postcodeMarketKey(pc); if(a) return a; }
   return (pcd && pcd.city) ? pcd.city : c;
 }
 // areaRentPcm — correct monthly rent for a given bedroom count in the DEAL's area
@@ -2033,7 +2041,7 @@ function computeSFHMetrics(data){
   data = data || {};
   var sfh = data.sfh || {};
   var l = data.land || {};
-  var cityKey = (sfh.city || l.city || "").toLowerCase();
+  var cityKey = (typeof dealCityKey === "function") ? dealCityKey(data) : (sfh.city || l.city || "").toLowerCase();
   var market = MKT[cityKey] || MKT.manchester;
   var basePsf = num(sfh.basePsf) || (market && market.btr ? Math.max(150, Math.min(650, Math.round(estSalePsfFromRent(market.btr)))) : 260);
   var buildPsf = num(sfh.buildPsf) || (market && market.build) || 195;
@@ -2098,7 +2106,7 @@ function computeSFHMetrics(data){
   // lives with. So Cassidy's revenue is the investment value, and affordable is an income
   // effect (lower rent) borne by the end holder, not a capital haircut on the developer.
   var cap = data.capitalise || {};
-  var capMk = MKT[(sfh.city || l.city || "").toLowerCase()] || null;
+  var capMk = MKT[(typeof dealCityKey === "function") ? dealCityKey(data) : (sfh.city || l.city || "").toLowerCase()] || null;
   var ahPctR = num(sfh.ahPct) || num((data.planning || {}).ahPct) || num((data.planning || {}).afhPct) || num((data.tenure || {}).ahPct) || 0;
   // House rent is derived from the scheme's OWN market values (a flat city BTR rent
   // badly understates house rents): market unit value × a gross rental yield.
@@ -2382,7 +2390,7 @@ function calcDealMetrics(data){
     : num(p.units || rlvD.units || l.units || sfhMetrics.totalUnits || sfh.totalUnits || tenureMetrics.totalUnits || 0);
 
   // City for market lookups
-  var cityKey = (l.city || sfh.city || rlvD.city || "").toLowerCase();
+  var cityKey = (typeof dealCityKey === "function") ? dealCityKey(data) : (l.city || sfh.city || rlvD.city || "").toLowerCase();
   var m = MKT[cityKey] || MKT.manchester;
 
   // Sale PSF: prefer live LR > postcode lookup > city derived > field defaults
@@ -2610,7 +2618,7 @@ function optimiseScheme(data, opts){
   var asking = num(data.land && data.land.price);
   var targetRlv = (opts.targetRlv != null) ? opts.targetRlv : (asking > 0 ? asking : 0);
   var sfh = data.sfh || {};
-  var cityKey = ((sfh.city) || (data.land && data.land.city) || "").toLowerCase();
+  var cityKey = (typeof dealCityKey === "function") ? dealCityKey(data) : ((sfh.city) || (data.land && data.land.city) || "").toLowerCase();
   var mkt = MKT[cityKey] || null;
 
   function clone(d){ return JSON.parse(JSON.stringify(d)); }
@@ -2763,7 +2771,7 @@ function buildHonestPrompt(data, taskInstruction, focusKey){
   var l = data.land || {}, p = data.planning || {}, cap = data.capitalise || {};
   var mkt = data.market || {};
   var at = (data.assetType || "btr");
-  var cityKey = (l.city || (data.sfh && data.sfh.city) || (data.rlv && data.rlv.city) || "").toLowerCase();
+  var cityKey = (typeof dealCityKey === "function") ? dealCityKey(data) : (l.city || (data.sfh && data.sfh.city) || (data.rlv && data.rlv.city) || "").toLowerCase();
   var bm = MKT[cityKey] || null;
   var nl = "\n";
   // landOnly: at the LAND stage we deliberately WITHHOLD the development-appraisal
