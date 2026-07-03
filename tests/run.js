@@ -700,7 +700,7 @@ console.log("Landform engine consistency tests\n");
   near("default affordable applied (30%)", num(d.planning.ahPct), 30, 0);
   near("default S106 applied (£15k/unit)", num(d.sfh.s106pu), 15000, 0);
   near("default profit applied (17.5%)", num(d.sfh.profitPct), 17.5, 0.1);
-  near("default finance applied (7.5%)", num(d.sfh.finRate), 7.5, 0.1);
+  near("default finance applied (12% — conservative for headroom)", num(d.sfh.finRate), 12, 0.1);
   near("default contingency applied (5%)", num(d.sfh.contingency), 5, 0.1);
   ok("assumptions register records affordable + S106",
      d._keystone.assumptions.join(" ").toLowerCase().indexOf("affordable housing: 30%") >= 0 &&

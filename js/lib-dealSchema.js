@@ -187,7 +187,7 @@ var KEYSTONE_DEFAULTS = {
   contingencyPct: 5,
   feesPct: 10,
   profitPct: 17.5,
-  financeRate: 7.5,
+  financeRate: 12,   // conservative all-in finance cost so headroom is real, not flattered
   marketingPct: 3    // disposal: agent + marketing + legal on the sale, % of GDV
 };
 // What the £15k/unit S106/CIL is assumed to cover — itemised so it's visible (your

@@ -952,8 +952,28 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
           var mm = function(n){ return (n < 0 ? "–£" : "£") + (Math.round(Math.abs(n) / 1e5) / 10) + "m"; };
           var canCompare = DMc && DMc.gdv > 0 && DMc.capInvestmentValue > 0;
           var kv = function(label, val, strong){ return e("div",{style:{display:"flex",justifyContent:"space-between",gap:10,padding:"4px 0",fontSize:11,color:"#3A3D6A"}}, e("span",null,label), e("span",{style:{fontWeight:strong?800:600,color:strong?"#2E2F8A":"#3A3D6A"}}, val)); };
+          // v9.90 — investor yield slider: drag the net initial yield the fund would buy on
+          // and watch the capitalise value + profit move live (great for investor marketing).
+          var curYield = num(cap.targetYield) || (canCompare ? +(DMc.capYield * 100).toFixed(2) : 4.9);
+          var yieldSlider = e("div",{style:{background:"#fff",border:"1px solid #2D7A65",borderRadius:8,padding:"12px 16px",marginBottom:12}},
+            e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:8,marginBottom:6}},
+              e("span",{style:{fontSize:11,fontWeight:700,color:"#2D7A65"}},"Investor yield (net initial) the fund buys on"),
+              e("span",{style:{fontSize:20,fontWeight:800,color:"#2E2F8A"}}, curYield.toFixed(2) + "%")
+            ),
+            e("input",{type:"range",min:3.5,max:6.5,step:0.05,value:curYield,
+              onChange:function(ev){ up("capitalise","targetYield", num(ev.target.value)); },
+              style:{width:"100%",accentColor:"#2D7A65",cursor:"pointer"}}),
+            e("div",{style:{display:"flex",gap:6,flexWrap:"wrap",marginTop:8}},
+              [4.0,4.5,5.0,5.5].map(function(y){ var on=Math.abs(curYield-y)<0.03;
+                return e("button",{key:y,onClick:function(){ up("capitalise","targetYield", y); },
+                  style:{padding:"4px 10px",background:on?"#2D7A65":"#fff",color:on?"#fff":"#3A3D6A",border:"1px solid "+(on?"#2D7A65":"#DDE0ED"),borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}, y.toFixed(1)+"%");
+              })
+            ),
+            e("div",{style:{fontSize:10,color:"#7278A0",marginTop:8,fontStyle:"italic"}},"Lower yield = the fund pays more = higher sale value and profit for Cassidy. Shows the yield at which capitalising beats selling.")
+          );
           return e("div",{style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",marginBottom:14}},
             e("div",{style:{fontSize:10,fontWeight:800,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",marginBottom:12}},"Exit comparison — sell the homes vs capitalise (forward-fund)"),
+            yieldSlider,
             canCompare ? e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}},
               e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,padding:"14px 16px"}},
                 e("div",{style:{fontSize:12,fontWeight:800,color:"#2E2F8A",marginBottom:6}},"① Build to sell"),
