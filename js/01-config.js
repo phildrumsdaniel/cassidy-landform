@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.93";
+var CURRENT_VERSION = "9.94";
 var VERSION_HISTORY = [
+  {v:"9.94", date:"Jul 2026", headline:"Mapped constraint layers on the Placona map — Green Belt, Conservation Area, AONB, Listed Buildings, Flood Zones",
+   affectsCalc:false,
+   changes:["The Placona map now overlays free, authoritative GOVERNMENT constraint layers you can toggle on and off: Green Belt, Conservation Areas, AONB and Listed Buildings (planning.data.gov.uk vector tiles) plus Flood Zones 2 & 3 (Environment Agency). No API keys, no cost. Each layer is colour-coded with a legend, and every layer links to its official map as a guaranteed fallback. Zoom in on a pin to see whether a site sits in Green Belt, a flood zone, etc. — turning the map from locational into decision-useful, and complementing the AI Constraints Checker (now one click from the map).","This closes the biggest visible gap vs mapped GIS platforms for near-zero cost: authoritative constraints drawn on the map, not just an AI narrative."]},
   {v:"9.93", date:"Jul 2026", headline:"Map view in Placona — see found sites on a map, coloured by score",
    affectsCalc:false,
    changes:["The Placona Site Inbox now shows an interactive MAP (Leaflet + free OpenStreetMap): every shortlisted site is a pin, positioned from its postcode (via the free postcodes.io lookup, with a region-centre fallback), coloured by its Cassidy Opportunity Score. Click a pin to open the site. Toggle the map on/off; it respects the shortlist score slider. Reinforces the Find stage visually — add postcodes for exact pin positions."]},

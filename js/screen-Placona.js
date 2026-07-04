@@ -30,17 +30,63 @@ function placonaGeocode(site, cb){
       .catch(function(){ cb(fallback); });
   }catch(e){ cb(fallback); }
 }
+// ── Free government CONSTRAINT LAYERS for the map (v9.94) ─────────────────────
+// Vector tiles from planning.data.gov.uk (Green Belt / Conservation Area / AONB /
+// Listed Buildings) + Environment Agency flood WMS. All free, no API key. Each layer
+// also carries a `link` to the official map so it's useful even if a live layer needs
+// an endpoint tweak. Endpoints are centralised here — a one-line change if a service
+// URL ever moves.
+var PD_TILE_BASE = "https://www.planning.data.gov.uk/tiles/";
+var CONSTRAINT_LAYERS = [
+  { id:"green-belt",                        label:"Green Belt",         colour:"#2E7D32", kind:"pd",
+    link:"https://www.planning.data.gov.uk/map/?dataset=green-belt" },
+  { id:"conservation-area",                 label:"Conservation Area",  colour:"#8E24AA", kind:"pd",
+    link:"https://www.planning.data.gov.uk/map/?dataset=conservation-area" },
+  { id:"area-of-outstanding-natural-beauty",label:"AONB",               colour:"#00897B", kind:"pd",
+    link:"https://magic.defra.gov.uk/MagicMap.aspx" },
+  { id:"listed-building",                   label:"Listed Buildings",   colour:"#C62828", kind:"pd", point:true,
+    link:"https://historicengland.org.uk/listing/the-list/" },
+  { id:"flood",                             label:"Flood Zone 2 & 3",   colour:"#1565C0", kind:"wms",
+    url:"https://environment.data.gov.uk/spatialdata/flood-map-for-planning-rivers-and-sea-flood-zone-2/wms",
+    layers:"Flood Map for Planning Rivers and Sea Flood Zone 2",
+    link:"https://flood-map-for-planning.service.gov.uk/" }
+];
+function makeConstraintLayer(cfg){
+  if(typeof L === "undefined") return null;
+  if(cfg.kind === "wms"){
+    try{ return L.tileLayer.wms(cfg.url, { layers:cfg.layers, format:"image/png", transparent:true, opacity:0.5, attribution:"Environment Agency" }); }
+    catch(e){ return null; }
+  }
+  if(cfg.kind === "pd" && L.vectorGrid && L.vectorGrid.protobuf){
+    var styles = {};
+    styles[cfg.id] = cfg.point
+      ? { radius:4, color:cfg.colour, weight:1, fill:true, fillColor:cfg.colour, fillOpacity:0.85 }
+      : { weight:1.5, color:cfg.colour, opacity:0.9, fill:true, fillColor:cfg.colour, fillOpacity:0.28 };
+    try{
+      return L.vectorGrid.protobuf(PD_TILE_BASE + cfg.id + "/{z}/{x}/{y}.vector.pbf", {
+        vectorTileLayerStyles: styles, interactive:false, minZoom:6, maxNativeZoom:15, attribution:"planning.data.gov.uk"
+      });
+    }catch(e){ return null; }
+  }
+  return null;
+}
 function PlaconaMap(props){
   var recs = props.recs || [];
-  var elRef = React.useRef(null), mapRef = React.useRef(null), markersRef = React.useRef([]);
+  var elRef = React.useRef(null), mapRef = React.useRef(null), markersRef = React.useRef([]), layerObjRef = React.useRef({});
+  var rs = useState(false), ready = rs[0], setReady = rs[1];
+  var as = useState({}), active = as[0], setActive = as[1];
+  function toggle(id){ var n = Object.assign({}, active); n[id] = !n[id]; setActive(n); }
+
   useEffect(function(){
     if(typeof L === "undefined" || !elRef.current || mapRef.current) return;
     var map = L.map(elRef.current, { scrollWheelZoom:false }).setView([53.2, -1.5], 6);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom:18, attribution:"© OpenStreetMap" }).addTo(map);
-    mapRef.current = map;
+    mapRef.current = map; setReady(true);
     setTimeout(function(){ try{ map.invalidateSize(); }catch(e){} }, 200);
     return function(){ try{ map.remove(); }catch(e){} mapRef.current = null; };
   }, []);
+
+  // Pins
   useEffect(function(){
     var map = mapRef.current; if(!map || typeof L === "undefined") return;
     markersRef.current.forEach(function(m){ try{ map.removeLayer(m); }catch(e){} });
@@ -71,11 +117,50 @@ function PlaconaMap(props){
         try{ map.fitBounds(bounds, { padding:[34,34], maxZoom:11 }); }catch(e){}
       });
     });
-  }, [props.sig]);
+  }, [props.sig, ready]);
+
+  // Constraint overlays — add/remove as toggled
+  useEffect(function(){
+    var map = mapRef.current; if(!map) return;
+    CONSTRAINT_LAYERS.forEach(function(cfg){
+      var on = !!active[cfg.id], existing = layerObjRef.current[cfg.id];
+      if(on && !existing){
+        var lyr = makeConstraintLayer(cfg);
+        if(lyr){ try{ lyr.addTo(map); layerObjRef.current[cfg.id] = lyr; }catch(e){} }
+      } else if(!on && existing){
+        try{ map.removeLayer(existing); }catch(e){}
+        layerObjRef.current[cfg.id] = null;
+      }
+    });
+  }, [active, ready]);
+
   if(typeof L === "undefined"){
     return e("div",{style:{height:120,display:"flex",alignItems:"center",justifyContent:"center",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:10,color:"#7278A0",fontSize:12}},"Map is loading — give it a moment, then reopen the inbox.");
   }
-  return e("div",{ref:elRef, style:{height:360,width:"100%",borderRadius:10,overflow:"hidden",border:"1px solid #DDE0ED"}});
+  var pdMissing = !(L.vectorGrid && L.vectorGrid.protobuf);
+  return e("div",null,
+    // Constraint layer toggles
+    e("div",{style:{display:"flex",flexWrap:"wrap",gap:6,marginBottom:6,alignItems:"center"}},
+      e("span",{style:{fontSize:10,fontWeight:700,color:"#7278A0",marginRight:2}},"Constraints:"),
+      CONSTRAINT_LAYERS.map(function(cfg){
+        var on = !!active[cfg.id];
+        return e("button",{key:cfg.id,onClick:function(){ toggle(cfg.id); },
+          title:on?"Hide "+cfg.label:"Show "+cfg.label,
+          style:{display:"inline-flex",alignItems:"center",gap:5,padding:"4px 9px",background:on?cfg.colour:"#fff",color:on?"#fff":"#3A3D6A",border:"1px solid "+(on?cfg.colour:"#DDE0ED"),borderRadius:14,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
+          e("span",{style:{width:8,height:8,borderRadius:"50%",background:on?"#fff":cfg.colour,display:"inline-block"}}),
+          cfg.label);
+      })
+    ),
+    e("div",{ref:elRef, style:{height:380,width:"100%",borderRadius:10,overflow:"hidden",border:"1px solid #DDE0ED"}}),
+    // Legend + official-source links (guaranteed-working fallback)
+    e("div",{style:{fontSize:9,color:"#7278A0",marginTop:5,lineHeight:1.6}},
+      pdMissing?e("span",{style:{color:"#B05A35",fontWeight:700}},"Constraint layers need the map plug-in — hard-refresh if the toggles don't draw. "):null,
+      "Constraint data: planning.data.gov.uk + Environment Agency (free). Zoom in to see detail. Official maps: ",
+      CONSTRAINT_LAYERS.map(function(cfg,i){
+        return e("span",{key:cfg.id}, i>0?" · ":"", e("a",{href:cfg.link,target:"_blank",rel:"noopener noreferrer",style:{color:"#4A4BAE",fontWeight:700}},cfg.label));
+      })
+    )
+  );
 }
 
 // ── renderPlacona  (params: data, loadSiteIntoDeal, up, user) (setToast inside loadSiteIntoDeal stays in Tool — cosmetic)
@@ -487,9 +572,12 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
           ),
           // v9.93 — MAP of the shortlisted sites (pins from postcode, coloured by score)
           oppShown.length>0 && e("div",{style:{marginBottom:12}},
-            e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}},
+            e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,gap:8,flexWrap:"wrap"}},
               e("span",{style:{fontSize:11,fontWeight:700,color:"#2E2F8A"}},"🗺️ Map — "+oppShown.length+" site"+(oppShown.length!==1?"s":"")+" (pin colour = opportunity score; click a pin to open)"),
-              e("button",{onClick:function(){up("placona","hideMap",!pl.hideMap);},style:{padding:"4px 10px",background:"#fff",border:"1px solid #DDE0ED",borderRadius:4,fontSize:10,fontWeight:700,color:"#7278A0",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}, pl.hideMap?"Show map":"Hide map")
+              e("div",{style:{display:"flex",gap:6}},
+                navTo&&e("button",{onClick:function(){navTo("constraint");},style:{padding:"4px 10px",background:"#fff",border:"1px solid #DDE0ED",borderRadius:4,fontSize:10,fontWeight:700,color:"#B05A35",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"⚠ Constraints Checker →"),
+                e("button",{onClick:function(){up("placona","hideMap",!pl.hideMap);},style:{padding:"4px 10px",background:"#fff",border:"1px solid #DDE0ED",borderRadius:4,fontSize:10,fontWeight:700,color:"#7278A0",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}, pl.hideMap?"Show map":"Hide map")
+              )
             ),
             !pl.hideMap && e(PlaconaMap,{
               recs:oppShown,
