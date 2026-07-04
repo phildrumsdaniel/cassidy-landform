@@ -1,0 +1,23 @@
+name: Map endpoint health
+
+# Pings the external data dependencies the Placona map relies on (CDN libs, map tiles,
+# geocoding, and the free government constraint layers). GitHub runners have internet, so
+# this catches an endpoint 404/503/move on every push — the kind of breakage the headless
+# engine tests can't see. Critical app deps fail the build; constraint-layer probes are
+# informational (their exact working URL is discovered from this job's log).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  endpoints:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Probe external map dependencies
+        run: node tests/check-endpoints.js
