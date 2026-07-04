@@ -1,3 +1,83 @@
+// ── Placona MAP (v9.93) — Leaflet map of found sites, pins geocoded from postcode ──
+// Geocoding: postcodes.io (free, no key) full-postcode → outcode → region-centroid
+// fallback → UK centre. Results cached so we don't re-hit the API. Pins coloured by
+// the Cassidy Opportunity Score; click a pin to open that site.
+var _placonaGeoCache = {};
+function placonaFallbackLatLng(site){
+  var pc = (site.postcode && site.postcode !== "Not found") ? site.postcode : "";
+  var region = (typeof ukRegionFor === "function")
+    ? ukRegionFor({ land:{ postcode:pc, city:(site.town || "").toLowerCase() } }) : "";
+  return (typeof REGION_LATLNG !== "undefined" && REGION_LATLNG[region]) || [54.0, -2.4];
+}
+function placonaGeocode(site, cb){
+  var pc = (site.postcode && site.postcode !== "Not found") ? String(site.postcode).trim() : "";
+  var key = pc.toUpperCase();
+  if(key && _placonaGeoCache[key]){ cb(_placonaGeoCache[key]); return; }
+  var fallback = placonaFallbackLatLng(site);
+  if(!pc || typeof fetch === "undefined"){ cb(fallback); return; }
+  var outcode = pc.split(/\s+/)[0];
+  var save = function(ll){ if(ll){ _placonaGeoCache[key] = ll; cb(ll); } else cb(fallback); };
+  try{
+    fetch("https://api.postcodes.io/postcodes/" + encodeURIComponent(pc))
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        if(j && j.result && j.result.latitude){ save([j.result.latitude, j.result.longitude]); return; }
+        fetch("https://api.postcodes.io/outcodes/" + encodeURIComponent(outcode))
+          .then(function(r){ return r.ok ? r.json() : null; })
+          .then(function(j2){ save(j2 && j2.result && j2.result.latitude ? [j2.result.latitude, j2.result.longitude] : null); })
+          .catch(function(){ cb(fallback); });
+      })
+      .catch(function(){ cb(fallback); });
+  }catch(e){ cb(fallback); }
+}
+function PlaconaMap(props){
+  var recs = props.recs || [];
+  var elRef = React.useRef(null), mapRef = React.useRef(null), markersRef = React.useRef([]);
+  useEffect(function(){
+    if(typeof L === "undefined" || !elRef.current || mapRef.current) return;
+    var map = L.map(elRef.current, { scrollWheelZoom:false }).setView([53.2, -1.5], 6);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom:18, attribution:"© OpenStreetMap" }).addTo(map);
+    mapRef.current = map;
+    setTimeout(function(){ try{ map.invalidateSize(); }catch(e){} }, 200);
+    return function(){ try{ map.remove(); }catch(e){} mapRef.current = null; };
+  }, []);
+  useEffect(function(){
+    var map = mapRef.current; if(!map || typeof L === "undefined") return;
+    markersRef.current.forEach(function(m){ try{ map.removeLayer(m); }catch(e){} });
+    markersRef.current = [];
+    var bounds = [];
+    recs.forEach(function(rec){
+      var site = rec.site || rec, opp = rec.opp || { score:0 };
+      placonaGeocode(site, function(ll){
+        if(!ll || !mapRef.current) return;
+        var col = props.oppCol ? props.oppCol(opp.score) : "#4A4BAE";
+        var mk = L.circleMarker(ll, { radius:9, color:"#fff", weight:2, fillColor:col, fillOpacity:0.9 });
+        var name = site.site_name || site.address_or_location || "Site";
+        var line2 = [site.town, site.county].filter(function(v){ return v && v !== "Not found"; }).join(", ");
+        var meta = [];
+        if(site.site_area_acres && site.site_area_acres !== "Not found") meta.push(site.site_area_acres + " ac");
+        if(site.asking_price && site.asking_price !== "Not found") meta.push(site.asking_price);
+        mk.bindPopup('<div style="font-family:sans-serif;min-width:150px">'
+          + '<div style="font-weight:700;color:#2E2F8A">' + name + '</div>'
+          + (line2 ? '<div style="font-size:11px;color:#666">' + line2 + '</div>' : '')
+          + '<div style="font-size:11px;margin-top:4px">Score <b>' + (opp.score || 0) + '%</b>'
+          + (meta.length ? ' · ' + meta.join(' · ') : '') + '</div>'
+          + '<div style="font-size:10px;color:#4A4BAE;margin-top:4px">Click the pin to open this site →</div>'
+          + '</div>');
+        mk.on("click", function(){ if(props.onSelect) props.onSelect(site); });
+        mk.addTo(map);
+        markersRef.current.push(mk);
+        bounds.push(ll);
+        try{ map.fitBounds(bounds, { padding:[34,34], maxZoom:11 }); }catch(e){}
+      });
+    });
+  }, [props.sig]);
+  if(typeof L === "undefined"){
+    return e("div",{style:{height:120,display:"flex",alignItems:"center",justifyContent:"center",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:10,color:"#7278A0",fontSize:12}},"Map is loading — give it a moment, then reopen the inbox.");
+  }
+  return e("div",{ref:elRef, style:{height:360,width:"100%",borderRadius:10,overflow:"hidden",border:"1px solid #DDE0ED"}});
+}
+
 // ── renderPlacona  (params: data, loadSiteIntoDeal, up, user) (setToast inside loadSiteIntoDeal stays in Tool — cosmetic)
 // Lifted out of Tool; body byte-unchanged. Loaded before 05-tool.js.
 function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
@@ -404,6 +484,20 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
             e("span",{style:{fontSize:11,color:"#7278A0",fontWeight:700}},"Shortlist: score ≥"),
             e("input",{type:"range",min:0,max:90,step:5,value:oppMin,onChange:function(ev){up("placona","minScore",Number(ev.target.value));},style:{flex:1,accentColor:"#2D7A65"}}),
             e("span",{style:{fontSize:13,fontWeight:800,color:oppCol(oppMin),minWidth:38,textAlign:"right"}},oppMin+"%")
+          ),
+          // v9.93 — MAP of the shortlisted sites (pins from postcode, coloured by score)
+          oppShown.length>0 && e("div",{style:{marginBottom:12}},
+            e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}},
+              e("span",{style:{fontSize:11,fontWeight:700,color:"#2E2F8A"}},"🗺️ Map — "+oppShown.length+" site"+(oppShown.length!==1?"s":"")+" (pin colour = opportunity score; click a pin to open)"),
+              e("button",{onClick:function(){up("placona","hideMap",!pl.hideMap);},style:{padding:"4px 10px",background:"#fff",border:"1px solid #DDE0ED",borderRadius:4,fontSize:10,fontWeight:700,color:"#7278A0",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}, pl.hideMap?"Show map":"Hide map")
+            ),
+            !pl.hideMap && e(PlaconaMap,{
+              recs:oppShown,
+              oppCol:oppCol,
+              sig:oppShown.map(function(r){return (r.site.postcode||"")+"|"+(r.site.site_name||r.site.address_or_location||"");}).join("~"),
+              onSelect:function(site){ up("placona","selectedSite",site); up("placona","view","detail"); }
+            }),
+            !pl.hideMap && e("div",{style:{fontSize:9,color:"#9A7B3E",marginTop:4,fontStyle:"italic"}},"Pins are placed from each site's postcode (add postcodes for exact positions; without one a site sits at its region's centre).")
           ),
           // Site cards (ranked)
           oppShown.map(function(rec,si){

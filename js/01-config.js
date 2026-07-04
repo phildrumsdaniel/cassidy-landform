@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.92";
+var CURRENT_VERSION = "9.93";
 var VERSION_HISTORY = [
+  {v:"9.93", date:"Jul 2026", headline:"Map view in Placona — see found sites on a map, coloured by score",
+   affectsCalc:false,
+   changes:["The Placona Site Inbox now shows an interactive MAP (Leaflet + free OpenStreetMap): every shortlisted site is a pin, positioned from its postcode (via the free postcodes.io lookup, with a region-centre fallback), coloured by its Cassidy Opportunity Score. Click a pin to open the site. Toggle the map on/off; it respects the shortlist score slider. Reinforces the Find stage visually — add postcodes for exact pin positions."]},
   {v:"9.92", date:"Jul 2026", headline:"Manual Land Appraisal path also resolves any village by postcode",
    affectsCalc:true,
    changes:["The universal postcode resolution now applies to deals built by hand (not just via Keystone): dealCityKey resolves an unlisted village or suburb to its nearest anchor market from the postcode area, so the engine's pricing, build-cost region, yield and rents all follow the site's postcode wherever the deal was created. Type a village in the city box and add a postcode and it resolves automatically. 258 engine tests."]},
@@ -1747,6 +1750,14 @@ var POSTCODE_AREA_TO_MARKET = {
   EH:"edinburgh", G:"glasgow", AB:"aberdeen", DD:"dundee", IV:"inverness", KY:"edinburgh",
   FK:"glasgow", ML:"glasgow", PA:"glasgow", KA:"glasgow", DG:"glasgow", TD:"edinburgh",
   PH:"edinburgh", KW:"inverness", HS:"inverness", ZE:"inverness"
+};
+// Approx centroid lat/lng per UK region — a graceful fallback for the Placona map when
+// a precise postcode geocode isn't available (or the network is blocked).
+var REGION_LATLNG = {
+  "North East":[54.97,-1.61], "North West":[53.48,-2.24], "Yorkshire & Humber":[53.80,-1.55],
+  "West Midlands":[52.48,-1.90], "East Midlands":[52.95,-1.15], "East of England":[52.20,0.12],
+  "South East":[51.45,-0.97], "London":[51.51,-0.13], "South West":[50.72,-3.53],
+  "Wales":[51.48,-3.18], "Scotland":[55.95,-3.19], "UK (national average)":[54.0,-2.4]
 };
 // The letter area of a UK postcode, e.g. "NE20 9AB" → "NE", "B15" → "B".
 function postcodeArea(pc){
