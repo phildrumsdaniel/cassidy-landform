@@ -56,20 +56,6 @@ const CRITICAL = [
     if (!r.ok) pdFail++;
   }
 
-  console.log("\n=== EA ArcGIS flood-service discovery (temporary) ===");
-  try {
-    const root = await hit("https://environment.data.gov.uk/arcgis/rest/services?f=json");
-    const folders = (root.body && root.body.folders) || [];
-    console.log("root folders: " + folders.join(", "));
-    let floods = ((root.body && root.body.services) || []).filter((s) => /flood/i.test(s.name)).map((s) => `${s.name} (${s.type})`);
-    for (const f of folders) {
-      const fr = await hit(`https://environment.data.gov.uk/arcgis/rest/services/${encodeURIComponent(f)}?f=json`);
-      const svcs = (fr.body && fr.body.services) || [];
-      floods = floods.concat(svcs.filter((s) => /flood/i.test(s.name)).map((s) => `${s.name} (${s.type})`));
-    }
-    console.log("FLOOD services: " + (floods.length ? floods.join("  |  ") : "none found"));
-  } catch (e) { console.log("discovery error: " + e.message); }
-
   console.log("\n=== SUMMARY ===");
   console.log(pdFail ? `❌ ${pdFail}/4 planning.data GeoJSON queries failed` : "✅ all 4 planning.data GeoJSON constraint queries OK");
   if (hardFail > 0) console.log(`❌ ${hardFail} CRITICAL dependency(ies) failed.`);
