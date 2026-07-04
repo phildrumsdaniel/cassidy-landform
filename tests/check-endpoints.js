@@ -33,7 +33,6 @@ const mark = (r) => (r.ok ? "✅" : (r.status === 0 ? "🔌" : "❌"));
 
 const CRITICAL = [
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
-  "https://unpkg.com/leaflet.vectorgrid@1.3.0/dist/Leaflet.VectorGrid.bundled.min.js",
   "https://tile.openstreetmap.org/9/254/173.png",
   "https://api.postcodes.io/postcodes/SW1A%201AA",   // a valid full postcode
   "https://api.postcodes.io/outcodes/CV8"
@@ -57,23 +56,9 @@ const CRITICAL = [
     if (!r.ok) pdFail++;
   }
 
-  console.log("\n=== Environment Agency ArcGIS — discover the flood service ===");
-  for (const folder of ["https://environment.data.gov.uk/arcgis/rest/services?f=json",
-                        "https://environment.data.gov.uk/arcgis/rest/services/EA?f=json"]) {
-    const r = await hit(folder);
-    console.log(`${mark(r)} ${String(r.status).padEnd(3)}  ${folder}`);
-    if (r.body) {
-      const services = (r.body.services || []).map((s) => s.name);
-      const folders = r.body.folders || [];
-      const flood = services.filter((n) => /flood/i.test(n));
-      if (folders.length) console.log("   folders: " + folders.join(", "));
-      if (flood.length)   console.log("   FLOOD services: " + flood.join(", "));
-      else if (services.length) console.log("   services(sample): " + services.slice(0, 8).join(", "));
-    }
-  }
-
   console.log("\n=== SUMMARY ===");
-  console.log(pdFail ? `⚠ ${pdFail}/4 planning.data GeoJSON queries failed` : "✅ all 4 planning.data GeoJSON queries OK");
-  if (hardFail > 0) { console.log(`❌ ${hardFail} CRITICAL dependency(ies) failed.`); process.exit(1); }
-  console.log("✅ All critical dependencies healthy.");
+  console.log(pdFail ? `❌ ${pdFail}/4 planning.data GeoJSON queries failed` : "✅ all 4 planning.data GeoJSON constraint queries OK");
+  if (hardFail > 0) console.log(`❌ ${hardFail} CRITICAL dependency(ies) failed.`);
+  if (hardFail > 0 || pdFail > 0) process.exit(1);
+  console.log("✅ All map data dependencies healthy.");
 })();

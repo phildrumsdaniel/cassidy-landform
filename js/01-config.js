@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.94";
+var CURRENT_VERSION = "9.95";
 var VERSION_HISTORY = [
+  {v:"9.95", date:"Jul 2026", headline:"Constraint layers fixed — Green Belt, Conservation Area, AONB, Listed Buildings now draw on the map",
+   affectsCalc:false,
+   changes:["Fixed the constraint overlays that were failing in live testing: planning.data.gov.uk serves these as GeoJSON (its vector-tile endpoint 404s), so the map now fetches the features intersecting your current view and draws them — Green Belt, Conservation Area, AONB and Listed Buildings, colour-coded, click for the designation name. Zoom to street level to load detail. Verified end-to-end by an automated CI endpoint check that queries the exact same API on every push.","Flood is a one-click deep-link to the official Flood Map for Planning for now (the Environment Agency map endpoint moved; a drawn flood layer will follow once its service is confirmed). Removed the unused vector-tile plug-in."]},
   {v:"9.94", date:"Jul 2026", headline:"Mapped constraint layers on the Placona map — Green Belt, Conservation Area, AONB, Listed Buildings, Flood Zones",
    affectsCalc:false,
    changes:["The Placona map now overlays free, authoritative GOVERNMENT constraint layers you can toggle on and off: Green Belt, Conservation Areas, AONB and Listed Buildings (planning.data.gov.uk vector tiles) plus Flood Zones 2 & 3 (Environment Agency). No API keys, no cost. Each layer is colour-coded with a legend, and every layer links to its official map as a guaranteed fallback. Zoom in on a pin to see whether a site sits in Green Belt, a flood zone, etc. — turning the map from locational into decision-useful, and complementing the AI Constraints Checker (now one click from the map).","This closes the biggest visible gap vs mapped GIS platforms for near-zero cost: authoritative constraints drawn on the map, not just an AI narrative."]},
