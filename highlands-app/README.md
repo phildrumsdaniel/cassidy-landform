@@ -84,30 +84,29 @@ The app builds with `base = /cassidy-landform/highlands/` (override with
 https://<owner>.github.io/cassidy-landform/highlands/
 ```
 
-Two ways to publish, both **non-destructive** to the existing landform site
-(they only ever write to the `highlands/` sub-directory):
+### GitHub Actions (recommended)
 
-### 1. GitHub Actions (recommended)
-
-`.github/workflows/highlands-deploy.yml` runs on pushes that touch
+`.github/workflows/highlands-deploy.yml` runs on pushes to `main` that touch
 `highlands-app/**` (or manually via *Run workflow*). It installs, **fetches the
-photos**, builds, and publishes `dist/` to the `gh-pages` branch under
-`highlands/` (with `keep_files: true`).
+photos**, builds, and publishes `dist/` into a **`highlands/` folder on the
+`main` branch** with `keep_files: true`.
 
-Then set **Settings → Pages → Deploy from a branch → `gh-pages` / `root`**.
+Because it publishes into `main` (not a separate branch), the app serves under
+**whatever Pages setup already serves the landform site at the repo root** — so
+there is **no Pages source change to make**, and the landform files are never
+touched. If Pages isn't enabled yet, enable it once with
+**Settings → Pages → Deploy from a branch → `main` / `root`**; that lights up
+both the landform site and the highlands app at `/highlands/`.
 
-### 2. Manual
+### Manual (alternative: dedicated gh-pages branch)
 
 ```bash
-npm run deploy     # builds and pushes dist/ to gh-pages branch, highlands/ dir
+npm run deploy     # builds and pushes dist/ to the gh-pages branch, highlands/ dir
 ```
 
-> **Note on the landform site:** if your Pages is currently served from the
-> `main` branch root, switch the Pages source to `gh-pages` (root) so both the
-> highlands sub-path and your other content are served from there — or keep the
-> app on `main` under a `highlands/` folder if you prefer. The build output is
-> the same either way; only the Pages *source* setting differs. Confirm this
-> before switching so the landform site keeps serving.
+This publishes to a separate `gh-pages` branch instead; it requires setting the
+Pages source to `gh-pages`. Prefer the Actions workflow above unless you
+specifically want a dedicated branch.
 
 ## Install on an iPhone
 

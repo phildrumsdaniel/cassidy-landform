@@ -1,10 +1,10 @@
-# Builds and deploys the Highlands Adventure PWA (in highlands-app/) to the
-# gh-pages branch under /highlands/. Kept entirely separate from the landform
-# site: it only runs for changes under highlands-app/, and publishes into its
-# own sub-directory with keep_files so it never touches other Pages content.
+# Builds and deploys the Highlands Adventure PWA (in highlands-app/) into a
+# /highlands/ sub-directory on the main branch. This serves the app alongside
+# the existing landform site under the SAME GitHub Pages setup — no Pages
+# source change is needed, and the landform files are never touched
+# (keep_files: true only adds/updates files under highlands/).
 #
 # Result URL: https://<owner>.github.io/cassidy-landform/highlands/
-# (Enable Pages → "Deploy from a branch" → gh-pages / root for this to serve.)
 name: Deploy Highlands PWA
 
 on:
@@ -49,13 +49,14 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Deploy to gh-pages/highlands
+      - name: Deploy to main/highlands
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: main
           publish_dir: highlands-app/dist
           destination_dir: highlands
           keep_files: true
           user_name: github-actions[bot]
           user_email: github-actions[bot]@users.noreply.github.com
-          commit_message: 'Deploy Highlands PWA to /highlands/'
+          commit_message: 'Deploy Highlands PWA to /highlands/ [skip ci]'
