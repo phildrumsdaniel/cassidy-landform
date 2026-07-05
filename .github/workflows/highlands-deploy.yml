@@ -49,14 +49,24 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Deploy to main/highlands
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: main
-          publish_dir: highlands-app/dist
-          destination_dir: highlands
-          keep_files: true
-          user_name: github-actions[bot]
-          user_email: github-actions[bot]@users.noreply.github.com
-          commit_message: 'Deploy Highlands PWA to /highlands/ [skip ci]'
+      - name: Publish built app into main/highlands
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -e
+          # Replace only the highlands/ sub-directory; landform files at the
+          # repo root are never touched. Built output goes to main so the app
+          # serves under the same Pages setup as the landform site — no Pages
+          # source change required.
+          rm -rf highlands
+          mkdir -p highlands
+          cp -r highlands-app/dist/. highlands/
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add highlands
+          if git diff --cached --quiet; then
+            echo "No changes to publish."
+          else
+            # [skip ci] keeps this deploy commit from re-triggering workflows.
+            git commit -m 'Deploy Highlands PWA to /highlands/ [skip ci]'
+            git push origin HEAD:main
+          fi
