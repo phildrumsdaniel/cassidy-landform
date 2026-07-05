@@ -1,0 +1,29 @@
+{
+  "name": "highlands-adventure-pwa",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Offline-capable PWA for Phil & Tracey's 16-day Scottish Highlands motorhome tour, 8-23 August 2026.",
+  "scripts": {
+    "dev": "vite",
+    "assets": "node scripts/make-icons.mjs && node scripts/make-static-map.mjs",
+    "prebuild": "npm run assets",
+    "build": "vite build",
+    "preview": "vite preview",
+    "fetch-photos": "node scripts/fetch-photos.mjs",
+    "placeholders": "node scripts/make-placeholders.mjs",
+    "deploy": "npm run build && gh-pages -d dist -e highlands"
+  },
+  "dependencies": {
+    "leaflet": "^1.9.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "gh-pages": "^6.1.1",
+    "vite": "^5.4.8",
+    "vite-plugin-pwa": "^0.20.5"
+  }
+}
