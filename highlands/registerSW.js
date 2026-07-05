@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/cassidy-landform/highlands/sw.js', { scope: '/cassidy-landform/highlands/' })})}
