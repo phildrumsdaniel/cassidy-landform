@@ -589,7 +589,7 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
                 e("span",null,"Profit per plot: "+fmt(profitPu)),
                 sAcres>0&&e("span",null,"Profit per acre: "+fmt(sAcres>0?netProfit/sAcres:0)),
                 e("span",null,"Margin on GDV: "+pct(totalGdv>0?(netProfit/totalGdv)*100:0)),
-                e("span",null,"Build period: ~"+(Math.ceil(totalUnits/40))+" year(s) at 40 plots/yr")
+                e("span",null,"Build period: ~"+Math.max(1,Math.round(totalUnits/buildRatePerYear(totalUnits,false)))+" year(s) at "+buildRatePerYear(totalUnits,false)+" plots/yr")
               ),
               e("div",{style:{display:"flex",gap:10,justifyContent:"center",marginTop:14}},
                 e("button",{onClick:function(){navTo("planning");},style:{padding:"9px 20px",background:"#4A4BAE",border:"none",borderRadius:6,color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"→ Planning & Viability"),

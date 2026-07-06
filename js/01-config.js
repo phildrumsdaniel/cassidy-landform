@@ -15,8 +15,13 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.98";
+var CURRENT_VERSION = "9.99";
 var VERSION_HISTORY = [
+  {v:"9.99", date:"Jul 2026", headline:"Fixed: Detailed Appraisal freeze, stuck Land Registry spinner, disagreeing build-out timelines",
+   affectsCalc:false,
+   changes:["DETAILED APPRAISAL FREEZE: the 'Auto-Populate from Deal Data' button fired a native browser alert() straight after populating. A native alert blocks the entire renderer until dismissed — which an automated/embedded browser can't do — so the page appeared to hang. Removed it (the on-screen 'estimated — verify' banners already carry the warning).",
+     "LAND REGISTRY LOOKUP stuck spinner: the 30-second timeout was cleared after the FIRST query, but when that returned no rows a SECOND (broader) query ran unguarded — a hang there left the spinner spinning forever. The timeout now stays armed through the whole lookup, so it always resolves or errors cleanly.",
+     "BUILD-OUT TIMELINE: the SFH House Mix screen assumed a single outlet (40 plots/yr → ~27 years for 1,056 homes) while the RLV screen used a phased model (~220/yr → ~5 years). Both now use one shared, size-aware build-rate, so the programmes agree. 267 tests."]},
   {v:"9.98", date:"Jul 2026", headline:"Fixed: green ticks now mean actually done, not merely viewed",
    affectsCalc:true,
    changes:["COMPLETION TRACKING — the big one: stages no longer count as complete just because you navigated away from them. Completeness is now purely data-driven — a stage is complete only when it genuinely holds the data it needs. So Due Diligence and Exit Strategy stay on the 'still need to fill' list until you actually fill them, and green ticks can be trusted.",
@@ -1791,6 +1796,18 @@ function postcodeMarketKey(pc){
   if(!area) return "";
   var mk = POSTCODE_AREA_TO_MARKET[area];
   return (mk && typeof MKT !== "undefined" && MKT[mk]) ? mk : "";
+}
+// v9.99 — one phased build-rate (homes/yr) so every screen agrees. Larger schemes run
+// multiple outlets/phases concurrently, so a 1,056-home scheme is ~220/yr (≈5 yrs), not
+// a single outlet's 40/yr (≈27 yrs). Shared by SFH House Mix and the RLV programme.
+function buildRatePerYear(units, isApart){
+  units = num(units);
+  if(isApart) return units >= 300 ? 250 : units >= 150 ? 200 : 150;
+  if(units >= 600) return 220;   // strategic / multi-phase
+  if(units >= 300) return 175;   // ~4 outlets
+  if(units >= 150) return 115;   // ~3 outlets
+  if(units >= 50)  return 70;    // ~2 outlets
+  return 40;                     // single outlet
 }
 function ukRegionFor(data){
   var c = (typeof dealCityKey === "function") ? dealCityKey(data) : "";

@@ -59,7 +59,9 @@ function renderViability(city, data, gdv, lc, up, user){
         autoPopulated:true
       };
       up("viability","appraisal",newAp);
-      alert("Populated from deal data. Infrastructure costs are ESTIMATES — replace with scheme-specific figures before presenting.");
+      // v9.99 — no blocking alert(): a native alert freezes the whole renderer in an
+      // automated/embedded browser (it can't be dismissed programmatically). The on-screen
+      // "estimated — verify" banners below already carry the warning.
     }
 
     // Calc metrics

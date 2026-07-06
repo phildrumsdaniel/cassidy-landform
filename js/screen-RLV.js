@@ -205,7 +205,9 @@ function renderRLV(city, data, m, navTo, setData, up, user){
         {headers:{"Accept":"application/json"}})
       .then(function(res){return res.json();})
       .then(function(json){
-        clearTimeout(lrTimeout);
+        // v9.99 — keep the 30s timeout ARMED here: if this first query returns 0 rows it
+        // fires a SECOND fetch below, and clearing the timeout now left that second fetch
+        // unguarded — a hang there stuck the spinner forever. Cleared at the final step.
         var rows=(json&&json.results&&json.results.bindings)||[];
 
         // If still no results, try broader district
@@ -295,6 +297,7 @@ function renderRLV(city, data, m, navTo, setData, up, user){
         } else {
           up("rlv","lrError","No transactions found for "+district+". The Land Registry SPARQL endpoint has partial coverage. Try entering the sale price manually using local agent data — Rightmove or Zoopla sold prices for the area.");
         }
+        clearTimeout(lrTimeout);
         up("rlv","lrLoading",false);
       })
       .catch(function(err){
@@ -865,17 +868,8 @@ function renderRLV(city, data, m, navTo, setData, up, user){
             //   • 600+         → strategic scheme, 200-250+ units/yr (multiple developers/phases)
             // Apartments: BTR/PBSA single block built faster (concurrent floors), 200-300 units/yr.
             //             Large multi-block schemes split into phases of ~250 units each.
-            var buildRate;
-            if(isApart){
-              buildRate = units2>=300 ? 250 : units2>=150 ? 200 : 150;
-            } else {
-              // SFH — phased delivery scales with size
-              if(units2>=600)      buildRate = 220;  // strategic / multi-phase
-              else if(units2>=300) buildRate = 175;  // 4 outlets
-              else if(units2>=150) buildRate = 115;  // 3 outlets
-              else if(units2>=50)  buildRate = 70;   // 2 outlets
-              else                 buildRate = 40;   // single outlet
-            }
+            // v9.99 — shared phased build rate (same helper the SFH House Mix screen uses).
+            var buildRate = buildRatePerYear(units2, isApart);
 
             // Build phase years — but cap at 8 years for max practical scheme
             var buildPhase=Math.max(0.5,Math.min(8,units2/buildRate));
