@@ -1,83 +1,100 @@
 import { Link } from 'react-router-dom'
-import { days, TRIP } from '../data/days.js'
-import { currentDayNumber, daysUntilStart } from '../lib/trip.js'
+import { bases, TRIP, legs, twoNightBases } from '../data/bases.js'
+import { poi } from '../data/pois.js'
+import { currentBaseId, daysUntilStart } from '../lib/trip.js'
 import { useTheme } from '../lib/theme.js'
 import Photo from '../components/Photo.jsx'
 import { DayPlate, Diamond, Eyebrow } from '../components/ui.jsx'
 import { IconMoon, IconSun, IconMap, IconCheck, IconList, IconInfo } from '../components/icons.jsx'
 
-function heroSlug(day) {
-  const p = day.pois.find((x) => x.image === day.hero) || day.pois[0]
-  return { slug: p?.image || day.hero, name: p?.name || day.title }
-}
+const totalMiles = legs.reduce((s, l) => s + l.miles, 0)
+const BASE_URL = import.meta.env.BASE_URL
 
 export default function Home() {
   const [theme, toggle] = useTheme()
-  const todayN = currentDayNumber()
+  const todayId = currentBaseId()
   const until = daysUntilStart()
 
   return (
     <>
-      <header className="topbar" style={{ paddingBottom: 22 }}>
+      <header className="topbar home-hero" style={{ paddingBottom: 22 }}>
+        <img
+          className="home-backdrop"
+          src={`${BASE_URL}images/glencoe.jpg`}
+          alt=""
+          aria-hidden="true"
+          onError={(e) => { e.currentTarget.style.display = 'none' }}
+        />
         <button className="theme-toggle" onClick={toggle} aria-label="Toggle dark mode">
           {theme === 'dark' ? <IconSun /> : <IconMoon />}
         </button>
+        <figure className="portrait">
+          <img
+            src={`${BASE_URL}images/mine/phil-tracey-avatar.jpg`}
+            alt="Phil and Tracey"
+            onError={(e) => { e.currentTarget.parentElement.style.display = 'none' }}
+          />
+          <figcaption>Phil &amp; Tracey</figcaption>
+        </figure>
         <Eyebrow>{TRIP.who} · 8–23 August 2026</Eyebrow>
-        <h1 className="serif" style={{ fontSize: '2.2rem', margin: '6px 0 4px' }}>{TRIP.title}</h1>
-        <p style={{ margin: '2px 0 0', opacity: 0.9, fontFamily: 'var(--serif)', fontStyle: 'italic', lineHeight: 1.4 }}>
+        <h1 className="serif" style={{ fontSize: '2.2rem', margin: '6px 0 2px' }}>{TRIP.title}</h1>
+        <div className="eyebrow" style={{ color: 'var(--whisky-soft)', letterSpacing: '.26em' }}>{TRIP.subtitle}</div>
+        <p style={{ margin: '10px 0 0', opacity: 0.92, fontFamily: 'var(--serif)', fontStyle: 'italic' }}>
           {TRIP.tagline}
         </p>
-        {todayN ? (
-          <Link to={`/day/${todayN}`} style={{ textDecoration: 'none', display: 'inline-block', marginTop: 16 }}>
-            <span className="today-pill">
-              <Diamond /> Day {todayN} of {TRIP.totalDays} — Today →
-            </span>
+        {todayId ? (
+          <Link to={`/base/${todayId}`} style={{ textDecoration: 'none', display: 'inline-block', marginTop: 16 }}>
+            <span className="today-pill"><Diamond /> You’re here today → Base {todayId}</span>
           </Link>
         ) : until != null ? (
           <p style={{ marginTop: 14, marginBottom: 0, fontSize: '0.82rem', opacity: 0.85 }}>
             {until === 0 ? 'The adventure begins today!' : `${until} day${until === 1 ? '' : 's'} until departure`}
           </p>
         ) : (
-          <p style={{ marginTop: 14, marginBottom: 0, fontSize: '0.82rem', opacity: 0.85 }}>
-            Trip complete — 16 days of memories.
-          </p>
+          <p style={{ marginTop: 14, marginBottom: 0, fontSize: '0.82rem', opacity: 0.85 }}>Trip complete — 16 days of memories.</p>
         )}
       </header>
 
-      <div className="container">
+      <div className="stat">
+        <div><span className="n">16</span><span className="l">Days</span></div>
+        <div><span className="n">9</span><span className="l">Bases</span></div>
+        <div><span className="n">~{totalMiles.toLocaleString()}</span><span className="l">Miles</span></div>
+      </div>
+
+      <div className="container" style={{ paddingTop: 0 }}>
+        <div className="intro">
+          <b>The idea:</b> drive to a base and <b>stay put</b> — {twoNightBases} of the nine bases are two-night stops, so most mornings you wake up, leave the van pitched, and go exploring.
+        </div>
+
         <div className="quicklinks">
           <Link className="quicklink" to="/map"><IconMap /><span>Map</span></Link>
+          <Link className="quicklink" to="/costs"><IconList /><span>Bases &amp; costs</span></Link>
           <Link className="quicklink" to="/packing"><IconCheck /><span>Packing</span></Link>
-          <Link className="quicklink" to="/predeparture"><IconList /><span>Pre-departure</span></Link>
-          <Link className="quicklink" to="/about"><IconInfo /><span>About</span></Link>
+          <Link className="quicklink" to="/about"><IconInfo /><span>About &amp; backup</span></Link>
         </div>
 
         <div className="section-title" style={{ marginTop: 24 }}>
-          <Diamond />
-          <h2>The 16-day route</h2>
+          <Diamond /><h2>The nine bases</h2>
         </div>
 
-        {days.map((day) => {
-          const h = heroSlug(day)
-          const isToday = todayN === day.n
+        {bases.map((b) => {
+          const h = poi(b.hero)
+          const isToday = todayId === b.id
+          const label = b.id === 10 ? 'Home' : `${b.id}`
           return (
-            <Link className="dcard" to={`/day/${day.n}`} key={day.n} style={isToday ? { outline: '2px solid var(--whisky)' } : undefined}>
-              <DayPlate n={day.n} />
+            <Link className="dcard" to={`/base/${b.id}`} key={b.id} style={isToday ? { outline: '2px solid var(--whisky)' } : undefined}>
+              <DayPlate n={b.id === 10 ? '⌂' : b.id} label={b.id === 10 ? 'Trip' : 'Base'} />
               <div className="meta">
-                <span className="date">{day.weekday} {day.date}{isToday ? ' · Today' : ''}</span>
-                <span className="rtitle">{day.title}</span>
-                <span className="overnight"><Diamond /> {day.overnight}</span>
+                <span className="date">{b.dateLabel}{isToday ? ' · Today' : ''}</span>
+                <span className="rtitle">{b.name}</span>
+                <span className="overnight"><Diamond /> {b.nights === 0 ? 'Drive home' : `${b.nights} night${b.nights > 1 ? 's' : ''} · ${b.region}`}</span>
               </div>
-              <div className="thumb">
-                <Photo slug={h.slug} name={h.name} />
-              </div>
+              <div className="thumb"><Photo slug={h.slug} name={h.name} /></div>
             </Link>
           )
         })}
 
-        <p className="center muted" style={{ fontSize: '0.75rem', margin: '18px 0 4px' }}>
-          Slow roads. Big views. Safe travels.
-        </p>
+        <p className="center muted" style={{ fontSize: '0.75rem', margin: '18px 0 4px' }}>Drive less. Stay longer. Safe travels.</p>
       </div>
     </>
   )

@@ -8,15 +8,13 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
 
-const { days } = await import('../src/data/days.js')
+const { bases } = await import('../src/data/bases.js')
 
-// Headline stop per day (hero POI) for a clean 16-point route.
-const stops = days
-  .map((d) => {
-    const p = d.pois.find((x) => x.image === d.hero) || d.pois[0]
-    return p && p.lat != null ? { n: d.n, name: p.name, lat: p.lat, lng: p.lng, overnight: d.overnight } : null
-  })
-  .filter(Boolean)
+// One point per base centre (bases 1–9; the drive home to Burbage is left off
+// so the Scotland loop isn't squashed).
+const stops = bases
+  .filter((b) => b.id !== 10 && b.lat != null)
+  .map((b) => ({ n: b.id, name: b.name, lat: b.lat, lng: b.lng }))
 
 const W = 720, H = 1000, M = 70
 const lats = stops.map((s) => s.lat)

@@ -461,3 +461,99 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; line-height: 1.12; mar
 .muted { color: var(--text-soft); }
 .center { text-align: center; }
 .stack > * + * { margin-top: 14px; }
+
+/* ---------- home hero: Phil & Tracey over a Scottish backdrop ---------- */
+.home-hero { position: relative; overflow: hidden; }
+.home-backdrop {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; opacity: 0.30; filter: saturate(0.95);
+  z-index: 0;
+}
+.home-hero::after {
+  content: ''; position: absolute; inset: 0; z-index: 1;
+  background: linear-gradient(160deg, rgba(13,35,43,0.55), rgba(20,52,63,0.42) 60%, rgba(13,35,43,0.7));
+}
+.home-hero > *:not(.home-backdrop) { position: relative; z-index: 2; }
+.portrait {
+  float: right; width: 108px; margin: 0 0 10px 14px;
+  transform: rotate(2deg);
+}
+.portrait img {
+  width: 108px; height: 104px; object-fit: cover; object-position: center 40%;
+  border-radius: 14px; border: 3px solid var(--whisky-soft);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+  background: var(--loch);
+}
+.portrait figcaption {
+  text-align: center; font-family: var(--sans); font-size: 0.58rem;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--whisky-soft);
+  margin-top: 5px;
+}
+
+/* ---------- home stat bar ---------- */
+.stat { display: flex; text-align: center; background: var(--loch); color: #eee6d3; }
+:root[data-theme='dark'] .stat { background: #0e2a33; }
+.stat div { flex: 1; padding: 12px 4px; border-right: 1px solid rgba(230,201,135,0.2); }
+.stat div:last-child { border-right: none; }
+.stat .n { font-size: 1.2rem; font-family: var(--serif); color: var(--whisky-soft); display: block; }
+.stat .l { font-size: 0.6rem; letter-spacing: 0.14em; text-transform: uppercase; color: #c8d3d5; }
+
+.intro {
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 4px solid var(--heather); border-radius: 8px;
+  padding: 13px 15px; margin: 18px 0 4px; font-size: 0.95rem; line-height: 1.5;
+}
+.intro b { color: var(--loch); }
+:root[data-theme='dark'] .intro b { color: var(--whisky-soft); }
+
+/* ---------- accommodation ---------- */
+.stay {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--shadow);
+}
+.stay-kind { color: var(--heather); margin-bottom: 3px; }
+:root[data-theme='dark'] .stay-kind { color: var(--whisky-soft); }
+.stay-name { font-family: var(--serif); font-size: 1.1rem; color: var(--loch); }
+:root[data-theme='dark'] .stay-name { color: var(--text); }
+.stay-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 7px 0; }
+.stay-meta .tel { font-weight: 700; color: var(--loch); text-decoration: none; border-bottom: 1.5px solid var(--whisky); }
+:root[data-theme='dark'] .stay-meta .tel { color: var(--whisky-soft); }
+.stay-meta .pc { font-size: 0.8rem; color: var(--text-soft); }
+.cost { display: inline-block; background: var(--whisky); color: #22160a; font-weight: 700; font-size: 0.74rem; padding: 2px 9px; border-radius: 20px; }
+.cost.tbc { background: transparent; color: var(--heather); border: 1px solid var(--heather); }
+.stay-note { font-size: 0.85rem; color: var(--text-soft); line-height: 1.4; }
+.stay-links { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.stay-links .btn { padding: 7px 12px; font-size: 0.76rem; }
+
+/* ---------- mileage table ---------- */
+.mtab { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.mtab th { text-align: left; background: var(--loch); color: #fff; font-size: 0.58rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 8px 8px; }
+.mtab td { padding: 8px 8px; border-bottom: 1px solid var(--border); vertical-align: top; font-variant-numeric: tabular-nums; }
+.mtab tr:nth-child(even) td { background: var(--surface-2); }
+.mtab .nn { color: var(--heather); font-weight: 700; }
+.mtab .tot td { background: var(--loch); color: var(--whisky-soft); font-weight: 700; }
+
+/* ---------- media journal ---------- */
+.media-actions { display: flex; gap: 8px; margin: 12px 0 4px; flex-wrap: wrap; }
+.media-actions .btn { padding: 9px 14px; font-size: 0.8rem; }
+.media-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.media-thumb {
+  position: relative; aspect-ratio: 1; border: none; padding: 0; cursor: pointer;
+  border-radius: 10px; overflow: hidden; background: var(--loch);
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+}
+.media-thumb img, .media-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.media-thumb .play {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 1.4rem; text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+  background: rgba(13,35,43,0.25);
+}
+.lightbox {
+  position: fixed; inset: 0; z-index: 2000; background: rgba(6,15,20,0.94);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+  padding-bottom: calc(16px + var(--safe-bottom));
+}
+.lightbox-inner { max-width: 100%; max-height: 100%; display: flex; flex-direction: column; gap: 12px; }
+.lightbox-inner img, .lightbox-inner video { max-width: 100%; max-height: 76vh; border-radius: 12px; object-fit: contain; }
+.lightbox-bar { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.btn.danger { background: #8a2f2f; color: #fff; }
