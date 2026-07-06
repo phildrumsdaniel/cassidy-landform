@@ -6,6 +6,8 @@ import Photo from '../components/Photo.jsx'
 import { DayPlate, Diamond, BaseRibbon, Note, Eyebrow } from '../components/ui.jsx'
 import { IconChevronLeft, IconChevronRight, IconPin } from '../components/icons.jsx'
 import MediaJournal from '../components/MediaJournal.jsx'
+import ShareSheet from '../components/ShareSheet.jsx'
+import { useState } from 'react'
 
 function Stay({ s }) {
   return (
@@ -36,6 +38,7 @@ export default function BaseDetail() {
   const n = parseInt(id, 10)
   const base = bases.find((b) => b.id === n)
   const touch = useRef({ x: 0, y: 0 })
+  const [share, setShare] = useState(false)
 
   if (!base) {
     return <div className="container"><p>Base not found.</p><Link className="btn" to="/">← Home</Link></div>
@@ -115,6 +118,7 @@ export default function BaseDetail() {
           <div className="section-title" style={{ margin: '18px 0 10px' }}><Diamond /><h2>Journal</h2></div>
           <p className="muted" style={{ marginTop: '-4px', fontSize: '0.82rem' }}>Notes, photos &amp; videos — saved on your phone, works offline.</p>
           <MediaJournal baseId={base.id} />
+          <button className="btn gold" style={{ marginTop: 12 }} onClick={() => setShare(true)}>✦ Share this base</button>
         </div>
 
         <div className="daynav">
@@ -127,6 +131,8 @@ export default function BaseDetail() {
         </div>
         <p className="swipe-hint">← swipe between bases →</p>
       </div>
+
+      {share && <ShareSheet base={base} onClose={() => setShare(false)} />}
     </div>
   )
 }
