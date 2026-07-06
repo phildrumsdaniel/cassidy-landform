@@ -15,8 +15,14 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.96";
+var CURRENT_VERSION = "9.97";
 var VERSION_HISTORY = [
+  {v:"9.97", date:"Jul 2026", headline:"Fixed: Financial Modelling scenario table + cost reconciliation, Exit value range, Planning completion",
+   affectsCalc:true,
+   changes:["FINANCIAL MODELLING — scenario table: the Bear/Base/Bull cases were valuing every scenario as a rental capitalisation (NOI divided by yield), so a for-sale scheme's Base case showed a nonsense GDV and a loss right under a 'Viable, 30% margin' box. Scenarios now scale the scheme's own valuation basis — for-sale GDV moves with the sales-price assumption; only genuine rental schemes capitalise NOI.",
+     "FINANCIAL MODELLING — cost table: Total Dev Cost and its line items now come from the one engine (build, fees, contingency, finance, S106, roads, infra, disposal, plus acquisition and land), so the itemised costs sum to the total and reconcile with the profit and margin shown beneath them.",
+     "EXIT STRATEGY — the headline value range no longer starts at £0: exit routes that don't apply to the scheme are excluded, so the low end is the lowest real route (e.g. the Registered Provider route).",
+     "PLANNING — the stage no longer shows a green 'complete' tick on the unit count alone; it requires a planning status to be chosen. 261 tests."]},
   {v:"9.96", date:"Jul 2026", headline:"Fixed: Scorecard now shows the real RLV/margin; the three RLV figures reconcile",
    affectsCalc:true,
    changes:["SITE SCORECARD FIX: it was reading input fields that the engine never fills (data.rlv.rlv, data.fin.marginPct), so it showed the ASKING PRICE as the residual land value and a 0% margin — flagging a strongly profitable scheme as \"Unviable\". It now reads the residual, margin and units straight from the one engine (calcDealMetrics), so the scorecard agrees with the rest of the deal. The bottom verdict tier is relabelled DECLINE (was the confusingly positive-sounding \"PASS\").","RLV RECONCILIATION: the disposal/marketing cost added in v9.89 (3% of GDV) was in the engine's residual but missing from the SFH House Mix screen's own calc and from the RLV screen's displayed cost lines — so the same scheme showed three different residuals (e.g. £74.6m vs £89.9m). The SFH screen now includes it and both screens show a \"Disposal & marketing\" line, so every screen and the engine agree on one residual. 261 tests.","Note: these were display/scorecard-layer bugs surfaced by an end-to-end live test; the core engine numbers (GDV, cost, profit) were already correct and consistent."]},
