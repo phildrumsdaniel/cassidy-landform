@@ -42,7 +42,9 @@ function renderScorecard(city, data, gdv, lc, up, user){
       return{s:3,l:"Secondary market"};
     }
     function scoreLocation(){
-      var score=num(l.locationScore||0);
+      // v9.100 — compute from the live Land Appraisal dropdowns (the Land screen never
+      // stored a locationScore, so this used to stay at 0 → "Poor" no matter what).
+      var score=(typeof locationScore==="function")?locationScore(data):num(l.locationScore||0);
       if(score>=80)return{s:9,l:"Excellent"};if(score>=60)return{s:7,l:"Good"};
       if(score>=40)return{s:5,l:"Average"};return{s:3,l:"Poor"};
     }

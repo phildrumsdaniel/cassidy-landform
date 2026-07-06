@@ -439,6 +439,10 @@ console.log("Landform engine consistency tests\n");
   ok("Tenure complete once it covers the scheme", isStageComplete("tenure", {land:{units:1056}, tenure:{inputMode:"units", mix:{sr:1056}}}));
   ok("Planning not complete on units alone (no status)", !isStageComplete("planning", {planning:{units:1056}}));
   ok("Planning complete once a status is set", isStageComplete("planning", {planning:{units:1056, status:"full"}}));
+  // v10.0 — location score shared by Land Appraisal + Scorecard (was only on the Land screen)
+  ok("locationScore reflects the land dropdowns", locationScore({land:{proximity:"fair",transport:"fair",contamination:"unknown",tenure:"freehold",constraint:"none"}}) === 53);
+  ok("locationScore is 0 when unset", locationScore({}) === 0);
+  ok("buildRatePerYear phased (1056 homes -> 220/yr)", buildRatePerYear(1056,false) === 220 && buildRatePerYear(40,false) === 40);
 })();
 
 // 22 — SFH inherits site area from Land Appraisal (engine stays consistent with screen)

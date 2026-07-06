@@ -15,8 +15,13 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.99";
+var CURRENT_VERSION = "10.0";
 var VERSION_HISTORY = [
+  {v:"10.0", date:"Jul 2026", headline:"Fixed three cross-stage sync bugs: Scorecard location, Exit yield stat, RLV sale-price sign-flip",
+   affectsCalc:true,
+   changes:["SITE SCORECARD — Location Quality now reflects the live Land Appraisal dropdowns. The score (0–100) was computed only on the Land screen and never stored, so the Scorecard read 0 and always said 'Poor 3/10' however you filled it. Both screens now share one locationScore() function.",
+     "EXIT STRATEGY — the 'Exit Yield' summary tile showed 0.0% because it read a raw field instead of the resolved net initial yield; it now shows the deal yield (e.g. 4.9%), matching the field and banner beside it.",
+     "LAND VALUATION (RLV) — when the Land Registry lookup returned an EXISTING-stock £/sqft, it fed that straight into the scheme's sale price. But a new-build scheme sells at the new-build price, so the main panel (mix-based, new-build) and the sensitivity widget (this figure) disagreed — one a profit, one a loss. The lookup now plumbs the new-build value (existing + regional premium) to the scheme, keeping the raw figure only as the on-screen benchmark. 270 tests."]},
   {v:"9.99", date:"Jul 2026", headline:"Fixed: Detailed Appraisal freeze, stuck Land Registry spinner, disagreeing build-out timelines",
    affectsCalc:false,
    changes:["DETAILED APPRAISAL FREEZE: the 'Auto-Populate from Deal Data' button fired a native browser alert() straight after populating. A native alert blocks the entire renderer until dismissed — which an automated/embedded browser can't do — so the page appeared to hang. Removed it (the on-screen 'estimated — verify' banners already carry the warning).",
@@ -1808,6 +1813,22 @@ function buildRatePerYear(units, isApart){
   if(units >= 150) return 115;   // ~3 outlets
   if(units >= 50)  return 70;    // ~2 outlets
   return 40;                     // single outlet
+}
+// v9.100 — one location score (0–100) from the five Land Appraisal dropdowns, so the Site
+// Scorecard reflects the live inputs instead of a value that was only computed on the Land
+// screen and never stored.
+var LOCATION_SCORE_WEIGHTS = {
+  proximity:{excellent:25,good:15,fair:8,poor:0},
+  transport:{excellent:20,good:12,fair:6,poor:0},
+  contamination:{clean:20,minor:10,major:0,unknown:4},
+  tenure:{freehold:15,long_leasehold:10,short_leasehold:3},
+  constraint:{none:20,minor:12,moderate:6,major:0}
+};
+function locationScore(deal){
+  var l = (deal && deal.land) || {};
+  var s = 0;
+  Object.keys(LOCATION_SCORE_WEIGHTS).forEach(function(k){ s += (LOCATION_SCORE_WEIGHTS[k][l[k]] || 0); });
+  return s;
 }
 function ukRegionFor(data){
   var c = (typeof dealCityKey === "function") ? dealCityKey(data) : "";

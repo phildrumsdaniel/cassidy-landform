@@ -422,7 +422,7 @@ function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi,
           e(Inp,{label:"Transaction Agent",value:ex.agent,onChange:function(v){up("exit","agent",v);},placeholder:"e.g. CBRE, JLL, Savills"})
         ),
         units>0&&e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginTop:8}},
-          [{l:"GDV",v:fmt(gdv)},{l:"NOI (pa)",v:fmt(noi)},{l:"Exit Yield",v:pct(ey*100)},{l:"Price per "+(at==="pbsa"?"Bed":"Unit"),v:units>0?fmt(gdv/units):"—"}].map(function(item){
+          [{l:"GDV",v:fmt(gdv)},{l:"NOI (pa)",v:fmt(noi)},{l:"Exit Yield",v:pct(dealY*100)},{l:"Price per "+(at==="pbsa"?"Bed":"Unit"),v:units>0?fmt(gdv/units):"—"}].map(function(item){
             return e("div",{key:item.l,style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,padding:12}},
               e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:4}},item.l),
               e("div",{style:{fontSize:18,fontWeight:700,color:"#4A4BAE"}},item.v)

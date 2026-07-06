@@ -271,7 +271,14 @@ function renderRLV(city, data, m, navTo, setData, up, user){
         });
         up("rlv","lrData",{wPsf:weightedPsf,transactions:txns,typeStats:typeStats,totalTx:rows.length,sector:r.lrSectorUsed||sector||""});
         if(weightedPsf>0){
-          up("rlv","salePsf",String(weightedPsf)); up("rlv","avgPsf",String(weightedPsf));
+          // v9.100 — the Land Registry figure is EXISTING-stock. A new-build scheme sells at
+          // the new-build price, so plumb the new-build value to the scheme's sale £/sqft
+          // (keeping the raw LR figure in lrData for the benchmark display). Previously the
+          // raw existing figure fed the RLV so the main panel (mix, new-build) and the
+          // sensitivity widget (this figure) disagreed — one profit, one loss.
+          var _nb = isNewBuildScheme(data.assetType) ? (newBuildPsf(r.postcode||(data.land&&data.land.postcode)||"", weightedPsf)||{}).newBuild : 0;
+          var salePlumb = _nb>0 ? _nb : weightedPsf;
+          up("rlv","salePsf",String(salePlumb)); up("rlv","avgPsf",String(salePlumb));
           up("rlv","lrError","");
 
           // ── PLUMB LIVE PSF TO SHARED MARKET NAMESPACE & ALL DOWNSTREAM STAGES ──
@@ -284,7 +291,7 @@ function renderRLV(city, data, m, navTo, setData, up, user){
           // Cascade to every downstream stage that has its own PSF field —
           // ONLY overwrites if user hasn't set a manual value already.
           var sfhData=(data.sfh)||{};
-          if(!num(sfhData.basePsf)) up("sfh","basePsf",String(weightedPsf));
+          if(!num(sfhData.basePsf)) up("sfh","basePsf",String(salePlumb));
           var epeData=(data.epe)||{};
           if(!num(epeData.salePsf)) up("epe","salePsf",String(weightedPsf));
           // BTR/PBSA blended PSF — typically 90-105% of SFH PSF for apartments

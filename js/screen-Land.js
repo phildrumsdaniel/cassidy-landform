@@ -60,9 +60,8 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
         }
       }
     }
-    var score=0;
-    var vm={proximity:{excellent:25,good:15,fair:8,poor:0},transport:{excellent:20,good:12,fair:6,poor:0},contamination:{clean:20,minor:10,major:0,unknown:4},tenure:{freehold:15,long_leasehold:10,short_leasehold:3},constraint:{none:20,minor:12,moderate:6,major:0}};
-    Object.keys(vm).forEach(function(k){score+=(vm[k][l[k]]||0);});
+    // v9.100 — shared with the Site Scorecard via locationScore() so both agree live.
+    var score=locationScore(data);
     var sc=score>=70?"#2D7A65":score>=45?"#9A7B3E":"#B05A35";
     var askingPrice=num(l.price);
     var acresVal = num(l.acres);
