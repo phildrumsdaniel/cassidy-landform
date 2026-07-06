@@ -48,7 +48,13 @@ function renderFin(LiveMarketBanner, at, bc, buildPsf, city, data, ey, gia, gr, 
 
     // Total Development Cost (still locally compute land-inclusive for legacy display)
     var s106fin = DM.s106 || (isSFH?sfhTotalUnits*finS106Pu:(data.planning&&data.planning.s106?num(data.planning.s106):units*finS106Pu));
-    var tc4 = effBuildCost + lc + s106fin + effBuildCost*0.12 + effBuildCost*(finContPct/100) + (effBuildCost+lc)*(finRatePct/100) + lc*0.05;
+    // v9.97 — Total Dev Cost from the ONE engine (build, fees, contingency, finance, S106,
+    // roads, infra, disposal + any acquisition costs) + land, so the cost table and the
+    // profit/margin below it reconcile. Legacy formula only as a fallback when the engine
+    // can't appraise the scheme.
+    var tc4 = (DM.gdv>0)
+      ? (DM.totalCost + lc)
+      : (effBuildCost + lc + s106fin + effBuildCost*0.12 + effBuildCost*(finContPct/100) + (effBuildCost+lc)*(finRatePct/100) + lc*0.05);
 
     var profit2 = DM.actualProfit !== 0 ? DM.actualProfit : (gdv2-tc4);
     var margin2 = DM.marginPct !== 0 ? DM.marginPct : (gdv2>0?(profit2/gdv2)*100:0);
@@ -62,8 +68,22 @@ function renderFin(LiveMarketBanner, at, bc, buildPsf, city, data, ey, gia, gr, 
     var finSqft = finBuildPsf>0 ? Math.round(effBuildCost/finBuildPsf) : num(gia);
     var scV=margin2>=15?"#2D7A65":"#B05A35";
 
+    // v9.97 — cost line items straight from the engine so they SUM to Total Dev Cost.
+    var finRows = (DM.gdv>0)
+      ? [["Land",lc],["Build ("+finSqft.toLocaleString()+" sqft @ £"+finBuildPsf+"/sqft)",effBuildCost],["Professional fees (10%)",DM.fees],["Contingency",DM.contingency],["Finance",DM.finance],["S106/CIL",DM.s106]]
+          .concat(DM.roads>0?[["Roads & Sewers",DM.roads]]:[])
+          .concat(DM.infra>0?[["Site infra & SuDS",DM.infra]]:[])
+          .concat(DM.marketing>0?[["Disposal & marketing",DM.marketing]]:[])
+          .concat(DM.totalAcqCosts>0?[["Acquisition (SDLT/legal/agent/finance)",DM.totalAcqCosts]]:[])
+      : [["Land",lc],["Build ("+finSqft.toLocaleString()+" sqft @ £"+finBuildPsf+"/sqft)",effBuildCost],["S106/CIL allowance (£"+fmtN(finS106Pu)+"/unit)",s106fin],["Contingency ("+finContPct+"%)",effBuildCost*(finContPct/100)],["Prof Fees (12%)",effBuildCost*0.12],["Finance ("+finRatePct+"%)",(effBuildCost+lc)*(finRatePct/100)],["SDLT (5%)",lc*0.05]];
+
+    // v9.97 — scenarios scale the scheme's OWN valuation basis: a for-sale scheme scales
+    // its GDV by the sales-price move; only a rental scheme capitalises NOI ÷ yield.
+    var finSaleBased = (isSFH || btrGdv<=0);
     var scens=[{l:"Bear",sm:-0.10,bm:+0.15},{l:"Base",sm:0,bm:0},{l:"Bull",sm:+0.08,bm:-0.05}].map(function(sc3){
-      var sG=(gr*(1+sc3.sm))*voidAdj-opex; var sGdv=ey2>0?sG/ey2:0;
+      var sGdv;
+      if(finSaleBased){ sGdv=gdv2*(1+sc3.sm); }
+      else { var sG=(gr*(1+sc3.sm))*voidAdj-opex; sGdv=ey2>0?sG/ey2:0; }
       var sCost=tc4*(1+sc3.bm); var sP=sGdv-sCost;
       return{l:sc3.l,gdv:sGdv,profit:sP,margin:sGdv>0?(sP/sGdv)*100:0};
     });
@@ -151,7 +171,7 @@ function renderFin(LiveMarketBanner, at, bc, buildPsf, city, data, ey, gia, gr, 
           e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:12}},
             e("div",null,
               e("div",{style:{fontSize:9,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,marginBottom:10}},"COSTS"),
-              [["Land",lc],["Build ("+finSqft.toLocaleString()+" sqft @ £"+finBuildPsf+"/sqft)",effBuildCost],["S106/CIL allowance (£"+fmtN(finS106Pu)+"/unit)",s106fin],["Contingency ("+finContPct+"%)",effBuildCost*(finContPct/100)],["Prof Fees (12%)",effBuildCost*0.12],["Finance ("+finRatePct+"%)",(effBuildCost+lc)*(finRatePct/100)],["SDLT (5%)",lc*0.05]].map(function(row){
+              finRows.map(function(row){
                 return e("div",{key:row[0],style:{display:"flex",justifyContent:"space-between",fontSize:12,color:"#7278A0",padding:"4px 0",borderBottom:"1px solid #F0F0F0"}},
                   e("span",null,row[0]),e("span",null,fmt(row[1]))
                 );

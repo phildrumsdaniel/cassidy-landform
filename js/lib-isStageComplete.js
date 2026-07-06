@@ -13,7 +13,10 @@ function isStageComplete(stageId, deal){
     case "rlv":        return has(function(){ return num(deal.rlv&&deal.rlv.units) || num(deal.land&&deal.land.units) || num(deal.planning&&deal.planning.units) || (typeof computeSFHMetrics==="function" && computeSFHMetrics(deal).totalUnits>0); });
     case "sfh":        return has(function(){ return (deal.sfh && deal.sfh.mix && deal.sfh.mix.some(function(r){return num(r.count)>0;})) || (typeof computeSFHMetrics==="function" && computeSFHMetrics(deal).totalUnits>0); });
     case "hra":        return has(function(){ return num(deal.hra&&deal.hra.units) || (typeof computeHRAMetrics==="function" && computeHRAMetrics(deal).units>0); });
-    case "planning":   return !!(deal.planning && (num(deal.planning.units) || deal.planning.status || deal.planning.lpa));
+    // v9.97 — Planning is "complete" only once a planning STATUS has been chosen (units
+    // alone came from the scheme sizing, so it used to show green with Status/Risk/BNG all
+    // still unset). A blank status leaves the stage on the "to fill" list where it belongs.
+    case "planning":   return !!(deal.planning && deal.planning.status && (num(deal.planning.units) || deal.planning.lpa));
     // Financial Modelling: complete once the scheme can actually be appraised
     // (a GDV and a development cost both compute through the unified engine).
     case "fin":        return has(function(){ if(typeof calcDealMetrics!=="function") return num(deal.fin&&(deal.fin.gdv||deal.fin.totalCost)); var m=calcDealMetrics(deal); return m.gdv>0 && m.devCost>0; });

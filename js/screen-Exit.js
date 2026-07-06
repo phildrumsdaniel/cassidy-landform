@@ -227,7 +227,10 @@ function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi,
 
     var bestBuyer=buyerValues[0];
     var bestValue=bestBuyer?bestBuyer.value:0;
-    var worstValue=buyerValues[buyerValues.length-1]?buyerValues[buyerValues.length-1].value:0;
+    // v9.97 — exclude routes that don't apply to this scheme (value £0) from the range,
+    // so the "low" end is the lowest REAL exit (e.g. the RP route), not a bare £0.
+    var applicableBuyers=buyerValues.filter(function(b){return b.value>0;});
+    var worstValue=applicableBuyers.length?applicableBuyers[applicableBuyers.length-1].value:0;
     var valueRange=bestValue-worstValue;
 
     // Hold vs Sell analysis
