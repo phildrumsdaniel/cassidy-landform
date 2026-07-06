@@ -22,17 +22,34 @@ npm run dev        # http://localhost:5173/cassidy-landform/highlands/
 
 ## Features
 
-- **Home** — trip title, dates, tagline, live "Day X of 16 — Today" jump during
-  the trip, a scrollable list of all 16 days, and quick links.
-- **Day detail** — swipeable between days; hero photo, Drive/Distance/Overnight
-  ribbon, the plan, a "Good to know" note, POI cards ("Show on map" + Maps
-  deep-link), and a per-day **journal** saved on the phone.
-- **Map** — Leaflet + OpenStreetMap with day-numbered pins and a route line
-  (toggle this-day / all POIs). Gracefully falls back to a **bundled static
-  route map** with no signal.
+The trip is organised as **The Relaxed Loop** — 9 bases over 16 days (drive to a
+base, stay put, explore from it).
+
+- **Home** — Phil & Tracey’s photo over a Scottish backdrop, live "You’re here
+  today" jump during the trip, the nine bases, trip stats and quick links.
+- **Base detail** — swipeable between bases; hero photo, Drive/Miles/Nights
+  ribbon, **accommodation** (tap-to-call, postcode, cost, booking link),
+  a "Good to know" note, POI cards ("Show on map" + Maps deep-link), and a
+  **media journal**.
+- **Media journal** — a text note **plus photos and videos** taken with the
+  phone’s camera, stored in **IndexedDB** so it all works fully offline. View,
+  share/save, and delete per item.
+- **Bases & costs** — mileage table, fuel estimate, a tickable **booking
+  tracker**, and an all-in cost summary.
+- **Backup & restore** — export all journal notes + photos/videos to a single
+  `.zip` (Files/iCloud) so memories survive a cache clear, and restore later.
+- **Map** — Leaflet + OpenStreetMap with base-numbered pins and a route line
+  (toggle this-base / all POIs). Falls back to a **bundled static route map**
+  with no signal.
 - **Packing** & **Pre-departure** checklists — tickable, saved locally.
-- **About / credits** — photo attributions and map data credits.
+- **About / credits** — backup tools, photo attributions and map data credits.
 - **Highland night** dark mode (remembers your choice).
+
+### Your own photos
+
+`public/images/mine/<slug>.jpg` overrides any Commons photo. The home-screen
+portrait lives at `public/images/mine/phil-tracey-avatar.jpg` (and the full
+shot at `phil-tracey.jpg`) — replace them to change the header.
 
 ## Photos
 

@@ -4,10 +4,10 @@ export function Diamond() {
   return <span className="diamond" aria-hidden="true" />
 }
 
-export function DayPlate({ n }) {
+export function DayPlate({ n, label = 'Day' }) {
   return (
     <div className="dayplate">
-      <span className="k">Day</span>
+      <span className="k">{label}</span>
       <span className="num">{n}</span>
     </div>
   )
@@ -31,6 +31,25 @@ export function Ribbon({ drive, distance, overnight }) {
       <div className="cell">
         <span className="k label">Overnight</span>
         <span className="v">{overnight}</span>
+      </div>
+    </div>
+  )
+}
+
+export function BaseRibbon({ miles, drive, nights }) {
+  return (
+    <div className="ribbon">
+      <div className="cell">
+        <span className="k label">Drive in</span>
+        <span className="v">{drive}</span>
+      </div>
+      <div className="cell">
+        <span className="k label">Miles</span>
+        <span className="v">{miles}</span>
+      </div>
+      <div className="cell">
+        <span className="k label">Nights</span>
+        <span className="v">{nights === 0 ? '—' : nights}</span>
       </div>
     </div>
   )

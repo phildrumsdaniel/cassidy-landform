@@ -53,5 +53,15 @@ export const photoSources = [
   { slug: 'loch-garten',        name: 'Loch Garten',             query: 'Loch Garten Abernethy osprey pines' },
   { slug: 'dalwhinnie',         name: 'Dalwhinnie Distillery',   query: 'Dalwhinnie distillery Highland' },
   { slug: 'blair-castle',       name: 'Blair Castle',            query: 'Blair Castle Blair Atholl Perthshire' },
-  { slug: 'pitlochry-dam',      name: 'Pitlochry Dam',           query: 'Pitlochry dam fish ladder Tummel' }
+  { slug: 'pitlochry-dam',      name: 'Pitlochry Dam',           query: 'Pitlochry dam fish ladder Tummel' },
+
+  // --- Added for the Relaxed Loop base model ---
+  { slug: 'castlerigg',         name: 'Castlerigg Stone Circle', query: 'Castlerigg stone circle Keswick' },
+  { slug: 'steall-falls',       name: 'Steall Falls',            query: 'Steall Falls Glen Nevis waterfall' },
+  { slug: 'mallaig',            name: 'Mallaig & Silver Sands',  query: 'Silver Sands of Morar beach Mallaig' },
+  { slug: 'stac-pollaidh',      name: 'Stac Pollaidh',           query: 'Stac Pollaidh Assynt mountain' },
+  { slug: 'achmelvich',         name: 'Achmelvich Beach',        query: 'Achmelvich beach Assynt Sutherland' },
+  { slug: 'cape-wrath',         name: 'Cape Wrath',              query: 'Cape Wrath lighthouse Sutherland' },
+  { slug: 'castle-of-mey',      name: 'Castle of Mey',           query: 'Castle of Mey Caithness' },
+  { slug: 'loch-morlich',       name: 'Loch Morlich',            query: 'Loch Morlich beach Cairngorms' }
 ]
