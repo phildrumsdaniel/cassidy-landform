@@ -73,6 +73,15 @@ export default function Home() {
           <Link className="quicklink" to="/about"><IconInfo /><span>About &amp; backup</span></Link>
         </div>
 
+        <Link className="book-cta" to="/book">
+          <span className="book-cta-emoji">📖</span>
+          <span>
+            <b>Make a keepsake book</b>
+            <small>Turn your notes &amp; photos into a printable PDF</small>
+          </span>
+          <span className="book-cta-arrow">→</span>
+        </Link>
+
         <div className="section-title" style={{ marginTop: 24 }}>
           <Diamond /><h2>The nine bases</h2>
         </div>

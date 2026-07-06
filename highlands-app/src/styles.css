@@ -557,3 +557,74 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; line-height: 1.12; mar
 .lightbox-inner img, .lightbox-inner video { max-width: 100%; max-height: 76vh; border-radius: 12px; object-fit: contain; }
 .lightbox-bar { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 .btn.danger { background: #8a2f2f; color: #fff; }
+
+/* ---------- share sheet ---------- */
+.sheet {
+  background: var(--surface); border-radius: 16px; border: 1px solid var(--border);
+  width: 100%; max-width: 440px; max-height: 88vh; overflow-y: auto; padding: 16px;
+  box-shadow: var(--shadow-lg);
+}
+.sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.sheet-head strong { font-size: 1.2rem; color: var(--loch); }
+:root[data-theme='dark'] .sheet-head strong { color: var(--text); }
+.seg { display: flex; gap: 6px; background: var(--surface-2); padding: 5px; border-radius: 999px; border: 1px solid var(--border); margin-bottom: 12px; }
+.seg button { flex: 1; border: none; background: transparent; color: var(--text-soft); font-family: var(--sans); font-weight: 600; font-size: 0.82rem; padding: 8px; border-radius: 999px; cursor: pointer; }
+.seg button.on { background: var(--loch); color: #fff; }
+.cap { width: 100%; border: 1px solid var(--border); border-radius: 12px; padding: 12px; font-family: var(--sans); font-size: 0.95rem; line-height: 1.45; background: var(--surface-2); color: var(--text); resize: vertical; }
+.share-media { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.share-media .media-thumb.picked { outline: 3px solid var(--whisky); }
+
+/* ---------- keepsake book ---------- */
+.book { max-width: 720px; margin: 8px auto 40px; }
+.book-page {
+  background: var(--paper); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 12px;
+  padding: 30px 26px; margin: 0 16px 18px; box-shadow: var(--shadow);
+}
+.book-page .ch-eyebrow { font-family: var(--sans); text-transform: uppercase; letter-spacing: 0.2em; font-size: 0.64rem; font-weight: 700; color: var(--heather); }
+.book-page .ch-title { font-size: 1.9rem; color: var(--loch); margin: 6px 0 12px; }
+.book-page .ch-note { font-size: 1.06rem; line-height: 1.6; color: var(--ink); white-space: pre-wrap; }
+.ch-photos { display: grid; gap: 8px; margin-top: 16px; grid-template-columns: 1fr 1fr; }
+.ch-photos.count-1 { grid-template-columns: 1fr; }
+.ch-photos img { width: 100%; border-radius: 8px; border: 1px solid var(--line); display: block; object-fit: cover; aspect-ratio: 4/3; }
+.ch-photos.count-1 img { aspect-ratio: 3/2; }
+
+.book-page.cover {
+  background: linear-gradient(160deg, var(--loch-deep), #1c4a58);
+  color: #fff; text-align: center; border: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 460px; padding: 40px 26px;
+}
+.cover-frame img { width: 190px; height: 175px; object-fit: cover; border-radius: 16px; border: 4px solid var(--whisky-soft); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+.cover-eyebrow { margin-top: 22px; font-family: var(--sans); text-transform: uppercase; letter-spacing: 0.24em; font-size: 0.66rem; color: var(--whisky-soft); font-weight: 700; }
+.cover-title { font-size: 2.6rem; margin: 10px 0 2px; line-height: 1.05; }
+.cover-sub { font-family: var(--sans); text-transform: uppercase; letter-spacing: 0.28em; font-size: 0.8rem; color: var(--whisky-soft); }
+.cover-tag { font-style: italic; font-size: 1.05rem; margin-top: 18px; opacity: 0.95; }
+.cover-foot { font-family: var(--sans); font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--whisky-soft); margin-top: 22px; }
+.closing-map { display: block; max-width: 320px; width: 100%; margin: 0 auto 18px; border-radius: 12px; }
+
+.book-cta {
+  display: flex; align-items: center; gap: 14px; text-decoration: none;
+  background: linear-gradient(160deg, var(--loch), #1c4a58); color: #fff;
+  border-radius: 14px; padding: 16px; margin-top: 12px; box-shadow: var(--shadow);
+}
+.book-cta-emoji { font-size: 1.8rem; }
+.book-cta b { display: block; font-family: var(--serif); font-size: 1.12rem; }
+.book-cta small { color: var(--whisky-soft); font-size: 0.78rem; }
+.book-cta-arrow { margin-left: auto; color: var(--whisky-soft); font-size: 1.3rem; }
+
+/* ---------- print: only the book ---------- */
+@media print {
+  :root { --paper: #fff; }
+  .no-print, .tabbar, .topbar, .theme-toggle { display: none !important; }
+  .app { padding: 0 !important; max-width: none; }
+  .book { margin: 0; max-width: none; }
+  .book-page {
+    margin: 0; border: none; border-radius: 0; box-shadow: none;
+    page-break-after: always; break-after: page;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .book-page:last-child { page-break-after: auto; }
+  .ch-photos img, .cover-frame img { break-inside: avoid; }
+}
+@page { margin: 12mm; }
