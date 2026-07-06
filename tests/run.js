@@ -760,6 +760,17 @@ console.log("Landform engine consistency tests\n");
   near("no marketingPct → no disposal cost (back-compat)", computeSFHMetrics(plain).marketing, 0, 0);
 })();
 
+// 35e — RLV reconciles across engines once disposal/marketing is included (v9.96)
+(function(){
+  var deal = buildDealFromBrief({ town:"Rugby", postcode:"CV8 3", acres:88, askingPrice:12500000 });
+  deal.land.price = 12500000;
+  var sfh = computeSFHMetrics(deal), dm = calcDealMetrics(deal);
+  ok("disposal/marketing present on both engines", num(sfh.marketing) > 0 && num(dm.marketing) > 0);
+  near("computeSFHMetrics.rlv == calcDealMetrics.rlv (both include disposal)", sfh.rlv, dm.rlv, 1000);
+  // the scorecard reads the engine residual, not the asking price
+  ok("engine RLV is the residual, not the ask", Math.abs(dm.rlv - deal.land.price) > 1000000);
+})();
+
 // 36 — Keystone auto-creates a house mix + full scheme from a land find
 (function(){
   // a Placona-style raw land find: acres + price, no mix, no units

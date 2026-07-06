@@ -116,7 +116,7 @@ function renderRLV(city, data, m, navTo, setData, up, user){
     var rFinCost=(rBc+rFees)*(rFin/100);
     var rS106=rUnits*(numOr(r.s106pu, 8000));
     var rPlan=rUnits*bt.plan;
-    var rRoads=0, rInfra=0;
+    var rRoads=0, rInfra=0, rMarketing=0;
     var rFeesPct=bt.fees;
     var rDevProfit=rGdv*(rProfit/100);
     var rRlv=rGdv-rBc-rFees-rContCost-rFinCost-rS106-rPlan-rDevProfit;
@@ -130,7 +130,7 @@ function renderRLV(city, data, m, navTo, setData, up, user){
       var DMc=calcDealMetrics(data);
       if(DMc.gdv>0){
         rBc=DMc.buildCost; rFees=DMc.fees; rFeesPct=0.10; rContCost=DMc.contingency; rFinCost=DMc.finance;
-        rS106=DMc.s106; rRoads=DMc.roads; rInfra=DMc.infra; rPlan=0; rDevProfit=DMc.profit;
+        rS106=DMc.s106; rRoads=DMc.roads; rInfra=DMc.infra; rMarketing=DMc.marketing||0; rPlan=0; rDevProfit=DMc.profit;
         rRlv=DMc.rlv; rNetLandBid=DMc.netLandBid;
       }
     }
@@ -730,7 +730,7 @@ function renderRLV(city, data, m, navTo, setData, up, user){
           e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginTop:12,marginBottom:12}},
             e("div",{style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,padding:14}},
               e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:4}},"GDV Breakdown"),
-              [{l:"Build cost",v:rBc},{l:"Prof fees ("+Math.round(rFeesPct*100)+"%)",v:rFees},{l:"Contingency ("+rCont+"%)",v:rContCost},{l:"Finance ("+rFin+"%)",v:rFinCost},{l:"S106/CIL",v:rS106}].concat(rRoads>0?[{l:"Roads & Sewers",v:rRoads}]:[]).concat(rInfra>0?[{l:"Site Infra & SuDS",v:rInfra}]:[]).concat(rPlan>0?[{l:"Planning fees",v:rPlan}]:[]).concat([{l:"Dev profit ("+rProfit+"%)",v:rDevProfit,warn:rProfit<15}]).map(function(row){
+              [{l:"Build cost",v:rBc},{l:"Prof fees ("+Math.round(rFeesPct*100)+"%)",v:rFees},{l:"Contingency ("+rCont+"%)",v:rContCost},{l:"Finance ("+rFin+"%)",v:rFinCost},{l:"S106/CIL",v:rS106}].concat(rRoads>0?[{l:"Roads & Sewers",v:rRoads}]:[]).concat(rInfra>0?[{l:"Site Infra & SuDS",v:rInfra}]:[]).concat(rMarketing>0?[{l:"Disposal & marketing",v:rMarketing}]:[]).concat(rPlan>0?[{l:"Planning fees",v:rPlan}]:[]).concat([{l:"Dev profit ("+rProfit+"%)",v:rDevProfit,warn:rProfit<15}]).map(function(row){
                 // v9.26 — Highlight rows that look wrong (e.g. 0% profit)
                 var rowColor = row.warn ? "#B05A35" : "#7278A0";
                 var rowBg = row.warn ? "rgba(176,90,53,0.06)" : "transparent";
@@ -817,7 +817,7 @@ function renderRLV(city, data, m, navTo, setData, up, user){
               {l:"Contingency ("+rCont+"%)",v:rContCost,pct2:rGdv>0?rContCost/rGdv:0},
               {l:"Development finance ("+rFin+"% on build+fees)",v:rFinCost,pct2:rGdv>0?rFinCost/rGdv:0},
               {l:"S106 obligations (£"+(num(r.s106pu)||8000).toLocaleString()+"/unit)",v:rS106,pct2:rGdv>0?rS106/rGdv:0}
-            ].concat(rRoads>0?[{l:"Roads & Sewers (S38/S104)",v:rRoads,pct2:rGdv>0?rRoads/rGdv:0}]:[]).concat(rInfra>0?[{l:"Site infrastructure & SuDS",v:rInfra,pct2:rGdv>0?rInfra/rGdv:0}]:[]).concat(rPlan>0?[{l:"Planning & infrastructure fees",v:rPlan,pct2:rGdv>0?rPlan/rGdv:0}]:[]).concat([
+            ].concat(rRoads>0?[{l:"Roads & Sewers (S38/S104)",v:rRoads,pct2:rGdv>0?rRoads/rGdv:0}]:[]).concat(rInfra>0?[{l:"Site infrastructure & SuDS",v:rInfra,pct2:rGdv>0?rInfra/rGdv:0}]:[]).concat(rMarketing>0?[{l:"Disposal & marketing",v:rMarketing,pct2:rGdv>0?rMarketing/rGdv:0}]:[]).concat(rPlan>0?[{l:"Planning & infrastructure fees",v:rPlan,pct2:rGdv>0?rPlan/rGdv:0}]:[]).concat([
               {l:"Developer profit margin ("+rProfit+"%)",v:rDevProfit,pct2:rGdv>0?rDevProfit/rGdv:0}
             ]).map(function(row){
               return e("div",{key:row.l,style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px dashed #E8E8F0",fontSize:11}},

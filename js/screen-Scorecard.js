@@ -5,10 +5,17 @@ function renderScorecard(city, data, gdv, lc, up, user){
     var l=data.land||{}; var p=data.planning||{}; var f=data.fin||{};
     var rlvD=data.rlv||{}; var cc=data.constraint||{}; var mon=data.monitor||{};
     var addr=l.address||data.scraper&&data.scraper.result&&data.scraper.result.address||"Site";
+    // v9.96 — read the REAL residual/margin/units from the one engine, not from input
+    // stages that never store them (data.rlv.rlv / data.fin.marginPct are always blank,
+    // which made the scorecard show the asking price as the RLV and a 0% margin).
+    var M=(typeof calcDealMetrics==="function")?calcDealMetrics(data):{};
+    var scRlv=num(M.rlv);                                   // engine residual land value
+    var scMargin=isFinite(M.marginPct)?num(M.marginPct):num(f.marginPct||f.devMargin||0);
+    var scUnits=num(M.units||p.units||rlvD.units||0);
 
     // Score each dimension 1-10
     function scoreViability(){
-      var margin=num(f.marginPct||f.devMargin||0);
+      var margin=scMargin;
       if(margin>=20)return{s:9,l:"Strong"};if(margin>=17)return{s:7,l:"Good"};
       if(margin>=14)return{s:5,l:"Marginal"};if(margin>=10)return{s:3,l:"Weak"};return{s:1,l:"Unviable"};
     }
@@ -47,14 +54,14 @@ function renderScorecard(city, data, gdv, lc, up, user){
       return{s:5,l:"Not assessed"};
     }
     function scoreDelivery(){
-      var ac=num(l.acres||0); var un=num(p.units||rlvD.units||0);
+      var ac=num(l.acres||0); var un=scUnits;
       if(un>0&&un<=100)return{s:8,l:"Manageable scale"};
       if(un>100&&un<=300)return{s:6,l:"Medium scheme"};
       if(un>300)return{s:4,l:"Complex delivery"};
       return{s:5,l:"Scale unknown"};
     }
     function scoreFinancial(){
-      var rlvV=num(rlvD.rlv||0); var ask=num(l.price||0);
+      var rlvV=scRlv; var ask=num(l.price||0);
       if(ask>0&&rlvV>ask*1.1)return{s:9,l:"Strong residual"};
       if(ask>0&&rlvV>ask*0.9)return{s:7,l:"Viable at ask"};
       if(ask>0&&rlvV>ask*0.7)return{s:4,l:"Gap to close"};
@@ -80,7 +87,7 @@ function renderScorecard(city, data, gdv, lc, up, user){
 
     var scores=dimensions.map(function(d){return Object.assign({},d,{final:getScore(d)});});
     var totalScore=Math.round(scores.reduce(function(t,d){return t+d.final.s;},0)/scores.length*10)/10;
-    var verdict=totalScore>=7.5?"STRONG BUY":totalScore>=6?"BUY":totalScore>=4.5?"CONDITIONAL":"PASS";
+    var verdict=totalScore>=7.5?"STRONG BUY":totalScore>=6?"BUY":totalScore>=4.5?"CONDITIONAL":"DECLINE";
     var verdictColor=verdict==="STRONG BUY"?"#2D7A65":verdict==="BUY"?"#4A4BAE":verdict==="CONDITIONAL"?"#9A7B3E":"#B05A35";
 
     function barColor(s){return s>=7?"#2D7A65":s>=5?"#4A4BAE":s>=3?"#9A7B3E":"#B05A35";}
@@ -129,9 +136,9 @@ function renderScorecard(city, data, gdv, lc, up, user){
       // Key metrics summary
       e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10,marginBottom:14}},
         [
-          {l:"GDV",v:fmt(gdv)},{l:"RLV",v:fmt(num(rlvD.rlv||lc))},
-          {l:"Dev Margin",v:pct(num(f.marginPct||f.devMargin||0))},
-          {l:"Units",v:fmtN(num(p.units||rlvD.units||0))},
+          {l:"GDV",v:fmt(gdv)},{l:"RLV",v:fmt(scRlv)},
+          {l:"Dev Margin",v:pct(scMargin)},
+          {l:"Units",v:fmtN(scUnits)},
           {l:"Site area",v:(l.acres||"—")+" acres"},
           {l:"Planning",v:p.status||l.planningStatus||"Unknown"},
         ].map(function(item){
@@ -147,7 +154,7 @@ function renderScorecard(city, data, gdv, lc, up, user){
         e(AIPanel,{user:user,up:up,stage:"scorecard",data:data,persistKey:"scorecard_narrative",
           label:"🏆 Generate Scorecard Narrative",
           system:"You are a senior UK property investment analyst writing a concise site scorecard commentary for an investment committee.",
-          prompt:buildHonestPrompt(data,"Write a 150-word investment committee scorecard commentary for this site. Overall score: "+totalScore+"/10 ("+verdict+"). Address: "+addr+". Scores: "+scores.map(function(d){return d.l+": "+d.final.s+"/10 ("+d.final.l+")";}).join(", ")+". GDV: "+fmt(gdv)+", RLV: "+fmt(num(rlvD.rlv||lc))+", margin: "+pct(num(f.marginPct||0))+". Be direct, numerate, investment committee tone. Lead with overall verdict, then key strengths, then key risks, then recommendation."
+          prompt:buildHonestPrompt(data,"Write a 150-word investment committee scorecard commentary for this site. Overall score: "+totalScore+"/10 ("+verdict+"). Address: "+addr+". Scores: "+scores.map(function(d){return d.l+": "+d.final.s+"/10 ("+d.final.l+")";}).join(", ")+". GDV: "+fmt(gdv)+", RLV: "+fmt(scRlv)+", margin: "+pct(scMargin)+". Be direct, numerate, investment committee tone. Lead with overall verdict, then key strengths, then key risks, then recommendation."
         )}),
         e("button",{
           onClick:function(){window.print();},

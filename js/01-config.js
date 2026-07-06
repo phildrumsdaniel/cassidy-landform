@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.95";
+var CURRENT_VERSION = "9.96";
 var VERSION_HISTORY = [
+  {v:"9.96", date:"Jul 2026", headline:"Fixed: Scorecard now shows the real RLV/margin; the three RLV figures reconcile",
+   affectsCalc:true,
+   changes:["SITE SCORECARD FIX: it was reading input fields that the engine never fills (data.rlv.rlv, data.fin.marginPct), so it showed the ASKING PRICE as the residual land value and a 0% margin — flagging a strongly profitable scheme as \"Unviable\". It now reads the residual, margin and units straight from the one engine (calcDealMetrics), so the scorecard agrees with the rest of the deal. The bottom verdict tier is relabelled DECLINE (was the confusingly positive-sounding \"PASS\").","RLV RECONCILIATION: the disposal/marketing cost added in v9.89 (3% of GDV) was in the engine's residual but missing from the SFH House Mix screen's own calc and from the RLV screen's displayed cost lines — so the same scheme showed three different residuals (e.g. £74.6m vs £89.9m). The SFH screen now includes it and both screens show a \"Disposal & marketing\" line, so every screen and the engine agree on one residual. 261 tests.","Note: these were display/scorecard-layer bugs surfaced by an end-to-end live test; the core engine numbers (GDV, cost, profit) were already correct and consistent."]},
   {v:"9.95", date:"Jul 2026", headline:"Constraint layers fixed — Green Belt, Conservation Area, AONB, Listed Buildings now draw on the map",
    affectsCalc:false,
    changes:["Fixed the constraint overlays that were failing in live testing: planning.data.gov.uk serves these as GeoJSON (its vector-tile endpoint 404s), so the map now fetches the features intersecting your current view and draws them — Green Belt, Conservation Area, AONB and Listed Buildings, colour-coded, click for the designation name. Zoom to street level to load detail. Verified end-to-end by an automated CI endpoint check that queries the exact same API on every push.","Flood is a one-click deep-link to the official Flood Map for Planning for now (the Environment Agency map endpoint moved; a drawn flood layer will follow once its service is confirmed). Removed the unused vector-tile plug-in."]},

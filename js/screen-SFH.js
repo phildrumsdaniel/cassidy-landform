@@ -101,8 +101,11 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
     var s106Total=totalUnits*s106Pu;
     var roadsTotal=buildInclusive ? 0 : totalUnits*roads;
     var infra=buildInclusive ? 0 : sAcres*53000;
+    // v9.96 — disposal/marketing (agent+marketing+legal, % of GDV) so this screen's RLV
+    // reconciles with the engine (computeSFHMetrics/calcDealMetrics both include it).
+    var sMarketing=totalGdv*(numOr(s.marketingPct, 0)/100);
     var devProfit=totalGdv*(sProfit/100);
-    var tc3=totalBuild+fees+contCost+finCost+s106Total+roadsTotal+infra;
+    var tc3=totalBuild+fees+contCost+finCost+s106Total+roadsTotal+infra+sMarketing;
     var rlv=totalGdv-tc3-devProfit;
     var rlvPu=totalUnits>0?rlv/totalUnits:0;
     var rlvAcre=sAcres>0?rlv/sAcres:0;
@@ -129,7 +132,7 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
       var sG=totalGdv*(1+sc3.sm);
       var sB=totalBuild*(1+sc3.bm);
       var sP=sG*(sProfit/100);
-      var sR=sG-sB-sB*0.10-sB*(sCont/100)-(sB+sB*0.10)*(sFin/100)-s106Total-roadsTotal-infra-sP;
+      var sR=sG-sB-sB*0.10-sB*(sCont/100)-(sB+sB*0.10)*(sFin/100)-s106Total-roadsTotal-infra-sG*(numOr(s.marketingPct,0)/100)-sP;
       return{l:sc3.l,gdv:sG,rlv:sR,rlvPu:totalUnits>0?sR/totalUnits:0,rlvAcre:sAcres>0?sR/sAcres:0};
     });
 
