@@ -948,7 +948,13 @@ function renderRLV(city, data, m, navTo, setData, up, user){
           // Also now includes acquisition costs so the base matches the headline RLV.
           (function(){
             // Snapshot the TRUE base values for sensitivity (these don't change when sliders move)
-            var BASE_SP = rSalePsf;
+            // v10.1 — anchor the base to the scheme's ACTUAL GDV (the priced house mix the main
+            // panel uses), not the raw Sale £/sqft field. That field can hold an existing-stock
+            // Land Registry comparable, which made this widget contradict the main panel (one a
+            // profit, one a loss). Effective £/sqft = actual GDV ÷ (units × avg sqft), so the
+            // base GDV — and hence the base RLV — matches the headline.
+            var _mixGdv = (data.sfh && data.sfh.mix && data.sfh.mix.length) ? rGdv : 0;
+            var BASE_SP = (_mixGdv>0 && rUnits>0 && (rSqft||850)>0) ? Math.round(_mixGdv/(rUnits*(rSqft||850))) : rSalePsf;
             var BASE_BP = rBuild;
             var BASE_UN = rUnits || 50;
             var BASE_PR = rProfit;

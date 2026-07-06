@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.0";
+var CURRENT_VERSION = "10.1";
 var VERSION_HISTORY = [
+  {v:"10.1", date:"Jul 2026", headline:"Fixed the RLV page contradicting itself (main panel profit vs sensitivity loss)",
+   affectsCalc:true,
+   changes:["LAND VALUATION (RLV) — the main results panel values the scheme off its priced house mix (new-build), but the Sensitivity Analysis widget re-derived GDV from the single 'Sale £/sqft' field. When the Land Registry lookup filled that field with an EXISTING-stock comparable (e.g. £305), the widget showed a loss while the main panel showed a profit — the same page contradicting itself. The sensitivity now anchors its base to the scheme's actual GDV (effective £/sqft = GDV ÷ total sqft), so its base residual matches the headline and the sliders test movements from the real figure. 270 tests."]},
   {v:"10.0", date:"Jul 2026", headline:"Fixed three cross-stage sync bugs: Scorecard location, Exit yield stat, RLV sale-price sign-flip",
    affectsCalc:true,
    changes:["SITE SCORECARD — Location Quality now reflects the live Land Appraisal dropdowns. The score (0–100) was computed only on the Land screen and never stored, so the Scorecard read 0 and always said 'Poor 3/10' however you filled it. Both screens now share one locationScore() function.",
