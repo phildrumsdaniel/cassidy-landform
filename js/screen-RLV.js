@@ -960,7 +960,10 @@ function renderRLV(city, data, m, navTo, setData, up, user){
               var fc = (bc + fees2) * (rFin/100);
               var s = un * (num(r.s106pu) || 8000);
               var pl = un * bt.plan;
-              var raw = g - bc - fees2 - cc - fc - s - pl - g*(pr/100);
+              // v9.98 — include disposal/marketing so the sensitivity base matches the
+              // headline RLV (previously omitted, leaving a stray higher "Base RLV").
+              var mk2 = g * (numOr((data.sfh&&data.sfh.marketingPct)||r.marketingPct, 0)/100);
+              var raw = g - bc - fees2 - cc - fc - s - pl - mk2 - g*(pr/100);
               // Apply same acquisition cost deduction as the main RLV display
               if(r.includeAcqCosts && raw>0){
                 var dm = calcDealMetrics(Object.assign({}, data, {rlv:Object.assign({}, r, {salePsf:sp, buildPsf:bp, units:un, profitPct:pr})}));

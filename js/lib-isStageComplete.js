@@ -20,10 +20,17 @@ function isStageComplete(stageId, deal){
     // Financial Modelling: complete once the scheme can actually be appraised
     // (a GDV and a development cost both compute through the unified engine).
     case "fin":        return has(function(){ if(typeof calcDealMetrics!=="function") return num(deal.fin&&(deal.fin.gdv||deal.fin.totalCost)); var m=calcDealMetrics(deal); return m.gdv>0 && m.devCost>0; });
-    case "capitalise": return !!(deal.capitalise && (num(deal.capitalise.targetYield) || num(deal.capitalise.multiRouteGdv) || num(deal.capitalise.netAnnualIncome)));
-    // Tenure Mix: complete when a split has actually been entered (reads the same
-    // data the tenure engine uses, not a 'rows' array that is only computed).
-    case "tenure":     return has(function(){ return (typeof computeTenureMetrics==="function" && computeTenureMetrics(deal).totalUnits>0) || (deal.tenure && deal.tenure.mix && Object.keys(deal.tenure.mix).some(function(k){return num(deal.tenure.mix[k])>0;})); });
+    // v9.98 — Capitalisation is complete only with a real income to capitalise (a target
+    // yield alone is a default the builder sets, so it used to show green with nothing done).
+    case "capitalise": return !!(deal.capitalise && (num(deal.capitalise.multiRouteGdv) || num(deal.capitalise.netAnnualIncome)));
+    // v9.98 — Tenure Mix is complete only when the allocation actually covers the scheme
+    // (>=90% of units), not a leftover placeholder split (e.g. 100 of 1,056 units).
+    case "tenure":     return has(function(){
+      if(!(typeof computeTenureMetrics==="function")) return false;
+      var allocated=computeTenureMetrics(deal).totalUnits;
+      var scheme=num(deal.land&&deal.land.units)||num(deal.planning&&deal.planning.units)||(typeof computeSFHMetrics==="function"?computeSFHMetrics(deal).totalUnits:0);
+      return scheme>0 ? (allocated>=scheme*0.9) : (allocated>0);
+    });
     case "exit":       return !!(deal.exit && (deal.exit.strategy || num(deal.exit.planningMo) || deal.exit.investorType));
     // Due Diligence: items live in ddChecked (legacy: dd). Complete once a
     // reasonable number have been ticked.

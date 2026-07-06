@@ -29,9 +29,14 @@ function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi,
     var cityMkt=MKT[city]||MKT.manchester;
     // v9.53 — ONE net initial yield across the appraisal: the Capitalisation override if
     // set, otherwise the area benchmark. Keeps Exit in step with Capitalisation & HRA.
-    var dealY=(typeof dealYield==="function")?dealYield(data)/100:(cityMkt.yield||0.047);
+    // v9.98 — fall back to the area benchmark yield when the resolver returns 0 (no
+    // capitalisation override and no area lookup), so the Exit summary shows e.g. 4.9%
+    // instead of a bare 0.0%.
+    var dealY=((typeof dealYield==="function"?dealYield(data)/100:0) || cityMkt.yield || 0.047);
     var dealYieldSourced=num(data.capitalise&&data.capitalise.targetYield)>0;
-    var rlvVal2=num(data.rlv&&data.rlv.rlv||lc||0);
+    // v9.98 — use the engine residual, not data.rlv.rlv (never stored) which fell back to
+    // the land cost (the asking price), overstating "current value" in the hold-vs-sell.
+    var rlvVal2=num((typeof calcDealMetrics==="function"&&calcDealMetrics(data).rlv)||(data.rlv&&data.rlv.rlv)||0);
     var units2=num(data.planning&&data.planning.units||data.rlv&&data.rlv.units||0)||units||50;
     var ahPct2=num(data.planning&&data.planning.ahPct||0);
     var acres2=num(data.land&&data.land.acres||0);

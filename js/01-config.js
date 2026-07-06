@@ -15,8 +15,14 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "9.97";
+var CURRENT_VERSION = "9.98";
 var VERSION_HISTORY = [
+  {v:"9.98", date:"Jul 2026", headline:"Fixed: green ticks now mean actually done, not merely viewed",
+   affectsCalc:true,
+   changes:["COMPLETION TRACKING — the big one: stages no longer count as complete just because you navigated away from them. Completeness is now purely data-driven — a stage is complete only when it genuinely holds the data it needs. So Due Diligence and Exit Strategy stay on the 'still need to fill' list until you actually fill them, and green ticks can be trusted.",
+     "Two loose checks tightened so placeholder/default data no longer shows as complete: Capitalisation needs a real income to capitalise (not just the default yield the builder sets), and Tenure Mix needs its allocation to cover the scheme (>=90% of units), not a leftover part-allocation. Planning already requires a status (9.97).",
+     "RLV sensitivity slider: its 'Base RLV' now includes the disposal cost, so it matches the headline residual instead of showing a stray higher figure.",
+     "Exit Strategy: the yield summary falls back to the area benchmark (e.g. 4.9%) instead of showing 0.0%, and 'current value' in the hold-vs-sell now uses the engine residual rather than defaulting to the asking price. 267 tests."]},
   {v:"9.97", date:"Jul 2026", headline:"Fixed: Financial Modelling scenario table + cost reconciliation, Exit value range, Planning completion",
    affectsCalc:true,
    changes:["FINANCIAL MODELLING — scenario table: the Bear/Base/Bull cases were valuing every scenario as a rental capitalisation (NOI divided by yield), so a for-sale scheme's Base case showed a nonsense GDV and a loss right under a 'Viable, 30% margin' box. Scenarios now scale the scheme's own valuation basis — for-sale GDV moves with the sales-price assumption; only genuine rental schemes capitalise NOI.",

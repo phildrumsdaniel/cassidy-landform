@@ -432,6 +432,13 @@ console.log("Landform engine consistency tests\n");
   // manual completion flag still honoured
   ok("manual _completedStages still marks a stage done", isStageComplete("exit", {_completedStages:{exit:true}}));
   ok("empty deal: Financial Modelling not complete", !isStageComplete("fin", {}));
+  // v9.98 — completion is data-driven and strict: placeholder/default data doesn't count
+  ok("Capitalisation not complete on a default yield alone", !isStageComplete("capitalise", {capitalise:{targetYield:4.9}}));
+  ok("Capitalisation complete with real income", isStageComplete("capitalise", {capitalise:{netAnnualIncome:5000000}}));
+  ok("Tenure not complete on a placeholder 9.5% allocation", !isStageComplete("tenure", {land:{units:1056}, tenure:{inputMode:"units", mix:{sr:100}}}));
+  ok("Tenure complete once it covers the scheme", isStageComplete("tenure", {land:{units:1056}, tenure:{inputMode:"units", mix:{sr:1056}}}));
+  ok("Planning not complete on units alone (no status)", !isStageComplete("planning", {planning:{units:1056}}));
+  ok("Planning complete once a status is set", isStageComplete("planning", {planning:{units:1056, status:"full"}}));
 })();
 
 // 22 — SFH inherits site area from Land Appraisal (engine stays consistent with screen)

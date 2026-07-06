@@ -472,13 +472,11 @@ var JOURNEYS = {
     if(window._currentStage&&timeSpent>2){
       logEvent(user,"TIME_ON_STAGE",{stage:window._currentStage,seconds:timeSpent,journey:journey});
     }
-    if(window._currentStage && window._currentStage!==id && isStageComplete(window._currentStage,data)){
-      setData(function(prev){
-        var done=Object.assign({},prev._completedStages||{});
-        if(!done[window._currentStage]) done[window._currentStage]=new Date().toISOString();
-        return Object.assign({},prev,{_completedStages:done});
-      });
-    }
+    // v9.98 — Completion is now PURELY data-driven: a stage counts as complete only when
+    // isStageComplete finds the real data it needs. We no longer auto-mark a stage
+    // "complete" just because you navigated away from it — that let stages (Due Diligence,
+    // Exit, etc.) drop off the "still need to fill" list on a mere visit, so green ticks
+    // couldn't be trusted. (This was the only writer of _completedStages.)
     window._pageStart=Date.now();
     window._currentStage=id;
 
