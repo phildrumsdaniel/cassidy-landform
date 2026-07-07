@@ -15,8 +15,14 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.2";
+var CURRENT_VERSION = "10.3";
 var VERSION_HISTORY = [
+  {v:"10.3", date:"Jul 2026", headline:"Constraint Check now flows into the Scorecard & Data Room; Risk Register count no longer reads 0",
+   affectsCalc:false,
+   changes:["SITE SCORECARD — the 'Constraint Risk' dimension stayed on 5/10 'Not assessed' even after a live Constraint Check returned CAUTION/AVOID, and the planning score ignored the constraint-check probability. Both read data.constraint (never populated) instead of data.constraintCheck.results, where the stage actually stores its verdict and score. They now read the live result, so a CAUTION assessment scores as Moderate risk and a low probability drags the planning score down.",
+     "DATA ROOM §02.4 (Constraint Check) — showed 'MISSING' / 'None identified' with no reference to the assessment that had been run, because it read the wrong object. It now surfaces the AI verdict (GO/CAUTION/AVOID), the planning-probability score and the full constraint report, curated for the external room.",
+     "DATA ROOM §09.1 (Risk Register) — reported '0 items' / MISSING even though the Risk Register stage shows six risks. The stage seeds six defaults it only saves once you edit one, so the Data Room read an empty array. It now falls back to the same defaults, matching the count the Risk Register screen displays.",
+     "DATA ROOM §02.3 / §12.1 — conservation-area detection and the internal planning-probability readout were reading the same stale field; both now use the live constraint-check report. 270 tests."]},
   {v:"10.2", date:"Jul 2026", headline:"Fixed investor-facing cards: Teaser RLV/margin, Data Room £0s, three-way S106, planning-risk on Scorecard/Dashboard",
    affectsCalc:true,
    changes:["TEASER PDF — the summary card showed the ASKING PRICE as the Residual Land Value and a 0.0% margin (it read input fields the engine never fills). It now reads the real residual and margin from the one engine, so a teaser can't go to an investor with a mislabelled RLV.",
@@ -1837,6 +1843,31 @@ function locationScore(deal){
   var s = 0;
   Object.keys(LOCATION_SCORE_WEIGHTS).forEach(function(k){ s += (LOCATION_SCORE_WEIGHTS[k][l[k]] || 0); });
   return s;
+}
+// ── Constraint Check readers ────────────────────────────────────────────────
+// The Constraint Check stage stores its AI output under data.constraintCheck.results
+// = {report, score, verdict, site, date}. Several widgets (Scorecard, Data Room)
+// were reading data.constraint.* — a different object that stage never writes — so a
+// live CAUTION/AVOID assessment read as "Not assessed" and its probability score was
+// ignored. These shared readers are the ONE place that path is resolved.
+function constraintVerdict(deal){
+  var ccr = (deal && deal.constraintCheck && deal.constraintCheck.results) || {};
+  var legacy = (deal && deal.constraint) || {};
+  return String(ccr.verdict || legacy.verdict || "").toUpperCase();
+}
+function constraintPlanningScore(deal){
+  var ccr = (deal && deal.constraintCheck && deal.constraintCheck.results) || {};
+  var legacy = (deal && deal.constraint) || {};
+  var n = Number(ccr.score || legacy.planningScore || 0);
+  return isFinite(n) ? n : 0;
+}
+// The constraint verdict → scorecard "Constraint Risk" dimension {s,l}.
+function constraintRiskScore(deal){
+  var v = constraintVerdict(deal);
+  if(v==="GO")     return {s:8, l:"Low risk"};
+  if(v==="CAUTION")return {s:5, l:"Moderate risk"};
+  if(v==="AVOID")  return {s:2, l:"High risk"};
+  return {s:5, l:"Not assessed"};
 }
 function ukRegionFor(data){
   var c = (typeof dealCityKey === "function") ? dealCityKey(data) : "";

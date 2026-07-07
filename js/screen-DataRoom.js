@@ -4,7 +4,17 @@
 function renderDataRoom(city, data, exits, isExitOn, schemes, up){
     var l=data.land||{}; var p=data.planning||{}; var f=data.fin||{};
     var rlvD=data.rlv||{}; var dd=data.dd||{}; var cc=data.constraint||{};
-    var risks=data.risks||[]; var mkt=data.market||{};
+    // v10.3 — the Constraint Check stage stores its output under
+    // data.constraintCheck.results ({report,score,verdict,site,date}); the Data
+    // Room was reading data.constraint.result (never populated) so §02.4 showed
+    // MISSING / "None identified" even after a live CAUTION assessment.
+    var ccr=(data.constraintCheck&&data.constraintCheck.results)||{};
+    // v10.3 — the Risk Register screen shows RISK_DEFAULTS (6 rows) until the user
+    // edits one, at which point it saves to data.risks. Mirror that fallback here so
+    // §09.1 reports the same live count instead of "0 items" / MISSING.
+    var risks=(Array.isArray(data.risks)&&data.risks.length>0)?data.risks
+              :(typeof RISK_DEFAULTS!=="undefined"?RISK_DEFAULTS:[]);
+    var mkt=data.market||{};
     var dr=data.dataroom||{};
     var sfh=data.sfh||{}; var hra=data.hra||{}; var cap=data.capitalise||{};
     var crm=data.crm||{}; var intel=data.intel||{};
@@ -199,20 +209,31 @@ function renderDataRoom(city, data, exits, isExitOn, schemes, up){
         {label:"BNG (10% mandatory)", value:p.bng||"To assess"},
         {label:"Fire Safety Gateway 2/3", value:p.gateway||(num(p.storeys)>=7?"Required (≥7 storeys)":"Not applicable")},
         {label:"Neighbourhood Plan", value:"To assess"},
-        {label:"Conservation areas", value:cc.result?cc.result.indexOf("conservation")>=0?"Affected":"Clear":"To assess"}
+        {label:"Conservation areas", value:(ccr.report||cc.result)?/conservation area/i.test(ccr.report||cc.result)?"Affected":"Clear":"To assess"}
       ],
       uploads:["Design & Access Statement","Planning Statement","BNG metric calculations"]
     });
 
+    // v10.3 — surface the live AI Constraint Check result (verdict/score/report)
+    // alongside the Land Appraisal dropdowns, via the shared reader.
+    var ccVerdict=(typeof constraintVerdict==="function")?constraintVerdict(data):(ccr.verdict||"").toUpperCase();
+    var ccVerdictLabel=ccVerdict==="GO"?"GO — proceed":ccVerdict==="CAUTION"?"CAUTION — constraints present":ccVerdict==="AVOID"?"AVOID — major constraints":"";
     sections.push({code:"02.4", title:"Constraint Check", group:"Planning",
-      status: statusOf({req:[cc.result||l.constraintSummary]}),
+      status: statusOf({req:[ccr.verdict||ccr.report||cc.result||l.constraintSummary]}),
       fields: [
+        {label:"AI constraint verdict",
+         value:ccVerdictLabel||"Run Constraint Check stage",
+         externalValue:ccVerdict?"Constraint assessment completed":"In progress",
+         sensitivity:"reworded-external"},
+        {label:"Planning probability score", value:num(ccr.score)>0?ccr.score+"/100":"—"},
         {label:"Planning constraints", value:l.constraint==="major"?"Major":l.constraint==="moderate"?"Moderate":l.constraint==="minor"?"Minor":l.constraint==="none"?"None identified":"To assess"},
         {label:"Ground contamination", value:l.contamination==="major"?"Major":l.contamination==="minor"?"Minor":l.contamination==="clean"?"Clean":"To investigate"},
         {label:"Transport connectivity", value:l.transport==="excellent"?"Excellent":l.transport==="good"?"Good":l.transport==="fair"?"Fair":l.transport==="poor"?"Poor":"—"},
         // Constraint summary — reworded for external
         {label:"AI constraint summary",
-         value:rewordRisk(l.constraintSummary||cc.result||"Run Constraint Check stage for detail")}
+         value:rewordRisk(ccr.report||l.constraintSummary||cc.result||"Run Constraint Check stage for detail"),
+         externalValue:ccr.report||l.constraintSummary?"Detailed constraint assessment available on request":"Assessment in progress",
+         sensitivity:"reworded-external"}
       ],
       uploads:["Constraint mapping report","Heritage assessment","Tree survey"]
     });
@@ -619,7 +640,7 @@ function renderDataRoom(city, data, exits, isExitOn, schemes, up){
       status: statusOf({req:[]}),
       fields: [
         {label:"Viability AI flag", value:rlvVal>0&&ask>0?(rlvVal<ask?"⚠ RLV below ask — deal may not stack":"✓ RLV above ask"):"—"},
-        {label:"Planning probability score", value:cc.planningScore?cc.planningScore+"/100":"—"},
+        {label:"Planning probability score", value:num(ccr.score)>0?ccr.score+"/100":cc.planningScore?cc.planningScore+"/100":"—"},
         {label:"Build:Sale ratio diagnostic", value:rlvD.salePsf&&rlvD.buildPsf?Math.round(num(rlvD.buildPsf)/num(rlvD.salePsf)*100)+"%":"—"},
         {label:"Yield-vs-market check", value:cap.targetYield&&num(cap.targetYield)>5?"⚠ Yield above 5% — institutional buyers unlikely":num(cap.targetYield)>0?"✓ Within institutional range":"—"},
         {label:"AI-detected red flags", value:intel.aiRedFlags||"None detected by analysis"},

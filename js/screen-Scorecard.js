@@ -4,6 +4,11 @@
 function renderScorecard(city, data, gdv, lc, up, user){
     var l=data.land||{}; var p=data.planning||{}; var f=data.fin||{};
     var rlvD=data.rlv||{}; var cc=data.constraint||{}; var mon=data.monitor||{};
+    // v10.3 — the Constraint Check stage stores its verdict/score under
+    // data.constraintCheck.results (read via the shared constraintVerdict/
+    // constraintPlanningScore/constraintRiskScore helpers), NOT data.constraint.
+    // scoreRisk/scorePlanning previously read the wrong object, so a live CAUTION
+    // assessment showed as "Not assessed" (5/10) and its score was ignored.
     var addr=l.address||data.scraper&&data.scraper.result&&data.scraper.result.address||"Site";
     // v9.96 — read the REAL residual/margin/units from the one engine, not from input
     // stages that never store them (data.rlv.rlv / data.fin.marginPct are always blank,
@@ -29,7 +34,7 @@ function renderScorecard(city, data, gdv, lc, up, user){
       // constraint-check score overrides the optimistic "full consent assumed" default, so
       // the scorecard reflects the real position — not a 9/10 beside a High-risk flag.
       var rl=(p.riskLevel||"").toLowerCase();
-      var prob=num(cc.planningScore||p.planningProb||(data.constraintCheck&&data.constraintCheck.planningScore)||0);
+      var prob=num((typeof constraintPlanningScore==="function"?constraintPlanningScore(data):0)||p.planningProb||0);
       if(rl==="high")   return{s:2,l:"High planning risk"};
       if(rl==="medium") return{s:4,l:"Moderate planning risk"};
       if(prob>=70)return{s:6,l:"Good probability"};
@@ -56,11 +61,11 @@ function renderScorecard(city, data, gdv, lc, up, user){
       if(score>=40)return{s:5,l:"Average"};return{s:3,l:"Poor"};
     }
     function scoreRisk(){
-      var verdict=cc.verdict||"";
-      if(verdict==="GO")return{s:8,l:"Low risk"};
-      if(verdict==="CAUTION")return{s:5,l:"Moderate risk"};
-      if(verdict==="AVOID")return{s:2,l:"High risk"};
-      return{s:5,l:"Not assessed"};
+      // v10.3 — read the live Constraint Check verdict (GO/CAUTION/AVOID) via the
+      // shared reader (data.constraintCheck.results), not data.constraint.
+      return (typeof constraintRiskScore==="function")?constraintRiskScore(data)
+        :(function(){var v=(cc.verdict||"").toUpperCase();
+            return v==="GO"?{s:8,l:"Low risk"}:v==="CAUTION"?{s:5,l:"Moderate risk"}:v==="AVOID"?{s:2,l:"High risk"}:{s:5,l:"Not assessed"};})();
     }
     function scoreDelivery(){
       var ac=num(l.acres||0); var un=scUnits;

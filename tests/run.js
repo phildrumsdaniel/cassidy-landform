@@ -797,6 +797,44 @@ console.log("Landform engine consistency tests\n");
   ok("auto-generation flagged as an assumption", deal._keystone.assumptions.join(" ").toLowerCase().indexOf("auto-generated") >= 0);
 })();
 
+// 37 — Constraint Check flows into Scorecard/Data Room via shared readers (v10.3)
+(function(){
+  // The Constraint Check stage stores its output at data.constraintCheck.results.
+  var caution = { constraintCheck:{ results:{ verdict:"CAUTION", score:53, report:"Green Belt; unallocated; flood zone 2." } } };
+  var go      = { constraintCheck:{ results:{ verdict:"go", score:82, report:"Clear." } } };
+  var avoid   = { constraintCheck:{ results:{ verdict:"AVOID", score:18 } } };
+  var blank   = { land:{} };
+
+  ok("constraintVerdict reads data.constraintCheck.results (not data.constraint)", constraintVerdict(caution) === "CAUTION");
+  ok("constraintVerdict upper-cases a lowercase verdict", constraintVerdict(go) === "GO");
+  ok("constraintVerdict empty when nothing assessed", constraintVerdict(blank) === "");
+  near("constraintPlanningScore reads the stored score", constraintPlanningScore(caution), 53, 0);
+  near("constraintPlanningScore is 0 when unassessed", constraintPlanningScore(blank), 0, 0);
+
+  // The scorecard "Constraint Risk" dimension must move OFF 5/10 "Not assessed"
+  // once a live verdict exists — this was the reported bug.
+  near("CAUTION → Moderate risk 5/10", constraintRiskScore(caution).s, 5, 0);
+  ok("CAUTION labelled Moderate risk", constraintRiskScore(caution).l === "Moderate risk");
+  near("GO → Low risk 8/10", constraintRiskScore(go).s, 8, 0);
+  near("AVOID → High risk 2/10", constraintRiskScore(avoid).s, 2, 0);
+  ok("unassessed stays Not assessed", constraintRiskScore(blank).l === "Not assessed");
+
+  // Legacy back-compat: an old deal that stashed a verdict on data.constraint still resolves.
+  ok("legacy data.constraint.verdict still honoured", constraintVerdict({ constraint:{ verdict:"AVOID" } }) === "AVOID");
+})();
+
+// 38 — Risk Register default count is the fallback the Data Room mirrors (v10.3)
+(function(){
+  ok("RISK_DEFAULTS seeds six risks (matches the Risk Register screen)", Array.isArray(RISK_DEFAULTS) && RISK_DEFAULTS.length === 6);
+  // The Data Room §09.1 count = data.risks when populated, else RISK_DEFAULTS.length.
+  function dataRoomRiskCount(deal){
+    var r = (Array.isArray(deal.risks) && deal.risks.length>0) ? deal.risks : RISK_DEFAULTS;
+    return r.length;
+  }
+  near("empty deal reports six risks, not zero", dataRoomRiskCount({}), 6, 0);
+  near("edited deal reports its own risks", dataRoomRiskCount({ risks:[{id:1},{id:2}] }), 2, 0);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);
