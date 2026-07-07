@@ -381,9 +381,19 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
       // and applies route-specific discounts to derive realisable GDV per route.
       (function(){
         var mix = (data.sfh && data.sfh.mix) || [];
-        if(mix.length === 0) return null;
+        var tenSplit = (data.tenure && data.tenure.mix) || null;
+        // v10.11 — reconcile the two tenure-entry paths. If the SFH plot rows carry a
+        // real (non-private) exit-route split, use it (unchanged). But if the plots are
+        // all private while the affordable split lives on the Tenure Mix stage, build the
+        // routes FROM that split so this panel's blended total equals the ONE engine GDV
+        // (computeSFHMetrics.blendedGdv) instead of showing a full-market figure that
+        // contradicts the Dashboard / Financial Modelling.
+        var hasNonPrivateRows = mix.some(function(r){return r.tenure && r.tenure!=="private" && num(r.count)>0;});
+        var tenFactor = (typeof tenureMixBlendFactor==="function") ? tenureMixBlendFactor(data, totalUnitsCalc) : 1;
+        var useTenureMix = !hasNonPrivateRows && !!tenSplit && tenFactor < 1;
         var hasExitData = mix.some(function(r){return r.tenure && num(r.count)>0;});
-        if(!hasExitData) return null;
+        if(mix.length === 0 && !useTenureMix) return null;
+        if(!hasExitData && !useTenureMix) return null;
 
         // Route-specific discount table — v9.40: now defined at module level so SFH stage uses the same values.
         // Cap render's retained_prs is handled separately by yield calc below (line ~8503 skips it).
@@ -392,6 +402,25 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
         var byRoute = {};
         var totalUnits = 0;
         var mvAtFullRetail = 0;
+        if(useTenureMix){
+          // Build from the Tenure Mix stage. Prices come from the SFH engine's retail
+          // average so the blended total reconciles exactly to computeSFHMetrics.blendedGdv.
+          var _sm = (typeof computeSFHMetrics==="function") ? computeSFHMetrics(data) : {};
+          var _totU = num(_sm.totalUnits) || totalUnitsCalc;
+          var _avgUnit = _totU>0 ? num(_sm.retailGdv)/_totU : 0;
+          var _avgSqft = num(_sm.avgSqft) || 900;
+          var _mode = (data.tenure && data.tenure.inputMode) || "units";
+          TENURE_TYPES.forEach(function(td){
+            var v = num(tenSplit[td.key]); if(v<=0) return;
+            var units = _mode==="units" ? v : _totU * v/100;
+            if(units<=0) return;
+            var fullMv = units * _avgUnit;
+            byRoute[td.key] = {units:units, fullMv:fullMv, sqft:units*_avgSqft, realised:fullMv*td.pricingFactor,
+              _meta:{label:td.label, col:(td.pricingFactor>=1?"#2D7A65":td.pricingFactor>=0.8?"#4A4BAE":"#9A7B3E"), note:td.desc, pct:td.pricingFactor}};
+            totalUnits += units;
+            mvAtFullRetail += fullMv;
+          });
+        } else {
         mix.forEach(function(row){
           var cnt = num(row.count);
           if(cnt <= 0) return;
@@ -409,6 +438,7 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
           totalUnits += cnt;
           mvAtFullRetail += revenuePerUnit * cnt;
         });
+        }
 
         // For retained PRS: compute capitalised value from yield
         var targetYield = selYield;  // v9.53 — single net initial yield (area benchmark unless overridden)
@@ -431,6 +461,7 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
         // Apply discount for the remaining (sale-based) routes
         Object.keys(byRoute).forEach(function(route){
           if(YIELD_ROUTES.indexOf(route) >= 0) return;
+          if(byRoute[route]._meta) return;  // v10.11 — tenure-mix routes already priced above
           var disc = (ROUTE_DISCOUNT[route] || ROUTE_DISCOUNT.private).pct;
           byRoute[route].realised = byRoute[route].fullMv * disc;
         });
@@ -501,7 +532,7 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
           ),
           routeOrder.map(function(route){
             var r = byRoute[route];
-            var rd = ROUTE_DISCOUNT[route] || ROUTE_DISCOUNT.private;
+            var rd = r._meta || ROUTE_DISCOUNT[route] || ROUTE_DISCOUNT.private;  // v10.11 — Tenure-Mix routes carry their own meta
             var pctOfScheme = totalUnits > 0 ? Math.round(r.units / totalUnits * 100) : 0;
             var discPct = route === "retained_prs" ? "yield-based" : Math.round((1 - rd.pct) * 100) + "%";
             // v9.33 — Route-level cost & profit colour

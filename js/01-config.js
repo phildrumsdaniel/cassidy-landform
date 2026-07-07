@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.10";
+var CURRENT_VERSION = "10.11";
 var VERSION_HISTORY = [
+  {v:"10.11", date:"Jul 2026", headline:"Capitalisation Multi-Route now reconciles to the affordable-adjusted engine GDV (no more full-market contradiction)",
+   affectsCalc:true,
+   changes:["CAPITALISATION 'Multi-Route Exit' RECONCILED — this was the one remaining place that could contradict the corrected GDV. It builds its per-route breakdown from the SFH plot rows' exit-route tags; if those were left all-private while the affordable split lived on the Tenure Mix stage, it showed a full-market 'blended realisable GDV' that disagreed with the Dashboard / Financial Modelling. It now detects that case and builds the routes FROM the Tenure Mix (Open Market Sale, Affordable Rent, Social Rent, Shared Ownership…), pricing each at its tenure factor so the panel's blended total equals the ONE engine GDV exactly. When the plot rows DO carry exit-route tags, the existing behaviour is unchanged. So however the affordable split is entered, every stage now agrees. 335 tests."]},
   {v:"10.10", date:"Jul 2026", headline:"Propagation Audit now shows the live calculated GDVs (SFH / HRA / Tenure / engine) for cross-reference",
    affectsCalc:false,
    changes:["PROPAGATION AUDIT — the 'GDV / outputs' group listed four placeholder fields (sfh.totalGDV, hra.totalGDV, tenure.blendedGDV, fin.gdvOverride) that nothing ever wrote, so they always read 'empty'. GDV is an OUTPUT calculated live from the one engine on every render — persisting a copy would drift the instant an input changed (exactly the bug this audit exists to catch). The audit now reads those figures live — SFH scheme GDV, HRA (BTR/PBSA) GDV, Tenure Mix blended GDV, and the single Engine GDV used across every stage — and marks them '✓ Calc (live)', so you get full cross-reference of the calculated outputs without introducing a drift-prone stored copy. No engine change. 332 tests."]},

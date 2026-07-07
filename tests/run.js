@@ -1000,6 +1000,23 @@ console.log("Landform engine consistency tests\n");
   ok("feesPct is wired across stages", _sharedGroupsFor("fin","feesPct").length > 0);
 })();
 
+// 46 — Capitalise multi-route reconciles to the engine via the shared blend (v10.11)
+(function(){
+  var base = { assetType:"sfh", land:{units:1056}, planning:{units:1056},
+    sfh:{ basePsf:441, avgSqft:1000, mix:[{type:"3-bed semi",count:"1056",sqft:"1000",unitPrice:"400000",tenure:"private"}] } };
+  var deal = Object.assign({}, base, { tenure:{ inputMode:"percentage", mix:{ oms:70, ar:20, sr:10 } } });
+  var sm = computeSFHMetrics(deal);
+  var factor = tenureMixBlendFactor(deal, 1056);
+
+  // The multi-route panel rebuilds realisable value from tenure.mix as retailGdv × factor.
+  // That MUST equal the engine's blended GDV, so the panel can't contradict the Dashboard.
+  near("multi-route blend factor matches 0.7·1 + 0.2·0.6 + 0.1·0.5", factor, 0.87, 0.0001);
+  near("retailGdv × factor == engine blended GDV (panel reconciles to engine)", sm.retailGdv * factor, sm.gdv, 1);
+
+  // With no Tenure Mix split, the factor is 1 (panel keeps its existing sfh.mix behaviour).
+  ok("no tenure split → factor 1 (multi-route unchanged)", tenureMixBlendFactor(base, 1056) === 1);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);
