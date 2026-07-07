@@ -221,6 +221,23 @@ function renderDashboard(ALL_STAGES, JOURNEYS, at, city, data, effUnits, ey, gdv
         }
         // No scenario applied yet — only show once there's a modelled scheme
         if(!(gdv>0)) return null;
+        // v10.2 — if planning risk has been flagged (or a real status set), say so in AMBER
+        // rather than a reassuring green "full consent assumed" — the consented figures are
+        // the upside, not today's value.
+        var pl2 = data.planning || {};
+        var rlLvl = (pl2.riskLevel||"").toLowerCase();
+        if(rlLvl==="high" || rlLvl==="medium"){
+          return e("div",{style:{margin:"6px 0 14px",padding:"12px 16px",background:"rgba(154,123,62,0.08)",border:"1px solid rgba(154,123,62,0.45)",borderRadius:8,fontSize:12,color:"#7A5E24",lineHeight:1.5,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}},
+            e("div",null,
+              e("div",{style:{fontSize:10,letterSpacing:".15em",textTransform:"uppercase",fontWeight:700,color:"#9A7B3E",marginBottom:3}},"Planning basis — "+(rlLvl==="high"?"HIGH RISK flagged":"moderate risk flagged")),
+              e("div",{style:{fontWeight:700,fontSize:14,color:"#7A5E24"}},"Full consent ASSUMED — not yet achieved"),
+              e("div",{style:{fontSize:11,color:"#8A6E34",marginTop:3}},
+                "You've flagged planning risk as "+rlLvl+". The GDV/RLV/margin below are the consented UPSIDE, not today's value — treat this as a promotion play and weigh the risk with a planning scenario in Land Appraisal."
+              )
+            ),
+            e("button",{onClick:function(){navTo("land");},style:{padding:"7px 14px",background:"transparent",border:"1px solid #9A7B3E",color:"#9A7B3E",borderRadius:4,fontSize:10,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Weigh planning risk →")
+          );
+        }
         return e("div",{style:{margin:"6px 0 14px",padding:"12px 16px",background:"linear-gradient(135deg,rgba(45,122,101,0.10),rgba(45,122,101,0.04))",border:"1px solid rgba(45,122,101,0.4)",borderRadius:8,fontSize:12,color:"#1d5446",lineHeight:1.5,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}},
           e("div",null,
             e("div",{style:{fontSize:10,letterSpacing:".15em",textTransform:"uppercase",fontWeight:700,color:"#2D7A65",marginBottom:3}},"Planning basis"),

@@ -25,12 +25,19 @@ function renderScorecard(city, data, gdv, lc, up, user){
       if(ps==="outline")return{s:8,l:"Outline consent"};
       if(ps==="allocated")return{s:7,l:"Allocated in local plan"};
       if(ps==="preApp")return{s:5,l:"Pre-app stage"};
-      var prob=num(cc.planningScore||p.planningProb||0);
+      // v10.2 — an explicit planning RISK LEVEL (set on Planning & Viability) or a
+      // constraint-check score overrides the optimistic "full consent assumed" default, so
+      // the scorecard reflects the real position — not a 9/10 beside a High-risk flag.
+      var rl=(p.riskLevel||"").toLowerCase();
+      var prob=num(cc.planningScore||p.planningProb||(data.constraintCheck&&data.constraintCheck.planningScore)||0);
+      if(rl==="high")   return{s:2,l:"High planning risk"};
+      if(rl==="medium") return{s:4,l:"Moderate planning risk"};
       if(prob>=70)return{s:6,l:"Good probability"};
       if(prob>=50)return{s:4,l:"Moderate probability"};
       if(prob>0)return{s:3,l:"Speculative"};
-      // v9.57 — nothing set yet: lead with full consent (assumed) so the score
-      // reflects the consented, profitable basis. Set the real status to refine.
+      if(rl==="low")    return{s:8,l:"Low planning risk"};
+      // nothing set yet: lead with full consent (assumed) so the score reflects the
+      // consented, profitable basis. Set the status or risk level to refine.
       return{s:9,l:"Full consent (assumed)"};
     }
     function scoreMarket(){

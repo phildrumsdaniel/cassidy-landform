@@ -10,6 +10,12 @@ function renderTeaser(city, data, gdv, lc, up, user){
     var units2=num(p.units||rlvD.units||0);
     var ask=num(l.price||0);
     var lpa=p.lpa||l.localAuthority||"";
+    // v10.2 — read the REAL residual & margin from the one engine, not input fields the
+    // engine never fills (data.rlv.rlv / data.fin.marginPct). Previously the teaser card
+    // showed the ASKING PRICE as the RLV and a 0% margin — which must never go to an investor.
+    var DMt=(typeof calcDealMetrics==="function")?calcDealMetrics(data):{};
+    var teaserRlv=num(DMt.rlv);
+    var teaserMargin=num(DMt.marginPct);
 
     function generateTeaser(){
       var html='<!DOCTYPE html><html><head><meta charset="UTF-8">'+
@@ -59,8 +65,8 @@ function renderTeaser(city, data, gdv, lc, up, user){
         '</div>'+
         '<div class="metrics">'+
           '<div class="metric-box"><div class="metric-label">GDV</div><div class="metric-value">'+fmt(gdv)+'</div><div class="metric-sub2">Gross development value</div></div>'+
-          '<div class="metric-box"><div class="metric-label">Residual Land Value</div><div class="metric-value">'+fmt(num(rlvD.rlv||lc))+'</div><div class="metric-sub2">Maximum land offer</div></div>'+
-          '<div class="metric-box"><div class="metric-label">Dev Margin</div><div class="metric-value">'+pct(num(f.marginPct||f.devMargin||0))+'</div><div class="metric-sub2">On GDV</div></div>'+
+          '<div class="metric-box"><div class="metric-label">Residual Land Value</div><div class="metric-value">'+fmt(teaserRlv)+'</div><div class="metric-sub2">Maximum land offer</div></div>'+
+          '<div class="metric-box"><div class="metric-label">Dev Margin</div><div class="metric-value">'+pct(teaserMargin)+'</div><div class="metric-sub2">On GDV</div></div>'+
           '<div class="metric-box"><div class="metric-label">Site Area</div><div class="metric-value">'+(l.acres||"—")+'ac</div><div class="metric-sub2">'+(l.acres?Math.round(num(l.acres)*0.405*10)/10+' ha':"")+' gross</div></div>'+
         '</div>'+
         '<div class="body">'+
@@ -70,14 +76,14 @@ function renderTeaser(city, data, gdv, lc, up, user){
               ['Planning status:'+planStatus,
                'LPA:'+(lpa||"Unknown"),
                'AH requirement:'+(p.ahPct||"—")+"%",
-               'S106 estimate:'+fmt(num(p.s106||0)),
+               'S106 estimate:'+fmt(num(DMt.s106)||num(p.s106)||0),
                'Planning risk:'+(cc.verdict||"Not assessed"),
               ].map(function(r2){var p2=r2.split(":");return'<div class="info-row"><span class="info-key">'+p2[0]+'</span><span class="info-val">'+p2.slice(1).join(":")+'</span></div>';}).join("")+
             '</div>'+
             '<div>'+
               '<div class="section-title">Financial Summary</div>'+
               ['Asking price:'+fmt(ask),
-               'RLV:'+fmt(num(rlvD.rlv||lc)),
+               'RLV:'+fmt(teaserRlv),
                'Build cost psf:£'+(rlvD.buildPsf||f.buildPsf||"—"),
                'Finance rate:'+(rlvD.finRate||f.finRatePa||"—")+"%",
                'Programme:'+(f.programmeMths||"—")+" months",
@@ -125,7 +131,7 @@ function renderTeaser(city, data, gdv, lc, up, user){
         )
       ),
       e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",border:"1px solid #DDE0ED",borderTop:"none",marginBottom:14}},
-        [{l:"GDV",v:fmt(gdv),s:"Gross dev value"},{l:"RLV",v:fmt(num(rlvD.rlv||lc)),s:"Max land offer"},{l:"Margin",v:pct(num(f.marginPct||0)),s:"On GDV"},{l:"Site area",v:(l.acres||"—")+"ac",s:"Gross"}].map(function(m2){
+        [{l:"GDV",v:fmt(gdv),s:"Gross dev value"},{l:"RLV",v:fmt(teaserRlv),s:"Max land offer"},{l:"Margin",v:pct(teaserMargin),s:"On GDV"},{l:"Site area",v:(l.acres||"—")+"ac",s:"Gross"}].map(function(m2){
           return e("div",{key:m2.l,style:{padding:"14px 18px",borderRight:"1px solid #DDE0ED"}},
             e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".1em",marginBottom:2}},m2.l),
             e("div",{style:{fontSize:18,fontWeight:800,color:"#2E2F8A"}},m2.v),
@@ -138,7 +144,7 @@ function renderTeaser(city, data, gdv, lc, up, user){
       e(AIPanel,{user:user,up:up,stage:"teaser",data:data,persistKey:"teaser_rationale",
         label:"✍ Generate Investment Rationale",
         system:"You are a senior UK property investment analyst writing a teaser document for a residential development site. Be compelling, concise, specific.",
-        prompt:buildHonestPrompt(data,"Write a 120-word investment rationale for this site teaser. Site: "+addr+", "+cityDisp+". GDV: "+fmt(gdv)+". RLV: "+fmt(num(rlvD.rlv||lc))+". Margin: "+pct(num(f.marginPct||0))+". Planning: "+planStatus+(lpa?", LPA: "+lpa:"")+". Units: "+units2+". Constraint check: "+(cc.verdict||"not run")+". Write as if pitching to an RP or investor — lead with the opportunity, support with the numbers, close with the ask. No bullet points."
+        prompt:buildHonestPrompt(data,"Write a 120-word investment rationale for this site teaser. Site: "+addr+", "+cityDisp+". GDV: "+fmt(gdv)+". RLV: "+fmt(teaserRlv)+". Margin: "+pct(teaserMargin)+". Planning: "+planStatus+(lpa?", LPA: "+lpa:"")+". Units: "+units2+". Constraint check: "+(cc.verdict||"not run")+". Write as if pitching to an RP or investor — lead with the opportunity, support with the numbers, close with the ask. No bullet points."
       )}),
 
       e("div",{style:{background:"rgba(74,75,174,0.05)",border:"1px solid rgba(74,75,174,0.2)",borderRadius:8,padding:"12px 16px",marginTop:8,fontSize:11,color:"#4A4BAE"}},

@@ -15,8 +15,13 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.1";
+var CURRENT_VERSION = "10.2";
 var VERSION_HISTORY = [
+  {v:"10.2", date:"Jul 2026", headline:"Fixed investor-facing cards: Teaser RLV/margin, Data Room £0s, three-way S106, planning-risk on Scorecard/Dashboard",
+   affectsCalc:true,
+   changes:["TEASER PDF — the summary card showed the ASKING PRICE as the Residual Land Value and a 0.0% margin (it read input fields the engine never fills). It now reads the real residual and margin from the one engine, so a teaser can't go to an investor with a mislabelled RLV.",
+     "DATA ROOM — the Development Appraisal section showed GDV £0 / RLV £0 ('MISSING') and an £8k/unit S106 default, all because it read blank input fields. It now reads GDV, RLV, margin and S106 from the engine, so it matches the rest of the deal (and the S106 reflects the propagated per-unit figure, ending the 'three different S106 numbers' problem).",
+     "SITE SCORECARD & DEAL DASHBOARD — both ignored a High planning-risk flag and kept showing 'Full consent (assumed) 9/10' / a reassuring green banner. The Scorecard's planning score now drops to reflect a High/Moderate risk level, and the Dashboard switches to an amber 'consent assumed — not yet achieved, treat as upside' banner. So a Green Belt promotion play no longer reads as a clean consented buy. 270 tests."]},
   {v:"10.1", date:"Jul 2026", headline:"Fixed the RLV page contradicting itself (main panel profit vs sensitivity loss)",
    affectsCalc:true,
    changes:["LAND VALUATION (RLV) — the main results panel values the scheme off its priced house mix (new-build), but the Sensitivity Analysis widget re-derived GDV from the single 'Sale £/sqft' field. When the Land Registry lookup filled that field with an EXISTING-stock comparable (e.g. £305), the widget showed a loss while the main panel showed a profit — the same page contradicting itself. The sensitivity now anchors its base to the scheme's actual GDV (effective £/sqft = GDV ÷ total sqft), so its base residual matches the headline and the sliders test movements from the real figure. 270 tests."]},

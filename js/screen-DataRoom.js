@@ -32,10 +32,14 @@ function renderDataRoom(city, data, exits, isExitOn, schemes, up){
     var planStatus=p.status||l.planningStatus||"Unallocated";
     var lpa=p.lpa||l.localAuthority||"TBC";
     var ask=num(l.price||0);
-    var gdvVal=num(f.gdv||0);
-    var rlvVal=num(rlvD.rlv||f.rlv||0);
-    var profitPct=num(f.marginPct||17.5);
-    var s106=num(p.s106||(units*8000)||0);
+    // v10.2 — pull GDV / RLV / S106 from the one engine, not input fields the engine
+    // never fills (data.fin.gdv / data.rlv.rlv were blank → the Data Room showed GDV £0,
+    // RLV £0 "MISSING", and an £8k/unit S106 default that ignored the propagated figure).
+    var DMd=(typeof calcDealMetrics==="function")?calcDealMetrics(data):{};
+    var gdvVal=num(DMd.gdv)||num(f.gdv||0);
+    var rlvVal=num(DMd.rlv)||num(rlvD.rlv||f.rlv||0);
+    var profitPct=isFinite(DMd.marginPct)&&num(DMd.marginPct)?num(DMd.marginPct):num(f.marginPct||17.5);
+    var s106=num(DMd.s106)||num(p.s106)||(units*numOr(p.s106pu||f.s106pu,8000))||0;
 
     // ── CURATION ENGINE — security-first ────────────────────────────────
     // Every field in the data room has a sensitivity classification:
