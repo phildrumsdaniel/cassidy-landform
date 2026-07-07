@@ -31,8 +31,9 @@ function AIPanel(props){
         "4. Where figures look wrong, stale, contradictory, or outside market norms, flag them for manual review instead of replacing them.\n"+
         "5. Keep the response concise and useful: risks first, then commercial judgement, then specific manual checks required.\n"+
         "6. Do NOT include CORRECTIONS_START, CORRECTIONS_END, or JSON corrections unless the user explicitly asks to apply values.\n";
-      var enhPrompt=props.prompt+"\n\n"+corrInstr;
-      var result=await callAI(props.user,props.stage,"You are a senior UK development finance director. Analyse the supplied appraisal inputs only. Give judgement, risks, assumptions and manual review points. Do not change or auto-fill fields.",enhPrompt);
+      var fmtInstr="\nFORMATTING: use light Markdown so it presents cleanly — **bold** for headline figures and verdicts, '- ' bullets for lists, and '## ' headings only if the answer is long enough to warrant sections. No code blocks or images.\n";
+      var enhPrompt=props.prompt+"\n\n"+corrInstr+fmtInstr;
+      var result=await callAI(props.user,props.stage,"You are a senior UK development finance director. Analyse the supplied appraisal inputs only. Give judgement, risks, assumptions and manual review points. Do not change or auto-fill fields. Use light Markdown (**bold**, '- ' bullets, '## ' headings) for a clean, presentable layout.",enhPrompt);
       // Extract corrections block
       var ci=result.indexOf("CORRECTIONS_START");
       var ce=result.indexOf("CORRECTIONS_END");
@@ -163,7 +164,9 @@ function AIPanel(props){
         )
       ),
       e("div",{style:{maxHeight:500,overflowY:"auto",padding:"16px 20px"}},
-        e("pre",{style:{fontSize:12,lineHeight:1.9,color:"#3A3D6A",whiteSpace:"pre-wrap",fontFamily:"DM Sans,sans-serif",margin:0}},aiRes)
+        (typeof renderMarkdownReport==="function")
+          ? renderMarkdownReport(aiRes,{fontSize:12})
+          : e("pre",{style:{fontSize:12,lineHeight:1.9,color:"#3A3D6A",whiteSpace:"pre-wrap",fontFamily:"DM Sans,sans-serif",margin:0}},aiRes)
       )
     )
   );

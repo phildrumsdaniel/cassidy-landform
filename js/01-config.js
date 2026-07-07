@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.5";
+var CURRENT_VERSION = "10.6";
 var VERSION_HISTORY = [
+  {v:"10.6", date:"Jul 2026", headline:"AI reports now render as branded, presentation-grade documents (headings, bold figures, bullets, tables) on screen and in PDF",
+   affectsCalc:false,
+   changes:["STAKEHOLDER-READY AI REPORTS — every AI report used to render as a raw plain-text dump in a monospace/`pre` block. AI report prompts now emit light Markdown (## section headings, **bold** headline figures, - bullet lists, optional tables), and a new dependency-free Markdown renderer (js/lib-mdReport.js) turns that into branded, presentation-grade output — Cassidy-navy section headers with rules, emphasised money figures, clean bulleted risks/next-steps and styled tables — shown the same way on screen and in the Print/PDF export. Applied to the shared AI Analysis panel (so Scorecard narrative, Risk assessment, Teaser rationale etc. all benefit) and the Executive Summary. Plain-text reports still render cleanly (graceful paragraphs), and legacy numbered section titles are auto-detected as headings. 306 tests."]},
   {v:"10.5", date:"Jul 2026", headline:"New: Assumption Mode — present the scheme as if planning/DD/constraints/risks are satisfied, for stakeholder reports",
    affectsCalc:false,
    changes:["ASSUMPTION MODE — a new non-destructive presentation overlay. Toggle any of four dimensions (Planning consented · DD clear · Constraints cleared · Risks mitigated) from the Dashboard or Executive Summary and the readouts present the 'if it all lands' story: Scorecard planning/constraint dimensions, Dashboard planning banner, Data Room §02.1/§02.4/§09.1, Executive Summary completion + AI narrative, and the Teaser all reflect the assumed position. Crucially it writes NOTHING to your real data — planning.status, ddChecked, constraintCheck and the risk register are untouched; toggle off and the true position returns. Every assumed value is labelled '(assumed)', an amber banner sits above every screen while it's on, and exec/teaser/data-room reports carry an 'ILLUSTRATIVE' watermark, so an assumption can never be mistaken for achieved fact.",

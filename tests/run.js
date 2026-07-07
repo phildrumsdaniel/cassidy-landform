@@ -33,6 +33,13 @@ try {
   eval(fs.readFileSync(path.join(__dirname, "..", "js", "lib-isStageComplete.js"), "utf8"));
   eval(fs.readFileSync(path.join(__dirname, "..", "js", "lib-dealSchema.js"), "utf8"));
   eval(fs.readFileSync(path.join(__dirname, "..", "js", "lib-scoreOpportunity.js"), "utf8"));
+  // Markdown report renderer builds React nodes via `e` (= React.createElement).
+  // Point createElement at a lightweight node-builder and rebind the local `e`
+  // (01-config.js captured `var e = React.createElement` when it was still a noop)
+  // so the renderer runs headlessly — we assert on structure, not a real DOM.
+  React.createElement = function(tag, props){ var kids = Array.prototype.slice.call(arguments, 2); return { tag: tag, props: props || {}, children: kids }; };
+  e = React.createElement;
+  eval(fs.readFileSync(path.join(__dirname, "..", "js", "lib-mdReport.js"), "utf8"));
 } catch (e) {
   console.error("Could not load engine files:", e.message);
   process.exit(1);
@@ -861,6 +868,41 @@ console.log("Landform engine consistency tests\n");
   ok("planning stage NOT complete without the flag or a status", isStageComplete("planning", off) === false);
   ok("dd stage complete only when dd assumed", isStageComplete("dd", on) === true && isStageComplete("dd", partial) === false);
   ok("constraint stage complete only when constraints assumed", isStageComplete("constraint", on) === true && isStageComplete("constraint", partial) === false);
+})();
+
+// 40 — Markdown report renderer (v10.6): formats Markdown, degrades on plain text
+(function(){
+  // Helper: flatten a rendered node tree to the list of tag names present.
+  function tags(node, acc){
+    acc = acc || [];
+    if(Array.isArray(node)){ node.forEach(function(n){ tags(n, acc); }); return acc; }
+    if(!node || typeof node !== "object") return acc;
+    if(node.tag) acc.push(node.tag);
+    (node.children || []).forEach(function(c){ tags(c, acc); });
+    return acc;
+  }
+
+  ok("empty input renders nothing", renderMarkdownReport("") === null && renderMarkdownReport(null) === null);
+
+  var md = "## The Money\nThe scheme sells for **£65.6m**.\n\n- First risk\n- Second risk\n";
+  var out = renderMarkdownReport(md);
+  var tl = tags(out);
+  ok("heading renders", tl.indexOf("div") >= 0);           // headings are styled divs
+  ok("bold renders as <strong>", tl.indexOf("strong") >= 0);
+  ok("bullets render as <ul>/<li>", tl.indexOf("ul") >= 0 && tl.indexOf("li") >= 0);
+
+  // Plain text (no Markdown) still renders — as paragraphs, never crashes.
+  var plain = renderMarkdownReport("Just a plain sentence about the deal.\n\nA second paragraph.");
+  ok("plain text degrades to paragraphs", tags(plain).filter(function(t){return t==="p";}).length === 2);
+
+  // A table renders a <table>.
+  var tbl = renderMarkdownReport("| A | B |\n| --- | --- |\n| 1 | 2 |");
+  ok("markdown table renders a <table>", tags(tbl).indexOf("table") >= 0);
+
+  // The numbered-heading heuristic: ALL-CAPS numbered lines are headings, not list items.
+  ok("'1. THE MONEY' is treated as a heading", _isNumberedHeading("THE MONEY") === true);
+  ok("'1. Buy the milk.' is a normal list item", _isNumberedHeading("Buy the milk.") === false);
+  ok("long numbered text is not a heading", _isNumberedHeading("This is a fairly long ordinary sentence that happens to be numbered and should stay a list item") === false);
 })();
 
 // ── Report ───────────────────────────────────────────────────────────────────
