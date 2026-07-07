@@ -15,8 +15,14 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.8";
+var CURRENT_VERSION = "10.9";
 var VERSION_HISTORY = [
+  {v:"10.9", date:"Jul 2026", headline:"Financial Modelling: affordable-housing GDV now flows into the engine, professional-fees % is connected, and finance rate / sales rate reconciled",
+   affectsCalc:true,
+   changes:["AFFORDABLE HOUSING NOW REDUCES GDV (major) — the affordable/social split entered on the Tenure Mix stage never reached the headline GDV, so Financial Modelling, Dashboard, Executive Summary, Scorecard and Teaser all showed the pure 100%-open-market GDV and an overstated margin. The Tenure Mix stage used a separate data model the single engine couldn't see. The engine now blends the Tenure Mix split into the one canonical GDV (weighted by each tenure's pricing — Social Rent 50%, Affordable Rent 60%, Shared Ownership 85%, etc.), so a 30% affordable scheme carries its real discount everywhere. Guards prevent double-counting (per-row house-mix tenures still take precedence) and stop a partial allocation from over-discounting. NOTE: this lowers the headline margin on affordable-bearing schemes to a realistic level — that is the correction, not a regression.",
+     "PROFESSIONAL FEES % DISCONNECTED — the Financial Modelling 'Professional Fees (% of build)' input did nothing to the SFH appraisal, which was hard-coded at 10%. Fees % is now read from the input and shared across Financial Modelling / SFH / RLV, so setting 12% actually raises the cost line (and correctly trims profit).",
+     "TWO FINANCE RATES ON ONE PAGE — the IRR & Phased Cashflow panel used its own finance rate (defaulting to 8%) separate from the appraisal's Finance Rate, so the headline appraisal and the IRR screening silently disagreed. Both now use the one shared finance rate.",
+     "SALES RATE vs PROGRAMME — the Private Sales Rate defaulted to a flat 0.75 units/week, implying a 27-year sell-out for a 1,000+ unit scheme and making the two IRR methods disagree wildly. The default now scales so sell-out tracks the programme length. 332 tests."]},
   {v:"10.8", date:"Jul 2026", headline:"Fixed Scorecard Constraint Risk (corrupt verdict regex), the dashboard checklist for Risk Register & Financial Modelling, and Executive Summary truncation",
    affectsCalc:false,
    changes:["SITE SCORECARD 'Constraint Risk' — stayed on 'Not assessed 5/10' even after a real Constraint Check. Root cause: the Constraint Check stage's verdict regex had stray control (backspace) bytes baked into it, so GO/CAUTION/AVOID NEVER parsed — the verdict was always null, the stage banner silently defaulted to '✗ AVOID' (misleading), and the Scorecard read nothing. Fixed the regex (whole-word, case-insensitive, takes the closing verdict) AND added a fallback that derives the verdict from the stored probability score, so the Scorecard/Data Room reflect the real assessment even on deals checked before this fix. (Re-run Constraint Check to capture the model's exact verdict; existing deals now map their score, e.g. 51/100 → CAUTION/Moderate.)",
@@ -2182,6 +2188,37 @@ var TENURE_TYPES = [
   {key:"rtb_buy",   label:"Right to Buy back-buy",    short:"RtBB",    icon:"♻", pricingFactor:0.70, buyerType:"council",        incomeType:"capital",     order:10, desc:"Council buys back former RTB units at discount."}
 ];
 
+// v10.9 — the affordable/social discount blend implied by the Tenure Mix stage
+// (data.tenure.mix), as a fraction of full open-market GDV. This mirrors
+// computeTenureMetrics' blendedGdv/pureMarketGdv ratio, but the omsUnitPrice cancels
+// out, so it reduces to the units-weighted average pricingFactor — which we can compute
+// from data.tenure alone WITHOUT calling computeSFHMetrics (that would recurse, since
+// computeTenureMetrics itself calls computeSFHMetrics). Returns 1 (no discount) unless
+// the split genuinely covers the scheme, so a partial/placeholder allocation can't
+// over-discount the whole GDV.
+function tenureMixBlendFactor(data, schemeUnits){
+  var t = (data && data.tenure) || {};
+  var mix = t.mix;
+  if(!mix) return 1;
+  var mode = t.inputMode || "units";
+  var alloc = 0, weighted = 0;
+  TENURE_TYPES.forEach(function(td){
+    var v = num(mix[td.key]); if(!v) return;
+    alloc += v;
+    weighted += v * td.pricingFactor;
+  });
+  if(alloc <= 0) return 1;
+  // Coverage guard: only blend when the split covers ~the whole scheme (units mode) or
+  // sums to ~100% (percentage mode). Otherwise applying the blend to the FULL GDV would
+  // discount units that were never allocated as affordable.
+  var covered = (mode === "units")
+    ? (num(schemeUnits) > 0 ? alloc >= num(schemeUnits) * 0.9 : alloc > 0)
+    : (alloc >= 90);
+  if(!covered) return 1;
+  var f = weighted / alloc;
+  return (f > 0 && f < 1) ? f : 1;   // only a genuine discount reduces GDV
+}
+
 function getTenureDef(key){
   for(var i=0;i<TENURE_TYPES.length;i++){if(TENURE_TYPES[i].key===key)return TENURE_TYPES[i];}
   return TENURE_TYPES[0];
@@ -2241,7 +2278,17 @@ function computeSFHMetrics(data){
   // that blend is authoritative; (2) else apply the scheme's overall AH% haircut;
   // (3) else retail. This single value is what every screen/consumer reads.
   var ahFactor = sfhAhFactor(data);
-  var effectiveBlended = hasNonPrivate ? blendedGdv : (ahFactor < 1 ? retailGdv * ahFactor : retailGdv);
+  // v10.9 — when the affordable split was entered on the Tenure Mix stage
+  // (data.tenure.mix) rather than as per-row sfh.mix tenures or an overall ahPct, blend
+  // it into the ONE engine GDV so Financial Modelling / Dashboard / Executive Summary /
+  // Scorecard / Teaser reflect it (previously the Tenure Mix discount never reached GDV,
+  // so those all showed the pure open-market GDV and an overstated margin). Precedence
+  // prevents double-counting: explicit per-row tenure wins, else the Tenure Mix split,
+  // else the overall ahPct haircut, else full retail.
+  var tenureFactor = (!hasNonPrivate && ahFactor >= 1) ? tenureMixBlendFactor(data, totalUnits) : 1;
+  var effectiveBlended = hasNonPrivate ? blendedGdv
+    : (tenureFactor < 1 ? retailGdv * tenureFactor
+    : (ahFactor < 1 ? retailGdv * ahFactor : retailGdv));
 
   // v9.47 — Canonical GROSS cost stack + residual, mirroring the SFH House Mix
   // screen exactly so every screen and the AI quote the same RLV. Acquisition
@@ -2251,7 +2298,10 @@ function computeSFHMetrics(data){
   // avoid double-counting (the optional-cost behaviour the user asked for).
   var sfhAcres = num(sfh.acres) || num(l.acres);   // inherit site area from Land Appraisal when not set on SFH
   var buildInclusive = !!sfh.buildInclusive;
-  var sfhFees = buildCost * 0.10;
+  // v10.9 — read the professional-fees % from the input (shared with fin.feesPct /
+  // rlv.feesPct) instead of hard-coding 10%. Previously typing 12% in Financial
+  // Modelling had no effect on the SFH appraisal — it stayed locked at 10%.
+  var sfhFees = buildCost * (numOr(sfh.feesPct, 10) / 100);
   var sfhContingency = buildCost * (numOr(sfh.contingency, 5) / 100);
   var sfhFinance = (buildCost + sfhFees) * (numOr(sfh.finRate, 7.5) / 100);
   var sfhS106 = totalUnits * numOr(sfh.s106pu, 8000);
@@ -2438,6 +2488,9 @@ var SHARED_FIELD_GROUPS = [
   [["sfh","buildPsf"],["fin","buildPsf"],["rlv","buildPsf"]],
   [["sfh","profitPct"],["fin","profitPct"],["rlv","profitPct"]],
   [["sfh","finRate"],["fin","finRate"],["rlv","finRate"]],
+  // v10.9 — professional fees % (previously not shared, so the Financial Modelling
+  // input never reached the SFH/RLV appraisal, which stayed on its hard-coded 10%).
+  [["sfh","feesPct"],["fin","feesPct"],["rlv","feesPct"]],
   [["sfh","contingency"],["fin","contingency"],["rlv","contingency"]],
   [["sfh","s106pu"],["fin","s106pu"],["planning","s106pu"],["rlv","s106pu"]],
   [["sfh","buildInclusive"],["fin","buildInclusive"],["rlv","buildInclusive"]],

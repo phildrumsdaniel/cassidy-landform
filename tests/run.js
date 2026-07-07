@@ -957,6 +957,49 @@ console.log("Landform engine consistency tests\n");
   ok("fin stage reads complete off the engine (no exitYield needed)", isStageComplete("fin", deal) === true);
 })();
 
+// 44 — Tenure Mix affordable split now flows into the ONE engine GDV (v10.9)
+(function(){
+  var mix = [{type:"3-bed semi",count:"700",sqft:"900",unitPrice:"400000",tenure:"private"},
+             {type:"4-bed detached",count:"356",sqft:"1200",unitPrice:"550000",tenure:"private"}];
+  var base = { assetType:"sfh", land:{acres:88,units:1056}, planning:{units:1056}, sfh:{mix:mix, basePsf:441, avgSqft:1000} };
+
+  var m0 = computeSFHMetrics(base);
+  near("no tenure split → GDV is full retail", m0.gdv, m0.retailGdv, 1);
+
+  // 70% OMS + 30% Affordable Rent (0.60) → weighted factor 0.88 applied to retail.
+  var withTen = Object.assign({}, base, { tenure:{ inputMode:"percentage", mix:{ oms:70, ar:30 } } });
+  var m1 = computeSFHMetrics(withTen), dm1 = calcDealMetrics(withTen);
+  ok("tenure split reduces GDV below full retail", m1.gdv < m1.retailGdv && m1.gdv > 0);
+  near("GDV blend matches the units-weighted pricing factor (0.88)", m1.gdv, m1.retailGdv * 0.88, 1000);
+  near("single engine: calcDealMetrics.gdv == computeSFHMetrics.gdv", dm1.gdv, m1.gdv, 1);
+  ok("blended margin drops vs the all-market case", dm1.marginPct < calcDealMetrics(base).marginPct);
+
+  // No double-count: if the sfh.mix rows already carry per-row tenure, the per-row blend
+  // wins and the tenure.mix split is NOT layered on top.
+  var perRow = { assetType:"sfh", land:{units:1000}, planning:{units:1000},
+    sfh:{ basePsf:400, avgSqft:1000, mix:[
+      {type:"3-bed semi",count:"700",sqft:"1000",unitPrice:"400000",tenure:"private"},
+      {type:"3-bed semi",count:"300",sqft:"1000",unitPrice:"400000",tenure:"ahp_affordable"}]},
+    tenure:{ inputMode:"percentage", mix:{ oms:50, sr:50 } } };
+  var mp = computeSFHMetrics(perRow);
+  near("per-row tenure blend used; tenure.mix not stacked on top", mp.gdv, mp.blendedGdv, 1);
+
+  // Coverage guard: a partial units-mode allocation must NOT discount the whole GDV.
+  var partial = Object.assign({}, base, { tenure:{ inputMode:"units", mix:{ oms:70, ar:30 } } });  // 100 of 1056
+  near("partial allocation does not over-discount GDV", computeSFHMetrics(partial).gdv, m0.retailGdv, 1);
+})();
+
+// 45 — Professional fees % now reaches the SFH appraisal (v10.9)
+(function(){
+  var mk = function(feesPct){ return { assetType:"sfh", land:{units:200}, planning:{units:200},
+    sfh:{ feesPct:feesPct, basePsf:400, avgSqft:1000, mix:[{type:"3-bed semi",count:"200",sqft:"1000",unitPrice:"400000",tenure:"private"}] } }; };
+  var at10 = calcDealMetrics(mk(10)), at12 = calcDealMetrics(mk(12));
+  ok("higher professional-fees % raises total dev fees", at12.fees > at10.fees);
+  near("12% fees ≈ 1.2× the 10% figure", at12.fees, at10.fees * 1.2, at10.fees * 0.02);
+  // feesPct is now a shared field (fin ↔ sfh ↔ rlv) so the Financial Modelling input propagates.
+  ok("feesPct is wired across stages", _sharedGroupsFor("fin","feesPct").length > 0);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

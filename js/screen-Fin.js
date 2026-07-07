@@ -291,14 +291,16 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"IRR & Phased Cashflow — Initial Screening"),
         e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:12}},"Simplified IRR for go/no-go screening. Once the deal passes, export key figures to the detailed Excel appraisal model for full month-by-month Normal Distribution cashflow."),
+        // v10.9 — the sales-rate placeholder shows a scheme-derived rate (sell-out tracks
+        // the programme), replacing the flat 0.75/wk that implied a 27-year sell-out.
         e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:14}},
           e("div",{style:{display:"flex",flexDirection:"column",gap:4}},
             e("label",{style:S.label},"Private Sales Rate (units/week)"),
-            e("input",{type:"number",value:f.salesRateWeek||"",onChange:function(ev){up("fin","salesRateWeek",ev.target.value);},placeholder:"0.75",style:S.input})
+            e("input",{type:"number",value:f.salesRateWeek||"",onChange:function(ev){up("fin","salesRateWeek",ev.target.value);},placeholder:String((num(f.units||units||0)>0&&num(f.programmeMths||36)>0)?Math.round((num(f.units||units||0)/(num(f.programmeMths||36)*(52/12)))*100)/100:0.75),style:S.input})
           ),
           e("div",{style:{display:"flex",flexDirection:"column",gap:4}},
-            e("label",{style:S.label},"Finance Rate (% per annum)"),
-            e("input",{type:"number",value:f.finRatePa||"",onChange:function(ev){up("fin","finRatePa",ev.target.value);},placeholder:"8",style:S.input})
+            e("label",{style:S.label},"Finance Rate (% pa) — shared with the appraisal above"),
+            e("input",{type:"number",value:f.finRate||"",onChange:function(ev){up("fin","finRate",ev.target.value);},placeholder:"7.5",style:S.input})
           ),
           e("div",{style:{display:"flex",flexDirection:"column",gap:4}},
             e("label",{style:S.label},"Programme Length (months)"),
@@ -306,10 +308,12 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
           )
         ),
         (function(){
-          var salesRate=num(f.salesRateWeek||0.75);
-          var finRatePa=num(f.finRatePa||8)/100;
           var progMths=num(f.programmeMths||36);
           var u=num(f.units||units||0);
+          // v10.9 — sell-out tracks the programme unless the user sets an explicit rate;
+          // and the finance rate is the ONE appraisal rate (f.finRate), not a separate 8%.
+          var salesRate=num(f.salesRateWeek) || (u>0&&progMths>0 ? Math.round((u/(progMths*(52/12)))*100)/100 : 0.75);
+          var finRatePa=num(f.finRate||7.5)/100;
           var gdvF=gdv2>0?gdv2:0;
           var tcF=tc4>0?tc4:0;
           var marginF=margin2;
@@ -359,7 +363,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
         (function(){
           var u3=num(f.units||sfhTotalUnits||0);
           var prog3=num(f.programmeMths||36);
-          var finR=num(f.finRatePa||8)/100/12;
+          var finR=num(f.finRate||7.5)/100/12;  // v10.9 — one finance rate (shared with the appraisal), was a separate 8%
           var gdv3=gdv2>0?gdv2:0;
           var tc3=tc4>0?tc4:0;
           if(u3<1||gdv3<1)return e("div",{style:{fontSize:12,color:"#7278A0",padding:"8px 0"}},"Enter units and GDV above to see phased cashflow.");
@@ -444,11 +448,11 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
                 "Gross Site: "+num(l.acres||0)+" acres / "+(num(l.acres||0)*0.404686).toFixed(2)+" ha",e("br"),
                 "Units: "+u+" | GDV: "+fmt(gdv2>0?gdv2:gdvF)+" | Land (RLV): "+fmt(Math.max(0,rlv)),e("br"),
                 "Build Cost: "+fmt(totalBuild||Math.round(tcF*0.6))+" | S106 Total: "+fmt(num(f.s106pu||0)*u),e("br"),
-                "Finance: "+(f.finRatePa||8)+"% pa | Sales: "+(f.salesRateWeek||0.75)+"/wk | IRR: "+(irrVal?irrVal+"%":"—"),e("br"),
+                "Finance: "+(f.finRate||7.5)+"% pa | Sales: "+(f.salesRateWeek||(num(f.units||units||0)>0&&num(f.programmeMths||36)>0?Math.round((num(f.units||units||0)/(num(f.programmeMths||36)*(52/12)))*100)/100:0.75))+"/wk | IRR: "+(irrVal?irrVal+"%":"—"),e("br"),
                 "Margin: "+pct(margin2)+" | Profit on Cost: "+pct(tc4>0?(gdv2-tc4)/tc4*100:0)
               ),
               e("button",{onClick:function(){
-                var nl="\n";var t=["LANDFORM EXPORT",new Date().toLocaleDateString("en-GB"),"","SITE: "+(l.address||"Unknown"),"LPA: "+(data.planning&&data.planning.lpa||"n/a"),"Gross Site: "+num(l.acres||0)+" acres","Units: "+u,"GDV: "+fmt(gdv2>0?gdv2:gdvF),"Land Residual Value: "+fmt(Math.max(0,rlv)),"Build Cost: "+fmt(totalBuild),"S106/unit: "+(f.s106pu||0),"S106 Total: "+fmt(num(f.s106pu||0)*u),"Finance: "+(f.finRatePa||8)+"% pa","Sales Rate: "+(f.salesRateWeek||0.75)+"/wk","Programme: "+(f.programmeMths||36)+" months","Margin on GDV: "+pct(margin2),"IRR: "+(irrVal?irrVal+"%":"n/a"),"","NEXT STEP: Enter into the detailed Excel appraisal model.","Set land price to RLV. Run Normal Distribution cashflow.","Rebase BCIS build costs. Track RP offers."].join(nl);                var el=document.createElement("textarea");
+                var nl="\n";var t=["LANDFORM EXPORT",new Date().toLocaleDateString("en-GB"),"","SITE: "+(l.address||"Unknown"),"LPA: "+(data.planning&&data.planning.lpa||"n/a"),"Gross Site: "+num(l.acres||0)+" acres","Units: "+u,"GDV: "+fmt(gdv2>0?gdv2:gdvF),"Land Residual Value: "+fmt(Math.max(0,rlv)),"Build Cost: "+fmt(totalBuild),"S106/unit: "+(f.s106pu||0),"S106 Total: "+fmt(num(f.s106pu||0)*u),"Finance: "+(f.finRate||7.5)+"% pa","Sales Rate: "+(f.salesRateWeek||(num(f.units||units||0)>0&&num(f.programmeMths||36)>0?Math.round((num(f.units||units||0)/(num(f.programmeMths||36)*(52/12)))*100)/100:0.75))+"/wk","Programme: "+(f.programmeMths||36)+" months","Margin on GDV: "+pct(margin2),"IRR: "+(irrVal?irrVal+"%":"n/a"),"","NEXT STEP: Enter into the detailed Excel appraisal model.","Set land price to RLV. Run Normal Distribution cashflow.","Rebase BCIS build costs. Track RP offers."].join(nl);                var el=document.createElement("textarea");
                 el.value=t;document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);
                 alert("Copied to clipboard — paste into your Excel appraisal model");
               },style:{padding:"9px 22px",background:"#EDE84A",border:"none",borderRadius:7,color:"#1E1F5C",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
