@@ -13,6 +13,46 @@ function renderKeystone(data, setData, up, navTo, user){
 
   function setK(patch){ setData(function(d){ return Object.assign({}, d, {keystone:Object.assign({}, d.keystone||{}, patch)}); }); }
 
+  // ── Reset to raw import ──────────────────────────────────────────────────
+  // v10.7 — clear the entire current deal back to the raw source it was imported
+  // from (a Placona site or the original Keystone brief) and drop that brief into
+  // the editor, so you can run Keystone fresh and re-audit from scratch. Saved
+  // portfolio deals are untouched; nothing here fabricates data.
+  var _rawBrief = (typeof rawImportBrief === "function") ? rawImportBrief(data) : null;
+  function resetToRawImport(){
+    if(!_rawBrief) return;
+    if(!confirm("Start fresh from the raw import?\n\nThis clears EVERYTHING in the deal currently open — appraisal figures, AI reports, Due Diligence, risks, constraint checks and assumption toggles — and restores just the raw imported brief so you can run Keystone again from scratch.\n\nYour saved portfolio deals are untouched.")) return;
+    var briefStr = JSON.stringify(_rawBrief, null, 2);
+    setData(function(prev){
+      // A brand-new blank deal carrying ONLY the raw brief + the import source,
+      // so a fresh Keystone build (and a repeatable reset) is possible.
+      return {
+        assetType: undefined,
+        keystone: { brief: briefStr, source: (prev.keystone && prev.keystone.source) || "" },
+        _raw: prev._raw,
+        _keystone: { sourceBrief: _rawBrief }
+      };
+    });
+    if(typeof navTo === "function") navTo("keystone");
+  }
+  var rawResetPanel = _rawBrief ? e("div",{style:Object.assign({},S.card,{borderLeft:"4px solid #B05A35",background:"#FFFDFB"})},
+    e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}},
+      e("div",{style:{flex:1,minWidth:220}},
+        e("div",{style:{fontSize:12,fontWeight:800,color:"#B05A35",marginBottom:3}},"↺ Start fresh from the raw import"),
+        e("div",{style:{fontSize:11,color:"#7278A0",lineHeight:1.6}},
+          "Clear all appraisal work in the current deal and restore just the raw import — ",
+          e("strong",null,(_rawBrief.dealName || _rawBrief.address || _rawBrief.town || "the imported site")),
+          (num(_rawBrief.acres)>0?" · "+_rawBrief.acres+" acres":""),
+          (num(_rawBrief.askingPrice)>0?" · "+fmt(num(_rawBrief.askingPrice)):""),
+          " — then run Keystone again for a clean re-audit. Saved deals are untouched."
+        )
+      ),
+      e("button",{onClick:resetToRawImport,
+        style:{padding:"9px 16px",background:"#B05A35",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",flexShrink:0}},
+        "↺ Reset to raw import")
+    )
+  ) : null;
+
   // ── File upload: Excel via SheetJS, PDF via pdf.js, Word via mammoth, else text ──
   function appendSource(name, text){
     setData(function(d){
@@ -94,7 +134,9 @@ function renderKeystone(data, setData, up, navTo, user){
     var hasExisting = !!(data.land && (data.land.address || data.land.city)) || !!(data.sfh && data.sfh.mix && data.sfh.mix.length);
     if(hasExisting && !confirm("This will replace the deal currently open with the new one Keystone built. (Your saved portfolio deals are untouched.) Continue?")) return;
     var journey = deal.assetType;
-    setData(function(prev){ return Object.assign({}, deal, {_cloudDealId: undefined, keystone: Object.assign({}, prev.keystone||{}, {builtJourney:journey, builtAt:Date.now()}) }); });
+    // v10.7 — carry the raw Placona site forward so "Reset to raw import" keeps working
+    // after a rebuild (buildDealFromBrief already stores _keystone.sourceBrief).
+    setData(function(prev){ return Object.assign({}, deal, {_cloudDealId: undefined, _raw: prev._raw, keystone: Object.assign({}, prev.keystone||{}, {builtJourney:journey, builtAt:Date.now()}) }); });
   }
 
   var detected = (function(){ try{ return detectJourney(JSON.parse(k.brief||"{}")); }catch(e2){ return ""; } })();
@@ -152,6 +194,9 @@ function renderKeystone(data, setData, up, navTo, user){
         e("p",{style:{fontSize:12,color:"#7278A0",lineHeight:1.6,maxWidth:640}},"Paste emails and notes, and upload documents or spreadsheets. Keystone reads them, builds the deal, and chooses the right journey automatically. The AI only extracts the facts — Landform does every calculation, so the numbers stay correct. Review before it builds; you keep full edit rights.")
       )
     ),
+
+    // Reset to raw import (only when this deal was imported from Placona/Keystone)
+    rawResetPanel,
 
     // 1 — Source
     e("div",{style:S.card},

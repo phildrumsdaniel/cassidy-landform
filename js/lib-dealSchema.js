@@ -377,7 +377,10 @@ function buildDealFromBrief(brief){
       journey: journey,
       dealName: brief.dealName || brief.address || "Keystone deal",
       assumptions: (brief.assumptions || []).slice().concat(locNote ? [locNote] : []).concat(autoUnitNote ? [autoUnitNote] : []).concat(genMixNote ? [genMixNote] : []).concat(assumeNotes),
-      notes: brief.notes || ""
+      notes: brief.notes || "",
+      // v10.7 — keep the raw brief so "Reset to raw import" can rebuild a clean deal
+      // from source (a fresh Keystone run) after any amount of downstream work.
+      sourceBrief: (function(){ try { return JSON.parse(JSON.stringify(brief)); } catch(e){ return brief; } })()
     }
   };
 
@@ -435,7 +438,20 @@ function keystoneBriefFromPlaconaSite(site){
   };
 }
 
+// rawImportBrief — the raw source a deal was imported from, as a Keystone brief:
+// a Placona site (stashed at deal._raw.placonaSite by loadSiteIntoDeal) or the
+// brief Keystone built from (deal._keystone.sourceBrief). Returns null if the deal
+// wasn't imported (hand-built), so callers can hide the "Reset to raw import" action.
+function rawImportBrief(deal){
+  if(!deal) return null;
+  if(deal._raw && deal._raw.placonaSite && typeof keystoneBriefFromPlaconaSite === "function"){
+    try { return keystoneBriefFromPlaconaSite(deal._raw.placonaSite); } catch(e){}
+  }
+  if(deal._keystone && deal._keystone.sourceBrief) return deal._keystone.sourceBrief;
+  return null;
+}
+
 // Expose to the headless test harness (Node) without breaking the browser global scope.
 if(typeof module !== "undefined" && module.exports){
-  module.exports = { buildDealFromBrief: buildDealFromBrief, detectJourney: detectJourney, keystoneBriefFromPlaconaSite: keystoneBriefFromPlaconaSite, KEYSTONE_BRIEF_SCHEMA: KEYSTONE_BRIEF_SCHEMA };
+  module.exports = { buildDealFromBrief: buildDealFromBrief, detectJourney: detectJourney, keystoneBriefFromPlaconaSite: keystoneBriefFromPlaconaSite, rawImportBrief: rawImportBrief, KEYSTONE_BRIEF_SCHEMA: KEYSTONE_BRIEF_SCHEMA };
 }

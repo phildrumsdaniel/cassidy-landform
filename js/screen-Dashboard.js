@@ -24,6 +24,11 @@ function renderDashboard(ALL_STAGES, JOURNEYS, at, city, data, effUnits, ey, gdv
       e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:data.masterReport?8:12}},"Live overview — fill in the stages to see metrics update"),
       // v10.5 — Assumption Mode entry point (present as consented/DD-clear for stakeholders)
       (typeof AssumptionModeCard==="function")&&AssumptionModeCard(data, up),
+      // v10.7 — Reset to raw import shortcut (only for deals imported from Placona/Keystone)
+      (typeof rawImportBrief==="function" && rawImportBrief(data)) && e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap",padding:"8px 14px",background:"rgba(176,90,53,0.05)",border:"1px solid rgba(176,90,53,0.25)",borderRadius:8,marginBottom:14}},
+        e("div",{style:{fontSize:11,color:"#7278A0"}},"↺ Want a clean re-audit? Reset this deal back to its raw import and run Keystone fresh."),
+        e("button",{onClick:function(){navTo("keystone");},style:{padding:"6px 14px",background:"transparent",border:"1px solid #B05A35",color:"#B05A35",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"Reset to raw import →")
+      ),
 
       // v9.31 — "What you still need to fill" — incomplete REQUIRED stages
       (function(){

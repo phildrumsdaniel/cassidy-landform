@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.6";
+var CURRENT_VERSION = "10.7";
 var VERSION_HISTORY = [
+  {v:"10.7", date:"Jul 2026", headline:"New: Reset to raw import — clear the deal back to its raw Placona/Keystone source and re-run fresh",
+   affectsCalc:false,
+   changes:["RESET TO RAW IMPORT — a new one-click way to start a completely clean re-audit. Every imported deal now keeps its raw source (the Placona site, or the brief Keystone built from). 'Reset to raw import' (on the Keystone builder, with a shortcut on the Dashboard) clears ALL downstream work in the current deal — appraisal figures, AI reports, Due Diligence, risks, constraint checks, assumption toggles — and drops just the raw brief back into the Keystone editor so you can run the build again from scratch. Repeatable, and your saved portfolio deals are never touched. 311 tests."]},
   {v:"10.6", date:"Jul 2026", headline:"AI reports now render as branded, presentation-grade documents (headings, bold figures, bullets, tables) on screen and in PDF",
    affectsCalc:false,
    changes:["STAKEHOLDER-READY AI REPORTS — every AI report used to render as a raw plain-text dump in a monospace/`pre` block. AI report prompts now emit light Markdown (## section headings, **bold** headline figures, - bullet lists, optional tables), and a new dependency-free Markdown renderer (js/lib-mdReport.js) turns that into branded, presentation-grade output — Cassidy-navy section headers with rules, emphasised money figures, clean bulleted risks/next-steps and styled tables — shown the same way on screen and in the Print/PDF export. Applied to the shared AI Analysis panel (so Scorecard narrative, Risk assessment, Teaser rationale etc. all benefit) and the Executive Summary. Plain-text reports still render cleanly (graceful paragraphs), and legacy numbered section titles are auto-detected as headings. 306 tests."]},

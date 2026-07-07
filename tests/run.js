@@ -905,6 +905,29 @@ console.log("Landform engine consistency tests\n");
   ok("long numbered text is not a heading", _isNumberedHeading("This is a fairly long ordinary sentence that happens to be numbered and should stay a list item") === false);
 })();
 
+// 41 — Reset to raw import: the raw source survives a full build (v10.7)
+(function(){
+  // A Keystone build stores the raw brief so a deal can be reset to source later.
+  var brief = { town:"Rugby", postcode:"CV8 3", acres:88, askingPrice:12500000, dealName:"Ryton site" };
+  var deal = buildDealFromBrief(brief);
+  ok("buildDealFromBrief stashes the raw brief", deal._keystone && deal._keystone.sourceBrief && num(deal._keystone.sourceBrief.acres) === 88);
+
+  var recovered = rawImportBrief(deal);
+  ok("rawImportBrief returns the stored Keystone brief", recovered && recovered.town === "Rugby" && num(recovered.askingPrice) === 12500000);
+
+  // A Placona-imported deal resolves its raw brief from the stashed site.
+  var placonaDeal = { _raw:{ placonaSite:{ site_name:"Land at X", town:"Maldon", site_area_acres:"32 acres", asking_price:"£14m", estimated_units:"250" } } };
+  var pBrief = rawImportBrief(placonaDeal);
+  ok("rawImportBrief converts a stashed Placona site to a brief", pBrief && pBrief.town === "Maldon" && num(pBrief.acres) === 32);
+
+  // A hand-built deal (no import) has no raw source → the reset action stays hidden.
+  ok("hand-built deal has no raw import", rawImportBrief({ land:{acres:10} }) === null);
+
+  // The recovered brief rebuilds an equivalent fresh deal (repeatable reset).
+  var rebuilt = buildDealFromBrief(recovered);
+  near("reset+rebuild reproduces the scheme size", calcDealMetrics(rebuilt).gdv, calcDealMetrics(deal).gdv, 1000);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

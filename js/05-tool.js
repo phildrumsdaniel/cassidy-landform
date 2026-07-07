@@ -1410,6 +1410,10 @@ function loadSiteIntoDeal(site){
       }
       var detectedScheme = detectSchemeType();
 
+      // v10.7 — stash the raw Placona site so "Reset to raw import" can start a
+      // completely fresh Keystone run from source, discarding all derived work.
+      up("_raw","placonaSite", site);
+
       // ────────────────────────────────────────────────────────────────
       // 1. LAND APPRAISAL — full coverage
       // ────────────────────────────────────────────────────────────────
