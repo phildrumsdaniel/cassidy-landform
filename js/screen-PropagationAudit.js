@@ -81,11 +81,16 @@ function renderPropagationAudit(data, setData, up){
         {field:"Fin: grants deducted",    paths:[["fin","grantsTotal"]]},
       ]},
       // ── GDV ─────────────────────────────────────────────────
-      {group:"GDV / outputs (calculated, should be consistent)", rows:[
-        {field:"SFH calculated GDV",      paths:[["sfh","totalGDV"]]},
-        {field:"HRA calculated GDV",      paths:[["hra","totalGDV"]]},
-        {field:"Tenure blended GDV",      paths:[["tenure","blendedGDV"]]},
-        {field:"Fin GDV override",        paths:[["fin","gdvOverride"]]},
+      // v10.10 — these are OUTPUTS, calculated live from the one engine on each render,
+      // never persisted (a stored copy would drift the moment an input changed — the very
+      // bug this audit exists to catch). So we read them live here for cross-reference,
+      // rather than expecting write-back into placeholder fields nothing ever filled.
+      {group:"GDV / outputs (calculated live — one engine, shown for cross-reference)", rows:[
+        {field:"SFH scheme GDV",          calc:function(d){ return (d.sfh&&d.sfh.mix&&d.sfh.mix.length&&typeof computeSFHMetrics==="function")?num(computeSFHMetrics(d).gdv):0; }},
+        {field:"HRA (BTR/PBSA) GDV",       calc:function(d){ return (d.hra&&num(d.hra.units)&&typeof computeHRAMetrics==="function")?num(computeHRAMetrics(d).gdv):0; }},
+        {field:"Tenure Mix blended GDV",   calc:function(d){ return (d.tenure&&d.tenure.mix&&typeof computeTenureMetrics==="function")?num(computeTenureMetrics(d).blendedGdv):0; }},
+        {field:"Engine GDV (used across all stages)", calc:function(d){ return (typeof calcDealMetrics==="function")?num(calcDealMetrics(d).gdv):0; }},
+        {field:"Manual GDV override (Fin)", paths:[["fin","gdvOverride"]]},
       ]},
     ];
 
@@ -112,6 +117,11 @@ function renderPropagationAudit(data, setData, up){
     }
 
     function rowStatus(row){
+      // v10.10 — calculated output rows: read the live engine value (never persisted).
+      if(row.calc){
+        var cv = num(row.calc(data));
+        return cv > 0 ? {tone:"calc", values:[cv]} : {tone:"empty", values:[null]};
+      }
       var vals = row.paths.map(function(p){return valOf(p);});
       var nonEmpty = vals.filter(function(v){return v !== null && v !== undefined && v !== "" && v !== 0;});
       if(nonEmpty.length === 0) return {tone:"empty", values:vals};
@@ -126,7 +136,7 @@ function renderPropagationAudit(data, setData, up){
     }
 
     // Tally
-    var totals = {drift:0, partial:0, sync:0, empty:0};
+    var totals = {drift:0, partial:0, sync:0, empty:0, calc:0};
     FIELD_MAP.forEach(function(grp){
       grp.rows.forEach(function(r){
         var s = rowStatus(r);
@@ -204,7 +214,7 @@ function renderPropagationAudit(data, setData, up){
       // Summary tiles
       e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:18}},
         [
-          {label:"In sync",   value:totals.sync,    color:"#2D7A65"},
+          {label:"In sync",   value:totals.sync + totals.calc,    color:"#2D7A65"},
           {label:"Partial (some stages empty)", value:totals.partial, color:"#9A7B3E"},
           {label:"Drift (values disagree)", value:totals.drift, color:"#B05A35"},
           {label:"Empty (no data yet)", value:totals.empty, color:"#7278A0"},
@@ -254,27 +264,36 @@ function renderPropagationAudit(data, setData, up){
                 var s = rowStatus(row);
                 var toneColor = s.tone === "drift" ? "#B05A35"
                   : s.tone === "partial" ? "#9A7B3E"
-                  : s.tone === "sync" ? "#2D7A65"
+                  : (s.tone === "sync" || s.tone === "calc") ? "#2D7A65"
                   : "#7278A0";
                 var toneBg = s.tone === "drift" ? "rgba(176,90,53,0.05)"
                   : s.tone === "partial" ? "rgba(154,123,62,0.04)"
-                  : s.tone === "sync" ? "rgba(45,122,101,0.04)"
+                  : (s.tone === "sync" || s.tone === "calc") ? "rgba(45,122,101,0.04)"
                   : "transparent";
                 var toneLabel = s.tone === "drift" ? "⚠ Drift"
                   : s.tone === "partial" ? "◐ Partial"
                   : s.tone === "sync" ? "✓ Sync"
+                  : s.tone === "calc" ? "✓ Calc (live)"
                   : "○ Empty";
                 return e("tr",{key:ri,style:{borderBottom:"1px solid #F0F1F8",background:toneBg}},
                   e("td",{style:{padding:"10px 12px",color:"#3A3D6A",fontWeight:600}},row.field),
                   e("td",{style:{padding:"10px 12px"}},
-                    row.paths.map(function(p,pi){
-                      var v = s.values[pi];
-                      var isEmpty = v === null || v === undefined || v === "" || v === 0;
-                      return e("span",{key:pi,style:{display:"inline-block",marginRight:10,fontSize:10,color:isEmpty?"#7278A0":"#2E2F8A",fontFamily:"monospace"}},
-                        p[0]+"."+p[1]+": ",
-                        e("strong",{style:{color:isEmpty?"#9A7B3E":"#2E2F8A"}},formatVal(v))
-                      );
-                    })
+                    row.calc
+                      ? (function(){
+                          var v = s.values[0];
+                          var isEmpty = v === null || v === undefined || v === "" || v === 0;
+                          return e("span",{style:{fontSize:10,color:isEmpty?"#7278A0":"#2E2F8A",fontFamily:"monospace"}},
+                            "engine: ",
+                            e("strong",{style:{color:isEmpty?"#9A7B3E":"#2E2F8A"}}, isEmpty ? "—" : "£"+formatVal(v)));
+                        })()
+                      : row.paths.map(function(p,pi){
+                          var v = s.values[pi];
+                          var isEmpty = v === null || v === undefined || v === "" || v === 0;
+                          return e("span",{key:pi,style:{display:"inline-block",marginRight:10,fontSize:10,color:isEmpty?"#7278A0":"#2E2F8A",fontFamily:"monospace"}},
+                            p[0]+"."+p[1]+": ",
+                            e("strong",{style:{color:isEmpty?"#9A7B3E":"#2E2F8A"}},formatVal(v))
+                          );
+                        })
                   ),
                   e("td",{style:{padding:"10px 12px",textAlign:"center"}},
                     e("span",{style:{fontSize:10,fontWeight:700,color:toneColor,letterSpacing:".05em",textTransform:"uppercase"}},toneLabel)

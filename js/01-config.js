@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.9";
+var CURRENT_VERSION = "10.10";
 var VERSION_HISTORY = [
+  {v:"10.10", date:"Jul 2026", headline:"Propagation Audit now shows the live calculated GDVs (SFH / HRA / Tenure / engine) for cross-reference",
+   affectsCalc:false,
+   changes:["PROPAGATION AUDIT — the 'GDV / outputs' group listed four placeholder fields (sfh.totalGDV, hra.totalGDV, tenure.blendedGDV, fin.gdvOverride) that nothing ever wrote, so they always read 'empty'. GDV is an OUTPUT calculated live from the one engine on every render — persisting a copy would drift the instant an input changed (exactly the bug this audit exists to catch). The audit now reads those figures live — SFH scheme GDV, HRA (BTR/PBSA) GDV, Tenure Mix blended GDV, and the single Engine GDV used across every stage — and marks them '✓ Calc (live)', so you get full cross-reference of the calculated outputs without introducing a drift-prone stored copy. No engine change. 332 tests."]},
   {v:"10.9", date:"Jul 2026", headline:"Financial Modelling: affordable-housing GDV now flows into the engine, professional-fees % is connected, and finance rate / sales rate reconciled",
    affectsCalc:true,
    changes:["AFFORDABLE HOUSING NOW REDUCES GDV (major) — the affordable/social split entered on the Tenure Mix stage never reached the headline GDV, so Financial Modelling, Dashboard, Executive Summary, Scorecard and Teaser all showed the pure 100%-open-market GDV and an overstated margin. The Tenure Mix stage used a separate data model the single engine couldn't see. The engine now blends the Tenure Mix split into the one canonical GDV (weighted by each tenure's pricing — Social Rent 50%, Affordable Rent 60%, Shared Ownership 85%, etc.), so a 30% affordable scheme carries its real discount everywhere. Guards prevent double-counting (per-row house-mix tenures still take precedence) and stop a partial allocation from over-discounting. NOTE: this lowers the headline margin on affordable-bearing schemes to a realistic level — that is the correction, not a regression.",
