@@ -44,6 +44,10 @@ function isStageComplete(stageId, deal){
     // Due Diligence: items live in ddChecked (legacy: dd). Complete once a
     // reasonable number have been ticked.
     case "dd":         { var dd = deal.ddChecked || deal.dd || {}; return Object.keys(dd).filter(function(k){return dd[k];}).length >= 3; }
+    // v10.8 — Risk Register: complete once the register has been populated (the stage
+    // seeds defaults but only saves to deal.risks on edit). There was NO case here at
+    // all, so the stage could never show complete on the dashboard checklist.
+    case "risks":      return !!(deal.risks && deal.risks.length > 0);
     case "grants":     return !!(deal.grants && (num(deal.grants.ahpTotal) || num(deal.grants.helpToBuild) || num(deal.grants.brownfield) || deal.grants.none));
     case "navigator":  return !!(deal.assetType);
     case "dashboard":  return true;  // a view, not a fillable stage

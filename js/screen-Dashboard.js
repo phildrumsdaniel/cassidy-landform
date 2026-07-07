@@ -524,6 +524,11 @@ function renderDashboard(ALL_STAGES, JOURNEYS, at, city, data, effUnits, ey, gdv
           var workflow=steps[at]||steps.btr;
           
           function isComplete(step) {
+            // v10.8 — use the canonical engine predicate so the checklist agrees with the
+            // rest of the app. The old single-field check ("fin.exitYield", and key:null for
+            // Risk Register) marked Financial Modelling and Risk Register incomplete even when
+            // both held real data.
+            if(typeof isStageComplete==="function") return isStageComplete(step.id, data);
             if(!step.key) return false;
             var parts=step.key.split(".");
             var obj=data[parts[0]];

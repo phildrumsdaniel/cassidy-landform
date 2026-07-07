@@ -15,8 +15,13 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.7";
+var CURRENT_VERSION = "10.8";
 var VERSION_HISTORY = [
+  {v:"10.8", date:"Jul 2026", headline:"Fixed Scorecard Constraint Risk (corrupt verdict regex), the dashboard checklist for Risk Register & Financial Modelling, and Executive Summary truncation",
+   affectsCalc:false,
+   changes:["SITE SCORECARD 'Constraint Risk' — stayed on 'Not assessed 5/10' even after a real Constraint Check. Root cause: the Constraint Check stage's verdict regex had stray control (backspace) bytes baked into it, so GO/CAUTION/AVOID NEVER parsed — the verdict was always null, the stage banner silently defaulted to '✗ AVOID' (misleading), and the Scorecard read nothing. Fixed the regex (whole-word, case-insensitive, takes the closing verdict) AND added a fallback that derives the verdict from the stored probability score, so the Scorecard/Data Room reflect the real assessment even on deals checked before this fix. (Re-run Constraint Check to capture the model's exact verdict; existing deals now map their score, e.g. 51/100 → CAUTION/Moderate.)",
+     "DEAL DASHBOARD workflow checklist — Financial Modelling and Risk Register showed 'Click to open' despite holding complete data. The checklist keyed off a single arbitrary field (fin.exitYield, which a reset wipes) and Risk Register had no completion rule at all. It now uses the same engine completion predicate as the rest of the app, and a missing 'risks' rule was added (complete once the register is populated).",
+     "EXECUTIVE SUMMARY — generation succeeded but the text was cut off mid-section (backend response-length cap). The prompt now constrains the whole summary to ~650 words / 2-4 sentences per section so all 10 sections complete end-to-end. (If your developer can raise the backend max output tokens, longer summaries become possible too.) 322 tests."]},
   {v:"10.7", date:"Jul 2026", headline:"New: Reset to raw import — clear the deal back to its raw Placona/Keystone source and re-run fresh",
    affectsCalc:false,
    changes:["RESET TO RAW IMPORT — a new one-click way to start a completely clean re-audit. Every imported deal now keeps its raw source (the Placona site, or the brief Keystone built from). 'Reset to raw import' (on the Keystone builder, with a shortcut on the Dashboard) clears ALL downstream work in the current deal — appraisal figures, AI reports, Due Diligence, risks, constraint checks, assumption toggles — and drops just the raw brief back into the Keystone editor so you can run the build again from scratch. Repeatable, and your saved portfolio deals are never touched. 311 tests."]},
@@ -1867,7 +1872,15 @@ function locationScore(deal){
 function constraintVerdict(deal){
   var ccr = (deal && deal.constraintCheck && deal.constraintCheck.results) || {};
   var legacy = (deal && deal.constraint) || {};
-  return String(ccr.verdict || legacy.verdict || "").toUpperCase();
+  var v = String(ccr.verdict || legacy.verdict || "").toUpperCase();
+  if(v === "GO" || v === "CAUTION" || v === "AVOID") return v;
+  // v10.8 — the Constraint Check verdict parse can miss (the stage's report reliably
+  // stores a probability SCORE but the GO/CAUTION/AVOID label sometimes doesn't parse).
+  // Derive the verdict from the score so the Scorecard/Data Room still reflect a real
+  // assessment instead of "Not assessed".
+  var s = Number(ccr.score || legacy.planningScore || 0);
+  if(isFinite(s) && s > 0) return s >= 60 ? "GO" : s >= 40 ? "CAUTION" : "AVOID";
+  return "";
 }
 function constraintPlanningScore(deal){
   var ccr = (deal && deal.constraintCheck && deal.constraintCheck.results) || {};

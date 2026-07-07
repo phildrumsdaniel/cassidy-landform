@@ -1089,6 +1089,9 @@ var JOURNEYS = {
         "- Data completeness: "+completionPct+"%\n"+
         ((data.scraper&&data.scraper.result&&data.scraper.result.agent)?("- Listing agent: "+data.scraper.result.agent+"\n"):"")+
         "\nFORMAT — use light Markdown so it presents cleanly to stakeholders: each section title as a '## Heading', **bold** for the headline money figures, and '- ' bullet points for lists (risks, next steps). No code blocks, tables optional. Open each section with ONE plain-English sentence a non-expert grasps instantly.\n"+
+        // v10.8 — the backend caps AI response length, so an over-long summary was being cut
+        // off mid-section. Keep the WHOLE thing tight so it always completes end-to-end.
+        "LENGTH — keep the ENTIRE summary under ~650 words. Be concise: 2-4 short sentences (or 3-4 bullets) per section. It is more important to finish all 10 sections than to elaborate — do NOT run long.\n"+
         "## 1. The Deal in a Nutshell\n"+
         "## 2. The Site & Location\n"+
         "## 3. What We'd Build\n"+

@@ -928,6 +928,35 @@ console.log("Landform engine consistency tests\n");
   near("reset+rebuild reproduces the scheme size", calcDealMetrics(rebuilt).gdv, calcDealMetrics(deal).gdv, 1000);
 })();
 
+// 42 — Constraint verdict derives from the score when the label didn't parse (v10.8)
+(function(){
+  // The reported deal: report + score stored, but verdict null (old regex never matched).
+  var scoreOnly = { constraintCheck:{ results:{ report:"…full report…", score:51, verdict:null } } };
+  ok("null verdict + score 51 → CAUTION (not empty/'Not assessed')", constraintVerdict(scoreOnly) === "CAUTION");
+  near("and the Constraint Risk dimension scores Moderate, not 'Not assessed'", constraintRiskScore(scoreOnly).s, 5, 0);
+  ok("Constraint Risk labelled Moderate risk", constraintRiskScore(scoreOnly).l === "Moderate risk");
+
+  ok("score 72 with no verdict → GO", constraintVerdict({ constraintCheck:{results:{score:72}} }) === "GO");
+  ok("score 30 with no verdict → AVOID", constraintVerdict({ constraintCheck:{results:{score:30}} }) === "AVOID");
+  // An explicit parsed verdict always wins over the score derivation.
+  ok("explicit verdict beats the score", constraintVerdict({ constraintCheck:{results:{score:80, verdict:"AVOID"}} }) === "AVOID");
+  ok("no verdict and no score → empty (genuinely unassessed)", constraintVerdict({ land:{} }) === "");
+})();
+
+// 43 — Dashboard checklist / completion: Risk Register and Financial Modelling (v10.8)
+(function(){
+  // Risk Register had NO case in isStageComplete → could never be complete.
+  ok("risks stage complete when the register has items", isStageComplete("risks", { risks:[{id:1,rag:"amber"}] }) === true);
+  ok("risks stage incomplete when empty", isStageComplete("risks", { risks:[] }) === false);
+
+  // Financial Modelling is complete off the engine (GDV + dev cost both compute),
+  // not off a single stray input field (fin.exitYield) that a reset can wipe.
+  var deal = buildDealFromBrief({ town:"Rugby", postcode:"CV8 3", acres:88, askingPrice:12500000 });
+  var m = calcDealMetrics(deal);
+  ok("engine computes GDV and dev cost for the deal", m.gdv > 0 && m.devCost > 0);
+  ok("fin stage reads complete off the engine (no exitYield needed)", isStageComplete("fin", deal) === true);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

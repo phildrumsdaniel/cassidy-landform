@@ -64,8 +64,14 @@ function renderConstraintCheck(data, navTo, up, user){
         // Parse score from result
         var scoreMatch=result.match(/(\d{1,3})\s*(?:out of|\/)\s*100/i)||result.match(/score[:\s]+(\d{1,3})/i);
         var score=scoreMatch?parseInt(scoreMatch[1]):null;
-        var goMatch=result.match(/(GO|CAUTION|AVOID)/);
-        var verdict=goMatch?goMatch[1]:null;
+        // v10.8 — robust verdict parse: match GO/CAUTION/AVOID as WHOLE WORDS,
+        // case-insensitively, and take the LAST one (the closing verdict line). The old
+        // regex had stray control bytes baked in, so it never matched — verdict stayed
+        // null, the banner silently showed "AVOID", and the Scorecard read "Not assessed".
+        var vAll=result.match(/\b(GO|CAUTION|AVOID)\b/gi);
+        var verdict=(vAll&&vAll.length)?vAll[vAll.length-1].toUpperCase():null;
+        // Fall back to the probability score when the model didn't label a verdict.
+        if(!verdict && score!=null) verdict = score>=60?"GO":score>=40?"CAUTION":"AVOID";
         up("constraintCheck","results",{report:result,score:score,verdict:verdict,site:addr||pc,date:new Date().toLocaleDateString("en-GB")});
         up("constraintCheck","checking",false);
 
