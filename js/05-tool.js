@@ -1101,18 +1101,26 @@ var JOURNEYS = {
         "10. DEAL RATING out of 10, with a one-line reason.\n";
       var prompt = (typeof buildHonestPrompt==="function") ? buildHonestPrompt(data, extra) : extra;
 
-      var params=new URLSearchParams({
-        action:"ai",stage:"Executive Summary",
-        user:(user&&user.name)||"",company:(user&&user.company)||"",
-        system:"You are the UK's best property developer, advising Cassidy Group Ltd. Write in warm, plain, layman's terms a non-expert understands. UK conventions. Plain text only.",
-        prompt:prompt.substring(0,8000)
-      });
-
-      fetch(WEBHOOK+"?"+params.toString())
-      .then(function(res){return res.json();})
-      .then(function(d2){
-        var text=d2.result||"Failed to generate summary";
-        setData(function(d){return Object.assign({},d,{sumLoading:false,sumReport:text});});
+      // v10.4 — the Executive Summary was the ONE AI feature still POSTing its
+      // ~8000-char prompt via a GET query string (fetch(WEBHOOK+"?"+params)). A URL
+      // that long overruns proxy/gateway URL-length limits, so the request hung and
+      // was killed ~38s later → "Connection failed". Every other AI panel goes through
+      // callAI, which was deliberately switched to POST ("avoids URL length limits")
+      // and also sends WEBHOOK_TOKEN. Route through callAI so the summary uses the same
+      // reliable transport, and retry once to ride out an Apps Script cold-start.
+      var sys="You are the UK's best property developer, advising Cassidy Group Ltd. Write in warm, plain, layman's terms a non-expert understands. UK conventions. Plain text only.";
+      function failed(t){ return !t || String(t).indexOf("Analysis failed")===0 || String(t).indexOf("Connection failed")===0; }
+      function attempt(triesLeft){
+        return callAI(user,"Executive Summary",sys,prompt).then(function(text){
+          if(failed(text) && triesLeft>0){
+            return new Promise(function(res){ setTimeout(res,2500); }).then(function(){ return attempt(triesLeft-1); });
+          }
+          return text;
+        });
+      }
+      attempt(1).then(function(text){
+        var t=failed(text)?"Couldn't generate the summary — the AI service didn't respond. Please wait a moment and try again.":text;
+        setData(function(d){return Object.assign({},d,{sumLoading:false,sumReport:t});});
         logEvent(user,"EXEC_SUMMARY",{address:addr,completion:completionPct+"%"});
       })
       .catch(function(){

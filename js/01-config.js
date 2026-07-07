@@ -15,8 +15,12 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.3";
+var CURRENT_VERSION = "10.4";
 var VERSION_HISTORY = [
+  {v:"10.4", date:"Jul 2026", headline:"Fixed Executive Summary 'Connection failed' (oversized GET URL) and the Capitalisation pin drift-loop",
+   affectsCalc:false,
+   changes:["EXECUTIVE SUMMARY — 'Connection failed' after ~38s. It was the one AI feature still sending its ~8,000-character prompt as a GET query string (the URL itself carried the whole prompt), which overruns proxy/gateway URL-length limits so the request hung until the gateway killed it. Every other AI panel had already moved to POST (which also carries the auth token). The summary now goes through the same callAI POST transport and retries once to ride out an Apps Script cold-start. NOTE: if the AI service is genuinely rate-limited or down, generation can still fail — that part is backend, but the transport bug that caused most failures is fixed.",
+     "CAPITALISATION 'Pin to current values' — pinning immediately raised 'Target yield was 4.50%, now 4.90%' and wouldn't clear. The pin snapshot stored the raw target-yield field (empty → defaulted to 4.50%) while the drift detector compared against the live deal yield (the area benchmark, e.g. 4.90%) — two different numbers that could never match, so the drift banner fired the instant you pinned. The snapshot now records the same live yield the detector reads, so a fresh pin sits clean. (Existing pinned deals: click 'Keep my values' once to refresh the snapshot.)"]},
   {v:"10.3", date:"Jul 2026", headline:"Constraint Check now flows into the Scorecard & Data Room; Risk Register count no longer reads 0",
    affectsCalc:false,
    changes:["SITE SCORECARD — the 'Constraint Risk' dimension stayed on 5/10 'Not assessed' even after a live Constraint Check returned CAUTION/AVOID, and the planning score ignored the constraint-check probability. Both read data.constraint (never populated) instead of data.constraintCheck.results, where the stage actually stores its verdict and score. They now read the live result, so a CAUTION assessment scores as Moderate risk and a low probability drags the planning score down.",

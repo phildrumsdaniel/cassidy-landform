@@ -359,7 +359,12 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
                   capNext._pinnedSnapshot = {
                     sfh_total: defaultMixTotal,
                     rent_base: rentMonthly1bed,
-                    target_yield: num(prev.capitalise&&prev.capitalise.targetYield)||0.045,
+                    // v10.4 — snapshot the SAME live yield the drift check reads (selYield =
+                    // dealYield(data)/100, the area benchmark), NOT the raw cap.targetYield
+                    // (usually empty → defaulted to 0.045). Storing 0.045 while the drift
+                    // check saw the area yield (e.g. 0.049) fired "Target yield was 4.50%,
+                    // now 4.90%" the instant you pinned — an un-clearable drift loop.
+                    target_yield: selYield,
                     sfh_mix_hash: sfhMix.map(function(r){return (r.type||"")+":"+(r.count||0)+":"+(r.tenure||"");}).join("|")
                   };
                   return Object.assign({},prev,{capitalise:capNext});
