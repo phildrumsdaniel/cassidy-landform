@@ -22,6 +22,8 @@ function renderDashboard(ALL_STAGES, JOURNEYS, at, city, data, effUnits, ey, gdv
       e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Deal Dashboard"),
       LandReconciliationPanel(data, up),
       e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:data.masterReport?8:12}},"Live overview — fill in the stages to see metrics update"),
+      // v10.5 — Assumption Mode entry point (present as consented/DD-clear for stakeholders)
+      (typeof AssumptionModeCard==="function")&&AssumptionModeCard(data, up),
 
       // v9.31 — "What you still need to fill" — incomplete REQUIRED stages
       (function(){
@@ -221,6 +223,19 @@ function renderDashboard(ALL_STAGES, JOURNEYS, at, city, data, effUnits, ey, gdv
         }
         // No scenario applied yet — only show once there's a modelled scheme
         if(!(gdv>0)) return null;
+        // v10.5 — Assumption Mode: the user is deliberately presenting planning as granted.
+        // Lead with a confident consented banner, clearly badged as Assumption Mode.
+        if(typeof assumePlanningConsented==="function" && assumePlanningConsented(data)){
+          return e("div",{style:{margin:"6px 0 14px",padding:"12px 16px",background:"rgba(154,123,62,0.10)",border:"1px solid rgba(154,123,62,0.45)",borderRadius:8,fontSize:12,color:"#7A5E24",lineHeight:1.5,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}},
+            e("div",null,
+              e("div",{style:{fontSize:10,letterSpacing:".15em",textTransform:"uppercase",fontWeight:700,color:"#9A7B3E",marginBottom:3}},"🎭 Assumption Mode — planning"),
+              e("div",{style:{fontWeight:700,fontSize:14,color:"#7A5E24"}},"Planning consent GRANTED (assumed)"),
+              e("div",{style:{fontSize:11,color:"#8A6E34",marginTop:3}},
+                "Presenting the consented scheme for stakeholders. This is an illustrative assumption, not the achieved position — toggle off in the banner above to see the real basis."
+              )
+            )
+          );
+        }
         // v10.2 — if planning risk has been flagged (or a real status set), say so in AMBER
         // rather than a reassuring green "full consent assumed" — the consented figures are
         // the upside, not today's value.

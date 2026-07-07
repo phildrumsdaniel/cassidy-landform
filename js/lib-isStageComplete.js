@@ -7,6 +7,15 @@
 function isStageComplete(stageId, deal){
   if(!deal) return false;
   if(deal._completedStages && deal._completedStages[stageId]) return true;  // manually finalised
+  // v10.5 — Assumption Mode: a dimension toggled on counts its stage complete for
+  // presentation (planning consented, DD clear, constraints cleared). Non-destructive:
+  // clearing the toggle restores the real predicate below.
+  if(typeof assumeFlags==="function"){
+    var _af = assumeFlags(deal);
+    if(stageId==="planning"   && _af.planning)    return true;
+    if(stageId==="dd"         && _af.dd)          return true;
+    if(stageId==="constraint" && _af.constraints) return true;
+  }
   var has = function(fn){ try{ return !!fn(); }catch(e){ return false; } };
   switch(stageId){
     case "land":       return !!(deal.land && (num(deal.land.acres) || deal.land.postcode || deal.land.city));

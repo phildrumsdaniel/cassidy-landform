@@ -835,6 +835,34 @@ console.log("Landform engine consistency tests\n");
   near("edited deal reports its own risks", dataRoomRiskCount({ risks:[{id:1},{id:2}] }), 2, 0);
 })();
 
+// 39 — Assumption Mode is a non-destructive presentation overlay (v10.5)
+(function(){
+  var off = { land:{acres:30} };
+  var on  = { land:{acres:30}, _assume:{planning:true, dd:true, constraints:true, risks:true} };
+  var partial = { land:{acres:30}, _assume:{planning:true} };
+
+  ok("assumeAny false when no flags", assumeAny(off) === false);
+  ok("assumeAny true when a flag is set", assumeAny(on) === true);
+  ok("assumePlanningConsented reads the flag", assumePlanningConsented(partial) === true);
+  ok("partial: only planning assumed", assumeDDComplete(partial) === false && assumeConstraintsClear(partial) === false);
+  ok("all four resolvers read their flags", assumePlanningConsented(on) && assumeDDComplete(on) && assumeConstraintsClear(on) && assumeRisksMitigated(on));
+
+  // Non-destructive: turning on assumptions must NOT write real fields.
+  ok("assumption flags don't fabricate planning.status", !(on.planning && on.planning.status));
+  ok("assumption flags don't fabricate ddChecked", on.ddChecked === undefined);
+
+  // Constraint dimension presents as low-risk-assumed (and stays labelled).
+  ok("constraintRiskScore reflects assumed-clear", constraintRiskScore(on).s === 8 && /assumed/i.test(constraintRiskScore(on).l));
+  ok("without the flag, an AVOID verdict still scores high risk",
+     constraintRiskScore({ constraintCheck:{results:{verdict:"AVOID"}} }).s === 2);
+
+  // isStageComplete honours the flags for presentation, reverts when cleared.
+  ok("planning stage complete under assumption (no real status)", isStageComplete("planning", partial) === true);
+  ok("planning stage NOT complete without the flag or a status", isStageComplete("planning", off) === false);
+  ok("dd stage complete only when dd assumed", isStageComplete("dd", on) === true && isStageComplete("dd", partial) === false);
+  ok("constraint stage complete only when constraints assumed", isStageComplete("constraint", on) === true && isStageComplete("constraint", partial) === false);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

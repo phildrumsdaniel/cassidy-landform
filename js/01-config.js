@@ -15,8 +15,12 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.4";
+var CURRENT_VERSION = "10.5";
 var VERSION_HISTORY = [
+  {v:"10.5", date:"Jul 2026", headline:"New: Assumption Mode — present the scheme as if planning/DD/constraints/risks are satisfied, for stakeholder reports",
+   affectsCalc:false,
+   changes:["ASSUMPTION MODE — a new non-destructive presentation overlay. Toggle any of four dimensions (Planning consented · DD clear · Constraints cleared · Risks mitigated) from the Dashboard or Executive Summary and the readouts present the 'if it all lands' story: Scorecard planning/constraint dimensions, Dashboard planning banner, Data Room §02.1/§02.4/§09.1, Executive Summary completion + AI narrative, and the Teaser all reflect the assumed position. Crucially it writes NOTHING to your real data — planning.status, ddChecked, constraintCheck and the risk register are untouched; toggle off and the true position returns. Every assumed value is labelled '(assumed)', an amber banner sits above every screen while it's on, and exec/teaser/data-room reports carry an 'ILLUSTRATIVE' watermark, so an assumption can never be mistaken for achieved fact.",
+     "Also fixed a stale-field read in the Teaser's 'Planning risk' line (it read data.constraint, now the live constraint-check verdict). 297 tests."]},
   {v:"10.4", date:"Jul 2026", headline:"Fixed Executive Summary 'Connection failed' (oversized GET URL) and the Capitalisation pin drift-loop",
    affectsCalc:false,
    changes:["EXECUTIVE SUMMARY — 'Connection failed' after ~38s. It was the one AI feature still sending its ~8,000-character prompt as a GET query string (the URL itself carried the whole prompt), which overruns proxy/gateway URL-length limits so the request hung until the gateway killed it. Every other AI panel had already moved to POST (which also carries the auth token). The summary now goes through the same callAI POST transport and retries once to ride out an Apps Script cold-start. NOTE: if the AI service is genuinely rate-limited or down, generation can still fail — that part is backend, but the transport bug that caused most failures is fixed.",
@@ -1867,12 +1871,42 @@ function constraintPlanningScore(deal){
 }
 // The constraint verdict → scorecard "Constraint Risk" dimension {s,l}.
 function constraintRiskScore(deal){
+  // v10.5 — Assumption Mode: presenting a consented, cleared scheme.
+  if(assumeConstraintsClear(deal)) return {s:8, l:"Low risk (assumed)"};
   var v = constraintVerdict(deal);
   if(v==="GO")     return {s:8, l:"Low risk"};
   if(v==="CAUTION")return {s:5, l:"Moderate risk"};
   if(v==="AVOID")  return {s:2, l:"High risk"};
   return {s:5, l:"Not assessed"};
 }
+
+// ── ASSUMPTION MODE ─────────────────────────────────────────────────────────
+// A NON-DESTRUCTIVE presentation overlay. When a dimension is toggled on, the
+// READOUTS behave as if that dimension is satisfied (planning consented, DD
+// complete, constraints cleared, risks mitigated) so Executive Summary / Teaser /
+// Data Room / Scorecard render the "if it all lands" story. It NEVER writes
+// optimistic values into the deal — data.ddChecked, planning.status,
+// constraintCheck, risks etc. are untouched; flip the flags off and the true
+// position returns. Every place that honours a flag also LABELS it "(assumed)"
+// so it can never masquerade as real status.
+var ASSUME_DIMENSIONS = [
+  {k:"planning",    label:"Planning consented", icon:"📋", note:"Treat planning as granted"},
+  {k:"dd",          label:"Due diligence clear", icon:"✓",  note:"Treat all DD as satisfied"},
+  {k:"constraints", label:"Constraints cleared", icon:"🗺", note:"Treat site constraints as resolved"},
+  {k:"risks",       label:"Risks mitigated",     icon:"⚠",  note:"Treat logged risks as mitigated"}
+];
+function assumeFlags(deal){
+  var a = (deal && deal._assume) || {};
+  return {planning:!!a.planning, dd:!!a.dd, constraints:!!a.constraints, risks:!!a.risks};
+}
+function assumeAny(deal){
+  var f = assumeFlags(deal);
+  return f.planning || f.dd || f.constraints || f.risks;
+}
+function assumePlanningConsented(deal){ return assumeFlags(deal).planning; }
+function assumeDDComplete(deal){        return assumeFlags(deal).dd; }
+function assumeConstraintsClear(deal){  return assumeFlags(deal).constraints; }
+function assumeRisksMitigated(deal){    return assumeFlags(deal).risks; }
 function ukRegionFor(data){
   var c = (typeof dealCityKey === "function") ? dealCityKey(data) : "";
   if(UK_REGION_BY_CITY[c]) return UK_REGION_BY_CITY[c];

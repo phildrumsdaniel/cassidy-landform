@@ -9,6 +9,8 @@ function renderDataRoom(city, data, exits, isExitOn, schemes, up){
     // Room was reading data.constraint.result (never populated) so §02.4 showed
     // MISSING / "None identified" even after a live CAUTION assessment.
     var ccr=(data.constraintCheck&&data.constraintCheck.results)||{};
+    // v10.5 — Assumption Mode flags (non-destructive presentation overlay).
+    var aFlags=(typeof assumeFlags==="function")?assumeFlags(data):{planning:false,dd:false,constraints:false,risks:false};
     // v10.3 — the Risk Register screen shows RISK_DEFAULTS (6 rows) until the user
     // edits one, at which point it saves to data.risks. Mirror that fallback here so
     // §09.1 reports the same live count instead of "0 items" / MISSING.
@@ -40,6 +42,7 @@ function renderDataRoom(city, data, exits, isExitOn, schemes, up){
     var acres=num(l.acres||0);
     var units=num(p.units||rlvD.units||0);
     var planStatus=p.status||l.planningStatus||"Unallocated";
+    if(aFlags.planning) planStatus="Consented (assumed)";
     var lpa=p.lpa||l.localAuthority||"TBC";
     var ask=num(l.price||0);
     // v10.2 — pull GDV / RLV / S106 from the one engine, not input fields the engine
@@ -218,8 +221,9 @@ function renderDataRoom(city, data, exits, isExitOn, schemes, up){
     // alongside the Land Appraisal dropdowns, via the shared reader.
     var ccVerdict=(typeof constraintVerdict==="function")?constraintVerdict(data):(ccr.verdict||"").toUpperCase();
     var ccVerdictLabel=ccVerdict==="GO"?"GO — proceed":ccVerdict==="CAUTION"?"CAUTION — constraints present":ccVerdict==="AVOID"?"AVOID — major constraints":"";
+    if(aFlags.constraints) ccVerdictLabel="CLEARED (assumed) — constraints resolved for illustration";
     sections.push({code:"02.4", title:"Constraint Check", group:"Planning",
-      status: statusOf({req:[ccr.verdict||ccr.report||cc.result||l.constraintSummary]}),
+      status: statusOf({req:[aFlags.constraints?"y":(ccr.verdict||ccr.report||cc.result||l.constraintSummary)]}),
       fields: [
         {label:"AI constraint verdict",
          value:ccVerdictLabel||"Run Constraint Check stage",
@@ -538,8 +542,8 @@ function renderDataRoom(city, data, exits, isExitOn, schemes, up){
          value:l.contamination||"To assess",
          externalValue:"Remediation strategy in development",
          sensitivity:"reworded-external"},
-        {label:"S106 negotiation risk", value:"Active management required"},
-        {label:"Open risks logged", value:risks.length+" items"},
+        {label:"S106 negotiation risk", value:aFlags.risks?"Assumed mitigated (illustrative)":"Active management required"},
+        {label:"Open risks logged", value:aFlags.risks?(risks.length+" items — all assumed mitigated (illustrative)"):(risks.length+" items")},
         // Internal-only: panic level
         {label:"Internal confidence level (1-10)",
          value:intel.confidence||"7 — baseline",
@@ -707,6 +711,10 @@ function renderDataRoom(city, data, exits, isExitOn, schemes, up){
     // ─────────── RENDER ─────────────────────────────────────────────────
     // ═══════════════════════════════════════════════════════════════════
     return e("div",{style:isInternal&&viewMode==="screen"?{background:"linear-gradient(180deg,rgba(176,90,53,0.02) 0%,transparent 200px)",position:"relative"}:viewMode==="print"?{background:"#fff",padding:"40px 0"}:{}},
+
+      // ── ASSUMPTION MODE WATERMARK (v10.5) — shown on screen and print ──────
+      (typeof assumeAny==="function"&&assumeAny(data))&&e("div",{style:{margin:viewMode==="print"?"0 60px 20px":"0 0 14px",padding:"8px 14px",background:"rgba(154,123,62,0.1)",border:"1px solid rgba(154,123,62,0.45)",borderRadius:6,fontSize:11,fontWeight:700,color:"#9A7B3E",letterSpacing:".02em"}},
+        "🎭 "+assumptionWatermark(data)),
 
       // ── INTERNAL ROOM BANNER (only visible in Internal mode, screen view) ──
       isInternal&&viewMode==="screen"&&e("div",{style:{background:"linear-gradient(90deg,#B05A35 0%,#9A7B3E 100%)",color:"#fff",padding:"10px 16px",marginBottom:14,borderRadius:8,display:"flex",alignItems:"center",gap:12,fontSize:11,fontWeight:700,letterSpacing:".05em",boxShadow:"0 2px 10px rgba(176,90,53,0.25)"}},

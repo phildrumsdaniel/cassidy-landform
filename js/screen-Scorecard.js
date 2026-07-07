@@ -25,6 +25,9 @@ function renderScorecard(city, data, gdv, lc, up, user){
       if(margin>=14)return{s:5,l:"Marginal"};if(margin>=10)return{s:3,l:"Weak"};return{s:1,l:"Unviable"};
     }
     function scorePlanning(){
+      // v10.5 — Assumption Mode: presenting a consented scheme.
+      if(typeof assumePlanningConsented==="function" && assumePlanningConsented(data))
+        return{s:10,l:"Full consent (assumed)"};
       var ps=p.status||l.planningStatus||"";
       if(ps==="full")return{s:10,l:"Full consent"};
       if(ps==="outline")return{s:8,l:"Outline consent"};

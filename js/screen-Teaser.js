@@ -7,6 +7,8 @@ function renderTeaser(city, data, gdv, lc, up, user){
     var addr=l.address||data.scraper&&data.scraper.result&&data.scraper.result.address||"Development Site";
     var cityDisp=cityName(city||l.city||"");
     var planStatus=p.status||l.planningStatus||"Unallocated";
+    // v10.5 — Assumption Mode: present as consented for stakeholder teasers.
+    if(typeof assumePlanningConsented==="function" && assumePlanningConsented(data)) planStatus="Consented (assumed)";
     var units2=num(p.units||rlvD.units||0);
     var ask=num(l.price||0);
     var lpa=p.lpa||l.localAuthority||"";
@@ -77,7 +79,7 @@ function renderTeaser(city, data, gdv, lc, up, user){
                'LPA:'+(lpa||"Unknown"),
                'AH requirement:'+(p.ahPct||"—")+"%",
                'S106 estimate:'+fmt(num(DMt.s106)||num(p.s106)||0),
-               'Planning risk:'+(cc.verdict||"Not assessed"),
+               'Planning risk:'+((typeof assumeConstraintsClear==="function"&&assumeConstraintsClear(data))?"Cleared (assumed)":((typeof constraintVerdict==="function"?constraintVerdict(data):cc.verdict)||"Not assessed")),
               ].map(function(r2){var p2=r2.split(":");return'<div class="info-row"><span class="info-key">'+p2[0]+'</span><span class="info-val">'+p2.slice(1).join(":")+'</span></div>';}).join("")+
             '</div>'+
             '<div>'+
