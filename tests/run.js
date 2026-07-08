@@ -1017,6 +1017,31 @@ console.log("Landform engine consistency tests\n");
   ok("no tenure split → factor 1 (multi-route unchanged)", tenureMixBlendFactor(base, 1056) === 1);
 })();
 
+// 47 — GDV fragmentation fixed: engine, tenure metrics all reconcile (v10.13)
+(function(){
+  // A Keystone-style deal sets an overall ahPct AND the user picks a Tenure Mix split.
+  var deal = { assetType:"sfh", land:{units:1000}, planning:{units:1000, ahPct:30, afhPct:30},
+    sfh:{ ahPct:30, basePsf:440, avgSqft:1000, mix:[{type:"3-bed semi",count:"1000",sqft:"1000",unitPrice:"440000",tenure:"private"}] },
+    tenure:{ inputMode:"percent", mix:{ oms:70, ar:20, so:10 } } };
+
+  var sm = computeSFHMetrics(deal), tm = computeTenureMetrics(deal), dm = calcDealMetrics(deal);
+
+  // The Tenure Mix split (0.905) overrides the cruder ahPct haircut (0.88) — it's the more
+  // specific breakdown of the same affordable units. Previously ahPct silently won.
+  near("Tenure Mix split (0.905) overrides the ahPct haircut", sm.gdv / sm.retailGdv, 0.905, 0.0005);
+  ok("blended GDV is the split, not the ahPct value", Math.abs(sm.gdv - sm.retailGdv*0.88) > 1000000);
+
+  // All three GDV surfaces now agree (no more £379m vs £488m vs £510m fragmentation).
+  near("computeTenureMetrics blended == engine GDV", tm.blendedGdv, sm.gdv, 50000);
+  near("calcDealMetrics GDV == engine GDV", dm.gdv, sm.gdv, 1);
+  near("tenure blend priced off the engine retail base", tm.pureMarketGdv, sm.retailGdv, 50000);
+
+  // ahPct still applies when there is NO Tenure Mix split (back-compat).
+  var ahOnly = { assetType:"sfh", land:{units:1000}, planning:{units:1000, ahPct:30},
+    sfh:{ ahPct:30, basePsf:440, avgSqft:1000, mix:[{type:"3-bed semi",count:"1000",sqft:"1000",unitPrice:"440000",tenure:"private"}] } };
+  near("no tenure split → ahPct haircut still applied", computeSFHMetrics(ahOnly).gdv / computeSFHMetrics(ahOnly).retailGdv, 0.88, 0.01);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

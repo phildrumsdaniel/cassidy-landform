@@ -18,7 +18,14 @@ function renderTenureMix(data, up, user){
     var avgSqft = numOr(t.avgSqft,
       num(data.sfh&&data.sfh.avgSqft) || 900);
 
-    var omsUnitPrice = numOr(t.omsUnitPrice, basePsf * avgSqft);
+    // v10.13 — price open-market units off the SFH engine's actual retail average so this
+    // screen's blended GDV matches the engine (and computeTenureMetrics) instead of a
+    // basePsf×avgSqft proxy that showed a different £m for the same tenure split.
+    var _tmSm = (typeof computeSFHMetrics==="function") ? computeSFHMetrics(data) : {};
+    var omsUnitPrice = numOr(t.omsUnitPrice,
+      (num(_tmSm.retailGdv) > 0 && num(_tmSm.totalUnits) > 0)
+        ? _tmSm.retailGdv / _tmSm.totalUnits
+        : basePsf * avgSqft);
     // v9.47 — auto-fill the open-market rent from the AREA (MKT[city].btr × 12),
     // so affordable rents (SR ~60%, AR ~80% of market) reflect the location.
     // Falls back to a 4% gross-yield proxy if the area has no rent benchmark.

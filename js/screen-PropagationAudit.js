@@ -161,6 +161,25 @@ function renderPropagationAudit(data, setData, up){
         if(seen.length > 1 && distinct.length > 1) sharedDrift.push({fields:seen});
       });
     }
+    // v10.13 — cross-check the CALCULATED GDV surfaces. They must agree now that the SFH
+    // engine, the Tenure Mix stage and calcDealMetrics all blend off one retail base. The
+    // raw-field checks above can't see this (GDV is an output, not an input), which is why
+    // a real £379m/£488m/£510m split once stayed invisible here. Flags >2% disagreement.
+    (function(){
+      if(!(typeof computeSFHMetrics==="function") || !(data.sfh && data.sfh.mix && data.sfh.mix.length)) return;
+      var sm = computeSFHMetrics(data);
+      if(!(num(sm.gdv) > 0)) return;
+      var vals = [{label:"Engine GDV", v:(typeof calcDealMetrics==="function")?num(calcDealMetrics(data).gdv):0},
+                  {label:"SFH engine GDV", v:num(sm.gdv)}];
+      if(data.tenure && data.tenure.mix && typeof computeTenureMetrics==="function")
+        vals.push({label:"Tenure Mix blended", v:num(computeTenureMetrics(data).blendedGdv)});
+      var present = vals.filter(function(x){return x.v > 0;});
+      if(present.length < 2) return;
+      var hi = Math.max.apply(null, present.map(function(x){return x.v;}));
+      var lo = Math.min.apply(null, present.map(function(x){return x.v;}));
+      if(hi > 0 && (hi - lo) / hi > 0.02)
+        sharedDrift.push({fields:present.map(function(x){return {label:x.label, v:"£"+(Math.round(x.v/1e5)/10)+"m"};})});
+    })();
     totals.drift += sharedDrift.length;
 
     function autoFixAll(){

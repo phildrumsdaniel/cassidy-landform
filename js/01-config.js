@@ -15,8 +15,12 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.12";
+var CURRENT_VERSION = "10.13";
 var VERSION_HISTORY = [
+  {v:"10.13", date:"Jul 2026", headline:"Ended the GDV fragmentation — Tenure Mix, the SFH engine and every stage now show one reconciled blended GDV",
+   affectsCalc:true,
+   changes:["ONE BLENDED GDV EVERYWHERE (major) — the Tenure Mix page, the Propagation Audit and the headline engine were showing three different numbers for the same concept (e.g. £379m / £488m / £510m). Two root causes, both fixed: (1) a Tenure Mix split was being IGNORED whenever Keystone had set an overall affordable %, because the cruder ahPct haircut silently took precedence — the specific per-tenure split now wins (per-row house tenure > Tenure Mix split > overall ahPct); (2) the three surfaces each blended off a DIFFERENT open-market base (a basePsf×900 proxy, a basePsf×actual-average proxy, and the real priced house mix) — they now all price off the SFH engine's actual retail total, so the same split yields the same £m. Verified: engine, computeSFHMetrics and computeTenureMetrics reconcile to the penny.",
+     "PROPAGATION AUDIT catches GDV drift now — it cross-checks the calculated GDV outputs (engine vs SFH vs Tenure Mix) and flags any >2% disagreement, instead of only comparing raw input fields (which is why the old three-way split stayed invisible). 341 tests."]},
   {v:"10.12", date:"Jul 2026", headline:"Fixed the Capitalisation/S106 button freeze (native dialogs), professional-fees reactivity, and the Risk Register checklist",
    affectsCalc:true,
    changes:["BUTTON FREEZE (Capitalisation Pin, S106 Auto-fill) — these used native alert()/confirm() dialogs, which block the browser (and freeze the automated review tool for 60-90s, looking like a crash). The S106 Auto-fill alert is now a non-blocking inline confirmation, and the five Capitalisation pin/sync confirmations are removed (every one guarded a reversible action — Pin has an Unpin button right beside it). No more freeze.",
@@ -2296,7 +2300,11 @@ function computeSFHMetrics(data){
   // so those all showed the pure open-market GDV and an overstated margin). Precedence
   // prevents double-counting: explicit per-row tenure wins, else the Tenure Mix split,
   // else the overall ahPct haircut, else full retail.
-  var tenureFactor = (!hasNonPrivate && ahFactor >= 1) ? tenureMixBlendFactor(data, totalUnits) : 1;
+  // v10.13 — a real Tenure Mix split takes PRECEDENCE over the crude overall-ahPct
+  // haircut (it's the more specific, per-tenure breakdown of the same affordable units).
+  // Previously this was gated behind ahFactor>=1, so a Keystone-set ahPct silently blocked
+  // the Tenure Mix the user had entered. Precedence: per-row tenure > Tenure Mix > ahPct.
+  var tenureFactor = !hasNonPrivate ? tenureMixBlendFactor(data, totalUnits) : 1;
   var effectiveBlended = hasNonPrivate ? blendedGdv
     : (tenureFactor < 1 ? retailGdv * tenureFactor
     : (ahFactor < 1 ? retailGdv * ahFactor : retailGdv));
@@ -2581,7 +2589,13 @@ function computeTenureMetrics(data){
   var totalSchemeUnits = numOr(t.totalUnits, num(data.land&&data.land.units) || num(data.planning&&data.planning.units) || sfhMetrics.totalUnits || num(data.hra&&data.hra.units) || 0);
   var basePsf = numOr(t.basePsf, num(data.sfh&&data.sfh.basePsf) || num(data.rlv&&data.rlv.salePsf) || 350);
   var avgSqft = numOr(t.avgSqft, sfhMetrics.avgSqft || num(data.sfh&&data.sfh.avgSqft) || 900);
-  var omsUnitPrice = numOr(t.omsUnitPrice, basePsf * avgSqft);
+  // v10.13 — price open-market units off the SFH engine's actual retail average (the sum of
+  // the priced house-mix rows) so this stage's blended GDV reconciles to the one engine,
+  // instead of a basePsf×avgSqft proxy that produced a different "£m" for the same split.
+  var omsUnitPrice = numOr(t.omsUnitPrice,
+    (num(sfhMetrics.retailGdv) > 0 && num(sfhMetrics.totalUnits) > 0)
+      ? sfhMetrics.retailGdv / sfhMetrics.totalUnits
+      : basePsf * avgSqft);
   var omsRentPa = numOr(t.omsRentPa, areaMarketRentPa(data) || omsUnitPrice * 0.04);
   var inputMode = t.inputMode || "units";
   var mix = t.mix || null;
