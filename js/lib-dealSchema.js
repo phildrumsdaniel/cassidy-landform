@@ -372,6 +372,10 @@ function buildDealFromBrief(brief){
       netAnnualIncome: netPa || "",
       mgmtRate: (brief.mgmtPct != null && brief.mgmtPct !== "") ? num(brief.mgmtPct) : ""
     },
+    // v10.12 — seed the standard risk register so the deal's stored risks match what the
+    // Risk Register screen displays (it shows RISK_DEFAULTS but only persisted them on edit,
+    // so the dashboard checklist read "empty" and never showed the stage complete).
+    risks: (typeof RISK_DEFAULTS !== "undefined") ? RISK_DEFAULTS.map(function(r){ return Object.assign({}, r); }) : undefined,
     _keystone: {
       builtAt: new Date().toISOString(),
       journey: journey,

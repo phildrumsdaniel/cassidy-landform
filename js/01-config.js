@@ -15,8 +15,13 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.11";
+var CURRENT_VERSION = "10.12";
 var VERSION_HISTORY = [
+  {v:"10.12", date:"Jul 2026", headline:"Fixed the Capitalisation/S106 button freeze (native dialogs), professional-fees reactivity, and the Risk Register checklist",
+   affectsCalc:true,
+   changes:["BUTTON FREEZE (Capitalisation Pin, S106 Auto-fill) — these used native alert()/confirm() dialogs, which block the browser (and freeze the automated review tool for 60-90s, looking like a crash). The S106 Auto-fill alert is now a non-blocking inline confirmation, and the five Capitalisation pin/sync confirmations are removed (every one guarded a reversible action — Pin has an Unpin button right beside it). No more freeze.",
+     "PROFESSIONAL FEES REACTIVITY — a fresh deal showed 12% in the fees box but silently appraised at 10% (the input placeholder and the engine default disagreed), and the appraisal line was hard-labelled '(10%)'. The engine default is now 12% (matching the input and the rest of the app), the SFH screen and Financial Modelling both read the shared fees %, and every 'Professional fees (x%)' label is now computed from the actual figure. Setting a fees % now takes effect immediately, on load, with the right label. (This raises fees on schemes that were silently on 10% — the correction, not a regression.)",
+     "RISK REGISTER CHECKLIST — the Dashboard workflow still showed 'Click to open' for Risk Register because the six standard risks were only displayed, never stored (so the data looked empty). A Keystone build now seeds the standard risk register into the deal, so the stored risks match what's shown and the stage reads complete. 335 tests."]},
   {v:"10.11", date:"Jul 2026", headline:"Capitalisation Multi-Route now reconciles to the affordable-adjusted engine GDV (no more full-market contradiction)",
    affectsCalc:true,
    changes:["CAPITALISATION 'Multi-Route Exit' RECONCILED — this was the one remaining place that could contradict the corrected GDV. It builds its per-route breakdown from the SFH plot rows' exit-route tags; if those were left all-private while the affordable split lived on the Tenure Mix stage, it showed a full-market 'blended realisable GDV' that disagreed with the Dashboard / Financial Modelling. It now detects that case and builds the routes FROM the Tenure Mix (Open Market Sale, Affordable Rent, Social Rent, Shared Ownership…), pricing each at its tenure factor so the panel's blended total equals the ONE engine GDV exactly. When the plot rows DO carry exit-route tags, the existing behaviour is unchanged. So however the affordable split is entered, every stage now agrees. 335 tests."]},
@@ -2307,7 +2312,10 @@ function computeSFHMetrics(data){
   // v10.9 — read the professional-fees % from the input (shared with fin.feesPct /
   // rlv.feesPct) instead of hard-coding 10%. Previously typing 12% in Financial
   // Modelling had no effect on the SFH appraisal — it stayed locked at 10%.
-  var sfhFees = buildCost * (numOr(sfh.feesPct, 10) / 100);
+  // v10.12 — default 12% (matching the Financial Modelling input placeholder and the
+  // generic-path default), so a fresh deal with no explicit fees% computes what the input
+  // shows instead of a silent 10%.
+  var sfhFees = buildCost * (numOr(sfh.feesPct, 12) / 100);
   var sfhContingency = buildCost * (numOr(sfh.contingency, 5) / 100);
   var sfhFinance = (buildCost + sfhFees) * (numOr(sfh.finRate, 7.5) / 100);
   var sfhS106 = totalUnits * numOr(sfh.s106pu, 8000);

@@ -70,12 +70,12 @@ function renderFin(LiveMarketBanner, at, bc, buildPsf, city, data, ey, gia, gr, 
 
     // v9.97 — cost line items straight from the engine so they SUM to Total Dev Cost.
     var finRows = (DM.gdv>0)
-      ? [["Land",lc],["Build ("+finSqft.toLocaleString()+" sqft @ £"+finBuildPsf+"/sqft)",effBuildCost],["Professional fees (10%)",DM.fees],["Contingency",DM.contingency],["Finance",DM.finance],["S106/CIL",DM.s106]]
+      ? [["Land",lc],["Build ("+finSqft.toLocaleString()+" sqft @ £"+finBuildPsf+"/sqft)",effBuildCost],["Professional fees ("+(num(DM.buildCost)>0?Math.round(num(DM.fees)/num(DM.buildCost)*100):numOr(f.feesPct,12))+"%)",DM.fees],["Contingency",DM.contingency],["Finance",DM.finance],["S106/CIL",DM.s106]]
           .concat(DM.roads>0?[["Roads & Sewers",DM.roads]]:[])
           .concat(DM.infra>0?[["Site infra & SuDS",DM.infra]]:[])
           .concat(DM.marketing>0?[["Disposal & marketing",DM.marketing]]:[])
           .concat(DM.totalAcqCosts>0?[["Acquisition (SDLT/legal/agent/finance)",DM.totalAcqCosts]]:[])
-      : [["Land",lc],["Build ("+finSqft.toLocaleString()+" sqft @ £"+finBuildPsf+"/sqft)",effBuildCost],["S106/CIL allowance (£"+fmtN(finS106Pu)+"/unit)",s106fin],["Contingency ("+finContPct+"%)",effBuildCost*(finContPct/100)],["Prof Fees (12%)",effBuildCost*0.12],["Finance ("+finRatePct+"%)",(effBuildCost+lc)*(finRatePct/100)],["SDLT (5%)",lc*0.05]];
+      : [["Land",lc],["Build ("+finSqft.toLocaleString()+" sqft @ £"+finBuildPsf+"/sqft)",effBuildCost],["S106/CIL allowance (£"+fmtN(finS106Pu)+"/unit)",s106fin],["Contingency ("+finContPct+"%)",effBuildCost*(finContPct/100)],["Prof Fees ("+numOr(f.feesPct,12)+"%)",effBuildCost*(numOr(f.feesPct,12)/100)],["Finance ("+finRatePct+"%)",(effBuildCost+lc)*(finRatePct/100)],["SDLT (5%)",lc*0.05]];
 
     // v9.97 — scenarios scale the scheme's OWN valuation basis: a for-sale scheme scales
     // its GDV by the sales-price move; only a rental scheme capitalises NOI ÷ yield.
@@ -276,12 +276,14 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
                 // Calculate total and set s106pu
                 var tot=Object.values(def).reduce(function(s,v){return s+v;},0);
                 up("fin","s106pu",String(tot));
-                var alertMsg=["S106 populated with typical "+cityName(lpaCity||"Taunton")+" LPA rates for "+u2+" units.","Total: £"+Math.round(tot*u2).toLocaleString()+" (£"+tot.toLocaleString()+"/unit)","Adjust individual lines to match your actual planning negotiations."].join("\n");
-                alert(alertMsg);
+                // v10.12 — was a native alert() here, which froze the (automated) browser. The S106 lines and
+                // total update visibly; a non-blocking inline note confirms the fill instead.
+                up("fin","_s106FillNote","✓ S106 populated with typical "+cityName(lpaCity||"Taunton")+" LPA rates for "+u2+" units — total £"+Math.round(tot*u2).toLocaleString()+" (£"+tot.toLocaleString()+"/unit). Adjust individual lines to match your planning negotiations.");
               },
               style:{padding:"6px 14px",background:"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",flexShrink:0}
             },"⚡ Auto-fill S106 for "+(city?cityName(city):"your area"))
           ),
+          f._s106FillNote && e("div",{style:{margin:"0 0 8px",padding:"7px 12px",background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.3)",borderRadius:5,fontSize:11,color:"#1d5446",lineHeight:1.5}},f._s106FillNote),
           e(S106Table,{f:f,up:up,fmt:fmt,pct:pct,num:num,S:S,units:rlvUnits})
         ),
         e("div",{style:{fontSize:10,color:"#7278A0",fontStyle:"italic"}},"Reference rates: Education £2.36m, NHS £909k, Bus £398k, Sports £799k, BNG (often challenged). S106 is negotiable — mark challenged items accordingly.")

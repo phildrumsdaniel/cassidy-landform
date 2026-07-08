@@ -265,7 +265,7 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
             e("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
               e("button",{
                 onClick:function(){
-                  if(!window.confirm("Re-sync Cap: clear pinned bedroom/rent/yield values so they recompute from current upstream?")) return;
+                  // v10.12 — no native confirm() here; it blocks/freezes the browser. Re-sync is reversible (just re-pin).
                   setData(function(prev){
                     var capNext = Object.assign({},prev.capitalise||{});
                     delete capNext.rent1; delete capNext.rent2; delete capNext.rent3; delete capNext.rent4;
@@ -278,7 +278,7 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
               },"Re-sync to current →"),
               e("button",{
                 onClick:function(){
-                  if(!window.confirm("Keep pinned Cap values? Snapshot refreshes to today, warning clears.")) return;
+                  // v10.12 — no blocking confirm(); refreshing the snapshot is harmless and reversible.
                   setData(function(prev){
                     var capNext = Object.assign({},prev.capitalise||{});
                     capNext._pinnedSnapshot = {
@@ -320,7 +320,7 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
             ),
             e("button",{
               onClick:function(){
-                if(!window.confirm("Clear pin? Cap will go back to using live auto-defaults.")) return;
+                // v10.12 — no blocking confirm(); unpinning just returns to live auto-defaults (re-pin any time).
                 setData(function(prev){
                   var capNext = Object.assign({},prev.capitalise||{});
                   delete capNext._pinnedAt; delete capNext._pinnedSnapshot;
@@ -351,7 +351,8 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
             ),
             e("button",{
               onClick:function(){
-                if(!window.confirm("Pin all "+emptyFields.length+" empty Cap fields to current auto-default values? After this, changing SFH/Land won't affect Cap.")) return;
+                // v10.12 — no native confirm() here: it froze the (automated) browser for 60-90s. Pinning is
+                // fully reversible via the Unpin button, so we just apply it and show the pinned state inline.
                 setData(function(prev){
                   var capNext = Object.assign({},prev.capitalise||{});
                   emptyFields.forEach(function(f){ capNext[f.k] = String(f.v); });
@@ -722,7 +723,7 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
               ),
               e("button",{
                 onClick:function(){
-                  if(!window.confirm("Sync bedroom mix to current SFH House Mix?\n\n• 1-bed: "+defaultMix[1]+"\n• 2-bed: "+defaultMix[2]+"\n• 3-bed: "+defaultMix[3]+"\n• 4-bed: "+(defaultMix[4]+defaultMix[5])+(defaultMix[5]>0?" (incl. "+defaultMix[5]+" 5-bed)":""))) return;
+                  // v10.12 — no blocking confirm(); this button is an explicit user action and is easily re-done.
                   setData(function(prev){
                     var capNext = Object.assign({},prev.capitalise||{},{
                       beds1: String(defaultMix[1]),

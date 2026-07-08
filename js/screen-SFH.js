@@ -92,7 +92,8 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
     var ahApplied = !hasNonPrivateRoutes && sfhAhF < 1;
     var totalGdv = hasNonPrivateRoutes ? blendedGdv : (ahApplied ? retailGdv * sfhAhF : retailGdv);
     var totalBuild=houseCalcs.reduce(function(a,h){return a+h.build;},0);
-    var fees=totalBuild*0.10; var contCost=totalBuild*(sCont/100);
+    var sFeesPct=numOr(s.feesPct,12);  // v10.12 — read fees % (shared with Fin/RLV), was hard-coded 10%
+    var fees=totalBuild*(sFeesPct/100); var contCost=totalBuild*(sCont/100);
     var finCost=(totalBuild+fees)*(sFin/100);
     // v9.47 — buildInclusive: if the build £/sqft already covers roads/drainage/
     // infrastructure, zero those lines so they are not double-counted. Matches
@@ -132,7 +133,7 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
       var sG=totalGdv*(1+sc3.sm);
       var sB=totalBuild*(1+sc3.bm);
       var sP=sG*(sProfit/100);
-      var sR=sG-sB-sB*0.10-sB*(sCont/100)-(sB+sB*0.10)*(sFin/100)-s106Total-roadsTotal-infra-sG*(numOr(s.marketingPct,0)/100)-sP;
+      var sR=sG-sB-sB*(sFeesPct/100)-sB*(sCont/100)-(sB+sB*(sFeesPct/100))*(sFin/100)-s106Total-roadsTotal-infra-sG*(numOr(s.marketingPct,0)/100)-sP;
       return{l:sc3.l,gdv:sG,rlv:sR,rlvPu:totalUnits>0?sR/totalUnits:0,rlvAcre:sAcres>0?sR/sAcres:0};
     });
 
@@ -544,7 +545,7 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
                 ["Land Cost (from RLV)",Math.max(0,rlv),"#7278A0"],
                 ["SDLT on Land (5%)",Math.max(0,rlv)*0.05,"#7278A0"],
                 ["Build Cost",totalBuild,"#7278A0"],
-                ["Professional Fees (10%)",fees,"#7278A0"],
+                ["Professional Fees ("+sFeesPct+"%)",fees,"#7278A0"],
                 ["Contingency ("+sCont+"%)",contCost,"#7278A0"],
                 ["Finance ("+sFin+"%)",finCost,"#7278A0"],
                 ["S106 / CIL allowance (£"+fmtN(s106Pu)+"/unit)",s106Total,"#7278A0"],

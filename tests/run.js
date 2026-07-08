@@ -75,7 +75,7 @@ function sfhScreenRlv(data){
   var c = computeSFHMetrics(data);
   var totalBuild = c.buildCost, totalGdv = c.gdv, totalUnits = c.totalUnits;
   var inc = !!s.buildInclusive;
-  var fees = totalBuild*0.10, cont = totalBuild*(numOr(s.contingency,5)/100), fin = (totalBuild+fees)*(numOr(s.finRate,7.5)/100);
+  var fees = totalBuild*(numOr(s.feesPct,12)/100), cont = totalBuild*(numOr(s.contingency,5)/100), fin = (totalBuild+fees)*(numOr(s.finRate,7.5)/100);
   var s106 = totalUnits*numOr(s.s106pu,8000), roads = inc?0:totalUnits*numOr(s.roads,12000), infra = inc?0:num(s.acres)*53000;
   var profit = totalGdv*(numOr(s.profitPct,17.5)/100);
   return totalGdv - (totalBuild+fees+cont+fin+s106+roads+infra) - profit;
