@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.13";
+var CURRENT_VERSION = "10.14";
 var VERSION_HISTORY = [
+  {v:"10.14", date:"Jul 2026", headline:"Removed every blocking browser dialog — all alerts and confirmations are now non-blocking in-page toasts",
+   affectsCalc:false,
+   changes:["NO MORE BLOCKING DIALOGS (freeze-proofing) — native alert()/confirm() dialogs block the whole page until dismissed, and freeze an automated/embedded browser (which read as a 60-90s crash). Every one across the app is gone: 59 alert() calls are now non-blocking toasts (top-right, click or auto-dismiss), and all 15 confirm() prompts are replaced — reversible actions (scenario re-sync/apply/clear, propagation auto-fix, non-standard import) now just proceed with a toast, while genuinely destructive ones (delete transcript(s), reset benchmarks, new deal, reset-to-raw, replace deal on build, restore pre-migration, sign out) show an in-page Confirm/Cancel toast that keeps the safety guard without blocking. 341 tests."]},
   {v:"10.13", date:"Jul 2026", headline:"Ended the GDV fragmentation — Tenure Mix, the SFH engine and every stage now show one reconciled blended GDV",
    affectsCalc:true,
    changes:["ONE BLENDED GDV EVERYWHERE (major) — the Tenure Mix page, the Propagation Audit and the headline engine were showing three different numbers for the same concept (e.g. £379m / £488m / £510m). Two root causes, both fixed: (1) a Tenure Mix split was being IGNORED whenever Keystone had set an overall affordable %, because the cruder ahPct haircut silently took precedence — the specific per-tenure split now wins (per-row house tenure > Tenure Mix split > overall ahPct); (2) the three surfaces each blended off a DIFFERENT open-market base (a basePsf×900 proxy, a basePsf×actual-average proxy, and the real priced house mix) — they now all price off the SFH engine's actual retail total, so the same split yields the same £m. Verified: engine, computeSFHMetrics and computeTenureMetrics reconcile to the penny.",
@@ -3283,6 +3286,69 @@ async function callAI(user,stage,systemPrompt,userPrompt){
     console.error("AI fetch failed:", err);
     return "Analysis failed — network error. Check connection.";
   }
+}
+
+// ── NON-BLOCKING TOAST ──────────────────────────────────────────────────────
+// Replaces native alert(), which blocks the whole renderer until dismissed — and
+// freezes any automated/embedded browser for as long as the dialog is up (it read
+// as a 60-90s crash in review). Vanilla DOM so it can be called from anywhere;
+// click to dismiss, auto-dismisses after a few seconds. Never throws.
+function notify(msg, opts){
+  opts = opts || {};
+  try {
+    if(typeof document === "undefined" || !document.body) return;
+    var host = document.getElementById("lf-toast-host");
+    if(!host){
+      host = document.createElement("div");
+      host.id = "lf-toast-host";
+      host.style.cssText = "position:fixed;top:16px;right:16px;z-index:99999;display:flex;flex-direction:column;gap:8px;max-width:min(440px,92vw);font-family:DM Sans,sans-serif;";
+      document.body.appendChild(host);
+    }
+    var bad = /\bfail|error|couldn|could not|invalid|too large|not signed|no deal|allow pop|corrupt|unable/i.test(String(msg));
+    var t = document.createElement("div");
+    t.style.cssText = "background:"+(bad?"#7A3A20":"#1E1F5C")+";color:#fff;padding:11px 14px;border-radius:8px;font-size:12.5px;line-height:1.5;box-shadow:0 4px 18px rgba(0,0,0,.22);white-space:pre-line;cursor:pointer;opacity:0;transform:translateY(-6px);transition:opacity .2s ease,transform .2s ease;";
+    t.textContent = String(msg);
+    t.onclick = function(){ if(t.parentNode) t.parentNode.removeChild(t); };
+    host.appendChild(t);
+    void t.offsetWidth;
+    t.style.opacity = "1"; t.style.transform = "translateY(0)";
+    var ms = opts.ms || Math.min(9000, 3500 + String(msg).length * 30);
+    setTimeout(function(){
+      t.style.opacity = "0"; t.style.transform = "translateY(-6px)";
+      setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); }, 260);
+    }, ms);
+  } catch(err){ /* a notification must never break the caller */ }
+}
+
+// Non-blocking confirm — a toast carrying Confirm / Cancel buttons, so a destructive
+// action keeps its guard WITHOUT the native confirm() that freezes the renderer (and
+// any automated/embedded browser). Runs onConfirm() only if the user clicks Confirm.
+// If there's no DOM (headless), it proceeds (matches the old confirm-less test path).
+function confirmToast(msg, onConfirm, opts){
+  opts = opts || {};
+  try {
+    if(typeof document === "undefined" || !document.body){ if(onConfirm) onConfirm(); return; }
+    var host = document.getElementById("lf-toast-host");
+    if(!host){
+      host = document.createElement("div");
+      host.id = "lf-toast-host";
+      host.style.cssText = "position:fixed;top:16px;right:16px;z-index:99999;display:flex;flex-direction:column;gap:8px;max-width:min(440px,92vw);font-family:DM Sans,sans-serif;";
+      document.body.appendChild(host);
+    }
+    var t = document.createElement("div");
+    t.style.cssText = "background:#1E1F5C;color:#fff;padding:12px 14px;border-radius:8px;font-size:12.5px;line-height:1.5;box-shadow:0 4px 18px rgba(0,0,0,.25);white-space:pre-line;";
+    var m = document.createElement("div"); m.textContent = String(msg); m.style.marginBottom = "10px"; t.appendChild(m);
+    var bar = document.createElement("div"); bar.style.cssText = "display:flex;gap:8px;justify-content:flex-end;";
+    var no = document.createElement("button"); no.textContent = opts.cancelLabel || "Cancel";
+    no.style.cssText = "padding:5px 12px;border:1px solid rgba(255,255,255,.4);background:transparent;color:#fff;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;font-family:DM Sans,sans-serif;";
+    var yes = document.createElement("button"); yes.textContent = opts.confirmLabel || "Confirm";
+    yes.style.cssText = "padding:5px 12px;border:none;background:#B05A35;color:#fff;border-radius:5px;font-size:11px;font-weight:800;cursor:pointer;font-family:DM Sans,sans-serif;";
+    function close(){ if(t.parentNode) t.parentNode.removeChild(t); }
+    no.onclick = close;
+    yes.onclick = function(){ close(); try { if(onConfirm) onConfirm(); } catch(e){} };
+    bar.appendChild(no); bar.appendChild(yes); t.appendChild(bar);
+    host.appendChild(t);
+  } catch(err){ if(onConfirm) onConfirm(); }
 }
 
 // ── UI HELPERS ────────────────────────────────────────────────────────────────

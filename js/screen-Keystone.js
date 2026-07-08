@@ -21,19 +21,22 @@ function renderKeystone(data, setData, up, navTo, user){
   var _rawBrief = (typeof rawImportBrief === "function") ? rawImportBrief(data) : null;
   function resetToRawImport(){
     if(!_rawBrief) return;
-    if(!confirm("Start fresh from the raw import?\n\nThis clears EVERYTHING in the deal currently open — appraisal figures, AI reports, Due Diligence, risks, constraint checks and assumption toggles — and restores just the raw imported brief so you can run Keystone again from scratch.\n\nYour saved portfolio deals are untouched.")) return;
+    // v10.14 — non-blocking confirm (was native confirm(), which froze the browser). This
+    // wipes the current deal's work, so it keeps a guard — just a non-blocking one.
     var briefStr = JSON.stringify(_rawBrief, null, 2);
-    setData(function(prev){
-      // A brand-new blank deal carrying ONLY the raw brief + the import source,
-      // so a fresh Keystone build (and a repeatable reset) is possible.
-      return {
-        assetType: undefined,
-        keystone: { brief: briefStr, source: (prev.keystone && prev.keystone.source) || "" },
-        _raw: prev._raw,
-        _keystone: { sourceBrief: _rawBrief }
-      };
-    });
-    if(typeof navTo === "function") navTo("keystone");
+    confirmToast("Start fresh from the raw import?\n\nThis clears EVERYTHING in the deal currently open — appraisal figures, AI reports, Due Diligence, risks, constraint checks and assumption toggles — and restores just the raw imported brief. Your saved portfolio deals are untouched.", function(){
+      setData(function(prev){
+        // A brand-new blank deal carrying ONLY the raw brief + the import source,
+        // so a fresh Keystone build (and a repeatable reset) is possible.
+        return {
+          assetType: undefined,
+          keystone: { brief: briefStr, source: (prev.keystone && prev.keystone.source) || "" },
+          _raw: prev._raw,
+          _keystone: { sourceBrief: _rawBrief }
+        };
+      });
+      if(typeof navTo === "function") navTo("keystone");
+    }, {confirmLabel:"Reset to raw import"});
   }
   var rawResetPanel = _rawBrief ? e("div",{style:Object.assign({},S.card,{borderLeft:"4px solid #B05A35",background:"#FFFDFB"})},
     e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}},
@@ -107,7 +110,7 @@ function renderKeystone(data, setData, up, navTo, user){
 
   // ── AI extraction: source text → a structured brief (JSON) ──
   async function extractBrief(){
-    if(!(k.source||"").trim()){ alert("Paste some source text or upload a document first."); return; }
+    if(!(k.source||"").trim()){ notify("Paste some source text or upload a document first."); return; }
     setK({extracting:true, error:""});
     var schemaKeys = Object.keys(KEYSTONE_BRIEF_SCHEMA).map(function(f){ return f+": "+KEYSTONE_BRIEF_SCHEMA[f]; }).join("\n");
     var sys = "You are a UK residential development analyst building a deal brief for the Landform appraisal tool. Extract ONLY facts that are present or clearly implied. Do NOT invent figures. Output STRICT JSON only — no prose, no markdown fences.";
@@ -129,14 +132,18 @@ function renderKeystone(data, setData, up, navTo, user){
   function buildDeal(){
     var brief;
     try{ brief = JSON.parse(k.brief||"{}"); }
-    catch(err){ alert("The brief isn't valid JSON. Fix it or re-run Extract.\n\n"+err.message); return; }
+    catch(err){ notify("The brief isn't valid JSON. Fix it or re-run Extract.\n\n"+err.message); return; }
     var deal = buildDealFromBrief(brief);
     var hasExisting = !!(data.land && (data.land.address || data.land.city)) || !!(data.sfh && data.sfh.mix && data.sfh.mix.length);
-    if(hasExisting && !confirm("This will replace the deal currently open with the new one Keystone built. (Your saved portfolio deals are untouched.) Continue?")) return;
     var journey = deal.assetType;
     // v10.7 — carry the raw Placona site forward so "Reset to raw import" keeps working
     // after a rebuild (buildDealFromBrief already stores _keystone.sourceBrief).
-    setData(function(prev){ return Object.assign({}, deal, {_cloudDealId: undefined, _raw: prev._raw, keystone: Object.assign({}, prev.keystone||{}, {builtJourney:journey, builtAt:Date.now()}) }); });
+    function doBuild(){
+      setData(function(prev){ return Object.assign({}, deal, {_cloudDealId: undefined, _raw: prev._raw, keystone: Object.assign({}, prev.keystone||{}, {builtJourney:journey, builtAt:Date.now()}) }); });
+    }
+    // v10.14 — non-blocking confirm (was native confirm(), which froze the browser).
+    if(hasExisting) confirmToast("Replace the deal currently open with the one Keystone just built?\n\nYour saved portfolio deals are untouched.", doBuild, {confirmLabel:"Replace deal"});
+    else doBuild();
   }
 
   var detected = (function(){ try{ return detectJourney(JSON.parse(k.brief||"{}")); }catch(e2){ return ""; } })();

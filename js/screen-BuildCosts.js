@@ -62,7 +62,7 @@ function renderBuildCosts(data, setData, user){
     e("div",{style:S.card},
       e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:10}},
         e("div",{style:S.cardTitle},"Scheme-type build costs (£/sqft GIA)"),
-        e("button",{onClick:function(){ if(confirm("Reset ALL build-cost benchmarks to the built-in defaults?")){ resetBuildCostSettings(); setData(function(d){return Object.assign({},d,{_bcRev:Date.now()});}); } },style:{padding:"5px 12px",background:"#B05A35",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"↺ Reset to defaults")
+        e("button",{onClick:function(){ confirmToast("Reset ALL build-cost benchmarks to the built-in defaults?",function(){ resetBuildCostSettings(); setData(function(d){return Object.assign({},d,{_bcRev:Date.now()});}); },{confirmLabel:"Reset"}); },style:{padding:"5px 12px",background:"#B05A35",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"↺ Reset to defaults")
       ),
       e("div",{style:{overflowX:"auto"}},
         e("div",{style:{display:"grid",gridTemplateColumns:"1.6fr 1fr 1fr 1fr",gap:8,padding:"8px 12px",background:"#2E2F8A",borderRadius:"6px 6px 0 0",minWidth:420}},

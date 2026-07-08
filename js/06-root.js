@@ -152,8 +152,8 @@ function PublicShareViewer(props){
           e("input",{value:viewerCompany,onChange:function(ev){setViewerCompany(ev.target.value);},placeholder:"Company / fund",style:{padding:"10px 12px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:13,fontFamily:"DM Sans,sans-serif"}}),
           e("input",{type:"email",value:viewerEmail,onChange:function(ev){setViewerEmail(ev.target.value);},placeholder:"Email address",style:{padding:"10px 12px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:13,fontFamily:"DM Sans,sans-serif"}}),
           e("button",{onClick:function(){
-            if(!viewerEmail || viewerEmail.indexOf("@")<0){alert("Please enter a valid email");return;}
-            if(!viewerName){alert("Please enter your name");return;}
+            if(!viewerEmail || viewerEmail.indexOf("@")<0){notify("Please enter a valid email");return;}
+            if(!viewerName){notify("Please enter your name");return;}
             recordView();
           },style:{padding:12,background:"#4A4BAE",border:"none",borderRadius:6,color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"View Opportunity →")
         ),

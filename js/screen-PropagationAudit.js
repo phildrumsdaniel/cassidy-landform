@@ -183,7 +183,8 @@ function renderPropagationAudit(data, setData, up){
     totals.drift += sharedDrift.length;
 
     function autoFixAll(){
-      if(!confirm("Auto-fix all detectable propagation drift?\n\nThis will:\n• Copy land.scenarioAhPct → Planning, SFH, HRA, Tenure where empty or different\n• Copy land.scenarioS106pu → Planning, RLV, SFH, HRA, Fin where empty or different\n• Copy land.scenarioFinanceRate → RLV, Fin, SFH, HRA where empty or different\n• Copy land.scenarioTimelineMo → Exit.planningMo where empty\n\nWill NOT touch: GDV figures, build cost overrides, sale PSF overrides, or any field clearly set as a manual override.\n\nProceed?")) return;
+      // v10.14 — proceed directly (no blocking confirm). This only copies scenario values into
+      // empty/divergent stage fields (never touches GDV, build cost or sale-PSF overrides).
       setData(function(prev){
         var next = Object.assign({}, prev);
         function setIf(stage, key, value){
@@ -213,7 +214,7 @@ function renderPropagationAudit(data, setData, up){
         }
         return next;
       });
-      alert("✓ Auto-fix complete. Refreshing audit table.");
+      notify("✓ Auto-fix complete. Refreshing audit table.");
     }
 
     function fixRow(row){

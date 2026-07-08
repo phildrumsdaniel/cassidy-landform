@@ -145,12 +145,14 @@ function renderDashboard(ALL_STAGES, JOURNEYS, at, city, data, effUnits, ey, gdv
             },"Review RLV stage →"),
             data._preMigrationBackup && e("button",{
               onClick:function(){
-                if(!confirm("Restore previous values?\n\nThis undoes all auto-migration fixes and restores the deal as it was originally saved (on v"+(data._migrationFrom||"unknown")+").\n\nYou can re-apply migration later via the Reset RLV defaults flow.")) return;
+                // v10.14 — non-blocking confirm (native confirm() froze the browser).
                 var backup = data._preMigrationBackup;
-                setData(function(prev){
-                  // Restore from backup but keep the cloud ID
-                  return Object.assign({}, backup, {_cloudDealId:prev._cloudDealId, _migrationRolledBack:true});
-                });
+                confirmToast("Restore previous values?\n\nThis undoes all auto-migration fixes and restores the deal as it was originally saved (on v"+(data._migrationFrom||"unknown")+"). You can re-apply migration later.", function(){
+                  setData(function(prev){
+                    // Restore from backup but keep the cloud ID
+                    return Object.assign({}, backup, {_cloudDealId:prev._cloudDealId, _migrationRolledBack:true});
+                  });
+                }, {confirmLabel:"Restore"});
               },
               style:{padding:"7px 13px",background:"transparent",border:"1px solid #B05A35",color:"#B05A35",borderRadius:5,fontSize:11,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
             },"Restore previous values"),
@@ -166,7 +168,7 @@ function renderDashboard(ALL_STAGES, JOURNEYS, at, city, data, effUnits, ey, gdv
                     msg += "  • "+r.field+": currently "+r.current+", expected "+r.expected+" ("+r.reason+")\n";
                   });
                 }
-                alert(msg);
+                notify(msg);
               },
               style:{padding:"7px 13px",background:"transparent",border:"1px solid #2D7A65",color:"#2D7A65",borderRadius:5,fontSize:11,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
             },"Full log")

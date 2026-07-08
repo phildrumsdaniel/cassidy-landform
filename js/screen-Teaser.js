@@ -107,7 +107,7 @@ function renderTeaser(city, data, gdv, lc, up, user){
         '</div></body></html>';
 
       var w=window.open("","_blank","width=900,height=700");
-      if(!w){alert("Allow pop-ups to generate the teaser PDF");return;}
+      if(!w){notify("Allow pop-ups to generate the teaser PDF");return;}
       w.document.write(html);w.document.close();
       setTimeout(function(){w.print();},500);
     }

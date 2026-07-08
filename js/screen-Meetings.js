@@ -40,14 +40,14 @@ function renderMeetings(data, up, user){
         if(isExcel){
           // Excel is binary (zipped XML) — parse with SheetJS and turn every sheet
           // into readable CSV text so it flows into the same analysis pipeline.
-          if(typeof XLSX==="undefined"){ alert("Spreadsheet reader is still loading — please try again in a moment."); return; }
+          if(typeof XLSX==="undefined"){ notify("Spreadsheet reader is still loading — please try again in a moment."); return; }
           try{
             var wb=XLSX.read(new Uint8Array(e.target.result),{type:"array"});
             var out=wb.SheetNames.map(function(sn){
               return "=== Sheet: "+sn+" ===\n"+XLSX.utils.sheet_to_csv(wb.Sheets[sn]);
             }).join("\n\n");
             addTranscriptFromText(out||"(empty workbook)", file);
-          }catch(err){ alert("Could not read that spreadsheet: "+(err&&err.message||err)); }
+          }catch(err){ notify("Could not read that spreadsheet: "+(err&&err.message||err)); }
         } else {
           addTranscriptFromText(e.target.result, file);
         }
@@ -80,10 +80,12 @@ function renderMeetings(data, up, user){
     }
 
     function deleteTranscript(id){
-      if(!confirm("Delete this transcript?"))return;
-      var newList=transcripts.filter(function(t){return t.id!==id;});
-      upM("transcripts",newList);
-      if(activeId===id)upM("activeId",newList.length>0?newList[0].id:null);
+      // v10.14 — non-blocking confirm (native confirm() froze the browser).
+      confirmToast("Delete this transcript?", function(){
+        var newList=transcripts.filter(function(t){return t.id!==id;});
+        upM("transcripts",newList);
+        if(activeId===id)upM("activeId",newList.length>0?newList[0].id:null);
+      }, {confirmLabel:"Delete"});
     }
 
     function updateTranscript(id,changes){
@@ -223,7 +225,7 @@ function renderMeetings(data, up, user){
             );
           }),
           e("button",{
-            onClick:function(){if(confirm("Delete all transcripts?"))upM("transcripts",[]);},
+            onClick:function(){confirmToast("Delete ALL transcripts?",function(){upM("transcripts",[]);},{confirmLabel:"Delete all"});},
             style:{width:"100%",padding:"6px",background:"none",border:"1px solid rgba(176,90,53,0.3)",borderRadius:5,color:"#B05A35",fontSize:10,cursor:"pointer",fontFamily:"DM Sans,sans-serif",marginTop:4}
           },"Clear all")
         ),
@@ -311,7 +313,7 @@ function renderMeetings(data, up, user){
                   var el=document.createElement("textarea");
                   el.value=activeTranscript.analysis;
                   document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);
-                  alert("Copied to clipboard");
+                  notify("Copied to clipboard");
                 },style:{padding:"4px 10px",background:"#4A4BAE",border:"none",borderRadius:4,color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"📋 Copy")
               ),
               e("div",{style:{maxHeight:300,overflowY:"auto",padding:"14px 16px"}},

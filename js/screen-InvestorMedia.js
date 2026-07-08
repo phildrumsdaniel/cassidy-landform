@@ -16,7 +16,7 @@ function renderInvestorMedia(dealId, upi, ipt, lbl, data, user){
     function handleFile(file, kind){
       if(!file) return;
       if(file.size > 5*1024*1024){
-        alert("File too large — max 5MB. (Apps Script upload limit). For larger files, use a YouTube/Vimeo embed.");
+        notify("File too large — max 5MB. (Apps Script upload limit). For larger files, use a YouTube/Vimeo embed.");
         return;
       }
       var reader = new FileReader();
@@ -45,14 +45,14 @@ function renderInvestorMedia(dealId, upi, ipt, lbl, data, user){
               driveUrl:d.driveUrl, embedUrl:d.embedUrl
             }]);
             upi("media",newMedia);
-            alert("✓ Uploaded: "+file.name);
+            notify("✓ Uploaded: "+file.name);
           } else {
-            alert("Upload failed: "+((d&&d.message)||"unknown error"));
+            notify("Upload failed: "+((d&&d.message)||"unknown error"));
           }
         })
         .catch(function(err){
           upi("_uploading",false);
-          alert("Upload error — file may be too large for backend (5MB max).");
+          notify("Upload error — file may be too large for backend (5MB max).");
         });
       };
       reader.readAsDataURL(file);
@@ -81,12 +81,12 @@ function renderInvestorMedia(dealId, upi, ipt, lbl, data, user){
           }]);
           upi("media",newMedia);
         } else {
-          alert("Failed: "+((d&&d.message)||"unknown error"));
+          notify("Failed: "+((d&&d.message)||"unknown error"));
         }
       })
       .catch(function(){
         upi("_uploading",false);
-        alert("Network error");
+        notify("Network error");
       });
     }
 

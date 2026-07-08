@@ -176,12 +176,12 @@ function renderInvestorSuite(data, navTo, saveDeal, up, user){
                       upi("shareTitle","");upi("sharePasscode","");upi("shareExpires","");
                       refreshShares();
                       upi("tab","shares");
-                      alert("✓ Share link created. Switch to 'Share Links' tab to copy + send.");
+                      notify("✓ Share link created. Switch to 'Share Links' tab to copy + send.");
                     } else {
-                      alert("Failed: "+((d&&d.message)||"unknown error"));
+                      notify("Failed: "+((d&&d.message)||"unknown error"));
                     }
                   })
-                  .catch(function(){alert("Network error");});
+                  .catch(function(){notify("Network error");});
                 },
                 style:{padding:"10px 20px",background:"#EDE84A",border:"none",borderRadius:6,color:"#1E1F5C",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
               },"Create Link →"),
@@ -234,7 +234,7 @@ function renderInvestorSuite(data, navTo, saveDeal, up, user){
                   e("button",{onClick:function(){
                     try{
                       navigator.clipboard.writeText(shareUrl);
-                      alert("✓ Copied to clipboard");
+                      notify("✓ Copied to clipboard");
                     }catch(e){
                       window.prompt("Copy this link:",shareUrl);
                     }

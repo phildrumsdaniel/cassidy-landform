@@ -784,7 +784,7 @@ function renderDataRoom(city, data, exits, isExitOn, schemes, up){
           e("button",{onClick:function(){up("dataroom","viewMode","print");setTimeout(function(){window.print();},300);},
             style:{padding:"7px 14px",background:"#2D7A65",color:"#fff",border:"none",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
           },"📄 Generate PDF"),
-          e("button",{onClick:function(){alert("Phase 2: file uploads via Google Drive — coming soon.\nPhase 3: shareable investor link.");},
+          e("button",{onClick:function(){notify("Phase 2: file uploads via Google Drive — coming soon.\nPhase 3: shareable investor link.");},
             style:{padding:"7px 14px",background:"#F4F5FB",color:"#7278A0",border:"1px dashed #B5BAD6",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
           },"📎 Uploads (Phase 2)")
         )

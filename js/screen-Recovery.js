@@ -332,7 +332,7 @@ function renderRecovery(city, data, navTo, up, user){
                   el.select();
                   document.execCommand("copy");
                   document.body.removeChild(el);
-                  alert("✓ Copied to clipboard");
+                  notify("✓ Copied to clipboard");
                 },
                 style:{padding:"5px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#7278A0",borderRadius:5,fontSize:11,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
               },"📋 Copy to Clipboard")

@@ -155,7 +155,7 @@ function renderConstraintCheck(data, navTo, up, user){
               var el=document.createElement("textarea");
               el.value=results.report;
               document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);
-              alert("Report copied to clipboard");
+              notify("Report copied to clipboard");
             },style:{padding:"5px 12px",background:"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"📋 Copy Report")
           ),
           e("div",{style:{maxHeight:500,overflowY:"auto"}},

@@ -177,7 +177,8 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
             ),
             hasDrift && e("button",{
               onClick:function(){
-                if(!confirm("Re-sync SFH stage fields with the active scenario '"+data.land.appliedScenarioLabel+"'?\n\nThis will set:\n"+driftFields.map(function(d){return "• "+d.field+": "+d.current+" → "+d.scenario;}).join("\n")+"\n\nOther fields (acres, density, sale PSF, build cost) are NOT affected.")) return;
+                // v10.14 — proceed directly (no blocking confirm). Re-sync is reversible: the scenario can be re-applied any time.
+                notify("Re-synced SFH fields to the active scenario '"+data.land.appliedScenarioLabel+"'.");
                 setData(function(prev){
                   var sfhNext = Object.assign({}, prev.sfh||{});
                   driftFields.forEach(function(d){

@@ -422,7 +422,7 @@ function renderGrants(city, data, gdv, lc, up, user){
                 });
               } catch(err) {
                 console.error("Grant Strategy Pack generation error:",err);
-                alert("Grant Strategy Pack generation failed. Please ensure deal data is populated and try again.");
+                notify("Grant Strategy Pack generation failed. Please ensure deal data is populated and try again.");
               }
             },
             style:{padding:"10px 20px",background:"linear-gradient(135deg,#2D7A65,#4A4BAE)",border:"none",borderRadius:7,color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
@@ -442,7 +442,7 @@ function renderGrants(city, data, gdv, lc, up, user){
               '<div class="footer"><span>'+addr+' Grant Strategy Pack · Cassidy Group</span><span>'+new Date().toLocaleDateString("en-GB")+'</span><span>Built by Phil Daniel · Landform</span></div>'+
               '</body></html>';
               var w=window.open("","_blank","width=900,height=700");
-              if(!w){alert("Allow pop-ups");return;}
+              if(!w){notify("Allow pop-ups");return;}
               w.document.write(html);w.document.close();
               setTimeout(function(){w.print();},500);
             },
@@ -586,7 +586,7 @@ function renderGrants(city, data, gdv, lc, up, user){
                   var txt=g.emailDraft||"";
                   var el=document.createElement("textarea");
                   el.value=txt;document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);
-                  alert("Email copied to clipboard");
+                  notify("Email copied to clipboard");
                 },
                 style:{padding:"7px 16px",background:"#F0F1FA",border:"1px solid #DDE0ED",borderRadius:6,color:"#2E2F8A",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
               },"📋 Copy to Clipboard")

@@ -355,7 +355,7 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
 
     // Run Placona search
     function runPlacona(){
-      if(selected.length===0){alert("Please select at least one county.");return;}
+      if(selected.length===0){notify("Please select at least one county.");return;}
       up("placona","running",true);
       up("placona","error","");
       var pUrl=WEBHOOK+"?action=placona_run"+

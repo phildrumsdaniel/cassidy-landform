@@ -401,7 +401,8 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
         function applyScenario(scenKey){
           var s = scenarioCalcs.find(function(x){return x.key===scenKey;});
           if(!s) return;
-          if(!confirm("Apply '"+s.label+"' scenario?\n\nThis will update:\n• Land value (mid-point: "+fmt(s.tMid)+")\n• Planning status field\n• Expected AH% ("+s.ahPct+"%)\n• Expected S106 per unit (£"+s.s106pu.toLocaleString()+")\n• Finance rate ("+s.financeRate+"%)\n• Timeline to commit ("+s.timelineMo+" months)\n• Yield uplift ("+(s.yieldAdj*100).toFixed(2)+"% penalty)\n\nYou can change scenario at any time — but manual overrides made on RLV/Fin/Planning may be reset.")) return;
+          // v10.14 — proceed directly (no blocking confirm); the scenario can be changed or cleared at any time.
+          notify("Applied '"+s.label+"' scenario — land value "+fmt(s.tMid)+", AH "+s.ahPct+"%, "+s.timelineMo+" months. Change or clear it any time.");
           // Update land
           var landUpdates = {
             appliedScenario:s.key,
@@ -503,7 +504,8 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
         }
 
         function clearScenario(){
-          if(!confirm("Clear applied scenario? This won't undo manual edits you've made since.")) return;
+          // v10.14 — proceed directly (no blocking confirm); re-applying a scenario is one click.
+          notify("Cleared the applied scenario. Manual edits you made are kept.");
           setData(function(prev){
             var land = Object.assign({},prev.land||{});
             delete land.appliedScenario;

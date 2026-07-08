@@ -119,7 +119,7 @@ function renderFin(LiveMarketBanner, at, bc, buildPsf, city, data, ey, gia, gr, 
               if(!f.contingency)updates.contingency="5";
               if(!f.s106pu)updates.s106pu="20000";
               Object.keys(updates).forEach(function(k){up("fin",k,updates[k]);});
-              alert("Fields populated from your land and SFH appraisal data. Review each figure and adjust to match your actual deal.");
+              notify("Fields populated from your land and SFH appraisal data. Review each figure and adjust to match your actual deal.");
             },
             style:{padding:"6px 14px",background:"#2D7A65",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
           },"⚡ Populate from My Deal Data")
@@ -456,7 +456,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
               e("button",{onClick:function(){
                 var nl="\n";var t=["LANDFORM EXPORT",new Date().toLocaleDateString("en-GB"),"","SITE: "+(l.address||"Unknown"),"LPA: "+(data.planning&&data.planning.lpa||"n/a"),"Gross Site: "+num(l.acres||0)+" acres","Units: "+u,"GDV: "+fmt(gdv2>0?gdv2:gdvF),"Land Residual Value: "+fmt(Math.max(0,rlv)),"Build Cost: "+fmt(totalBuild),"S106/unit: "+(f.s106pu||0),"S106 Total: "+fmt(num(f.s106pu||0)*u),"Finance: "+(f.finRate||7.5)+"% pa","Sales Rate: "+(f.salesRateWeek||(num(f.units||units||0)>0&&num(f.programmeMths||36)>0?Math.round((num(f.units||units||0)/(num(f.programmeMths||36)*(52/12)))*100)/100:0.75))+"/wk","Programme: "+(f.programmeMths||36)+" months","Margin on GDV: "+pct(margin2),"IRR: "+(irrVal?irrVal+"%":"n/a"),"","NEXT STEP: Enter into the detailed Excel appraisal model.","Set land price to RLV. Run Normal Distribution cashflow.","Rebase BCIS build costs. Track RP offers."].join(nl);                var el=document.createElement("textarea");
                 el.value=t;document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);
-                alert("Copied to clipboard — paste into your Excel appraisal model");
+                notify("Copied to clipboard — paste into your Excel appraisal model");
               },style:{padding:"9px 22px",background:"#EDE84A",border:"none",borderRadius:7,color:"#1E1F5C",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
               "📋 Copy Key Figures for Excel Model")
             )

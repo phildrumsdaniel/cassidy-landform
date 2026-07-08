@@ -465,7 +465,7 @@ e("div",{style:{gridColumn:"span 2",display:"flex",flexDirection:"column",gap:8}
         e("div",{style:{gridColumn:"span 2",paddingTop:4}},
           e("button",{
             onClick:function(){
-              if(!ep.newUnits){alert("Please enter the number of new units to build first.");return;}
+              if(!ep.newUnits){notify("Please enter the number of new units to build first.");return;}
               // Scroll down to results
               var el=document.getElementById("epe-results");
               if(el)el.scrollIntoView({behavior:"smooth"});

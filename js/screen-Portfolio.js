@@ -48,7 +48,7 @@ function renderPortfolio(data, logMigration, navTo, saveDeal, setData, user){
         if(d && d.status==="ok" && d.payload){
           // Backend tells us if the payload is valid JSON
           if(d.valid === false){
-            alert("⚠ This deal's saved data appears corrupted (it may have been saved before a size-limit fix).\n\nThe deal couldn't be fully restored. Your current work on screen has NOT been overwritten.");
+            notify("⚠ This deal's saved data appears corrupted (it may have been saved before a size-limit fix).\n\nThe deal couldn't be fully restored. Your current work on screen has NOT been overwritten.");
             setData(function(prev){return Object.assign({},prev,{portfolio:Object.assign({},prev.portfolio||{},{loadingDeal:null})});});
             return;
           }
@@ -67,15 +67,15 @@ function renderPortfolio(data, logMigration, navTo, saveDeal, setData, user){
             if(migrated.changed) logMigration(migrated);
             navTo("dashboard");
           }catch(e){
-            alert("⚠ Couldn't read this deal's data — it may be corrupted. Your current work has not been overwritten.");
+            notify("⚠ Couldn't read this deal's data — it may be corrupted. Your current work has not been overwritten.");
             setData(function(prev){return Object.assign({},prev,{portfolio:Object.assign({},prev.portfolio||{},{loadingDeal:null})});});
           }
         } else {
-          alert("Couldn't load deal: "+((d&&d.message)||"unknown error"));
+          notify("Couldn't load deal: "+((d&&d.message)||"unknown error"));
         }
       })
       .catch(function(err){
-        alert("Network error loading deal");
+        notify("Network error loading deal");
       });
     }
 
@@ -87,7 +87,7 @@ function renderPortfolio(data, logMigration, navTo, saveDeal, setData, user){
         if(d && d.status==="ok"){
           refreshDeals();
         } else {
-          alert("Couldn't delete: "+((d&&d.message)||"unknown error"));
+          notify("Couldn't delete: "+((d&&d.message)||"unknown error"));
         }
       });
     }
@@ -277,14 +277,14 @@ function renderPortfolio(data, logMigration, navTo, saveDeal, setData, user){
               if(d && d.status==="ok"){
                 close();
                 refreshDeals();
-                alert("✓ Sharing updated. Affected users will see this deal on their next portfolio refresh.");
+                notify("✓ Sharing updated. Affected users will see this deal on their next portfolio refresh.");
               } else {
-                alert("Couldn't update sharing: "+((d&&d.message)||"unknown error"));
+                notify("Couldn't update sharing: "+((d&&d.message)||"unknown error"));
                 setData(function(prev){return Object.assign({},prev,{shareDialog:Object.assign({},prev.shareDialog,{saving:false})});});
               }
             })
             .catch(function(err){
-              alert("Network error: "+err.message);
+              notify("Network error: "+err.message);
               setData(function(prev){return Object.assign({},prev,{shareDialog:Object.assign({},prev.shareDialog,{saving:false})});});
             });
         }

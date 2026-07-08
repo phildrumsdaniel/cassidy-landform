@@ -116,7 +116,7 @@ function renderViability(city, data, gdv, lc, up, user){
         ),
         e("div",{style:{display:"flex",gap:8}},
           e("button",{onClick:autoPopulate,style:{padding:"8px 18px",background:"#EDE84A",border:"none",borderRadius:6,color:"#1E1F5C",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"⚡ Auto-Populate from Deal"),
-          hasData&&e("button",{onClick:function(){if(confirm("Clear?"))up("viability","appraisal",{});},style:{padding:"8px 14px",background:"none",border:"1px solid #DDE0ED",borderRadius:6,color:"#B05A35",fontSize:11,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Clear")
+          hasData&&e("button",{onClick:function(){confirmToast("Clear this appraisal?",function(){up("viability","appraisal",{});},{confirmLabel:"Clear"});},style:{padding:"8px 14px",background:"none",border:"1px solid #DDE0ED",borderRadius:6,color:"#B05A35",fontSize:11,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Clear")
         )
       ),
       !hasData&&e("div",{style:{textAlign:"center",padding:"48px 24px",background:"rgba(74,75,174,0.04)",borderRadius:10,border:"1px dashed rgba(74,75,174,0.25)"}},

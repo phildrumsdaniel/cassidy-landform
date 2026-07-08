@@ -549,16 +549,16 @@ var JOURNEYS = {
           }
           var sizeKb = d.payloadSize ? Math.round(d.payloadSize/1024) : 0;
           var sizeNote = d.chunks && d.chunks>1 ? "\n\n(Deal size: "+sizeKb+"KB across "+d.chunks+" cells — large deals are now fully supported.)" : "";
-          alert("✓ Deal saved: "+name+"\n\nSynced to cloud — visible on all your devices."+sizeNote);
+          notify("✓ Deal saved: "+name+"\n\nSynced to cloud — visible on all your devices."+sizeNote);
         } else {
-          alert("✓ Deal saved locally: "+name+"\n\n⚠ Cloud sync failed: "+((d&&d.message)||"unknown error")+"\nDeal is still safe on this device.");
+          notify("✓ Deal saved locally: "+name+"\n\n⚠ Cloud sync failed: "+((d&&d.message)||"unknown error")+"\nDeal is still safe on this device.");
         }
       })
       .catch(function(err){
-        alert("✓ Deal saved locally: "+name+"\n\n⚠ Cloud sync failed (offline?)\nDeal is still safe on this device.");
+        notify("✓ Deal saved locally: "+name+"\n\n⚠ Cloud sync failed (offline?)\nDeal is still safe on this device.");
       });
     } else {
-      alert("✓ Deal saved locally: "+name+"\n\nYour data auto-saves continuously.");
+      notify("✓ Deal saved locally: "+name+"\n\nYour data auto-saves continuously.");
     }
   }
 
@@ -606,7 +606,7 @@ var JOURNEYS = {
 
     // Push fresh copy to cloud
     if(!user || !user.userId){
-      alert("⚠ You need to be signed in to save as a new deal.\nThis ensures the original isn't overwritten.");
+      notify("⚠ You need to be signed in to save as a new deal.\nThis ensures the original isn't overwritten.");
       return;
     }
 
@@ -635,17 +635,17 @@ var JOURNEYS = {
           assetType:freshData.assetType||"land",
           scenario:scenario||null
         });
-        alert("✓ New deal created: "+newName+"\n\n"+
+        notify("✓ New deal created: "+newName+"\n\n"+
           "• Original deal preserved (return via Portfolio if needed)\n"+
           "• You're now working in the new copy — changes save to this one\n"+
           "• Change scheme type, scenario, or any input to remodel"
         );
       } else {
-        alert("⚠ Couldn't create the new copy: "+((d&&d.message)||"unknown error")+"\n\nYour original deal is unaffected.");
+        notify("⚠ Couldn't create the new copy: "+((d&&d.message)||"unknown error")+"\n\nYour original deal is unaffected.");
       }
     })
     .catch(function(err){
-      alert("⚠ Network error creating new copy. Original deal is unaffected. Try again when online.");
+      notify("⚠ Network error creating new copy. Original deal is unaffected. Try again when online.");
     });
   }
 
@@ -657,7 +657,7 @@ var JOURNEYS = {
   // ──────────────────────────────────────────────────────────────────────
   function exportDeal(){
     if(!data || (!data.dealName && !data.land)){
-      alert("No deal data to export. Open or create a deal first.");
+      notify("No deal data to export. Open or create a deal first.");
       return;
     }
     // Strip identity-bound and bulky fields so file is portable & small
@@ -704,7 +704,9 @@ var JOURNEYS = {
           var imported = JSON.parse(e.target.result);
           // Validate it looks like a Landform export
           if(imported._exportFormat !== "landform-deal-v1" && !imported.land && !imported.dealName){
-            if(!confirm("This file doesn't look like a standard Landform export. Try to import anyway?\n\n(Risk: data may be incomplete or wrongly structured.)")) return;
+            // v10.14 — non-blocking: warn but proceed (the user explicitly chose this file). Nothing is
+            // saved to the portfolio until "Save Deal", so a bad import is easily discarded.
+            notify("Heads up: this file doesn't look like a standard Landform export — importing anyway. Review before saving.");
           }
           // Strip identity from previous account
           delete imported._cloudDealId;
@@ -730,10 +732,10 @@ var JOURNEYS = {
           if(migrated.data && migrated.data.assetType) setSchemes([migrated.data.assetType]);
           if(migrated.changed) logMigration(migrated);
           navTo("dashboard");
-          alert("✓ Deal imported. Click 'Save Deal' to add it to your portfolio.");
+          notify("✓ Deal imported. Click 'Save Deal' to add it to your portfolio.");
           try{ logEvent(user,"DEAL_IMPORTED",{dealName:finalName,fromAccount:imported._importedFromAccount}); }catch(e){}
         }catch(err){
-          alert("⚠ Could not import file: "+(err.message||err)+"\n\nMake sure the file is a valid Landform export JSON.");
+          notify("⚠ Could not import file: "+(err.message||err)+"\n\nMake sure the file is a valid Landform export JSON.");
         }
       };
       reader.readAsText(file);
@@ -744,10 +746,12 @@ var JOURNEYS = {
   }
 
   function clearDeal(){
-    if(!window.confirm("Clear all fields and start a new deal?"))return;
-    setData({risks:RISK_DEFAULTS.map(function(r){return Object.assign({},r);})});
-    setSchemes([]); setExits([]);
-    setHot("");setMemo("");setStage("dashboard");
+    // v10.14 — non-blocking confirm (native confirm() froze the browser). Wipes the open deal, so keep a guard.
+    confirmToast("Clear all fields and start a new deal?\n\nYour saved portfolio deals are untouched.", function(){
+      setData({risks:RISK_DEFAULTS.map(function(r){return Object.assign({},r);})});
+      setSchemes([]); setExits([]);
+      setHot("");setMemo("");setStage("dashboard");
+    }, {confirmLabel:"New deal"});
   }
 
   function loadDeal(snap){
@@ -1024,7 +1028,7 @@ var JOURNEYS = {
     '</body></html>';
 
     var w=window.open("","_blank","width=900,height=700");
-    if(!w){alert("Please allow popups for this site to generate the report.");return;}
+    if(!w){notify("Please allow popups for this site to generate the report.");return;}
     w.document.write(html);
     w.document.close();
     setTimeout(function(){w.print();},800);
@@ -1235,7 +1239,7 @@ var JOURNEYS = {
                 var el=document.createElement("textarea");
                 el.value="EXECUTIVE SUMMARY\n"+today+"\n"+(user&&user.company||"Cassidy Group")+"\n\n"+sumReport;
                 document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);
-                alert("✓ Copied to clipboard — paste into Word or email");
+                notify("✓ Copied to clipboard — paste into Word or email");
               },
               style:{padding:"10px 16px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#3A3D6A",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
             },"📋 Copy")
@@ -1697,7 +1701,7 @@ function loadSiteIntoDeal(site){
       var description=scr.description||"";
 
       if(!addr||addr==="Unknown site"){
-        alert("Please import a land listing first using Land Finder.");
+        notify("Please import a land listing first using Land Finder.");
         return;
       }
 
@@ -2037,7 +2041,7 @@ function loadSiteIntoDeal(site){
                 v.changes.forEach(function(c){msg += "  • "+c+"\n";});
                 msg += "\n";
               });
-              alert(msg);
+              notify(msg);
             },
             style:{fontSize:10,color:"#9A7B3E",background:"rgba(237,232,74,0.18)",padding:"3px 8px",borderRadius:3,fontWeight:800,letterSpacing:".05em",flexShrink:0,border:"1px solid rgba(154,123,62,0.3)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
           },"v"+CURRENT_VERSION+" ▾"),
@@ -2081,7 +2085,7 @@ function loadSiteIntoDeal(site){
           ),
           e("button",{key:"save",
             onClick: data._userRole==="viewer" ? function(){
-              alert("You have view-only access to this deal.\n\nTo edit, ask the deal owner ("+(data._dealCreator||"the creator")+") to add you to the editors list in the Access sheet.");
+              notify("You have view-only access to this deal.\n\nTo edit, ask the deal owner ("+(data._dealCreator||"the creator")+") to add you to the editors list in the Access sheet.");
             } : saveDeal,
             title: data._userRole==="viewer" ? "View-only — contact owner to be added as editor" : "Save Deal — updates the current deal in place",
             style:{padding:isMobile?"8px 10px":"6px 12px",background:data._userRole==="viewer"?"#F4F5FB":"#F7F8FC",border:"1px solid "+(data._userRole==="viewer"?"#E0C5A0":"#DDE0ED"),color:data._userRole==="viewer"?"#9A7B3E":"#3A3D6A",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0,opacity:data._userRole==="viewer"?0.7:1}},
@@ -2107,7 +2111,8 @@ function loadSiteIntoDeal(site){
             isMobile?"✕":"✕ New Deal"
           ),
           e("button",{key:"logout",onClick:function(){
-            if(window.confirm("Sign out of Landform?\n\nYour current deal stays saved on this device. Cloud-synced deals will remain in your portfolio.")) onLogout();
+            // v10.14 — non-blocking confirm (native confirm() froze the browser).
+            confirmToast("Sign out of Landform?\n\nYour current deal stays saved on this device. Cloud-synced deals remain in your portfolio.", function(){ onLogout(); }, {confirmLabel:"Sign out"});
           },title:"Sign out — "+(user.email||user.name||""),
             style:{padding:isMobile?"8px 10px":"6px 12px",background:"#F4F5FB",border:"1px solid #DDE0ED",color:"#7278A0",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
             isMobile?"👤":"👤 "+((user.name||"").split(" ")[0]||"User")+" ▾"
@@ -2218,7 +2223,7 @@ function loadSiteIntoDeal(site){
                     var existing=(data.meetings&&data.meetings.transcripts)||[];
                     var newT={id:"file-"+Date.now(),name:fr.name,filename:fr.name,date:new Date().toLocaleDateString("en-GB"),uploadedAt:Date.now(),text:fr.result,analysis:fr.result,actionItems:[],keyDecisions:[],siteRefs:[],attendees:[],tags:[],dealRef:(data.land&&data.land.address)||"",summary:"Data extracted from uploaded file: "+fr.name};
                     up("meetings","transcripts",existing.concat([newT]));
-                    alert("Saved to Meeting Transcripts — review there and copy figures into the relevant deal stages.");
+                    notify("Saved to Meeting Transcripts — review there and copy figures into the relevant deal stages.");
                   },
                   style:{padding:"6px 14px",background:"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
                 },"💾 Save to Records"),

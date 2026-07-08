@@ -379,7 +379,7 @@ function renderRLV(city, data, m, navTo, setData, up, user){
           var nl="\n";
           var lvLines=["LAND VALUATION EXPORT","Postcode: "+(r.postcode||"n/a"),"City: "+cityName(city),"Benchmark: £"+(lrData.wPsf||lrData.weightedPsf||0)+"/sqft","Transactions: "+(lrData.totalTx||lrData.total||0),"Units: "+(r.units||"n/a"),"Sqft: "+(r.avgSqft||"n/a"),"Sale psf: £"+(r.salePsf||"n/a"),"Build psf: £"+(r.buildPsf||m.build)];
           var el=document.createElement("textarea");el.value=lvLines.join(nl);document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);
-          alert("Land Valuation figures copied to clipboard");
+          notify("Land Valuation figures copied to clipboard");
         },style:{marginTop:8,padding:"5px 12px",background:"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"📋 Copy LV Figures")
       ),
       e("div",{style:S.card},

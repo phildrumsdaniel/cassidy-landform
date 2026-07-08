@@ -50,7 +50,8 @@ function renderPlanning(at, data, navTo, setData, setJourney, units, up, user){
             ),
             hasDrift && e("button",{
               onClick:function(){
-                if(!confirm("Re-sync Planning fields with active scenario?\n\n"+driftFields.map(function(d){return "• "+d.field+": "+d.current+" → "+d.scenario;}).join("\n"))) return;
+                // v10.14 — proceed directly (no blocking confirm); re-sync is reversible.
+                notify("Re-synced Planning fields to the active scenario.");
                 setData(function(prev){
                   var pNext = Object.assign({}, prev.planning||{});
                   driftFields.forEach(function(d){

@@ -112,7 +112,7 @@ function renderIM(at, city, data, gdv, lc, up, user){
         '<div class="footer-im"><span>'+addr+' · Cassidy Group Investor Memorandum</span><span>'+new Date().toLocaleDateString("en-GB")+'</span><span>Confidential</span></div>'+
         '</body></html>';
       var w=window.open("","_blank","width=900,height=700");
-      if(!w){alert("Allow pop-ups to generate the IM");return;}
+      if(!w){notify("Allow pop-ups to generate the IM");return;}
       w.document.write(html);w.document.close();
       setTimeout(function(){w.print();},600);
     }

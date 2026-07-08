@@ -419,7 +419,7 @@ function renderScraper(at, data, mergeRespectingCompletedStages, navTo, setData,
                   var el=document.createElement("textarea");
                   el.value=sc2.areaReport;
                   document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);
-                  alert("Copied to clipboard");
+                  notify("Copied to clipboard");
                 },
                 style:{padding:"4px 10px",background:"#9A7B3E",border:"none",borderRadius:4,color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
               },"📋 Copy")
