@@ -1,7 +1,9 @@
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useRef } from 'react'
-import { bases } from '../data/bases.js'
+import { bases, alternateSites, altReturn } from '../data/bases.js'
 import { poi } from '../data/pois.js'
+
+const mapsSearch = (q) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`
 import Photo from '../components/Photo.jsx'
 import { DayPlate, Diamond, BaseRibbon, Note, Eyebrow } from '../components/ui.jsx'
 import { IconChevronLeft, IconChevronRight, IconPin } from '../components/icons.jsx'
@@ -86,7 +88,38 @@ export default function BaseDetail() {
           <div>
             <div className="section-title" style={{ margin: '10px 0 10px' }}><Diamond /><h2>Where you stay</h2></div>
             {base.stays.map((s, i) => <Stay s={s} key={i} />)}
+
+            <details className="alt-sites">
+              <summary>Fully booked? Alternatives &amp; nearby sites</summary>
+              <div className="alt-body">
+                {(alternateSites[base.id] || []).length > 0 && (
+                  <>
+                    <div className="label" style={{ marginBottom: 6 }}>Nearby sites to try</div>
+                    {(alternateSites[base.id] || []).map((name) => (
+                      <a className="alt-row" key={name} href={mapsSearch(`${name}, ${base.region}, Scotland`)} target="_blank" rel="noreferrer">
+                        <span>{name}</span><span className="alt-cta">Find &amp; call ↗</span>
+                      </a>
+                    ))}
+                    <p className="muted" style={{ fontSize: '0.72rem', margin: '8px 0 12px' }}>Suggestions — confirm availability &amp; price when you call.</p>
+                  </>
+                )}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <a className="btn" href={mapsSearch(`caravan and camping sites near ${base.name}, ${base.region}`)} target="_blank" rel="noreferrer">📍 Sites near {base.name}</a>
+                  <a className="btn ghost" href={`https://park4night.com/en/search?lat=${base.lat}&lng=${base.lng}`} target="_blank" rel="noreferrer">Motorhome aires ↗</a>
+                </div>
+                <p className="muted" style={{ fontSize: '0.72rem', marginTop: 8, marginBottom: 0 }}>Opens maps with campsites around here — each listing has a Call button. (Needs signal.)</p>
+              </div>
+            </details>
           </div>
+        )}
+
+        {base.id === 10 && (
+          <Note title={altReturn.title}>
+            {altReturn.blurb}
+            <span style={{ display: 'block', marginTop: 8 }}>
+              {altReturn.stops.map((s, i) => <span key={i} style={{ display: 'block' }}>· {s}</span>)}
+            </span>
+          </Note>
         )}
 
         <Note>{base.goodToKnow}</Note>
