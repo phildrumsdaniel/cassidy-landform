@@ -20,8 +20,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.27";
+var CURRENT_VERSION = "10.28";
 var VERSION_HISTORY = [
+  {v:"10.28", date:"Jul 2026", headline:"Board Proposal: 'Exit scenarios' section — multi-buyer valuations, value range, hold-vs-sell, refinancing, yield benchmarks and logged HA/RP offers, live from the Exit engine"},
   {v:"10.27", date:"Jul 2026", headline:"Board Proposal: 'Rent & yield basis' research panel — live portal links, AI rent estimate, and apply to the yield",
    affectsCalc:false,
    changes:["RENT & YIELD RESEARCH — the exit yield is only as good as the rents behind it, so the Board Proposal now has a research panel to ground it in real area rents. It gives one-click links into the live ‘to let’ searches on Rightmove, Zoopla and Home.co.uk (filtered to the site postcode) plus ONS private-rent statistics — so you can verify actual achieved rents for the scheme's bed types. An AI estimate produces a rent range/median per bed size and the implied gross yield (clearly flagged as indicative, to verify against the listings). You then enter the verified average rent (£/month) and the exit yield, which feed the Capitalisation stage so the exit-route table and the generated proposal recalculate. NOTE: the portals block automated scraping, so the links open their real listings for you to confirm — nothing is scraped or applied without your say-so. 345 tests."]},

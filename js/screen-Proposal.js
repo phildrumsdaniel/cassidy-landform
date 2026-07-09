@@ -115,6 +115,66 @@ function renderProposal(city, data, gdv, lc, up, user){
   var baseYieldPct=(typeof dealYield==="function")?num(dealYield(data)):4.7;
   var landBasis=ask>0?ask:rlvV;                                        // land price the profit is measured against
 
+  // ── Exit Scenarios — replicate the Exit Strategy engine (same maths, location/scheme-agnostic) ──
+  // Mirrors js/screen-Exit.js BUYER_TYPES so the board paper's buyer valuations, hold-vs-sell,
+  // refinancing and yield benchmarks match the Exit Strategy page exactly, for whatever site is loaded.
+  var exAt=((data.assetType||"sfh")+"").toLowerCase();
+  var exCityKey=(typeof dealCityKey==="function"?dealCityKey(data):"")||city||l.city||"manchester";
+  var exMkt=((typeof MKT!=="undefined")&&(MKT[exCityKey]||MKT.manchester))||{btr:900,pbsa:180,yield:0.05,build:188};
+  var exUnits=units>0?units:50;
+  var exAhPct=ahPct;
+  var exGdv=gdvV;
+  var exNoi=noi;
+  var exDealY=((typeof dealYield==="function"?num(dealYield(data))/100:0)||exMkt.yield||0.047);
+  var exDealYSourced=num(data.capitalise&&data.capitalise.targetYield)>0;
+  var exAvgSqft=num((data.rlv&&data.rlv.avgSqft))||850;
+  var exBuildPsf=num((data.rlv&&data.rlv.buildPsf))||exMkt.build||188;
+  var exBuildTot=exUnits*exAvgSqft*exBuildPsf;
+  var exFinRate=num((data.fin&&data.fin.finRatePa)||(data.rlv&&data.rlv.finRate)); exFinRate=(exFinRate>0?exFinRate:7.5)/100;
+  var exSalePsf=num(data.rlv&&data.rlv.salePsf)||((typeof estSalePsfFromRent==="function")?num(estSalePsfFromRent(exMkt.btr)):0)||280;
+
+  // Buyer valuations — one number per buyer type (0 ⇒ route doesn't apply to this scheme → "N/A")
+  var _hbGdv=exGdv>0?exGdv:(exUnits*exAvgSqft*exSalePsf);
+  var _hbBuild=exBuildTot*1.08, _hbFin=_hbBuild*exFinRate, _hbProfit=_hbGdv*0.175;
+  var vHousebuilder=Math.max(0,_hbGdv-_hbBuild-_hbFin-_hbProfit);
+  var _btrNoi=exNoi>0?exNoi:(exUnits*exMkt.btr*12*0.72);
+  var _btrVal=exDealY>0?_btrNoi/exDealY:0, _btrDevCost=exBuildTot*(1+exFinRate+0.08), _btrProfit=_btrVal*0.08;
+  var vBtrFund=Math.max(0,_btrVal-_btrDevCost-_btrProfit);
+  var _pbsaNoi=exNoi>0?exNoi:(exUnits*exMkt.pbsa*52*0.80);
+  var _pbsaCap=_pbsaNoi/0.06, _pbsaDevCost=exBuildTot*(1+exFinRate+0.07), _pbsaMargin=_pbsaCap*0.10;
+  var vPbsaFund=Math.max(0,_pbsaCap-_pbsaDevCost-_pbsaMargin);
+  var _afUnits=Math.round(exUnits*exAhPct/100);
+  var _omvPerUnit=exGdv>0?exGdv/exUnits:(exAvgSqft*exSalePsf);
+  var vRpHa=_afUnits*_omvPerUnit*0.52;
+  var _penNoi=exNoi>0?exNoi:(exUnits*exMkt.btr*12*0.75);
+  var vPension=_penNoi/0.045;
+  // Appetite scores — identical scoring to the Exit page
+  var aHb=0; if(exUnits>=50&&exUnits<=500)aHb+=30; if(exUnits>=100&&exUnits<=300)aHb+=20; if(exAhPct<=35)aHb+=20; if(exGdv>3000000)aHb+=20; if(["manchester","birmingham","leeds","bristol","oxford","cambridge","london"].indexOf(exCityKey)>=0)aHb+=10; aHb=Math.min(aHb,95);
+  var aBtr=0; if(exUnits>=150)aBtr+=35; else if(exUnits>=80)aBtr+=15; if(["manchester","london","birmingham","leeds","bristol","edinburgh","glasgow"].indexOf(exCityKey)>=0)aBtr+=25; if(exAt==="btr")aBtr+=20; if(exMkt.btr>=900)aBtr+=10; if(exAhPct<=20)aBtr+=10; aBtr=Math.min(aBtr,95);
+  var aPbsa=0; if(exAt==="pbsa")aPbsa+=40; if(exMkt.pbsa>300)aPbsa+=25; if(["manchester","london","bristol","edinburgh","leeds","nottingham","sheffield","birmingham"].indexOf(exCityKey)>=0)aPbsa+=20; if(exUnits>=100)aPbsa+=15; aPbsa=Math.min(aPbsa,90);
+  var aRp=0; if(exAhPct>=25)aRp+=40; else if(exAhPct>=15)aRp+=20; if(exUnits>=20)aRp+=20; if(["manchester","birmingham","london","bristol","leeds"].indexOf(exCityKey)>=0)aRp+=15; aRp+=25; aRp=Math.min(aRp,90);
+  var aPen=0; if(exGdv>50000000)aPen+=30; if(exAt==="btr")aPen+=25; if(["london","manchester","birmingham"].indexOf(exCityKey)>=0)aPen+=20; if(exUnits>=200)aPen+=15; if(exNoi>2000000)aPen+=10; aPen=Math.min(aPen,80);
+  var exBuyers=[
+    {label:"Pension / Sovereign Wealth Fund",buyers:"Aviva, L&G Capital, LGIM, Pension SuperFund, CPP, GIC Singapore",basis:"Long income capitalised at ~4.5%",value:vPension,appetite:aPen},
+    {label:"Registered Provider / Housing Association",buyers:"L&Q, Clarion, Sovereign, VIVID, Platform, Midland Heart, Places for People",basis:"Affordable transfer at ~52% of OMV, grant-backed",value:vRpHa,appetite:aRp},
+    {label:"National Housebuilder",buyers:"Barratt Redrow, Persimmon, Vistry, Taylor Wimpey, Bellway",basis:"Residual — GDV less build, fees, finance, ~17.5% profit",value:vHousebuilder,appetite:aHb},
+    {label:"BTR Institutional Fund",buyers:"Grainger, Legal & General, M&G, Invesco, Patrizia, Cortland",basis:"NOI capitalised at "+pct(exDealY*100)+" less dev cost & margin",value:vBtrFund,appetite:aBtr},
+    {label:"PBSA / Student Fund",buyers:"Unite, Empiric, Scape, Student Roost, Harrison Street, Blackstone",basis:"Student NOI capitalised at ~6.0% less dev cost & margin",value:vPbsaFund,appetite:aPbsa}
+  ].sort(function(a,b){return b.value-a.value;});
+  var exApplicable=exBuyers.filter(function(b){return b.value>0;});
+  var exBestBuyer=exApplicable.length?exApplicable[0]:null;
+  var exBestValue=exBestBuyer?exBestBuyer.value:0;
+  var exWorstValue=exApplicable.length?exApplicable[exApplicable.length-1].value:0;
+  var exValueRange=exBestValue-exWorstValue;
+  // Hold vs sell / refinancing
+  var exSellNow=rlvV>0?rlvV:(exGdv*0.88);
+  var exHoldNOI=exNoi>0?exNoi:(exUnits*exMkt.btr*12*0.72);
+  var exStabilised=exDealY>0?exHoldNOI/exDealY:0;
+  var exRefinance=exStabilised*0.65;
+  var exAnnualIncome=exHoldNOI;
+  // Logged HA/RP offers from the Exit tracker (actual offers received)
+  var exRpOffers=(data.rpOffers||[]).filter(function(o){return num(o.gb)>0||num(o.tk)>0;});
+
   // ── Rent & yield research inputs ────────────────────────────────────────────
   var sfhData=data.sfh||{}; var capD=data.capitalise||{};
   var avgUnitMktValue=(num(SF.retailGdv)>0&&num(SF.totalUnits)>0)?num(SF.retailGdv)/num(SF.totalUnits):0;
@@ -338,8 +398,10 @@ function renderProposal(city, data, gdv, lc, up, user){
           (noi>0?'<div style="font-size:11.5px;color:#666C93;margin-top:9px">Plot sales realise the most; an institutional forward sale trades a lower headline for earlier, de-risked cash. A tighter (lower) yield means a higher price — each 0.5% of yield moves the institutional value materially.</div>'
                 :'<div style="font-size:12px;color:#666C93;margin-top:8px">Yield-based (institutional) exits appear once a rental income is modelled on the Capitalisation stage.</div>')+
           '</div></section>'+
-        // 06 planning
-        '<section><div class="sh"><span class="i">06</span><h2>Planning position</h2></div><div class="g2">'+
+        // 06 exit scenarios (multi-buyer, hold-vs-sell, refinancing, yields, RP offers)
+        exitScenariosSection("06")+
+        // 07 planning
+        '<section><div class="sh"><span class="i">07</span><h2>Planning position</h2></div><div class="g2">'+
           '<div class="card">'+
             rowHTML("Current status",esc(planStatus))+
             rowHTML("Local authority",esc(lpa||"To confirm"))+
@@ -351,14 +413,14 @@ function renderProposal(city, data, gdv, lc, up, user){
             '<li>Headline value <b>assumes residential consent</b>; structure acquisition to reflect planning risk.</li>'+
             '<li>NPPF 2024 policy hooks and 5-year land supply to be tested at pre-app.</li>'+
           '</ul></div></div></section>'+
-        // 07 risks
-        '<section><div class="sh"><span class="i">07</span><h2>Key risks</h2></div><div class="card"><ul class="pts">'+
+        // 08 risks
+        '<section><div class="sh"><span class="i">08</span><h2>Key risks</h2></div><div class="card"><ul class="pts">'+
           '<li><b>Planning.</b> '+esc(planStatus)+(ccVerdict&&ccVerdict!=="GO"?" — "+ccVerdict.toLowerCase()+" on the constraint check.":".")+' Stage spend gated on planning milestones.</li>'+
           '<li><b>Sales value.</b> Verify assumed values against local comparables; a ~5% slip materially compresses margin.</li>'+
           '<li><b>Build cost &amp; abnormals.</b> Firm up with a QS cost plan and ground investigation before commitment.</li>'+
         '</ul></div></section>'+
-        // 08 sources & provenance
-        '<section><div class="sh"><span class="i">08</span><h2>Sources &amp; data provenance</h2></div>'+
+        // 09 sources & provenance
+        '<section><div class="sh"><span class="i">09</span><h2>Sources &amp; data provenance</h2></div>'+
           '<p class="lead">Where this opportunity and its figures originated. Modelled figures are indicative and require independent verification before commitment.</p>'+
           '<div class="card src"><div class="sub-title">Where the site &amp; guide price came from</div>'+
             rowHTML("Sourced via",esc(importedVia))+
@@ -406,6 +468,76 @@ function renderProposal(city, data, gdv, lc, up, user){
     var margin=value>0?(profit/value*100):0;
     var col=profit>=0?"#1B1D46":"#B05A35";
     return '<tr><td>'+name+' <span class="mut">'+basis+'</span></td><td class="n">'+fmt(value)+'</td><td class="n" style="color:'+col+'">'+(profit<0?"−":"")+fmt(Math.abs(profit))+'</td><td class="n">'+Math.round(margin)+'%</td></tr>';
+  }
+  // ── Exit Scenarios — the full buyer universe, hold-vs-sell, refinancing & yield benchmarks,
+  //    mirroring the Exit Strategy page for whatever scheme/site is loaded (nothing hardcoded). ──
+  function exitScenariosSection(num2){
+    var apetClass=function(a){return a>=70?"g":a>=40?"a":"r";};
+    var buyerRows=exBuyers.map(function(b){
+      var isBest=exBestBuyer&&b.label===exBestBuyer.label&&b.value>0;
+      var valCell=b.value>0?fmt(b.value):'<span style="color:#98A0C0;font-weight:700">N/A</span>';
+      return '<tr><td><b>'+esc(b.label)+'</b>'+(isBest?' <span class="pill g">Highest</span>':'')+
+        '<span class="mut" style="display:block">'+esc(b.buyers)+'</span>'+
+        '<span class="mut" style="display:block">'+esc(b.basis)+'</span></td>'+
+        '<td class="n">'+valCell+'</td>'+
+        '<td class="n"><span class="pill '+apetClass(b.appetite)+'">'+b.appetite+'%</span></td></tr>';
+    }).join("");
+    var rangeLine=exApplicable.length>1
+      ? 'This site carries a value range of <b>'+fmt(exWorstValue)+' to '+fmt(exBestValue)+'</b> depending on buyer type — a spread of <b>'+fmt(exValueRange)+'</b> between the weakest and strongest applicable buyer. Targeting <b>'+esc(exBestBuyer.label)+'</b> as the primary purchaser could add <b>'+fmt(exValueRange)+'</b> versus the lowest applicable route.'
+      : exApplicable.length===1
+        ? 'Only one buyer route currently applies to this scheme — <b>'+esc(exBestBuyer.label)+'</b> at <b>'+fmt(exBestValue)+'</b>. Adjusting the mix (units, affordable %, asset type) opens additional exit routes.'
+        : 'No institutional buyer route is currently applicable to the modelled scheme — confirm units, affordable % and asset type to open exit routes.';
+    var rpRows=exRpOffers.length
+      ? exRpOffers.map(function(o){
+          var gb=num(o.gb), tk=num(o.tk), best=Math.max(gb,tk);
+          return '<tr><td><b>'+esc(o.rp||"RP")+'</b>'+(o.status?' <span class="mut">('+esc(o.status)+')</span>':'')+'</td>'+
+            '<td class="n">'+(num(o.units)>0?num(o.units).toLocaleString():"—")+'</td>'+
+            '<td class="n">'+(gb>0?fmt(gb):"—")+'</td>'+
+            '<td class="n">'+(tk>0?fmt(tk):"—")+'</td>'+
+            '<td class="n">'+(best>0?fmt(best):"—")+'</td></tr>';
+        }).join("")
+      : "";
+    return '<section><div class="sh"><span class="i">'+num2+'</span><h2>Exit scenarios</h2></div>'+
+      '<p class="lead">The same consented site is worth a different amount to each type of institutional buyer. These are the live valuations, the hold-vs-sell options, refinancing headroom and the yield benchmarks the appraisal runs on — all from this deal\'s engine.</p>'+
+      // 1 · multi-buyer valuation
+      '<div class="card"><div class="sub-title">Multi-buyer valuation — same site, different buyers</div><table class="ap">'+
+        '<tr><td><b>Buyer type</b></td><td class="n"><b>Valuation</b></td><td class="n"><b>Appetite</b></td></tr>'+
+        buyerRows+
+      '</table><div style="font-size:11px;color:#98A0C0;margin-top:7px">Appetite reflects fit with this scheme\'s size, location, affordable % and asset type. “N/A” means the route doesn\'t value this scheme as modelled.</div></div>'+
+      // 2 · value range
+      '<div class="callout" style="margin-top:13px"><b>Value range.</b> '+rangeLine+'</div>'+
+      // 3 & 4 · hold vs sell + refinancing (two columns)
+      '<div class="g2" style="margin-top:13px">'+
+        '<div class="card"><div class="sub-title">Hold vs sell</div><table class="ap">'+
+          apRow("Sell now — land only","immediate exit, no build risk",fmt(exSellNow))+
+          apRow("Build &amp; sell — GDV","open-market realisation",exGdv>0?fmt(exGdv):"—")+
+          apRowSum("Retain &amp; stabilise","hold to stabilised income",exStabilised>0?fmt(exStabilised):"—")+
+        '</table></div>'+
+        '<div class="card"><div class="sub-title">Refinancing potential — retain &amp; refinance</div><table class="ap">'+
+          apRow("Stabilised value","",exStabilised>0?fmt(exStabilised):"—")+
+          apRow("65% LTV refinance","equity released",exRefinance>0?fmt(exRefinance):"—")+
+          apRowSum("Annual income (NOI)","",exAnnualIncome>0?fmt(exAnnualIncome)+" pa":"—")+
+        '</table>'+
+        (exRefinance>0?'<div style="font-size:11px;color:#666C93;margin-top:8px">Refinancing at 65% LTV releases '+fmt(exRefinance)+' while retaining the asset; NOI services the debt.</div>':'')+
+        '</div>'+
+      '</div>'+
+      // 5 · yield benchmarks
+      '<div class="card" style="margin-top:13px"><div class="sub-title">Yield benchmarks — '+esc(cityDisp||cityName(exCityKey)||"local")+' market</div><table class="ap">'+
+        '<tr><td><b>Net initial yield (this deal)</b> <span class="mut">'+(exDealYSourced?"your input":"area benchmark")+'</span></td><td class="n">'+pct(exDealY*100)+'</td></tr>'+
+        apRow("BTR institutional (this deal)","",pct(exDealY*100))+
+        apRow("PBSA / student","",'5.5–6.5%')+
+        apRow("Pension / sovereign","",'4.0–5.0%')+
+        apRow("Social rent (RP)","",'3.5–4.5%')+
+        apRow("Market BTR rent","",'£'+fmtN(exMkt.btr)+'/month')+
+        apRow("PBSA rent","",'£'+fmtN(exMkt.pbsa)+'/week')+
+      '</table></div>'+
+      // 6 · logged HA/RP offers
+      '<div class="card" style="margin-top:13px"><div class="sub-title">Housing Association / RP offers — actual offers received</div>'+
+        (exRpOffers.length
+          ? '<table class="ap"><tr><td><b>Registered Provider</b></td><td class="n"><b>Units</b></td><td class="n"><b>Golden Brick</b></td><td class="n"><b>Turnkey</b></td><td class="n"><b>Best offer</b></td></tr>'+rpRows+'</table>'+
+            '<div style="font-size:11px;color:#666C93;margin-top:8px">Logged on the Exit Strategy stage — these are <b>actual offers received</b>, distinct from the modelled buyer-type valuations above. Golden Brick = land &amp; infrastructure ready; Turnkey = completed units handed over.</div>'
+          : '<div style="font-size:13px;color:#666C93">No RP offers logged yet. Record actual Golden Brick / Turnkey offers on the Exit Strategy stage and they appear here as real offers received, alongside the modelled valuations above.</div>')+
+      '</div></section>';
   }
   function sitePlanSVG(ac,pcode,town){
     return '<svg class="plan" viewBox="0 0 820 300" role="img" aria-label="Indicative site plan">'+
