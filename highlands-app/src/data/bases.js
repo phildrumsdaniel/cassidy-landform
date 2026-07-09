@@ -25,15 +25,15 @@ export const TRIP = {
 /** @type {Base[]} */
 export const bases = [
   {
-    id: 1, name: 'Keswick', region: 'Lake District',
+    id: 1, name: 'Troutbeck (Lake District)', region: 'Lake District',
     start: '2026-08-08', nights: 1, dateLabel: 'Sat 8 Aug',
     from: 'Burbage', miles: '~185', drive: '~4 h', via: 'Tebay Services',
-    lat: 54.5931, lng: -3.1132,
+    lat: 54.6161, lng: -2.9562,
     stays: [
-      { name: 'Castlerigg Hall', kind: 'Campsite', phone: '017687 74499', tel: '01768774499', postcode: 'CA12 4TE', nights: 1, cost: 42, lat: 54.5931, lng: -3.1132 }
+      { name: 'Troutbeck Head C&MC Club Site', kind: 'Campsite · booked ✓', phone: '017684 83521', tel: '01768483521', postcode: 'CA11 0SS', nights: 1, cost: 61, note: 'Booked via Pitchup (ref F15YDZ25). Electric hardstanding pitch · arrive 1–8 pm (reception unmanned after 6 pm — call if later). £60.60 inc. £15 non-member fee.', lat: 54.6161, lng: -2.9562 }
     ],
     explore: ['derwentwater', 'castlerigg'],
-    goodToKnow: 'Just a staging night — break the long haul north and start fresh.',
+    goodToKnow: 'Just a staging night — break the long haul north and start fresh. Final approach: don’t follow the satnav — leave the M6 at J40, A66 towards Keswick, then A5091 (Dockray); site is on the right in ~1.25 miles.',
     hero: 'derwentwater'
   },
   {

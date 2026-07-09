@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { usePersistentState } from '../lib/storage.js'
+import { parseBookingEmail } from '../lib/parseBooking.js'
 
 const tel = (s) => (s || '').replace(/[^0-9+]/g, '')
 const mapsSearch = (q) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`
@@ -30,10 +31,30 @@ function Stay({ s }) {
 export default function MyBooking({ base }) {
   const [booking, setBooking] = usePersistentState(`booking:${base.id}`, null)
   const [draft, setDraft] = useState(null) // null = closed
+  const [paste, setPaste] = useState('')
+  const [pasteMsg, setPasteMsg] = useState('')
 
-  const open = () => setDraft(booking || { name: '', phone: '', postcode: '', cost: '', note: '', url: '' })
+  const open = () => { setPaste(''); setPasteMsg(''); setDraft(booking || { name: '', phone: '', postcode: '', cost: '', note: '', url: '' }) }
   const close = () => setDraft(null)
   const set = (k, v) => setDraft((d) => ({ ...d, [k]: v }))
+
+  function autofill() {
+    const r = parseBookingEmail(paste)
+    if (!r.found) { setPasteMsg('Couldn’t read that — paste the whole confirmation, or just type the details below.'); return }
+    setDraft((d) => ({
+      ...d,
+      name: r.name || d.name,
+      phone: r.phone || d.phone,
+      postcode: r.postcode || d.postcode,
+      cost: r.cost || d.cost,
+      note: r.note || d.note
+    }))
+    setPasteMsg(
+      r.arrivalISO && r.arrivalISO !== base.start
+        ? `Filled in ✓ — note: this email’s arrival (${r.arrivalISO}) isn’t ${base.name}’s date. Right base?`
+        : 'Filled in below ✓ — check it and Save.'
+    )
+  }
 
   function save() {
     const name = (draft.name || '').trim()
@@ -88,6 +109,17 @@ export default function MyBooking({ base }) {
               <strong className="serif">Your booking · {base.name}</strong>
               <button className="btn ghost" onClick={close}>Cancel</button>
             </div>
+
+            <details className="paste-box">
+              <summary>📋 Paste a confirmation email to autofill</summary>
+              <div style={{ padding: '8px 0 2px' }}>
+                <textarea className="cap" rows={4} value={paste} onChange={(e) => setPaste(e.target.value)}
+                  placeholder="Paste the whole booking confirmation email here…" />
+                <button className="btn gold" style={{ marginTop: 8 }} onClick={autofill}>Autofill from email</button>
+                {pasteMsg && <p className="muted" style={{ fontSize: '0.78rem', marginTop: 8 }}>{pasteMsg}</p>}
+              </div>
+            </details>
+
             <div className="form">
               <label className="fld"><span>Site name *</span>
                 <input value={draft.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Dropback Farm" autoFocus /></label>
