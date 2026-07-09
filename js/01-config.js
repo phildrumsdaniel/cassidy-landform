@@ -20,8 +20,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.29";
+var CURRENT_VERSION = "10.30";
 var VERSION_HISTORY = [
+  {v:"10.30", date:"Jul 2026", headline:"Single source of truth for exit income: one shared dealNOI() drives the Exit page and Board Proposal (fixes BTR £0 NOI); negative-RLV Sell-Now fallback fixed; pension DCF now discounts at its own 4.5%; verified researched Rugby per-bed rents (2/3/4-bed) replace the generic auto-fill and are labelled 'verified'"},
   {v:"10.29", date:"Jul 2026", headline:"Long-income DCF hold model — CPI-indexed, collared rent over a 25-yr hold with term-and-reversion terminal value; shown alongside the static year-1 basis for the pension/SWF and Retain & Refinance rows on Exit and in the Board Proposal; assumptions editable on the Capitalisation stage"},
   {v:"10.28", date:"Jul 2026", headline:"Board Proposal: 'Exit scenarios' section — multi-buyer valuations, value range, hold-vs-sell, refinancing, yield benchmarks and logged HA/RP offers, live from the Exit engine"},
   {v:"10.27", date:"Jul 2026", headline:"Board Proposal: 'Rent & yield basis' research panel — live portal links, AI rent estimate, and apply to the yield",
@@ -1824,13 +1825,29 @@ function dealCityKey(data){
   if(pc && typeof postcodeMarketKey === "function"){ var a = postcodeMarketKey(pc); if(a) return a; }
   return (pcd && pcd.city) ? pcd.city : c;
 }
+// VERIFIED_RENTS (v10.30) — researched, per-bed MONTHLY rents that OVERRIDE the generic
+// area-derived figures for specific markets. Keyed by the deal's resolved area (dealCityKey).
+// Only the listed bed sizes are overridden; any bed size not listed falls back to the generic
+// area derivation (e.g. 1-bed for Rugby, where no verified figure exists). Surfaced as
+// "verified" on the Capitalisation stage so it's clear these are researched, not defaults.
+var VERIFIED_RENTS = {
+  rugby: { label:"verified — Rugby researched (Rightmove/Zoopla/ONS, 2026)", beds:{ 2:1000, 3:1175, 4:1550 } }
+};
+// verifiedRents — the verified rent record for the deal's area, or null if none.
+function verifiedRents(data){
+  var key = (typeof dealCityKey === "function") ? dealCityKey(data) : "";
+  return (key && VERIFIED_RENTS[key]) ? VERIFIED_RENTS[key] : null;
+}
 // areaRentPcm — correct monthly rent for a given bedroom count in the DEAL's area
-// (city or postcode). Anchored on the local typical (3-bed) rent; returns 0 if the
-// area has no rent benchmark so callers can fall back. Always editable downstream.
+// (city or postcode). Prefers a VERIFIED figure where one exists for this area + bed size;
+// otherwise anchored on the local typical (3-bed) rent. Returns 0 if the area has no rent
+// benchmark so callers can fall back. Always editable downstream.
 function areaRentPcm(data, beds){
+  var b = Math.max(0, Math.min(6, Math.round(num(beds) || 3)));
+  var vr = (typeof verifiedRents === "function") ? verifiedRents(data) : null;
+  if(vr && vr.beds && vr.beds[b] != null) return num(vr.beds[b]);
   var mk = MKT[dealCityKey(data)];
   if(!mk || !mk.btr) return 0;
-  var b = Math.max(0, Math.min(6, Math.round(num(beds) || 3)));
   return Math.round(mk.btr * (RENT_BED_FACTOR[b] != null ? RENT_BED_FACTOR[b] : 1));
 }
 // UK region for the deal's area — used to label regional build-cost benchmarks correctly
@@ -2098,6 +2115,37 @@ function dealDCFHoldValue(data, annualNOI, exitYieldFraction){
     ? exitYieldFraction
     : ((typeof dealYield === "function" ? dealYield(data)/100 : 0) || 0.047);
   return computeDCFHoldValue(annualNOI, p.growth, p.floor, p.cap, p.years, y);
+}
+
+// ── dealNOI (v10.30) — the ONE net operating income (£/yr) for the whole appraisal ───────
+// Single source of truth for the Exit Strategy page AND the Board Proposal, so the two can
+// never compute NOI independently again. Works for every tenure:
+//   • SFH: the SFH engine's capitalised net rent (capNetRentPa) when it produced one.
+//   • BTR / PBSA / SFH-without-a-mix: net rent built from the planning unit count using the
+//     SAME rent + gross-to-net conventions as the engine. This fixes the BTR £0 bug, where
+//     the SFH engine returns 0 because a BTR scheme has no priced house mix.
+function dealNOI(data){
+  data = data || {};
+  var SF = (typeof computeSFHMetrics === "function") ? computeSFHMetrics(data) : {};
+  if(num(SF.capNetRentPa) > 0) return num(SF.capNetRentPa);   // SFH engine value — single source for SFH
+  var cap = data.capitalise || {};
+  var at = ((data.assetType || "") + "").toLowerCase();
+  var mk = ((typeof MKT !== "undefined") && (MKT[(typeof dealCityKey === "function") ? dealCityKey(data) : ""] || MKT.manchester)) || {btr:900, pbsa:180};
+  var units = num(data.planning && data.planning.units) || num(data.rlv && data.rlv.units) || num(SF.totalUnits) || 0;
+  if(units <= 0) return 0;
+  // Gross rent per unit p.a.: explicit override → area rent → MKT fallback (PBSA weekly, else monthly).
+  var grossPerUnitPa = num(cap.marketRentPerUnitPa)
+    || ((typeof areaMarketRentPa === "function") ? num(areaMarketRentPa(data)) : 0)
+    || (at === "pbsa" ? num(mk.pbsa) * 52 : num(mk.btr) * 12);
+  if(!(grossPerUnitPa > 0)) return 0;
+  // Affordable units produce a lower rent (income effect), mirroring the engine's ahRentFactor.
+  var ahPctR = num((data.planning || {}).ahPct) || num((data.planning || {}).afhPct) || num((data.tenure || {}).ahPct) || num(cap.ahPct) || 0;
+  var ahRentFactor = numOr(cap.ahRentFactor, 0.65);
+  var privUnits = units * (1 - ahPctR / 100), ahUnits = units * (ahPctR / 100);
+  var grossPa = (privUnits + ahUnits * ahRentFactor) * grossPerUnitPa;
+  var capMgmtRate = numOr(cap.mgmtRate, 25);   // 25% gross-to-net, same as computeSFHMetrics
+  var net = grossPa * (1 - capMgmtRate / 100);
+  return net > 0 ? net : 0;
 }
 
 // Capitalisation yields by buyer type (lower = higher price)

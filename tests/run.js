@@ -1115,6 +1115,46 @@ console.log("Landform engine consistency tests\n");
   near("dealDCFHoldValue matches core at the deal yield", dealDCFHoldValue(deal, NOI).value, dd.value, 1);
 })();
 
+// 51 — Unified NOI (dealNOI) — single source of truth for Exit + Board Proposal (v10.30)
+(function(){
+  // (a) BTR bug fix: the SFH engine returns capNetRentPa=0 for a BTR scheme (no house mix);
+  //     dealNOI must still produce a positive NOI from the planning units.
+  var btr = { assetType:"btr", land:{city:"rugby"}, planning:{units:150, ahPct:25},
+    capitalise:{ marketRentPerUnitPa:14400, mgmtRate:25 } };
+  ok("SFH engine capNetRentPa is 0 for BTR (the old bug source)", num(computeSFHMetrics(btr).capNetRentPa) === 0);
+  ok("dealNOI(BTR) is positive (bug fixed)", dealNOI(btr) > 0);
+  // Expected: (112.5 priv + 37.5*0.65 ah) * 14400 * (1-0.25) = 136.875*14400*0.75
+  near("dealNOI(BTR) matches the engine rent+net convention", dealNOI(btr), 136.875*14400*0.75, 2);
+
+  // (b) For an SFH scheme dealNOI returns the SFH engine's own capNetRentPa (no divergence).
+  var sfh = { assetType:"sfh", land:{city:"rugby"}, planning:{units:120, ahPct:25},
+    sfh:{ basePsf:300, avgSqft:950, ahPct:25, mix:[{type:"3-bed",count:"120",sqft:"950",unitPrice:"285000",tenure:"private"}] },
+    capitalise:{ marketRentPerUnitPa:14400 } };
+  ok("dealNOI(SFH) equals computeSFHMetrics.capNetRentPa", num(computeSFHMetrics(sfh).capNetRentPa) > 0 && dealNOI(sfh) === num(computeSFHMetrics(sfh).capNetRentPa));
+
+  // (c) PBSA uses weekly rent × 52 when no per-unit override is present.
+  var pbsa = { assetType:"pbsa", land:{city:"manchester"}, planning:{units:200, ahPct:0 }, capitalise:{} };
+  ok("dealNOI(PBSA) positive from weekly MKT rent", dealNOI(pbsa) > 0);
+
+  // (d) No units anywhere ⇒ 0 (guard, never NaN).
+  ok("dealNOI with no units → 0", dealNOI({ assetType:"btr", planning:{}, capitalise:{} }) === 0);
+})();
+
+// 52 — Verified area rents override the generic auto-fill for that market only (v10.30)
+(function(){
+  var rugby = { land:{ city:"rugby" } };
+  var cov   = { land:{ city:"coventry" } };
+  ok("verifiedRents present for Rugby", !!verifiedRents(rugby));
+  ok("verifiedRents null for Coventry", verifiedRents(cov) === null);
+  ok("Rugby 2-bed uses verified £1000", areaRentPcm(rugby, 2) === 1000);
+  ok("Rugby 3-bed uses verified £1175", areaRentPcm(rugby, 3) === 1175);
+  ok("Rugby 4-bed uses verified £1550", areaRentPcm(rugby, 4) === 1550);
+  // 1-bed has no verified figure → still the generic area derivation (MKT.rugby.btr × factor).
+  ok("Rugby 1-bed stays generic (not verified)", areaRentPcm(rugby, 1) === Math.round(MKT.rugby.btr * RENT_BED_FACTOR[1]));
+  // A non-verified market is untouched by the verified table.
+  ok("Coventry 3-bed stays generic", areaRentPcm(cov, 3) === Math.round(MKT.coventry.btr * RENT_BED_FACTOR[3]));
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

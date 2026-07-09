@@ -111,7 +111,7 @@ function renderProposal(city, data, gdv, lc, up, user){
   var ready=gdvV>0 && units>0;
   // Exit / yield sensitivity inputs
   var devCostV=num(M.devCost);
-  var noi=num(SF.capNetRentPa);                                        // net annual rent (for yield-based exits)
+  var noi=(typeof dealNOI==="function")?dealNOI(data):num(SF.capNetRentPa); // shared engine NOI (single source of truth with the Exit page; BTR no longer £0)
   var baseYieldPct=(typeof dealYield==="function")?num(dealYield(data)):4.7;
   var landBasis=ask>0?ask:rlvV;                                        // land price the profit is measured against
 
@@ -176,8 +176,9 @@ function renderProposal(city, data, gdv, lc, up, user){
   var exRpOffers=(data.rpOffers||[]).filter(function(o){return num(o.gb)>0||num(o.tk)>0;});
   // Multi-year DCF hold (v10.29) — same core as the Exit page & Capitalisation stage.
   var exDcfP=(typeof capDCFParams==="function")?capDCFParams(data):{growth:2.75,floor:1,cap:4,years:25};
+  var EX_PENSION_YIELD=0.045;   // pension DCF discounts at its own 4.5% (apples-to-apples with its static row)
   var exPensionNOI=exNoi>0?exNoi:(exUnits*exMkt.btr*12*0.75);
-  var exPensionDCF=(typeof computeDCFHoldValue==="function")?computeDCFHoldValue(exPensionNOI,exDcfP.growth,exDcfP.floor,exDcfP.cap,exDcfP.years,exDealY):{value:0,effectiveGrowth:0};
+  var exPensionDCF=(typeof computeDCFHoldValue==="function")?computeDCFHoldValue(exPensionNOI,exDcfP.growth,exDcfP.floor,exDcfP.cap,exDcfP.years,EX_PENSION_YIELD):{value:0,effectiveGrowth:0};
   var exHoldDCF=(typeof computeDCFHoldValue==="function")?computeDCFHoldValue(exHoldNOI,exDcfP.growth,exDcfP.floor,exDcfP.cap,exDcfP.years,exDealY):{value:0,effectiveGrowth:0};
 
   // ── Rent & yield research inputs ────────────────────────────────────────────
@@ -535,7 +536,7 @@ function renderProposal(city, data, gdv, lc, up, user){
         (exRefinance>0?'<div style="font-size:11px;color:#666C93;margin-top:8px">Refinancing at 65% LTV releases '+fmt(exRefinance)+' while retaining the asset; NOI services the debt.</div>':'')+
         '</div>'+
       '</div>'+
-      (exHoldDCF.value>0?'<div class="callout" style="margin-top:13px"><b>Two valuation bases for a long hold.</b> The <b>static year-1 basis</b> capitalises today\'s net rent at '+pct(exDealY*100)+'. The <b>'+exDcfP.years+'-year DCF (indexed)</b> grows the rent at a CPI-linked, collared '+pct(exPensionDCF.effectiveGrowth*100)+' pa over a '+exDcfP.years+'-year hold, capitalises year '+(exDcfP.years+1)+'\'s rent at '+pct(exDealY*100)+' for a term-and-reversion terminal value, and discounts every cash flow back at '+pct(exDealY*100)+'. It is the growth-adjusted value a long-income buyer (pension / sovereign wealth) underwrites — shown alongside the conservative static figure, not instead of it.</div>':'')+
+      (exHoldDCF.value>0?'<div class="callout" style="margin-top:13px"><b>Two valuation bases for a long hold.</b> The <b>static year-1 basis</b> capitalises today\'s net rent at '+pct(exDealY*100)+'. The <b>'+exDcfP.years+'-year DCF (indexed)</b> grows the rent at a CPI-linked, collared '+pct(exHoldDCF.effectiveGrowth*100)+' pa over a '+exDcfP.years+'-year hold, capitalises year '+(exDcfP.years+1)+'\'s rent at '+pct(exDealY*100)+' for a term-and-reversion terminal value, and discounts every cash flow back at '+pct(exDealY*100)+' — the growth-adjusted value shown alongside the conservative static figure, not instead of it. The pension / sovereign row above applies the same method at that buyer\'s own tighter '+pct(EX_PENSION_YIELD*100)+' long-income yield.</div>':'')+
       // 5 · yield benchmarks
       '<div class="card" style="margin-top:13px"><div class="sub-title">Yield benchmarks — '+esc(cityDisp||cityName(exCityKey)||"local")+' market</div><table class="ap">'+
         '<tr><td><b>Net initial yield (this deal)</b> <span class="mut">'+(exDealYSourced?"your input":"area benchmark")+'</span></td><td class="n">'+pct(exDealY*100)+'</td></tr>'+

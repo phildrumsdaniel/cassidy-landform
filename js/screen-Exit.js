@@ -3,6 +3,9 @@
 // params; all other names resolve to globals. Loaded before 05-tool.js.
 function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi, setData, setHot, setHotL, setMemo, setMemoL, units, up, user){
     var ex=data.exit||{};
+    // v10.30 — one NOI for the whole appraisal: use the shared engine function so the Exit
+    // page and the Board Proposal can never diverge (and BTR no longer computes £0).
+    noi = (typeof dealNOI==="function") ? dealNOI(data) : noi;
     var gdvM=gdv/1e6;
     var matchedBuyers=BUYERS.filter(function(b){return gdvM>=b.min*0.7;});
     // hot, hotL, memo, memoL are declared at Tool component level
@@ -253,8 +256,11 @@ function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi,
     // ── Multi-year DCF hold (v10.29) — CPI-indexed rent, term-and-reversion, discounted at
     //    the SAME net initial yield (dealY). Additional basis alongside the static NOI÷yield. ──
     var dcfP=(typeof capDCFParams==="function")?capDCFParams(data):{growth:2.75,floor:1,cap:4,years:25};
+    var PENSION_YIELD=0.045;   // the pension buyer's own tight long-income yield (static row uses this too)
     var pensionNOI=noi>0?noi:(units2*cityMkt.btr*12*0.75);   // matches the pension buyer static NOI
-    var pensionDCF=(typeof computeDCFHoldValue==="function")?computeDCFHoldValue(pensionNOI,dcfP.growth,dcfP.floor,dcfP.cap,dcfP.years,dealY):{value:0,effectiveGrowth:0,terminalValue:0};
+    // Pension DCF discounts (and reverts) at the pension's OWN 4.5% — apples-to-apples with its
+    // static row. The hold/refinance DCF keeps the deal's general net initial yield (dealY).
+    var pensionDCF=(typeof computeDCFHoldValue==="function")?computeDCFHoldValue(pensionNOI,dcfP.growth,dcfP.floor,dcfP.cap,dcfP.years,PENSION_YIELD):{value:0,effectiveGrowth:0,terminalValue:0};
     var holdDCF=(typeof computeDCFHoldValue==="function")?computeDCFHoldValue(holdNOI,dcfP.growth,dcfP.floor,dcfP.cap,dcfP.years,dealY):{value:0,effectiveGrowth:0,terminalValue:0};
 
     return e("div",null,
@@ -354,7 +360,7 @@ function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi,
         e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:14}},"Hold vs Sell Analysis"),
         e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}},
           [
-            {l:"Sell Now (land)",v:fmt(rlvVal2||currentValue),c:"#4A4BAE",s:"Immediate exit, no build risk",icon:"→"},
+            {l:"Sell Now (land)",v:fmt(currentValue),c:"#4A4BAE",s:"Immediate exit, no build risk",icon:"→"},
             {l:"Build & Sell",v:fmt(gdv),c:"#2E2F8A",s:"GDV after build — less costs",icon:"🏗"},
             {l:"Retain & Stabilise",v:fmt(stabilisedValue),c:"#2D7A65",s:"Static year-1 · NOI ÷ yield",icon:"🏦",
               v2:holdDCF.value>0?fmt(holdDCF.value):null,v2l:dcfP.years+"-yr DCF (indexed)"},
@@ -373,7 +379,7 @@ function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi,
         (holdDCF.value>0)&&e("div",{style:{fontSize:11,color:"#3A3D6A",background:"rgba(74,75,174,0.05)",border:"1px solid rgba(74,75,174,0.15)",borderRadius:8,padding:"10px 14px",marginBottom:14,lineHeight:1.6}},
           e("strong",{style:{color:"#2E2F8A"}},"Two bases for Retain & Stabilise. "),
           "The ",e("strong",null,"static year-1 basis")," (",fmt(stabilisedValue),") capitalises today's net rent at ",pct(dealY*100),". The ",
-          e("strong",{style:{color:"#2D7A65"}},dcfP.years+"-year DCF (indexed)")," (",fmt(holdDCF.value),") grows the rent at a CPI-linked, collared ",pct(pensionDCF.effectiveGrowth*100),
+          e("strong",{style:{color:"#2D7A65"}},dcfP.years+"-year DCF (indexed)")," (",fmt(holdDCF.value),") grows the rent at a CPI-linked, collared ",pct(holdDCF.effectiveGrowth*100),
           " pa over a ",dcfP.years,"-year hold, adds a term-and-reversion terminal value (year ",(dcfP.years+1)," rent ÷ ",pct(dealY*100),"), and discounts it all back at ",pct(dealY*100),
           " — the growth-adjusted value a long-income buyer (pension / SWF) would underwrite. Both editable on the Capitalisation stage."
         ),

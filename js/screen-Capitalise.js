@@ -77,6 +77,10 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
         rentSourceLabel = "regional fallback";
       }
     })();
+    // v10.30 — if this area has researched, verified per-bed rents, say so explicitly
+    // (they drive the 2/3/4-bed auto-fill via areaRentPcm; 1-bed stays area-derived).
+    var _vRents = (typeof verifiedRents === "function") ? verifiedRents(data) : null;
+    if(_vRents && _vRents.label) rentSourceLabel = _vRents.label;
 
     // v9.51 — per-bed rents anchored on the AREA's typical (3-bed) rent via
     // areaRentPcm, so each bed size is realistic for the location (fixes the old
