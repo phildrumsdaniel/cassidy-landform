@@ -90,7 +90,14 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
     // headline GDV/RLV match calcDealMetrics and the RLV screen exactly.
     var sfhAhF = (typeof sfhAhFactor === "function") ? sfhAhFactor(data) : 1;
     var ahApplied = !hasNonPrivateRoutes && sfhAhF < 1;
-    var totalGdv = hasNonPrivateRoutes ? blendedGdv : (ahApplied ? retailGdv * sfhAhF : retailGdv);
+    // v10.15 — mirror the canonical engine's blended-GDV precedence exactly, so this page's
+    // "Blended Realisable GDV" matches calcDealMetrics everywhere else: per-row tenure >
+    // Tenure Mix split > overall ahPct > retail. Previously it stopped at the ahPct haircut,
+    // so it showed the old flat-discount figure (£510m) while every other page read £525m.
+    var _sfhTenFactor = (!hasNonPrivateRoutes && typeof tenureMixBlendFactor === "function") ? tenureMixBlendFactor(data, totalUnits) : 1;
+    var totalGdv = hasNonPrivateRoutes ? blendedGdv
+      : (_sfhTenFactor < 1 ? retailGdv * _sfhTenFactor
+      : (ahApplied ? retailGdv * sfhAhF : retailGdv));
     var totalBuild=houseCalcs.reduce(function(a,h){return a+h.build;},0);
     var sFeesPct=numOr(s.feesPct,12);  // v10.12 — read fees % (shared with Fin/RLV), was hard-coded 10%
     var fees=totalBuild*(sFeesPct/100); var contCost=totalBuild*(sCont/100);
@@ -467,7 +474,7 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
             ),
             e("div",null,
               e("div",{style:{fontSize:9,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,marginBottom:10}},"COSTS"),
-              [["Build ("+houseCalcs.reduce(function(a,h){return a+h.sqft*h.count;},0).toLocaleString()+" sqft @ £"+sBuild+"/sqft)",totalBuild],["Prof Fees (10%)",fees],["Contingency ("+sCont+"%)",contCost],["Finance ("+sFin+"%)",finCost],["S106/CIL allowance (£"+fmtN(s106Pu)+"/unit)",s106Total],["Roads & Sewers (S38/S104)",roadsTotal],["Site Infra & SuDS",infra],["Dev Profit ("+sProfit+"%)",devProfit]].map(function(row){
+              [["Build ("+houseCalcs.reduce(function(a,h){return a+h.sqft*h.count;},0).toLocaleString()+" sqft @ £"+sBuild+"/sqft)",totalBuild],["Prof Fees ("+sFeesPct+"%)",fees],["Contingency ("+sCont+"%)",contCost],["Finance ("+sFin+"%)",finCost],["S106/CIL allowance (£"+fmtN(s106Pu)+"/unit)",s106Total],["Roads & Sewers (S38/S104)",roadsTotal],["Site Infra & SuDS",infra],["Dev Profit ("+sProfit+"%)",devProfit]].map(function(row){
                 return e("div",{key:row[0],style:{display:"flex",justifyContent:"space-between",fontSize:12,color:"#7278A0",padding:"4px 0",borderBottom:"1px solid #F0F0F0"}},
                   e("span",null,row[0]),e("span",null,"("+fmt(row[1])+")")
                 );

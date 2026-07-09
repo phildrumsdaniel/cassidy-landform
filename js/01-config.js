@@ -15,8 +15,13 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.14";
+var CURRENT_VERSION = "10.15";
 var VERSION_HISTORY = [
+  {v:"10.15", date:"Jul 2026", headline:"Closed the last GDV outlier (SFH House Mix page) and two cosmetic label/AI-copy quirks",
+   affectsCalc:true,
+   changes:["SFH HOUSE MIX blended GDV reconciled — this was the last page still showing the old flat-discount figure (£510m) while every other surface read the reconciled engine figure (£525m). It used its own overall-ahPct haircut and stopped there; it now mirrors the engine's exact precedence (per-row tenure > Tenure Mix split > overall ahPct > retail), so its 'Blended Realisable GDV' matches calcDealMetrics everywhere. GDV is now consistent on every single page.",
+     "SFH cost-block fee label — the first cost breakdown still read 'Prof Fees (10%)' while calculating the correct 12%. The label is now computed from the actual fees %, matching the second block.",
+     "EXECUTIVE SUMMARY profit quote — the AI narrative cited the target-profit assumption (e.g. £91.9m / 17.5%, used only to back-solve the land bid) instead of the deal's actual return (e.g. £163.79m / 31.2%). The prompt now clearly labels the target as an assumption and leads with the actual profit/margin to quote. 341 tests."]},
   {v:"10.14", date:"Jul 2026", headline:"Removed every blocking browser dialog — all alerts and confirmations are now non-blocking in-page toasts",
    affectsCalc:false,
    changes:["NO MORE BLOCKING DIALOGS (freeze-proofing) — native alert()/confirm() dialogs block the whole page until dismissed, and freeze an automated/embedded browser (which read as a 60-90s crash). Every one across the app is gone: 59 alert() calls are now non-blocking toasts (top-right, click or auto-dismiss), and all 15 confirm() prompts are replaced — reversible actions (scenario re-sync/apply/clear, propagation auto-fix, non-standard import) now just proceed with a toast, while genuinely destructive ones (delete transcript(s), reset benchmarks, new deal, reset-to-raw, replace deal on build, restore pre-migration, sign out) show an in-page Confirm/Cancel toast that keeps the safety guard without blocking. 341 tests."]},
@@ -3102,9 +3107,13 @@ function buildHonestPrompt(data, taskInstruction, focusKey){
     s += "Build cost input: £" + Math.round(num(m.buildPsf)) + "/sqft" + nl;
     s += "GDV (Landform): " + fmt(m.gdv) + " [source: " + m.gdvSource + "]" + nl;
     s += "Development cost (Landform): " + fmt(m.devCost) + " (build " + fmt(m.buildCost) + ", fees " + fmt(m.fees) + ", contingency " + fmt(m.contingency) + ", S106 " + fmt(m.s106) + ", finance " + fmt(m.finance) + " @ " + pct(m.finRate) + (num(m.roads) ? ", roads " + fmt(m.roads) : "") + (num(m.infra) ? ", site infra " + fmt(m.infra) : "") + ")" + nl;
-    s += "Target developer profit: " + fmt(m.profit) + " (" + pct(m.profitPctTarget) + " of GDV)" + nl;
+    s += "Target profit ASSUMPTION (used only to back-solve the maximum land bid — NOT the deal's return): " + fmt(m.profit) + " at " + pct(m.profitPctTarget) + " of GDV" + nl;
     s += "RESIDUAL LAND VALUE (Landform, gross of purchase costs): " + fmt(m.rlv) + nl;
     if(num(m.totalAcqCosts)) s += "Net land bid (after SDLT/legal/agent/land finance " + fmt(m.totalAcqCosts) + "): " + fmt(m.netLandBid) + nl;
+    // v10.15 — lead with the ACTUAL profit/margin at the CURRENT land price. The AI was quoting
+    // the target-profit assumption (e.g. 17.5%) instead of the deal's real return (e.g. 31.2%).
+    if(num(m.sellProfit))
+      s += "ACTUAL PROFIT & MARGIN at the current land price — QUOTE THIS as the deal's return: " + fmt(m.sellProfit) + " (" + pct(m.sellMarginPct) + " of GDV)" + nl;
     s += "Implied margin on GDV: " + pct(m.marginPct) + " | ROC: " + pct(m.roc) + " | build:sale " + pct(m.buildSaleRatio) + " (" + m.buildSaleVerdict + ")" + nl;
     var _alloc = (typeof exitAllocationSummary === "function") ? exitAllocationSummary(data) : [];
     if(_alloc.length > 1){
