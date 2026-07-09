@@ -72,7 +72,27 @@ export async function exportTrip(stamp) {
   a.click()
   a.remove()
   setTimeout(() => URL.revokeObjectURL(url), 4000)
+  try { localStorage.setItem(NS + 'lastBackup', String(nowMs())) } catch { /* ignore */ }
   return { photos: media.length, notes: Object.keys(local).filter((k) => k.startsWith(NS + 'journal:')).length }
+}
+
+function nowMs() { return new Date().getTime() }
+
+// When did the user last export? (ms epoch, or null)
+export function getLastBackup() {
+  const v = localStorage.getItem(NS + 'lastBackup')
+  return v ? parseInt(v, 10) : null
+}
+
+// Is there anything worth backing up yet? (any journal note, or any media count passed in)
+export function hasJournalNotes() {
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i)
+    if (k && k.startsWith(NS + 'journal:')) {
+      try { if (JSON.parse(localStorage.getItem(k) || '""').trim()) return true } catch { /* */ }
+    }
+  }
+  return false
 }
 
 export async function importTrip(file) {
