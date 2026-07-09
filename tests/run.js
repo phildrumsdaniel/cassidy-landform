@@ -1062,6 +1062,59 @@ console.log("Landform engine consistency tests\n");
   ok("engine S106 (what the Planning prompt now quotes) is non-zero", num(calcDealMetrics(deal).s106) > 0);
 })();
 
+// 50 — Multi-year DCF hold model: computeDCFHoldValue / capDCFParams (v10.29)
+(function(){
+  var NOI = 1000000, yF = 0.05, statik = NOI / yF;   // static NOI ÷ yield
+
+  // (a) The keystone identity: 0% growth (uncollared) + discount == exit yield ⇒ DCF == static.
+  var d0 = computeDCFHoldValue(NOI, 0, 0, 0, 25, yF);
+  near("DCF 0% growth equals static NOI/yield", d0.value, statik, 1);
+  ok("DCF 0% growth → effective growth is 0", d0.effectiveGrowth === 0);
+
+  // (b) Any positive indexation lifts the value above the static year-1 basis.
+  var dd = computeDCFHoldValue(NOI, 2.75, 1, 4, 25, yF);
+  ok("DCF with 2.75% CPI exceeds static basis", dd.value > statik);
+  near("DCF 2.75% CPI uses collared growth 2.75%", dd.effectiveGrowth, 0.0275, 1e-9);
+
+  // (c) Floor collar binds upward: a 0% CPI with a 1% floor grows at 1%, not 0%.
+  var df = computeDCFHoldValue(NOI, 0, 1, 4, 25, yF);
+  near("DCF floor collar binds (0% CPI → 1% growth)", df.effectiveGrowth, 0.01, 1e-9);
+  ok("DCF floored value exceeds the 0%-growth value", df.value > d0.value);
+
+  // (d) Cap collar binds downward: a 6% CPI with a 4% cap grows at 4%, not 6%.
+  var dc = computeDCFHoldValue(NOI, 6, 1, 4, 25, yF);
+  near("DCF cap collar binds (6% CPI → 4% growth)", dc.effectiveGrowth, 0.04, 1e-9);
+
+  // (e) A 1% floor "1" must NOT be read as a 100% fraction (the normalisation trap we hit).
+  ok("1% floor is not mistaken for 100% growth", df.value < dd.value && dd.value < dc.value);
+
+  // (f) exitYield tolerates a percent (5) or a fraction (0.05) identically.
+  near("DCF yield percent == fraction", computeDCFHoldValue(NOI,2.75,1,4,25,5).value, dd.value, 1);
+
+  // (g) Terminal value = year-(n+1) rent capitalised at the exit yield; discounted back.
+  near("DCF reversion NOI is year-26 grown rent", dd.reversionNOI, NOI*Math.pow(1.0275,25), 1);
+  near("DCF terminal value = reversion NOI / yield", dd.terminalValue, dd.reversionNOI/yF, 1);
+  near("DCF value = PV(income) + PV(terminal)", dd.value, dd.pvIncome + dd.pvTerminal, 1);
+
+  // (h) Degenerate guards: zero NOI or zero yield ⇒ zero value, never NaN/Infinity.
+  ok("DCF zero NOI → 0", computeDCFHoldValue(0,2.75,1,4,25,yF).value === 0);
+  ok("DCF zero yield → 0 (no divide-by-zero)", computeDCFHoldValue(NOI,2.75,1,4,25,0).value === 0);
+
+  // (i) capDCFParams: blank inputs fall back to defaults; an explicit 0 is honoured.
+  var pDef = capDCFParams({});
+  ok("capDCFParams default CPI 2.75", pDef.growth === 2.75);
+  ok("capDCFParams default floor 1", pDef.floor === 1);
+  ok("capDCFParams default cap 4", pDef.cap === 4);
+  ok("capDCFParams default hold 25yr", pDef.years === 25);
+  var p0 = capDCFParams({ capitalise:{ cpiGrowth:0, holdYears:30 } });
+  ok("capDCFParams honours explicit 0% CPI", p0.growth === 0);
+  ok("capDCFParams honours custom 30yr hold", p0.years === 30);
+
+  // (j) dealDCFHoldValue wires the deal's exit yield through the same core.
+  var deal = { capitalise:{ targetYield:5 } };
+  near("dealDCFHoldValue matches core at the deal yield", dealDCFHoldValue(deal, NOI).value, dd.value, 1);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

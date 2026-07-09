@@ -174,6 +174,11 @@ function renderProposal(city, data, gdv, lc, up, user){
   var exAnnualIncome=exHoldNOI;
   // Logged HA/RP offers from the Exit tracker (actual offers received)
   var exRpOffers=(data.rpOffers||[]).filter(function(o){return num(o.gb)>0||num(o.tk)>0;});
+  // Multi-year DCF hold (v10.29) — same core as the Exit page & Capitalisation stage.
+  var exDcfP=(typeof capDCFParams==="function")?capDCFParams(data):{growth:2.75,floor:1,cap:4,years:25};
+  var exPensionNOI=exNoi>0?exNoi:(exUnits*exMkt.btr*12*0.75);
+  var exPensionDCF=(typeof computeDCFHoldValue==="function")?computeDCFHoldValue(exPensionNOI,exDcfP.growth,exDcfP.floor,exDcfP.cap,exDcfP.years,exDealY):{value:0,effectiveGrowth:0};
+  var exHoldDCF=(typeof computeDCFHoldValue==="function")?computeDCFHoldValue(exHoldNOI,exDcfP.growth,exDcfP.floor,exDcfP.cap,exDcfP.years,exDealY):{value:0,effectiveGrowth:0};
 
   // ── Rent & yield research inputs ────────────────────────────────────────────
   var sfhData=data.sfh||{}; var capD=data.capitalise||{};
@@ -475,7 +480,15 @@ function renderProposal(city, data, gdv, lc, up, user){
     var apetClass=function(a){return a>=70?"g":a>=40?"a":"r";};
     var buyerRows=exBuyers.map(function(b){
       var isBest=exBestBuyer&&b.label===exBestBuyer.label&&b.value>0;
-      var valCell=b.value>0?fmt(b.value):'<span style="color:#98A0C0;font-weight:700">N/A</span>';
+      var isPension=/Pension/.test(b.label);
+      var valCell;
+      if(b.value>0){
+        if(isPension&&exPensionDCF.value>0){
+          valCell='<b>'+fmt(b.value)+'</b><small style="display:block;font-weight:400;color:#98A0C0;font-size:10px">static year-1</small>'+
+            '<span style="display:block;font-weight:800;color:#2D7A65;margin-top:3px">'+fmt(exPensionDCF.value)+'</span>'+
+            '<small style="display:block;font-weight:400;color:#98A0C0;font-size:10px">'+exDcfP.years+'-yr DCF (indexed)</small>';
+        } else { valCell=fmt(b.value); }
+      } else { valCell='<span style="color:#98A0C0;font-weight:700">N/A</span>'; }
       return '<tr><td><b>'+esc(b.label)+'</b>'+(isBest?' <span class="pill g">Highest</span>':'')+
         '<span class="mut" style="display:block">'+esc(b.buyers)+'</span>'+
         '<span class="mut" style="display:block">'+esc(b.basis)+'</span></td>'+
@@ -511,7 +524,8 @@ function renderProposal(city, data, gdv, lc, up, user){
         '<div class="card"><div class="sub-title">Hold vs sell</div><table class="ap">'+
           apRow("Sell now — land only","immediate exit, no build risk",fmt(exSellNow))+
           apRow("Build &amp; sell — GDV","open-market realisation",exGdv>0?fmt(exGdv):"—")+
-          apRowSum("Retain &amp; stabilise","hold to stabilised income",exStabilised>0?fmt(exStabilised):"—")+
+          apRow("Retain &amp; stabilise — static","year-1 NOI &divide; yield",exStabilised>0?fmt(exStabilised):"—")+
+          apRowSum("Retain &amp; stabilise — "+exDcfP.years+"-yr DCF","CPI-indexed, term &amp; reversion",exHoldDCF.value>0?fmt(exHoldDCF.value):"—")+
         '</table></div>'+
         '<div class="card"><div class="sub-title">Refinancing potential — retain &amp; refinance</div><table class="ap">'+
           apRow("Stabilised value","",exStabilised>0?fmt(exStabilised):"—")+
@@ -521,6 +535,7 @@ function renderProposal(city, data, gdv, lc, up, user){
         (exRefinance>0?'<div style="font-size:11px;color:#666C93;margin-top:8px">Refinancing at 65% LTV releases '+fmt(exRefinance)+' while retaining the asset; NOI services the debt.</div>':'')+
         '</div>'+
       '</div>'+
+      (exHoldDCF.value>0?'<div class="callout" style="margin-top:13px"><b>Two valuation bases for a long hold.</b> The <b>static year-1 basis</b> capitalises today\'s net rent at '+pct(exDealY*100)+'. The <b>'+exDcfP.years+'-year DCF (indexed)</b> grows the rent at a CPI-linked, collared '+pct(exPensionDCF.effectiveGrowth*100)+' pa over a '+exDcfP.years+'-year hold, capitalises year '+(exDcfP.years+1)+'\'s rent at '+pct(exDealY*100)+' for a term-and-reversion terminal value, and discounts every cash flow back at '+pct(exDealY*100)+'. It is the growth-adjusted value a long-income buyer (pension / sovereign wealth) underwrites — shown alongside the conservative static figure, not instead of it.</div>':'')+
       // 5 · yield benchmarks
       '<div class="card" style="margin-top:13px"><div class="sub-title">Yield benchmarks — '+esc(cityDisp||cityName(exCityKey)||"local")+' market</div><table class="ap">'+
         '<tr><td><b>Net initial yield (this deal)</b> <span class="mut">'+(exDealYSourced?"your input":"area benchmark")+'</span></td><td class="n">'+pct(exDealY*100)+'</td></tr>'+

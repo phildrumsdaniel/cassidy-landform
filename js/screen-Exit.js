@@ -250,6 +250,13 @@ function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi,
     var refinanceValue=stabilisedValue*0.65; // 65% LTV refi
     var annualIncome=holdNOI;
 
+    // ── Multi-year DCF hold (v10.29) — CPI-indexed rent, term-and-reversion, discounted at
+    //    the SAME net initial yield (dealY). Additional basis alongside the static NOI÷yield. ──
+    var dcfP=(typeof capDCFParams==="function")?capDCFParams(data):{growth:2.75,floor:1,cap:4,years:25};
+    var pensionNOI=noi>0?noi:(units2*cityMkt.btr*12*0.75);   // matches the pension buyer static NOI
+    var pensionDCF=(typeof computeDCFHoldValue==="function")?computeDCFHoldValue(pensionNOI,dcfP.growth,dcfP.floor,dcfP.cap,dcfP.years,dealY):{value:0,effectiveGrowth:0,terminalValue:0};
+    var holdDCF=(typeof computeDCFHoldValue==="function")?computeDCFHoldValue(holdNOI,dcfP.growth,dcfP.floor,dcfP.cap,dcfP.years,dealY):{value:0,effectiveGrowth:0,terminalValue:0};
+
     return e("div",null,
       // ── HEADER
       e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:12}},
@@ -273,6 +280,14 @@ function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi,
           var isBest=bi===0;
           var barWidth=bestValue>0?Math.max(5,b.value/bestValue*100):50;
           var metrics2=b.metrics(b.value);
+          if(b.id==="pension_fund"&&pensionDCF.value>0){
+            metrics2=metrics2.concat([
+              {l:"Static year-1 basis",v:fmt(b.value)},
+              {l:dcfP.years+"-yr DCF (indexed)",v:fmt(pensionDCF.value)},
+              {l:"Effective growth (collared)",v:pct(pensionDCF.effectiveGrowth*100)+" pa"},
+              {l:"Terminal value (yr "+(dcfP.years+1)+")",v:fmt(pensionDCF.terminalValue)}
+            ]);
+          }
           return e("div",{key:b.id,style:{marginBottom:10,border:"1px solid "+(isBest?"#2D7A65":"#DDE0ED"),borderRadius:8,overflow:"hidden",opacity:b.appetite<25?0.5:1}},
             e("div",{style:{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",cursor:"pointer",background:isBest?"rgba(45,122,101,0.04)":"#fff"},onClick:function(){up("exit","open_buyer_"+b.id,!isOpen);}},
               e("span",{style:{fontSize:22,flexShrink:0}},b.icon),
@@ -289,6 +304,9 @@ function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi,
               ),
               e("div",{style:{textAlign:"right",flexShrink:0}},
                 e("div",{style:{fontSize:20,fontWeight:800,color:b.color}},b.value>0?fmt(b.value):"N/A"),
+                (b.id==="pension_fund"&&pensionDCF.value>0)&&e("div",{style:{fontSize:8,color:"#9A9AAE",marginTop:1,fontWeight:700,textTransform:"uppercase",letterSpacing:".04em"}},"Static year-1"),
+                (b.id==="pension_fund"&&pensionDCF.value>0)&&e("div",{style:{fontSize:14,fontWeight:800,color:"#2D7A65",marginTop:3}},fmt(pensionDCF.value)),
+                (b.id==="pension_fund"&&pensionDCF.value>0)&&e("div",{style:{fontSize:8,color:"#9A9AAE",fontWeight:700,textTransform:"uppercase",letterSpacing:".04em"}},dcfP.years+"-yr DCF (indexed)"),
                 e("div",{style:{fontSize:9,color:"#7278A0",marginTop:2}},b.appetite>=70?"Strong appetite":b.appetite>=40?"Moderate":"Limited")
               )
             ),
@@ -338,15 +356,26 @@ function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi,
           [
             {l:"Sell Now (land)",v:fmt(rlvVal2||currentValue),c:"#4A4BAE",s:"Immediate exit, no build risk",icon:"→"},
             {l:"Build & Sell",v:fmt(gdv),c:"#2E2F8A",s:"GDV after build — less costs",icon:"🏗"},
-            {l:"Retain & Stabilise",v:fmt(stabilisedValue),c:"#2D7A65",s:"Full value, maximum return",icon:"🏦"},
+            {l:"Retain & Stabilise",v:fmt(stabilisedValue),c:"#2D7A65",s:"Static year-1 · NOI ÷ yield",icon:"🏦",
+              v2:holdDCF.value>0?fmt(holdDCF.value):null,v2l:dcfP.years+"-yr DCF (indexed)"},
           ].map(function(item){
             return e("div",{key:item.l,style:{background:"#F7F8FC",borderRadius:8,padding:"14px 16px",borderTop:"3px solid "+item.c,textAlign:"center"}},
               e("div",{style:{fontSize:20,marginBottom:4}},item.icon),
               e("div",{style:{fontSize:10,color:"#7278A0",textTransform:"uppercase",letterSpacing:".08em",marginBottom:3}},item.l),
               e("div",{style:{fontSize:20,fontWeight:800,color:item.c}},item.v),
+              item.v2&&e("div",{style:{fontSize:14,fontWeight:800,color:"#4A4BAE",marginTop:4}},item.v2),
+              item.v2&&e("div",{style:{fontSize:8,color:"#9A9AAE",fontWeight:700,textTransform:"uppercase",letterSpacing:".04em"}},item.v2l),
               e("div",{style:{fontSize:10,color:"#7278A0",marginTop:4,lineHeight:1.5}},item.s)
             );
           })
+        ),
+
+        (holdDCF.value>0)&&e("div",{style:{fontSize:11,color:"#3A3D6A",background:"rgba(74,75,174,0.05)",border:"1px solid rgba(74,75,174,0.15)",borderRadius:8,padding:"10px 14px",marginBottom:14,lineHeight:1.6}},
+          e("strong",{style:{color:"#2E2F8A"}},"Two bases for Retain & Stabilise. "),
+          "The ",e("strong",null,"static year-1 basis")," (",fmt(stabilisedValue),") capitalises today's net rent at ",pct(dealY*100),". The ",
+          e("strong",{style:{color:"#2D7A65"}},dcfP.years+"-year DCF (indexed)")," (",fmt(holdDCF.value),") grows the rent at a CPI-linked, collared ",pct(pensionDCF.effectiveGrowth*100),
+          " pa over a ",dcfP.years,"-year hold, adds a term-and-reversion terminal value (year ",(dcfP.years+1)," rent ÷ ",pct(dealY*100),"), and discounts it all back at ",pct(dealY*100),
+          " — the growth-adjusted value a long-income buyer (pension / SWF) would underwrite. Both editable on the Capitalisation stage."
         ),
 
         // Refinancing section

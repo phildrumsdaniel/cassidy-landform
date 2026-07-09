@@ -20,8 +20,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.28";
+var CURRENT_VERSION = "10.29";
 var VERSION_HISTORY = [
+  {v:"10.29", date:"Jul 2026", headline:"Long-income DCF hold model — CPI-indexed, collared rent over a 25-yr hold with term-and-reversion terminal value; shown alongside the static year-1 basis for the pension/SWF and Retain & Refinance rows on Exit and in the Board Proposal; assumptions editable on the Capitalisation stage"},
   {v:"10.28", date:"Jul 2026", headline:"Board Proposal: 'Exit scenarios' section — multi-buyer valuations, value range, hold-vs-sell, refinancing, yield benchmarks and logged HA/RP offers, live from the Exit engine"},
   {v:"10.27", date:"Jul 2026", headline:"Board Proposal: 'Rent & yield basis' research panel — live portal links, AI rent estimate, and apply to the yield",
    affectsCalc:false,
@@ -2025,6 +2026,78 @@ function dealYield(data){
   var t = num((data.capitalise && data.capitalise.targetYield));
   if(t > 0) return t > 1 ? t : t * 100;   // stored as percent normally; tolerate fraction
   return areaYield(data);
+}
+
+// ── Multi-year DCF hold model (v10.29) ───────────────────────────────────────
+// A term-and-reversion DCF for a long income hold (pension/SWF, retain & refinance).
+// Rent grows each year at a CPI-linked rate, collared between a floor and a cap;
+// the explicit projection runs `years` years, then year (years+1) rent is capitalised
+// at the SAME exit yield for a terminal value; every cash flow plus the terminal value
+// is discounted back to present at the exit yield (discount rate = exit yield, per spec).
+//
+// This is an ADDITIONAL basis shown alongside the static year-1 NOI÷yield figure — it is
+// the single source of truth for the "25-yr DCF (indexed)" number on the Exit page and in
+// the Board Proposal. All rate inputs tolerate either a fraction (0.045) or a percent (4.5).
+var DCF_DEFAULTS = { cpi:2.75, floor:1.0, cap:4.0, years:25 };
+
+// Resolve the DCF assumptions from the Capitalisation stage, falling back to the defaults.
+// A blank/absent input uses the default; an explicit 0 is honoured (so 0% growth is valid).
+function capDCFParams(data){
+  var cap = (data && data.capitalise) || {};
+  var pick = function(v, d){ return (v === "" || v == null || !isFinite(Number(v))) ? d : Number(v); };
+  return {
+    growth: pick(cap.cpiGrowth, DCF_DEFAULTS.cpi),
+    floor:  pick(cap.cpiFloor,  DCF_DEFAULTS.floor),
+    cap:    pick(cap.cpiCap,    DCF_DEFAULTS.cap),
+    years:  Math.max(1, Math.round(pick(cap.holdYears, DCF_DEFAULTS.years)))
+  };
+}
+
+// computeDCFHoldValue — the reusable core. Both the Exit page and the Board Proposal call this.
+//   annualNOI   year-1 stabilised net operating income (£/yr)
+//   growthRate  CPI assumption, as a PERCENT (e.g. 2.75) — matches the Capitalisation inputs
+//   floor, cap  the collar applied to the growth assumption, as PERCENTS (e.g. 1 and 4)
+//   years       explicit hold period (e.g. 25)
+//   exitYield   the deal exit/target yield — used as BOTH discount rate and terminal cap rate;
+//               tolerant of a fraction (0.047) or a percent (4.7)
+// Returns {value, effectiveGrowth, pvIncome, terminalValue, pvTerminal, reversionNOI, years, exitYield}.
+// Note: growth/floor/cap are PERCENTS (÷100 unconditionally) so a 1% floor ("1") is never mistaken
+// for a 100% fraction; exitYield is auto-detected because yields are never anywhere near 1.0.
+function computeDCFHoldValue(annualNOI, growthRate, floor, cap, years, exitYield){
+  var pctToFrac = function(r){ r = Number(r); return isFinite(r) ? r/100 : 0; };
+  var yieldFrac = function(r){ r = Number(r); if(!isFinite(r)) return 0; return r > 1 ? r/100 : r; };
+  annualNOI = Number(annualNOI); if(!isFinite(annualNOI)) annualNOI = 0;
+  years = Math.round(Number(years)); if(!isFinite(years) || years < 1) years = 1;
+  var g = pctToFrac(growthRate), fl = pctToFrac(floor), cp = pctToFrac(cap), y = yieldFrac(exitYield);
+  // Collar the growth assumption: floor binds up, cap binds down.
+  if(isFinite(fl) && g < fl) g = fl;
+  if(isFinite(cp) && cp > 0 && g > cp) g = cp;
+  var empty = { value:0, effectiveGrowth:g, pvIncome:0, terminalValue:0, pvTerminal:0, reversionNOI:0, years:years, exitYield:y };
+  if(!(y > 0) || !(annualNOI > 0)) return empty;
+  var d = y;                                   // discount rate = exit yield (per spec)
+  var pvIncome = 0;
+  for(var t = 1; t <= years; t++){
+    var noiT = annualNOI * Math.pow(1 + g, t - 1);   // year 1 = base NOI, grows thereafter
+    pvIncome += noiT / Math.pow(1 + d, t);
+  }
+  var reversionNOI = annualNOI * Math.pow(1 + g, years);   // year (years+1) rent, e.g. year 26
+  var terminalValue = reversionNOI / y;                    // capitalise at the exit yield
+  var pvTerminal = terminalValue / Math.pow(1 + d, years);
+  return {
+    value: pvIncome + pvTerminal, effectiveGrowth: g, pvIncome: pvIncome,
+    terminalValue: terminalValue, pvTerminal: pvTerminal, reversionNOI: reversionNOI,
+    years: years, exitYield: y
+  };
+}
+
+// dealDCFHoldValue — convenience wrapper: resolve the DCF params + exit yield from the deal,
+// then run computeDCFHoldValue for a given year-1 NOI. exitYield defaults to dealYield().
+function dealDCFHoldValue(data, annualNOI, exitYieldFraction){
+  var p = capDCFParams(data);
+  var y = (typeof exitYieldFraction === "number" && exitYieldFraction > 0)
+    ? exitYieldFraction
+    : ((typeof dealYield === "function" ? dealYield(data)/100 : 0) || 0.047);
+  return computeDCFHoldValue(annualNOI, p.growth, p.floor, p.cap, p.years, y);
 }
 
 // Capitalisation yields by buyer type (lower = higher price)
