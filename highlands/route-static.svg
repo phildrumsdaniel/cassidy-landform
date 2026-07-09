@@ -14,43 +14,43 @@
   <text x="360" y="58" text-anchor="middle" font-family="Georgia, serif" font-size="30" fill="#f4efe4">Highlands Adventure</text>
   <text x="360" y="84" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" letter-spacing="3" fill="#e6c987">8–23 AUGUST 2026 · 16 DAYS · CLOCKWISE LOOP</text>
 
-  <path d="M516.0,930.0 L229.5,592.0 L285.3,457.0 L204.0,257.1 L274.6,224.2 L324.2,80.0 L488.7,70.0 L409.2,228.1 L435.7,378.1" fill="none" stroke="#c8912f" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="2 9" opacity="0.85"/>
+  <path d="M526.2,930.0 L219.5,595.0 L275.6,459.2 L193.8,258.1 L264.9,225.1 L314.7,80.1 L480.1,70.0 L400.2,229.0 L426.8,379.9" fill="none" stroke="#c8912f" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="2 9" opacity="0.85"/>
   
     <g>
-      <circle cx="516.0" cy="930.0" r="13" fill="#14343f" stroke="#e6c987" stroke-width="2"/>
-      <text x="516.0" y="934.0" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="#fff" font-weight="bold">1</text>
+      <circle cx="526.2" cy="930.0" r="13" fill="#14343f" stroke="#e6c987" stroke-width="2"/>
+      <text x="526.2" y="934.0" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="#fff" font-weight="bold">1</text>
     </g>
     <g>
-      <circle cx="229.5" cy="592.0" r="13" fill="#14343f" stroke="#e6c987" stroke-width="2"/>
-      <text x="229.5" y="596.0" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="#fff" font-weight="bold">2</text>
+      <circle cx="219.5" cy="595.0" r="13" fill="#14343f" stroke="#e6c987" stroke-width="2"/>
+      <text x="219.5" y="599.0" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="#fff" font-weight="bold">2</text>
     </g>
     <g>
-      <circle cx="285.3" cy="457.0" r="13" fill="#14343f" stroke="#e6c987" stroke-width="2"/>
-      <text x="285.3" y="461.0" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="#fff" font-weight="bold">3</text>
+      <circle cx="275.6" cy="459.2" r="13" fill="#14343f" stroke="#e6c987" stroke-width="2"/>
+      <text x="275.6" y="463.2" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="#fff" font-weight="bold">3</text>
     </g>
     <g>
-      <circle cx="204.0" cy="257.1" r="13" fill="#14343f" stroke="#e6c987" stroke-width="2"/>
-      <text x="204.0" y="261.1" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="#fff" font-weight="bold">4</text>
+      <circle cx="193.8" cy="258.1" r="13" fill="#14343f" stroke="#e6c987" stroke-width="2"/>
+      <text x="193.8" y="262.1" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="#fff" font-weight="bold">4</text>
     </g>
     <g>
-      <circle cx="274.6" cy="224.2" r="13" fill="#14343f" stroke="#e6c987" stroke-width="2"/>
-      <text x="274.6" y="228.2" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="#fff" font-weight="bold">5</text>
+      <circle cx="264.9" cy="225.1" r="13" fill="#14343f" stroke="#e6c987" stroke-width="2"/>
+      <text x="264.9" y="229.1" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="#fff" font-weight="bold">5</text>
     </g>
     <g>
-      <circle cx="324.2" cy="80.0" r="13" fill="#14343f" stroke="#e6c987" stroke-width="2"/>
-      <text x="324.2" y="84.0" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="#fff" font-weight="bold">6</text>
+      <circle cx="314.7" cy="80.1" r="13" fill="#14343f" stroke="#e6c987" stroke-width="2"/>
+      <text x="314.7" y="84.1" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="#fff" font-weight="bold">6</text>
     </g>
     <g>
-      <circle cx="488.7" cy="70.0" r="13" fill="#14343f" stroke="#e6c987" stroke-width="2"/>
-      <text x="488.7" y="74.0" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="#fff" font-weight="bold">7</text>
+      <circle cx="480.1" cy="70.0" r="13" fill="#14343f" stroke="#e6c987" stroke-width="2"/>
+      <text x="480.1" y="74.0" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="#fff" font-weight="bold">7</text>
     </g>
     <g>
-      <circle cx="409.2" cy="228.1" r="13" fill="#14343f" stroke="#e6c987" stroke-width="2"/>
-      <text x="409.2" y="232.1" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="#fff" font-weight="bold">8</text>
+      <circle cx="400.2" cy="229.0" r="13" fill="#14343f" stroke="#e6c987" stroke-width="2"/>
+      <text x="400.2" y="233.0" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="#fff" font-weight="bold">8</text>
     </g>
     <g>
-      <circle cx="435.7" cy="378.1" r="13" fill="#14343f" stroke="#e6c987" stroke-width="2"/>
-      <text x="435.7" y="382.1" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="#fff" font-weight="bold">9</text>
+      <circle cx="426.8" cy="379.9" r="13" fill="#14343f" stroke="#e6c987" stroke-width="2"/>
+      <text x="426.8" y="383.9" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="#fff" font-weight="bold">9</text>
     </g>
 
   <g transform="translate(628, 908)">
