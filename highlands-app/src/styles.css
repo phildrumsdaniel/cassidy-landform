@@ -574,6 +574,8 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; line-height: 1.12; mar
 .share-media { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .share-media .media-thumb.picked { outline: 3px solid var(--whisky); }
 
+.sync-badge { margin-top: 10px; text-align: center; font-size: 0.74rem; color: var(--mist); letter-spacing: 0.04em; }
+
 /* ---------- your booking ---------- */
 .stay.booked { border: 1.5px solid var(--whisky); background: linear-gradient(0deg, rgba(200,145,47,0.08), rgba(200,145,47,0.08)), var(--surface); }
 .stay.booked .stay-kind { color: var(--whisky); }

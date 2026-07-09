@@ -2,7 +2,11 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { HashRouter } from 'react-router-dom'
 import App from './App.jsx'
+import { startSync } from './lib/sync.js'
 import './styles.css'
+
+// Cloud sync between phones (dormant until configured in lib/syncConfig.js).
+startSync()
 
 // When the service worker updates (autoUpdate → skipWaiting), the new worker
 // takes control and fires `controllerchange` — reload once so the newest
