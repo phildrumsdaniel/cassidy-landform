@@ -295,7 +295,14 @@ function renderProposal(city, data, gdv, lc, up, user){
             apRowSum("Supportable residual land value","on consent",rlvV>0?fmt(rlvV):"—")+
             (ask>0?apRow("Guide price","current",fmt(ask)):"")+
             (headroom>0?apRowSum("Indicative headroom to residual value","",'<span style="color:#2D7A65">'+fmt(headroom)+'</span>'):"")+
-          '</table></div></section>'+
+          '</table></div>'+
+          '<div class="card" style="margin-top:13px"><div class="sub-title">How these figures were derived</div><ul class="pts">'+
+            '<li><b>Scheme size —</b> ~'+esc(acres||"—")+' acres at ~'+(density||"—")+' homes/acre ≈ <b>'+(units?units.toLocaleString():"—")+' homes</b> (density set on the Keystone stage; trimmed for net developable area, constraints and open space).</li>'+
+            '<li><b>Gross Development Value —</b> the '+(units?units.toLocaleString():"")+' homes valued at their sale prices'+(ahPct?', blended across the '+(100-ahPct)+'% open-market / '+ahPct+'% affordable split — affordable valued at its realisable transfer value, not full open market':'')+' = <b>'+fmt(gdvV)+'</b>'+((units&&gdvV)?' (≈'+fmt(gdvV/units)+' per home blended)':'')+'.</li>'+
+            '<li><b>Development cost —</b> build &amp; infrastructure '+(buildTot>0?fmt(buildTot):'per the cost plan')+', Section 106 '+(s106V>0?fmt(s106V):'to confirm')+', plus professional fees, contingency and development finance.</li>'+
+            '<li><b>Residual land value —</b> GDV less all development costs less the target developer profit = <b>'+(rlvV>0?fmt(rlvV):'—')+'</b> — the maximum land price the scheme can support at target return, on consent.</li>'+
+            '<li><b>Developer margin —</b> '+(isFinite(marginV)&&marginV?pct(marginV):'—')+' of GDV at the modelled land value.</li>'+
+          '</ul></div></section>'+
         // 05 planning
         '<section><div class="sh"><span class="i">05</span><h2>Planning position</h2></div><div class="g2">'+
           '<div class="card">'+
@@ -318,22 +325,17 @@ function renderProposal(city, data, gdv, lc, up, user){
         // 07 sources & provenance
         '<section><div class="sh"><span class="i">07</span><h2>Sources &amp; data provenance</h2></div>'+
           '<p class="lead">Where this opportunity and its figures originated. Modelled figures are indicative and require independent verification before commitment.</p>'+
-          '<div class="g2 src">'+
-            '<div class="card"><div class="sub-title">Origination</div>'+
-              rowHTML("Sourced via",esc(importedVia))+
-              (sourcedName?rowHTML("Listing / site",esc(sourcedName)):"")+
-              (placonaScore?rowHTML("Placona score",esc(placonaScore)+" / 100"):"")+
-              rowHTML("Agent / vendor",srcAgent?esc(srcAgent):"To confirm")+
-              (srcUrl?rowHTML("Source listing",'<a href="'+esc(srcUrl)+'" target="_blank" rel="noopener">view listing ↗</a>'):"")+
-              (importedOn?rowHTML("Imported",esc(importedOn)):"")+
-            '</div>'+
-            '<div class="card"><div class="sub-title">As imported — before modelling</div>'+
-              rowHTML("Site area",impAcres?(esc(impAcres)+(/acre/i.test(impAcres)?"":" acres")):"—")+
-              rowHTML("Guide price",impPrice>0?fmt(impPrice):"—")+
-              rowHTML("Estimated units",impUnits?esc(impUnits):"—")+
-              rowHTML("Local authority",impLpa?esc(impLpa):"—")+
-              rowHTML("Planning status",impStatus?esc(impStatus):"—")+
-            '</div></div>'+
+          '<div class="card src"><div class="sub-title">Where the site &amp; guide price came from</div>'+
+            rowHTML("Sourced via",esc(importedVia))+
+            (sourcedName?rowHTML("Listing / site",esc(sourcedName)):"")+
+            (placonaScore?rowHTML("Placona opportunity score",esc(placonaScore)+" / 100"):"")+
+            rowHTML("Agent / vendor",srcAgent?esc(srcAgent):"To confirm")+
+            rowHTML("Guide price (as listed)",ask>0?fmt(ask):(impPrice>0?fmt(impPrice):"To confirm"))+
+            rowHTML("Site area (as listed)",impAcres?(esc(impAcres)+(/acre/i.test(impAcres)?"":" acres")):(acres>0?acres+" acres":"—"))+
+            (impLpa?rowHTML("Local authority (as listed)",esc(impLpa)):"")+
+            rowHTML("Source listing",srcUrl?'<a href="'+esc(srcUrl)+'" target="_blank" rel="noopener">view original listing ↗</a>':"Not captured — add the listing URL on the Land stage")+
+            (importedOn?rowHTML("Imported to Landform",esc(importedOn)):"")+
+          '</div>'+
           '<div class="card" style="margin-top:13px"><div class="sub-title">Modelling assumptions applied by Landform</div>'+
             (assumptions.length?('<ul class="pts">'+assumptions.map(function(a){return '<li>'+esc(a)+'</li>';}).join("")+'</ul>'):'<div style="font-size:13px;color:#666C93">No specific assumptions recorded — figures entered directly.</div>')+
           '</div>'+

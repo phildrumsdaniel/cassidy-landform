@@ -20,8 +20,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.24";
+var CURRENT_VERSION = "10.25";
 var VERSION_HISTORY = [
+  {v:"10.25", date:"Jul 2026", headline:"Board Proposal: added a 'how the figures were derived' rationale and dropped the irrelevant raw Placona estimate",
+   affectsCalc:false,
+   changes:["BOARD PROPOSAL — the appraisal now includes a plain-English 'How these figures were derived' rationale: scheme size (acres × density → homes), GDV (homes valued and blended for the tenure split), development cost, residual land value (GDV less costs less target profit) and the developer margin — so the board sees how each number was reached. The provenance section no longer shows the raw Placona pre-model unit estimate (e.g. '200 homes') that conflicted with the final figure; instead it focuses on WHERE the site and guide price came from — the listing/agent, the as-listed price and area, the Placona score and a link to the original listing. 345 tests."]},
   {v:"10.24", date:"Jul 2026", headline:"Reverted the placeholder recreated logo back to the real Cassidy Group brand artwork",
    affectsCalc:false,
    changes:["LOGO — the hand-drawn SVG logo recreation from v10.23 didn't do the brand justice, so the login, sidebar and Board Proposal are back to the real Cassidy Group artwork. The logo now resolves from a single source (cassidyLogoSrc) so the official 'Cassidy Group Ltd' file can be dropped in one place when supplied. The Board Proposal Sources & Provenance section from v10.23 is unchanged."]},
