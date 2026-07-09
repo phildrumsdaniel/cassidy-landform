@@ -15,8 +15,12 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.16";
+var CURRENT_VERSION = "10.17";
 var VERSION_HISTORY = [
+  {v:"10.17", date:"Jul 2026", headline:"Due Diligence: the AI Gap Analysis now receives its full task, and the % complete can't over-count",
+   affectsCalc:false,
+   changes:["DD GAP ANALYSIS PROMPT — an operator-precedence slip meant the AI never actually received the task. 'Missing: …list… || \"None\" + \". Provide: 1)…2)…3)…4)\"' parsed as '(the whole sentence) OR (the instructions)', and because the sentence is always truthy the entire 'Provide: critical items / deferrable items / missing items / timeline' block was dropped from every run — the AI was left to guess what to do. It now gets the complete, structured task, so the gap analysis is materially more useful.",
+     "DD % COMPLETE — the headline counted every ticked key ever stored (including any stale/renamed items), while the per-category counts only counted current items. It now counts only items in the live checklist, so the percentage always agrees with the category tallies and can't exceed 100%. 343 tests."]},
   {v:"10.16", date:"Jul 2026", headline:"Detailed Appraisal Auto-Populate now brings in the land cost (was silently £0, overstating profit)",
    affectsCalc:true,
    changes:["DETAILED APPRAISAL AUTO-POPULATE LAND COST (high impact) — 'Auto-Populate from Deal Data' promised to pull the land cost but left the 'Residual Land Price' field blank whenever the internal land-cost variable and the asking price were both empty. That single gap cascaded: Land % GDV showed 0%, Peak Debt and True Finance showed £0, and profit/margin were overstated by the whole missing land value (~£77m / ~15 margin points on the test case). It now pulls the residual land value straight from the one engine (the same RLV shown on Capitalisation, Tenure Mix, Exit, Dashboard and the Executive Summary), so the appraisal funds the land like every other stage. 343 tests."]},

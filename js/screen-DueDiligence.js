@@ -10,7 +10,11 @@ function renderDD(data, setData, user, up){
     };
     var checked=data.ddChecked||{};
     var total2=Object.values(DD).reduce(function(a,b){return a+b.length;},0);
-    var done=Object.keys(checked).filter(function(k){return checked[k];}).length;
+    // v10.17 — count only items that are actually in the current checklist (matches the
+    // per-category counts). Counting every truthy key in ddChecked let stale/renamed keys
+    // inflate the total, occasionally pushing "done" past 100%.
+    var allDDItems=Object.values(DD).reduce(function(a,b){return a.concat(b);},[]);
+    var done=allDDItems.filter(function(i){return checked[i];}).length;
     var catC={Legal:"#8B9DC3",Technical:"#7FB3A0",Planning:"#9A7B3E",Commercial:"#B05A35"};
 
     function toggle(item){
@@ -51,6 +55,10 @@ function renderDD(data, setData, user, up){
         );
       }),
       e(AIPanel,{user:user,up:up,stage:"dd",data:data,persistKey:"dd_dd_gap_analysis",label:"DD Gap Analysis",
-        prompt:buildHonestPrompt(data,"Due diligence gap analysis. "+done+"/"+total2+" complete. Missing: "+Object.keys(DD).flatMap(function(cat){return DD[cat].filter(function(i){return !checked[i];}).map(function(i){return cat+": "+i;});}).join(", ")||"None"+". Provide: 1) Critical pre-exchange items that are not yet confirmed, 2) Items that can be deferred with contractual protections, 3) Any missing items that should be on this list for this scheme, 4) Realistic timeline to clear all DD.")})
+        // v10.17 — parenthesise the missing-items list so the "Provide 1)…4)" task actually
+        // reaches the AI. Previously `join(", ")||"None"+". Provide:…"` parsed as
+        // `(bigString) || (…)`, and since the left side is always truthy the whole task block
+        // was silently dropped from every DD gap analysis.
+        prompt:buildHonestPrompt(data,"Due diligence gap analysis. "+done+"/"+total2+" complete. Missing: "+(Object.keys(DD).flatMap(function(cat){return DD[cat].filter(function(i){return !checked[i];}).map(function(i){return cat+": "+i;});}).join(", ")||"None")+". Provide: 1) Critical pre-exchange items that are not yet confirmed, 2) Items that can be deferred with contractual protections, 3) Any missing items that should be on this list for this scheme, 4) Realistic timeline to clear all DD.")})
     );
   }
