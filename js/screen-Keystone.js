@@ -175,10 +175,17 @@ function renderKeystone(data, setData, up, navTo, user){
     e("div",{style:{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}},
       e("input",{type:"range",min:4,max:40,step:1,value:briefDensity,
         onChange:function(ev){ setDensity(num(ev.target.value)); },
-        style:{flex:"1 1 240px",accentColor:"#4A4BAE",cursor:"pointer"}}),
+        style:{flex:"1 1 220px",accentColor:"#4A4BAE",cursor:"pointer"}}),
+      // v10.19 — type-in box so an exact density can be set (not just dragged), plus clear units.
+      e("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",gap:3}},
+        e("input",{type:"number",min:4,max:40,step:1,value:briefDensity,
+          onChange:function(ev){ setDensity(num(ev.target.value)); },
+          style:{width:70,padding:"7px 8px",border:"1px solid #C8CDE0",borderRadius:6,fontSize:16,fontWeight:800,textAlign:"center",color:"#2E2F8A",fontFamily:"DM Sans,sans-serif",background:"#fff"}}),
+        e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".06em",fontWeight:700}},"homes / acre")
+      ),
       e("div",{style:{textAlign:"center",minWidth:150}},
         e("div",{style:{fontSize:26,fontWeight:800,color:"#2E2F8A",lineHeight:1}}, densityUnits.toLocaleString()+" homes"),
-        e("div",{style:{fontSize:11,color:"#7278A0",marginTop:2}}, briefDensity+" /acre  ·  ~"+Math.round(briefDensity*2.471)+" dph")
+        e("div",{style:{fontSize:11,color:"#7278A0",marginTop:2}}, e("b",null,briefDensity+" homes/acre"),"  ·  ≈"+Math.round(briefDensity*2.471)+" per hectare (dph)")
       )
     ),
     e("div",{style:{display:"flex",gap:6,flexWrap:"wrap",marginTop:12}},

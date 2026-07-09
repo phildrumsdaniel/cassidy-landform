@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.18";
+var CURRENT_VERSION = "10.19";
 var VERSION_HISTORY = [
+  {v:"10.19", date:"Jul 2026", headline:"Scheme density control: clearer units and a type-in box (the '30' was dwellings-per-hectare, default stays 12/acre)",
+   affectsCalc:false,
+   changes:["SCHEME DENSITY CLARITY — the Keystone density control drives the whole scheme size (units → mix → GDV → RLV). The default is 12 homes/acre, which was shown as '~30 dph' — the per-hectare conversion (12 × 2.471 ≈ 30), which read as if the density were 'set to 30'. The readout now spells it out — 'N homes/acre · ≈M per hectare (dph)' — and there's a type-in box beside the slider and presets so an exact density can be set, not just dragged. Default unchanged at 12/acre; fully adjustable per deal (4–40/acre)."]},
   {v:"10.18", date:"Jul 2026", headline:"Planning Strategy AI now quotes the real S106; Detailed Appraisal 'True vs Sheet' finance explained",
    affectsCalc:false,
    changes:["PLANNING STRATEGY AI SAID 'S106 £0' — the Planning & Viability 'Planning Strategy' narrative claimed the S106 input was £0 even though every screen showed £24.87m. The prompt read the planning-stage S106 TOTAL input field (blank when only the per-unit figure or auto-fill is used) instead of the propagated engine figure. It now quotes the one engine's S106, matching the display — same stale-field class fixed across the other stages.",
