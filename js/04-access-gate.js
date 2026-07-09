@@ -146,8 +146,8 @@ function AccessGate(props){
   return e("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",fontFamily:"DM Sans,sans-serif",padding:20}},
     e("div",{style:{background:"#fff",borderRadius:16,padding:"40px 36px",maxWidth:440,width:"100%",boxShadow:"0 8px 40px rgba(0,0,0,0.25)"}},
       e("div",{style:{textAlign:"center",marginBottom:24}},
-        // v10.23 — Cassidy Group Ltd brand lockup (scalable SVG), on a rounded navy badge.
-        e("img",{src:CASSIDY_LOGO_SVG,alt:"Cassidy Group Ltd",style:{width:220,maxWidth:"100%",height:"auto",marginBottom:14,borderRadius:12}}),
+        // The real Cassidy Group brand artwork (single source via cassidyLogoSrc).
+        e("img",{src:cassidyLogoSrc(),alt:"Cassidy Group Ltd",style:{width:220,maxWidth:"100%",height:"auto",marginBottom:14}}),
         e("h1",{style:{color:"#2E2F8A",fontWeight:800,fontSize:18,marginBottom:6}},"Land & Development Intelligence"),
         // v9.85 — brand slogan
         e("p",{style:{color:"#B8912E",fontSize:11,fontWeight:700,letterSpacing:0.4,textTransform:"uppercase",marginBottom:8}},"Built by property developers, for property developers"),

@@ -1,26 +1,10 @@
 var useState = React.useState;
 var useEffect = React.useEffect;
 
-// ── Cassidy Group Ltd brand lockup (scalable SVG, navy ground) ─────────────────
-// Interlocking navy/cream 3D "C" monogram + CASSIDY / GROUP LTD wordmark. Used as
-// the app logo (login, sidebar, Board Proposal) via a data-URI so it scales crisply.
-var CASSIDY_LOGO_SVG = "data:image/svg+xml," + encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 400" role="img" aria-label="Cassidy Group Ltd">'+
-  '<defs>'+
-  '<linearGradient id="bF" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4548A8"/><stop offset="1" stop-color="#383B95"/></linearGradient>'+
-  '<linearGradient id="yF" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F1ECB0"/><stop offset="1" stop-color="#E4DE97"/></linearGradient>'+
-  '</defs>'+
-  '<rect width="520" height="400" fill="#2B2B60"/>'+
-  '<path d="M137,64 L287,64 L287,106 L179,106 L179,172 L287,172 L287,214 L137,214 Z" transform="translate(8,10)" fill="#26286F"/>'+
-  '<path d="M247,114 L397,114 L397,264 L247,264 L247,222 L355,222 L355,156 L247,156 Z" transform="translate(8,10)" fill="#C6C079"/>'+
-  '<path d="M137,64 L287,64 L287,106 L179,106 L179,172 L287,172 L287,214 L137,214 Z" fill="url(#bF)"/>'+
-  '<path d="M247,114 L397,114 L397,264 L247,264 L247,222 L355,222 L355,156 L247,156 Z" fill="url(#yF)"/>'+
-  '<path d="M137,64 L287,64 L287,106 L179,106 L179,150 L149,150 L149,106 L137,106 Z" fill="url(#bF)"/>'+
-  '<path d="M247,114 L397,114 L397,126 L247,126 Z" fill="#F6F1C0" opacity="0.7"/>'+
-  '<text x="260" y="316" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="800" font-size="62" letter-spacing="3" fill="#8B90C8">CASSIDY</text>'+
-  '<text x="260" y="356" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="24" letter-spacing="13" fill="#6E73A8">GROUP LTD</text>'+
-  '</svg>'
-);
+// ── App logo — the real Cassidy Group brand artwork lives in BRAND_LOGO_PNG (below).
+// CASSIDY_LOGO_SRC resolves to it so login / sidebar / Board Proposal share one source.
+// (Swap this to a new data-URI when the official "Cassidy Group Ltd" artwork is supplied.)
+function cassidyLogoSrc(){ return "data:image/png;base64," + (typeof BRAND_LOGO_PNG!=="undefined"?BRAND_LOGO_PNG:""); }
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjEIxzfbaFPCeWA2pLbNRy6-fXx2boVURdBmyHO2M3uE0/exec";
@@ -36,8 +20,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.23";
+var CURRENT_VERSION = "10.24";
 var VERSION_HISTORY = [
+  {v:"10.24", date:"Jul 2026", headline:"Reverted the placeholder recreated logo back to the real Cassidy Group brand artwork",
+   affectsCalc:false,
+   changes:["LOGO — the hand-drawn SVG logo recreation from v10.23 didn't do the brand justice, so the login, sidebar and Board Proposal are back to the real Cassidy Group artwork. The logo now resolves from a single source (cassidyLogoSrc) so the official 'Cassidy Group Ltd' file can be dropped in one place when supplied. The Board Proposal Sources & Provenance section from v10.23 is unchanged."]},
   {v:"10.23", date:"Jul 2026", headline:"New Cassidy Group Ltd logo across the app + a Sources & Provenance section on the Board Proposal",
    affectsCalc:false,
    changes:["CASSIDY GROUP LTD LOGO — a new scalable brand lockup (interlocking navy/cream 3D monogram + CASSIDY / GROUP LTD wordmark) now appears consistently on the login page, the navigation sidebar and the Board Proposal letterhead. Being an SVG it stays crisp at any size and in print.",

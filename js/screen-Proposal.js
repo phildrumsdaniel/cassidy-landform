@@ -182,7 +182,7 @@ function renderProposal(city, data, gdv, lc, up, user){
     '.lh{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap}'+
     '.brand{display:flex;align-items:center;gap:13px}'+
     '.mark{width:42px;height:42px;border:2px solid #C9A227;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-weight:700;font-size:21px;color:#C9A227}'+
-    '.brand-logo{width:132px;height:auto;border-radius:8px;display:block;box-shadow:0 2px 10px rgba(0,0,0,.28)}'+
+    '.logo-chip{background:#fff;border-radius:8px;padding:9px 13px;display:inline-flex;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.18)}.logo-chip img{height:40px;width:auto;max-width:210px;display:block}'+
     '.nm{font-family:Georgia,serif;font-size:19px;font-weight:700;letter-spacing:.22em;color:#fff;line-height:1}'+
     '.sb{font-size:8.5px;letter-spacing:.32em;color:#AEB2E4;margin-top:5px}'+
     '.dm{text-align:right;font-size:10.5px;color:#AEB2E4;line-height:1.7}.dm b{color:#EDEEFB}'+
@@ -244,7 +244,7 @@ function renderProposal(city, data, gdv, lc, up, user){
       '<span><button class="btn" onclick="window.print()">🖨 Print / Save as PDF</button></span></div>'+
     '<div class="page">'+
       '<div class="hd"><div class="lh">'+
-        '<div class="brand"><img class="brand-logo" src="'+(typeof CASSIDY_LOGO_SVG!=="undefined"?CASSIDY_LOGO_SVG:"")+'" alt="Cassidy Group Ltd"/></div>'+
+        '<div class="brand"><div class="logo-chip"><img src="'+(typeof cassidyLogoSrc==="function"?cassidyLogoSrc():"")+'" alt="Cassidy Group Ltd"/></div></div>'+
         '<div class="dm">Board Paper · <b>Development Proposal</b><br/>Prepared <b>'+esc(new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}))+'</b><br/>'+
           (user&&user.name?"By <b>"+esc(user.name)+"</b><br/>":"")+'<span class="conf">Confidential — For Board</span></div>'+
       '</div>'+

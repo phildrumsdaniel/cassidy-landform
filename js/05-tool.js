@@ -1915,10 +1915,11 @@ function loadSiteIntoDeal(site){
   return e("div",{style:{display:"flex",minHeight:"100vh",overflowX:"hidden"}},
     isMobile&&mobileMenuOpen&&e("div",{onClick:closeMobile,style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.6)",zIndex:999,touchAction:"none"}}),
     e("aside",{style:{width:240,background:"#1E1F5C",display:"flex",flexDirection:"column",position:"fixed",left:0,top:0,bottom:0,overflowY:"auto",zIndex:1001,transition:"transform .25s cubic-bezier(.4,0,.2,1)",transform:isMobile?(mobileMenuOpen?"translateX(0)":"translateX(-100%)"):"translateX(0)"}},
-      e("div",{style:{padding:"14px 16px 12px",borderBottom:"1px solid rgba(255,255,255,0.1)",display:"flex",justifyContent:"center"}},
-        // v10.23 — Cassidy Group Ltd brand lockup (SVG); its own navy ground sits as a
-        // rounded logo tile on the sidebar.
-        e("img",{src:CASSIDY_LOGO_SVG,alt:"Cassidy Group Ltd",style:{width:"100%",maxWidth:184,height:"auto",display:"block",borderRadius:8}})
+      e("div",{style:{padding:"14px 16px 12px",borderBottom:"1px solid rgba(255,255,255,0.1)"}},
+        // Real Cassidy Group brand artwork on a white chip so it reads on the dark sidebar.
+        e("div",{style:{background:"#fff",borderRadius:8,padding:"9px 12px",display:"flex",alignItems:"center",justifyContent:"center"}},
+          e("img",{src:cassidyLogoSrc(),alt:"Cassidy Group Ltd",style:{width:"100%",maxWidth:172,height:"auto",display:"block"}})
+        )
       ),
       e("div",{style:{padding:"8px 0",flex:1}},
         (function(){
