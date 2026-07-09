@@ -7,6 +7,7 @@ import Photo from '../components/Photo.jsx'
 import { DayPlate, Diamond, Eyebrow } from '../components/ui.jsx'
 import { IconMoon, IconSun, IconMap, IconCheck, IconList, IconInfo } from '../components/icons.jsx'
 import BackupBanner from '../components/BackupBanner.jsx'
+import SyncBadge from '../components/SyncBadge.jsx'
 
 const totalMiles = legs.reduce((s, l) => s + l.miles, 0)
 const BASE_URL = import.meta.env.BASE_URL
@@ -68,6 +69,7 @@ export default function Home() {
         </div>
 
         <BackupBanner />
+        <SyncBadge />
 
         <div className="quicklinks">
           <Link className="quicklink" to="/map"><IconMap /><span>Map</span></Link>
