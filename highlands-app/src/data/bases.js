@@ -160,3 +160,30 @@ export const legs = [
 ]
 
 export const twoNightBases = bases.filter((b) => b.nights === 2).length
+
+// Backup campsites near each base — starting points if the booked site is full.
+// Named suggestions (confirm availability); the app also offers a live
+// "find & call sites nearby" search around each base's coordinates.
+export const alternateSites = {
+  1: ['Keswick Camping & Caravanning Club Site', 'Castlerigg Farm Camping'],
+  2: ['Oban Caravan & Camping Park', 'Lerags — Oban area'],
+  3: ['Linnhe Lochside Holidays, Corpach', 'Bunree Caravan Club Site, Onich'],
+  4: ['Gairloch Caravan Park', 'Badrallach Campsite'],
+  5: ['Ardmair Point Holiday Park', 'Ullapool Camping & Caravanning'],
+  6: ['Durness Caravan & Camping', 'Scourie Caravan & Camping (en route)'],
+  7: ['Thurso Bay Caravan Park', 'John o’ Groats Caravan Site'],
+  8: ['Grannie’s Heilan’ Hame, Embo', 'Dornoch Firth Caravan Park, Tain'],
+  9: ['Glenmore Campsite, Loch Morlich', 'Dalraddy Holiday Park'],
+  10: []
+}
+
+// Optional scenic alternative for the drive home: down the west of England.
+export const altReturn = {
+  title: 'Scenic alternative home',
+  blurb: 'Rather than blasting the M74/M6, drop down the west of England and split the drive with a night.',
+  stops: [
+    'M74 south to Gretna, then into the Lake District',
+    'Overnight the Cumbrian coast or Lancashire (e.g. Morecambe / Silverdale)',
+    'Across on the M65/M62 and A-roads to the Midlands'
+  ]
+}
