@@ -1042,6 +1042,17 @@ console.log("Landform engine consistency tests\n");
   near("no tenure split → ahPct haircut still applied", computeSFHMetrics(ahOnly).gdv / computeSFHMetrics(ahOnly).retailGdv, 0.88, 0.01);
 })();
 
+// 48 — Detailed Appraisal auto-populate has a real land cost to pull (v10.16)
+(function(){
+  // The Detailed Appraisal's "Auto-Populate from Deal" now sources the land price from
+  // calcDealMetrics(deal).rlv. Guard that a built deal exposes a positive engine RLV, so
+  // the land price can't silently populate as £0 (which overstated profit by ~£77m).
+  var deal = buildDealFromBrief({ town:"Rugby", postcode:"CV8 3", acres:88, askingPrice:12500000, density:12 });
+  var m = calcDealMetrics(deal);
+  ok("engine RLV is positive (auto-populate land-cost source)", num(m.rlv) > 0);
+  ok("land cost is a material share of GDV (not ~0)", num(m.gdv) > 0 && (m.rlv / m.gdv) > 0.05);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

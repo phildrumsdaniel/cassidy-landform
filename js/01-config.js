@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.15";
+var CURRENT_VERSION = "10.16";
 var VERSION_HISTORY = [
+  {v:"10.16", date:"Jul 2026", headline:"Detailed Appraisal Auto-Populate now brings in the land cost (was silently £0, overstating profit)",
+   affectsCalc:true,
+   changes:["DETAILED APPRAISAL AUTO-POPULATE LAND COST (high impact) — 'Auto-Populate from Deal Data' promised to pull the land cost but left the 'Residual Land Price' field blank whenever the internal land-cost variable and the asking price were both empty. That single gap cascaded: Land % GDV showed 0%, Peak Debt and True Finance showed £0, and profit/margin were overstated by the whole missing land value (~£77m / ~15 margin points on the test case). It now pulls the residual land value straight from the one engine (the same RLV shown on Capitalisation, Tenure Mix, Exit, Dashboard and the Executive Summary), so the appraisal funds the land like every other stage. 343 tests."]},
   {v:"10.15", date:"Jul 2026", headline:"Closed the last GDV outlier (SFH House Mix page) and two cosmetic label/AI-copy quirks",
    affectsCalc:true,
    changes:["SFH HOUSE MIX blended GDV reconciled — this was the last page still showing the old flat-discount figure (£510m) while every other surface read the reconciled engine figure (£525m). It used its own overall-ahPct haircut and stopped there; it now mirrors the engine's exact precedence (per-row tenure > Tenure Mix split > overall ahPct > retail), so its 'Blended Realisable GDV' matches calcDealMetrics everywhere. GDV is now consistent on every single page.",

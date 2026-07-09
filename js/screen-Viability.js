@@ -30,6 +30,12 @@ function renderViability(city, data, gdv, lc, up, user){
       var acresV=num(l2.acres||0);
       var infraBase=Math.max(acresV*150000,totalUnitsV*8000);
       var s106V=num(f2.s106pu||0)*totalUnitsV||num(p2.s106||0);
+      // v10.16 — land cost from the ONE engine's residual land value (same RLV as
+      // Capitalisation / Tenure Mix / Exit / Dashboard), then passed land cost, then asking
+      // price. Auto-Populate used to leave this BLANK, silently dropping a ~£77m land cost
+      // and overstating profit/margin by ~15 points.
+      var engRlvV=(typeof calcDealMetrics==="function")?num(calcDealMetrics(data).rlv):0;
+      var landCostV=engRlvV>0?Math.round(engRlvV):(lc>0?Math.round(lc):num(l2.price||0));
       var newAp={
         siteName:l2.address||"Development Site",
         date:new Date().toISOString().substring(0,10),
@@ -38,9 +44,9 @@ function renderViability(city, data, gdv, lc, up, user){
         privateRevenueSqft:privSqft,privateRevenueTotal:Math.round(totalGdvV*0.72),
         affordableRevenueSqft:ahSqft,affordableRevenueTotal:Math.round(totalGdvV*0.20),
         firstHomesRevenueSqft:fhSqft,firstHomesRevenueTotal:Math.round(totalGdvV*0.08),
-        residualLandPrice:lc>0?Math.round(lc):num(l2.price||0),
+        residualLandPrice:landCostV,
         agentFeeRate:0.01,legalFeesRate:0.01,landDiscount:0.35,
-        rawLandValuePerAcre:acresV>0?Math.round((lc||1)/(acresV*1.5)):75000,
+        rawLandValuePerAcre:acresV>0?Math.round((landCostV||1)/(acresV*1.5)):75000,
         privateBuild:privBuild,affordableBuild:ahBuild,firstHomesBuild:fhBuild,
         enablingWorks:Math.round(infraBase*0.10),
         s278:Math.round(infraBase*0.12),onSiteHighways:Math.round(infraBase*0.18),
