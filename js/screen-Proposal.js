@@ -110,6 +110,27 @@ function renderProposal(city, data, gdv, lc, up, user){
   var exitStrat=ex.strategy||"";
   var ready=gdvV>0 && units>0;
 
+  // ── Provenance: where the site + figures came from ──────────────────────────
+  var raw=(data._raw&&data._raw.placonaSite)||{};
+  var scr=(data.scraper&&data.scraper.result)||{};
+  var ks=data._keystone||{};
+  var brief=ks.sourceBrief||{};
+  var mkt=data.market||{};
+  var cleanV=function(v){ return (v&&String(v)!=="Not found"&&String(v)!=="N/A")?String(v):""; };
+  var srcUrl=cleanV(raw.source_url||scr.source_url||l.sourceUrl);
+  var srcAgent=cleanV(raw.agent_contact||scr.agent||l.agent);
+  var placonaScore=cleanV(raw.placona_score);
+  var sourcedName=cleanV(raw.site_name||raw.address_or_location||brief.dealName);
+  var importedVia=sourcedName?("Placona site finder"):(ks.builtAt?"Keystone deal builder":"Manual entry");
+  var importedOn=ks.builtAt?(new Date(ks.builtAt)).toLocaleDateString("en-GB"):"";
+  var assumptions=(ks.assumptions||[]).filter(Boolean);
+  // as-imported (pre-model) figures
+  var impAcres=cleanV(brief.acres||raw.site_area_acres);
+  var impPrice=num(brief.askingPrice)||num(raw.asking_price&&String(raw.asking_price).replace(/[^0-9.]/g,""));
+  var impUnits=cleanV(brief.units||raw.estimated_units);
+  var impLpa=cleanV(brief.lpa||raw.local_planning_authority||lpa);
+  var impStatus=cleanV(brief.planningStatus||raw.planning_status);
+
   var EXIT_LABELS={plot_sales:"Open-market plot sales",forward_fund:"Forward funding",forward_sale:"Forward sale",stabilised:"Stabilised investment sale",retain:"Retain & rent",phased:"Phased delivery"};
 
   // ── Site coordinates: prefer the EXACT user-placed pin (land.siteLat/Lng), else the
@@ -161,7 +182,7 @@ function renderProposal(city, data, gdv, lc, up, user){
     '.lh{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap}'+
     '.brand{display:flex;align-items:center;gap:13px}'+
     '.mark{width:42px;height:42px;border:2px solid #C9A227;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-weight:700;font-size:21px;color:#C9A227}'+
-    '.logo-chip{background:#fff;border-radius:8px;padding:9px 13px;display:inline-flex;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.18)}.logo-chip img{height:38px;width:auto;max-width:200px;display:block}'+
+    '.brand-logo{width:132px;height:auto;border-radius:8px;display:block;box-shadow:0 2px 10px rgba(0,0,0,.28)}'+
     '.nm{font-family:Georgia,serif;font-size:19px;font-weight:700;letter-spacing:.22em;color:#fff;line-height:1}'+
     '.sb{font-size:8.5px;letter-spacing:.32em;color:#AEB2E4;margin-top:5px}'+
     '.dm{text-align:right;font-size:10.5px;color:#AEB2E4;line-height:1.7}.dm b{color:#EDEEFB}'+
@@ -181,6 +202,8 @@ function renderProposal(city, data, gdv, lc, up, user){
     '.sh h2{font-size:18px}'+
     '.lead{color:#666C93;font-size:13px;margin:0 0 14px;max-width:64ch}'+
     '.callout{background:#F3F5FB;border:1px solid #E1E4F0;border-left:3px solid #9A7B2E;border-radius:0 9px 9px 0;padding:13px 16px;font-size:13.5px}'+
+    '.sub-title{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:#9A7B2E;font-weight:800;margin-bottom:9px}'+
+    '.src a{color:#2E2F8A}'+
     '.callout b{color:#1B1D46}'+
     '.g2{display:grid;grid-template-columns:1fr 1fr;gap:13px}'+
     '.card{background:#fff;border:1px solid #E1E4F0;border-radius:10px;padding:15px 17px}'+
@@ -221,7 +244,7 @@ function renderProposal(city, data, gdv, lc, up, user){
       '<span><button class="btn" onclick="window.print()">🖨 Print / Save as PDF</button></span></div>'+
     '<div class="page">'+
       '<div class="hd"><div class="lh">'+
-        '<div class="brand"><div class="logo-chip"><img src="data:image/png;base64,'+(typeof BRAND_LOGO_PNG!=="undefined"?BRAND_LOGO_PNG:"")+'" alt="Cassidy Group Ltd"/></div></div>'+
+        '<div class="brand"><img class="brand-logo" src="'+(typeof CASSIDY_LOGO_SVG!=="undefined"?CASSIDY_LOGO_SVG:"")+'" alt="Cassidy Group Ltd"/></div>'+
         '<div class="dm">Board Paper · <b>Development Proposal</b><br/>Prepared <b>'+esc(new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}))+'</b><br/>'+
           (user&&user.name?"By <b>"+esc(user.name)+"</b><br/>":"")+'<span class="conf">Confidential — For Board</span></div>'+
       '</div>'+
@@ -292,7 +315,36 @@ function renderProposal(city, data, gdv, lc, up, user){
           '<li><b>Sales value.</b> Verify assumed values against local comparables; a ~5% slip materially compresses margin.</li>'+
           '<li><b>Build cost &amp; abnormals.</b> Firm up with a QS cost plan and ground investigation before commitment.</li>'+
         '</ul></div></section>'+
-        // 07 decision
+        // 07 sources & provenance
+        '<section><div class="sh"><span class="i">07</span><h2>Sources &amp; data provenance</h2></div>'+
+          '<p class="lead">Where this opportunity and its figures originated. Modelled figures are indicative and require independent verification before commitment.</p>'+
+          '<div class="g2 src">'+
+            '<div class="card"><div class="sub-title">Origination</div>'+
+              rowHTML("Sourced via",esc(importedVia))+
+              (sourcedName?rowHTML("Listing / site",esc(sourcedName)):"")+
+              (placonaScore?rowHTML("Placona score",esc(placonaScore)+" / 100"):"")+
+              rowHTML("Agent / vendor",srcAgent?esc(srcAgent):"To confirm")+
+              (srcUrl?rowHTML("Source listing",'<a href="'+esc(srcUrl)+'" target="_blank" rel="noopener">view listing ↗</a>'):"")+
+              (importedOn?rowHTML("Imported",esc(importedOn)):"")+
+            '</div>'+
+            '<div class="card"><div class="sub-title">As imported — before modelling</div>'+
+              rowHTML("Site area",impAcres?(esc(impAcres)+(/acre/i.test(impAcres)?"":" acres")):"—")+
+              rowHTML("Guide price",impPrice>0?fmt(impPrice):"—")+
+              rowHTML("Estimated units",impUnits?esc(impUnits):"—")+
+              rowHTML("Local authority",impLpa?esc(impLpa):"—")+
+              rowHTML("Planning status",impStatus?esc(impStatus):"—")+
+            '</div></div>'+
+          '<div class="card" style="margin-top:13px"><div class="sub-title">Modelling assumptions applied by Landform</div>'+
+            (assumptions.length?('<ul class="pts">'+assumptions.map(function(a){return '<li>'+esc(a)+'</li>';}).join("")+'</ul>'):'<div style="font-size:13px;color:#666C93">No specific assumptions recorded — figures entered directly.</div>')+
+          '</div>'+
+          '<div class="card src" style="margin-top:13px"><div class="sub-title">External data sources</div><ul class="pts">'+
+            '<li><b>Land Registry</b> — sold-price comparables: '+(num(mkt.lrPsf)?("£"+mkt.lrPsf+"/sq ft from "+(mkt.lrTotalTx||0)+" sales"+(mkt.lrSector?" in "+esc(mkt.lrSector):"")):"to run at valuation stage")+'.</li>'+
+            '<li><b>Constraint assessment</b> — AI planning &amp; GIS review'+((data.constraintCheck&&data.constraintCheck.results&&data.constraintCheck.results.score)?(": "+(ccVerdict||"assessed")+" "+data.constraintCheck.results.score+"/100"+(data.constraintCheck.results.date?", "+esc(data.constraintCheck.results.date):"")):" (run in the Constraint Check stage)")+'.</li>'+
+            '<li><b>planning.data.gov.uk</b> — Green Belt, Conservation Area, AONB and listed-building layers.</li>'+
+            '<li><b>postcodes.io</b> — site geocoding for the location map.</li>'+
+            '<li><b>Government sources</b> — Flood Map for Planning, Magic Map (Natural England), HM Land Registry, Historic England.</li>'+
+          '</ul></div></section>'+
+        // 08 decision
         '<section><div class="dec"><div class="eyebrow">Recommendation &amp; decision requested</div>'+
           '<h2>'+(headroom>0?"Progress to the next stage":"Review at the next stage")+'</h2>'+
           '<p>'+verdictLine+'. This paper seeks authority to progress the next stage of work (planning strategy, valuation, cost plan and securing a land position) — not to commit to acquisition today.</p>'+
