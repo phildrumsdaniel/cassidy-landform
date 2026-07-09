@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.19";
+var CURRENT_VERSION = "10.20";
 var VERSION_HISTORY = [
+  {v:"10.20", date:"Jul 2026", headline:"New: one-touch Board Proposal — a Cassidy-branded, printable board paper generated from the live deal",
+   affectsCalc:false,
+   changes:["BOARD PROPOSAL (new report) — a new stage under Report generates a Cassidy-branded board paper from the live deal at the touch of a button. It pulls every figure from the one engine (GDV, units, guide price, residual land value, margin, S106, tenure split) and assembles a management-ready document: letterhead, headline figures, the scheme, a fully-costed appraisal table, planning position, key risks and a Proceed / Hold / Decline decision box. It opens as a web page you can read on screen AND Print / Save as PDF to send to the board, and embeds a real OpenStreetMap of the site geocoded from the postcode (with an indicative site plan as fallback). Regenerate any time as the appraisal changes. 345 tests."]},
   {v:"10.19", date:"Jul 2026", headline:"Scheme density control: clearer units and a type-in box (the '30' was dwellings-per-hectare, default stays 12/acre)",
    affectsCalc:false,
    changes:["SCHEME DENSITY CLARITY — the Keystone density control drives the whole scheme size (units → mix → GDV → RLV). The default is 12 homes/acre, which was shown as '~30 dph' — the per-hectare conversion (12 × 2.471 ≈ 30), which read as if the density were 'set to 30'. The readout now spells it out — 'N homes/acre · ≈M per hectare (dph)' — and there's a type-in box beside the slider and presets so an exact density can be set, not just dragged. Default unchanged at 12/acre; fully adjustable per deal (4–40/acre)."]},

@@ -88,6 +88,7 @@ var ALL_STAGES = [
   {id:"dataroom",    label:"Data Room",            icon:"📁", group:"5. Report",   journeys:["sfh","btr","pbsa","land","property","all"]},
   {id:"investor",    label:"Investor Marketing Suite", icon:"🎯", group:"5. Report",journeys:["land","sfh","btr","pbsa","property","asset","all"]},
   {id:"summary",     label:"Executive Summary",    icon:"📄", group:"5. Report",   journeys:["land","sfh","btr","pbsa","property","recovery","all"]},
+  {id:"proposal",    label:"Board Proposal",       icon:"📋", group:"5. Report",   journeys:["land","sfh","btr","pbsa","property","recovery","all"]},
   // ── 6. RECORDS ───────────────────────────────────────────────────────────
   {id:"meetings",    label:"Meeting Transcripts",  icon:"📝", group:"6. Records",  journeys:["all"]},
   {id:"portfolio",   label:"Deal Portfolio",       icon:"📊", group:"6. Records",  journeys:["all"]},
@@ -1880,6 +1881,7 @@ function loadSiteIntoDeal(site){
     if(stage==="capitalise")return renderCapitalise(LiveMarketBanner, city, data, setData, up, user);
     if(stage==="grants")return renderGrants(city, data, gdv, lc, up, user);
     if(stage==="teaser")return renderTeaser(city, data, gdv, lc, up, user);
+    if(stage==="proposal")return renderProposal(city, data, gdv, lc, up, user);
     if(stage==="im")return renderIM(at, city, data, gdv, lc, up, user);
     if(stage==="dataroom")return renderDataRoom(city, data, exits, isExitOn, schemes, up);
     if(stage==="viability")return renderViability(city, data, gdv, lc, up, user);
