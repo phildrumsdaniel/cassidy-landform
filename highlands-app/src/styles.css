@@ -589,6 +589,10 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; line-height: 1.12; mar
 .fld input:focus { outline: 2px solid var(--whisky); outline-offset: 1px; }
 .fld-row { display: flex; gap: 10px; }
 .fld-row .fld { flex: 1; }
+.paste-box { border: 1px dashed var(--border); border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; }
+.paste-box summary { cursor: pointer; font-size: 0.82rem; font-weight: 700; color: var(--loch); list-style: none; }
+:root[data-theme='dark'] .paste-box summary { color: var(--whisky-soft); }
+.paste-box summary::-webkit-details-marker { display: none; }
 
 /* ---------- backup nudge ---------- */
 .backup-banner {
