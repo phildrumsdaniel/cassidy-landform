@@ -115,6 +115,22 @@ function renderProposal(city, data, gdv, lc, up, user){
   var baseYieldPct=(typeof dealYield==="function")?num(dealYield(data)):4.7;
   var landBasis=ask>0?ask:rlvV;                                        // land price the profit is measured against
 
+  // ── Rent & yield research inputs ────────────────────────────────────────────
+  var sfhData=data.sfh||{}; var capD=data.capitalise||{};
+  var avgUnitMktValue=(num(SF.retailGdv)>0&&num(SF.totalUnits)>0)?num(SF.retailGdv)/num(SF.totalUnits):0;
+  var curRentPa=num(capD.marketRentPerUnitPa)||(avgUnitMktValue*(numOr(capD.grossRentYield,4.5)/100));
+  var curRentMo=Math.round(curRentPa/12);
+  var curGrossYield=avgUnitMktValue>0?(curRentPa/avgUnitMktValue*100):0;
+  var _bedset={}; (sfhData.mix||[]).forEach(function(r){ var b=num(r.beds)||(((String(r.type||"").match(/(\d)[\s-]?bed/))||[])[1]); if(b) _bedset[b]=(_bedset[b]||0)+num(r.count||0); });
+  var bedSummary=Object.keys(_bedset).sort().map(function(b){return b+"-bed";}).join(", ")||"the scheme homes";
+  var _pcE=encodeURIComponent(pc||""), _ocE=encodeURIComponent((pc||"").split(" ")[0].toLowerCase()), _townE=encodeURIComponent(cityDisp||l.city||"");
+  var rentLinks=[
+    ["Rightmove — to let","https://www.rightmove.co.uk/property-to-rent/find.html?searchType=RENT&searchLocation="+_pcE,"#00DEB6"],
+    ["Zoopla — to rent","https://www.zoopla.co.uk/to-rent/property/"+_ocE+"/?q="+_pcE,"#8046F1"],
+    ["Home.co.uk rents","https://www.home.co.uk/for_rent/"+_ocE+"/current_rents","#1E5AA8"],
+    ["ONS rent stats","https://www.ons.gov.uk/peoplepopulationandcommunity/housing/bulletins/privaterentandhousepricesuk/latest","#2D7A65"]
+  ];
+
   // ── Provenance: where the site + figures came from ──────────────────────────
   var raw=(data._raw&&data._raw.placonaSite)||{};
   var scr=(data.scraper&&data.scraper.result)||{};
@@ -434,6 +450,33 @@ function renderProposal(city, data, gdv, lc, up, user){
       "Complete the core appraisal first (Land, scheme sizing and Financial Modelling) so the proposal has a GDV and unit count to present. Current: GDV "+fmt(gdvV)+", "+(units||0)+" homes."),
     // Exact-location picker — sets land.siteLat/Lng so the proposal map pins the real parcel
     e(SiteLocationPicker,{data:data,up:up,pc:pc}),
+
+    // ── Rent & yield research — ground the exit yield in real area rents ─────────
+    e("div",{style:Object.assign({},S.card,{borderLeft:"4px solid #2D7A65"})},
+      e("div",{style:{fontSize:12,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"🔎 Rent & yield basis — research the area"),
+      e("div",{style:{fontSize:11,color:"#7278A0",lineHeight:1.6,marginBottom:10}},
+        "The institutional-sale value uses a yield built from area rents. Ground it in real "+(cityDisp||"local")+" rents: open the live ‘to let’ searches below to check achieved rents for ",e("b",null,bedSummary)," homes, run the AI estimate, then enter a verified figure. Portals can’t be auto-scraped — the links open their real listings for you to confirm before anything is applied."),
+      e("div",{style:{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}},
+        pc?rentLinks.map(function(lk){
+          return e("a",{key:lk[0],href:lk[1],target:"_blank",rel:"noopener",style:{padding:"7px 13px",background:"#fff",border:"1px solid "+lk[2],borderRadius:6,fontSize:11,fontWeight:700,color:lk[2],textDecoration:"none"}},lk[0]+" ↗");
+        }):e("div",{style:{fontSize:11,color:"#9A7B3E"}},"Add a postcode on the Land stage to enable the live rent searches.")
+      ),
+      e(AIPanel,{user:user,up:up,stage:"proposal",data:data,persistKey:"proposal_rent_research",label:"🤖 AI: estimate area rents & gross yield",
+        system:"You are a UK lettings and residential valuation analyst. Be specific, numerate and reflect typical local rent levels. Use light Markdown (a compact table + bold). Always caveat that the figures are indicative and must be verified against live listings.",
+        prompt:"Estimate the CURRENT private rental market for NEW-BUILD homes in "+(cityDisp||l.city||"the area")+" ("+(pc||"postcode TBC")+"). Housing types: "+bedSummary+". For EACH bed size give a realistic monthly rent RANGE (low–high) and a MEDIAN based on typical asking/achieved rents for that area and property type; cross-check against ONS private-rent statistics for the local authority. Then compute the implied GROSS YIELD = (annual median rent ÷ new-build sale value) × 100 using an average new-build value of "+(avgUnitMktValue>0?fmt(avgUnitMktValue):"the scheme's average home value")+". Present a compact table: Bed size | Monthly range | Median | Gross yield. End with one overall gross yield for the scheme and a one-line note that these are indicative and must be verified against live Rightmove/Zoopla ‘to let’ listings and ONS statistics before use."}),
+      e("div",{style:{display:"flex",alignItems:"flex-end",gap:16,flexWrap:"wrap",marginTop:12,paddingTop:12,borderTop:"1px solid #EEF0F7"}},
+        e("div",{style:{flex:"0 0 auto",minWidth:180}},
+          e(Inp,{label:"Verified avg rent per home (£/month)",type:"number",value:curRentMo||"",onChange:function(v){ up("capitalise","marketRentPerUnitPa", num(v)>0?Math.round(num(v)*12):""); },placeholder:String(curRentMo||"2000")})
+        ),
+        e("div",{style:{flex:"0 0 auto",minWidth:150}},
+          e(Inp,{label:"Exit (capitalisation) yield %",type:"number",step:"0.05",value:capD.targetYield||"",onChange:function(v){ up("capitalise","targetYield", v); },placeholder:String((baseYieldPct||4.9).toFixed(2))})
+        ),
+        e("div",{style:{fontSize:11,color:"#3A3D6A",lineHeight:1.6}},
+          e("div",null,"Gross yield = annual rent ÷ avg home value = ",e("b",{style:{color:"#2D7A65"}},curGrossYield?curGrossYield.toFixed(2)+"%":"—")),
+          e("div",{style:{color:"#7278A0",fontSize:10,marginTop:2}},"Both feed the Capitalisation stage → the exit table below and the generated proposal update automatically.")
+        )
+      )
+    ),
     // live preview of what will be generated
     e("div",{style:Object.assign({},S.card,{background:"linear-gradient(160deg,#1E1F5C,#26286e)",color:"#EDEEFB",border:"none"})},
       e("div",{style:{fontSize:10,letterSpacing:".15em",textTransform:"uppercase",color:"#C9A227",fontWeight:700,marginBottom:10}},"Preview — headline figures"),
