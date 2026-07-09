@@ -109,6 +109,11 @@ function renderProposal(city, data, gdv, lc, up, user){
   var density=(acres>0&&units>0)?Math.round(units/acres):0;
   var exitStrat=ex.strategy||"";
   var ready=gdvV>0 && units>0;
+  // Exit / yield sensitivity inputs
+  var devCostV=num(M.devCost);
+  var noi=num(SF.capNetRentPa);                                        // net annual rent (for yield-based exits)
+  var baseYieldPct=(typeof dealYield==="function")?num(dealYield(data)):4.7;
+  var landBasis=ask>0?ask:rlvV;                                        // land price the profit is measured against
 
   // ── Provenance: where the site + figures came from ──────────────────────────
   var raw=(data._raw&&data._raw.placonaSite)||{};
@@ -303,8 +308,22 @@ function renderProposal(city, data, gdv, lc, up, user){
             '<li><b>Residual land value —</b> GDV less all development costs less the target developer profit = <b>'+(rlvV>0?fmt(rlvV):'—')+'</b> — the maximum land price the scheme can support at target return, on consent.</li>'+
             '<li><b>Developer margin —</b> '+(isFinite(marginV)&&marginV?pct(marginV):'—')+' of GDV at the modelled land value.</li>'+
           '</ul></div></section>'+
-        // 05 planning
-        '<section><div class="sh"><span class="i">05</span><h2>Planning position</h2></div><div class="g2">'+
+        // 05 exit routes & yield sensitivity
+        '<section><div class="sh"><span class="i">05</span><h2>Exit routes &amp; profit sensitivity</h2></div>'+
+          '<p class="lead">Estimated developer profit by exit route'+(noi>0?', and across a yield range for an institutional sale':'')+'. Profit = realised value less total development cost ('+fmt(devCostV)+') less land at '+(ask>0?"the "+fmt(ask)+" guide price":"the modelled land value ("+fmt(rlvV)+")")+'. Assumes residential consent is achieved.</p>'+
+          '<div class="card"><table class="ap">'+
+            '<tr><td><b>Exit route</b></td><td class="n"><b>Realised value</b></td><td class="n"><b>Est. profit</b></td><td class="n"><b>Margin</b></td></tr>'+
+            exitRow("Open-market plot sales","(build &amp; sell — primary)",gdvV)+
+            (noi>0?[baseYieldPct-0.5,baseYieldPct,baseYieldPct+0.5,baseYieldPct+1.0].map(function(y){
+              if(y<=0) return "";
+              return exitRow("Institutional forward sale @ "+y.toFixed(1)+"%","(capitalised NOI "+fmt(noi)+"/yr)",noi/(y/100));
+            }).join(""):"")+
+          '</table>'+
+          (noi>0?'<div style="font-size:11.5px;color:#666C93;margin-top:9px">Plot sales realise the most; an institutional forward sale trades a lower headline for earlier, de-risked cash. A tighter (lower) yield means a higher price — each 0.5% of yield moves the institutional value materially.</div>'
+                :'<div style="font-size:12px;color:#666C93;margin-top:8px">Yield-based (institutional) exits appear once a rental income is modelled on the Capitalisation stage.</div>')+
+          '</div></section>'+
+        // 06 planning
+        '<section><div class="sh"><span class="i">06</span><h2>Planning position</h2></div><div class="g2">'+
           '<div class="card">'+
             rowHTML("Current status",esc(planStatus))+
             rowHTML("Local authority",esc(lpa||"To confirm"))+
@@ -316,14 +335,14 @@ function renderProposal(city, data, gdv, lc, up, user){
             '<li>Headline value <b>assumes residential consent</b>; structure acquisition to reflect planning risk.</li>'+
             '<li>NPPF 2024 policy hooks and 5-year land supply to be tested at pre-app.</li>'+
           '</ul></div></div></section>'+
-        // 06 risks
-        '<section><div class="sh"><span class="i">06</span><h2>Key risks</h2></div><div class="card"><ul class="pts">'+
+        // 07 risks
+        '<section><div class="sh"><span class="i">07</span><h2>Key risks</h2></div><div class="card"><ul class="pts">'+
           '<li><b>Planning.</b> '+esc(planStatus)+(ccVerdict&&ccVerdict!=="GO"?" — "+ccVerdict.toLowerCase()+" on the constraint check.":".")+' Stage spend gated on planning milestones.</li>'+
           '<li><b>Sales value.</b> Verify assumed values against local comparables; a ~5% slip materially compresses margin.</li>'+
           '<li><b>Build cost &amp; abnormals.</b> Firm up with a QS cost plan and ground investigation before commitment.</li>'+
         '</ul></div></section>'+
-        // 07 sources & provenance
-        '<section><div class="sh"><span class="i">07</span><h2>Sources &amp; data provenance</h2></div>'+
+        // 08 sources & provenance
+        '<section><div class="sh"><span class="i">08</span><h2>Sources &amp; data provenance</h2></div>'+
           '<p class="lead">Where this opportunity and its figures originated. Modelled figures are indicative and require independent verification before commitment.</p>'+
           '<div class="card src"><div class="sub-title">Where the site &amp; guide price came from</div>'+
             rowHTML("Sourced via",esc(importedVia))+
@@ -366,6 +385,12 @@ function renderProposal(city, data, gdv, lc, up, user){
   function rowHTML(k,v,sub){ return '<div class="row"><span class="k">'+k+'</span><span class="v">'+v+(sub?'<small>'+sub+'</small>':'')+'</span></div>'; }
   function apRow(k,mut,v){ return '<tr><td>'+k+(mut?' <span class="mut">('+mut+')</span>':'')+'</td><td class="n">'+v+'</td></tr>'; }
   function apRowSum(k,mut,v){ return '<tr class="sum"><td>'+k+(mut?' <span class="mut">('+mut+')</span>':'')+'</td><td class="n">'+v+'</td></tr>'; }
+  function exitRow(name,basis,value){
+    var profit=value-devCostV-landBasis;
+    var margin=value>0?(profit/value*100):0;
+    var col=profit>=0?"#1B1D46":"#B05A35";
+    return '<tr><td>'+name+' <span class="mut">'+basis+'</span></td><td class="n">'+fmt(value)+'</td><td class="n" style="color:'+col+'">'+(profit<0?"−":"")+fmt(Math.abs(profit))+'</td><td class="n">'+Math.round(margin)+'%</td></tr>';
+  }
   function sitePlanSVG(ac,pcode,town){
     return '<svg class="plan" viewBox="0 0 820 300" role="img" aria-label="Indicative site plan">'+
       '<defs><pattern id="hx" width="9" height="9" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">'+

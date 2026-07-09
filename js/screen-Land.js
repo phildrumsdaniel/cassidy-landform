@@ -267,6 +267,10 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
           e(Inp,{label:"Asking Price (£)"+(l.price?" · saved":""),type:"number",value:l.price,onChange:function(v){up("land","price",v);},placeholder:"e.g. 4500000"}),
           e(Inp,{label:"Proposed Units"+(l.units?" - carries forward":""),type:"number",value:l.units,onChange:function(v){updateLandWorkingScheme("units",v);},placeholder:"e.g. 200"}),
           e(Inp,{label:"Average Unit Size (sqft)"+(l.avgSqft?" - carries forward":""),type:"number",value:l.avgSqft,onChange:function(v){updateLandWorkingScheme("avgSqft",v);},placeholder:"e.g. 950"}),
+          // v10.26 — listing / source URL: where the site & guide price came from. Flows into
+          // the Board Proposal's provenance ("Source listing") and the Data Room.
+          e(Inp,{label:"Listing / Source URL"+(l.sourceUrl?" · saved":""),value:l.sourceUrl,onChange:function(v){up("land","sourceUrl",v);},placeholder:"https://… (agent listing / Rightmove / auction)",full:true}),
+          e(Inp,{label:"Agent / Vendor"+(l.agent?" · saved":""),value:l.agent,onChange:function(v){up("land","agent",v);},placeholder:"e.g. Savills — J. Smith"}),
           e(Sel,{label:"Proximity to Demand",value:l.proximity,onChange:function(v){up("land","proximity",v);},
             options:[{value:"",label:"Select..."},{value:"excellent",label:"Excellent — <10 min walk (+25)"},{value:"good",label:"Good — <20 min / 5 min cycle (+15)"},{value:"fair",label:"Fair — public transport needed (+8)"},{value:"poor",label:"Poor — car dependent (0)"}]}),
           e(Sel,{label:"Transport Connectivity",value:l.transport,onChange:function(v){up("land","transport",v);},

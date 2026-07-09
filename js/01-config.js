@@ -20,8 +20,12 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.25";
+var CURRENT_VERSION = "10.26";
 var VERSION_HISTORY = [
+  {v:"10.26", date:"Jul 2026", headline:"Board Proposal: exit-route & yield profit sensitivity; a Listing / Source URL field on the Land stage",
+   affectsCalc:false,
+   changes:["BOARD PROPOSAL — EXIT ROUTES & PROFIT SENSITIVITY — a new section estimates the developer profit by exit route so the board can see the return depending on the scheme: open-market plot sales (build & sell) plus an institutional forward sale across a yield range (base yield ±0.5% and +1.0%), each with realised value, estimated profit and margin. Profit is measured against the guide price (or the modelled land value) and clearly labelled as assuming consent.",
+     "LAND STAGE — LISTING / SOURCE URL — a new field to paste where the site and guide price came from (agent listing / Rightmove / auction), plus an Agent / Vendor field. These flow straight into the Board Proposal's 'Where the site & guide price came from' card (as a clickable source link) and the Data Room. 345 tests."]},
   {v:"10.25", date:"Jul 2026", headline:"Board Proposal: added a 'how the figures were derived' rationale and dropped the irrelevant raw Placona estimate",
    affectsCalc:false,
    changes:["BOARD PROPOSAL — the appraisal now includes a plain-English 'How these figures were derived' rationale: scheme size (acres × density → homes), GDV (homes valued and blended for the tenure split), development cost, residual land value (GDV less costs less target profit) and the developer margin — so the board sees how each number was reached. The provenance section no longer shows the raw Placona pre-model unit estimate (e.g. '200 homes') that conflicted with the final figure; instead it focuses on WHERE the site and guide price came from — the listing/agent, the as-listed price and area, the Placona score and a link to the original listing. 345 tests."]},
