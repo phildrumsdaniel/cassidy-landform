@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.21";
+var CURRENT_VERSION = "10.22";
 var VERSION_HISTORY = [
+  {v:"10.22", date:"Jul 2026", headline:"Board Proposal: drop the map pin on the EXACT parcel (postcode only finds the village)",
+   affectsCalc:false,
+   changes:["EXACT SITE PIN — a postcode geocodes only to a sector centroid, so the board-proposal map pinned near the village rather than on the land. The Board Proposal screen now has an interactive map: drag the pin (or click the map) onto the actual parcel, and those precise coordinates are saved to the deal and used to centre the proposal's map exactly on the site (with a tighter zoom). Falls back to the postcode location until a pin is placed. A 'Centre on postcode' and 'Reset pin' control are provided."]},
   {v:"10.21", date:"Jul 2026", headline:"Correct Cassidy Group logo now used in the navigation sidebar and the Board Proposal",
    affectsCalc:false,
    changes:["BRAND LOGO CONSISTENCY — the navigation sidebar was still showing the older logo variant while the login page uses the real Cassidy Group Ltd brand artwork. The sidebar now uses that same real logo, and the new Board Proposal document uses it in place of the placeholder mark. Both sit on a clean white chip so the logo reads correctly on the dark navy backgrounds."]},

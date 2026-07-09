@@ -1,3 +1,82 @@
+// Geocode a UK postcode → [lat,lng] via postcodes.io (full → outcode), null on miss.
+function geocodePostcodeProp(pc){
+  return new Promise(function(resolve){
+    pc=(pc||"").toUpperCase().trim();
+    if(!pc){ resolve(null); return; }
+    var got=function(d){ return (d&&d.result&&d.result.latitude)?[d.result.latitude,d.result.longitude]:null; };
+    fetch("https://api.postcodes.io/postcodes/"+encodeURIComponent(pc))
+      .then(function(r){return r.json();})
+      .then(function(d){ var c=got(d); if(c){resolve(c);return;} throw 0; })
+      .catch(function(){
+        var oc=pc.split(" ")[0];
+        fetch("https://api.postcodes.io/outcodes/"+encodeURIComponent(oc))
+          .then(function(r){return r.json();}).then(function(d){ resolve(got(d)); })
+          .catch(function(){ resolve(null); });
+      });
+  });
+}
+
+// ── SiteLocationPicker — drag the pin to the EXACT parcel; saves land.siteLat/Lng ──
+// The postcode only geocodes to a sector centroid, so the pin lands near the village,
+// not on the field. This lets the user place it precisely; those coords then drive the
+// board proposal's map (and can feed the Placona map / constraint checks too).
+function SiteLocationPicker(props){
+  var data=props.data||{}, up=props.up, pc=props.pc||"";
+  var l=data.land||{};
+  var savedLat=num(l.siteLat), savedLng=num(l.siteLng);
+  var elRef=React.useRef(null), mapRef=React.useRef(null), markerRef=React.useRef(null);
+  var cs=useState((savedLat&&savedLng)?[savedLat,savedLng]:null), coords=cs[0], setCoords=cs[1];
+
+  function save(la,lo){
+    la=Math.round(la*1e6)/1e6; lo=Math.round(lo*1e6)/1e6;
+    setCoords([la,lo]); up("land","siteLat",la); up("land","siteLng",lo);
+  }
+
+  useEffect(function(){
+    if(typeof L==="undefined"||!elRef.current||mapRef.current) return;
+    var start=(savedLat&&savedLng)?[savedLat,savedLng]:[52.5,-1.5];
+    var map=L.map(elRef.current,{scrollWheelZoom:false}).setView(start,(savedLat&&savedLng)?16:6);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
+    var marker=L.marker(start,{draggable:true}).addTo(map);
+    marker.on("dragend",function(){ var p=marker.getLatLng(); save(p.lat,p.lng); });
+    map.on("click",function(ev){ marker.setLatLng(ev.latlng); save(ev.latlng.lat,ev.latlng.lng); });
+    mapRef.current=map; markerRef.current=marker;
+    setTimeout(function(){ try{ map.invalidateSize(); }catch(e){} },250);
+    // No saved pin yet — centre on the postcode and drop the marker there as a starting point.
+    if(!(savedLat&&savedLng) && pc){
+      geocodePostcodeProp(pc).then(function(c){ if(c&&mapRef.current){ map.setView(c,16); marker.setLatLng(c); } });
+    }
+    return function(){ try{ map.remove(); }catch(e){} mapRef.current=null; };
+  },[]);
+
+  function recentre(){
+    if(!pc) return;
+    geocodePostcodeProp(pc).then(function(c){ if(c&&mapRef.current&&markerRef.current){ mapRef.current.setView(c,16); markerRef.current.setLatLng(c); } });
+  }
+  function clearPin(){ up("land","siteLat",""); up("land","siteLng",""); setCoords(null); recentre(); }
+
+  var hasLeaflet=(typeof L!=="undefined");
+  return e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:14,marginBottom:16}},
+    e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:8}},
+      e("div",null,
+        e("div",{style:{fontSize:12,fontWeight:800,color:"#2E2F8A"}},"📍 Exact site location"),
+        e("div",{style:{fontSize:11,color:"#7278A0",marginTop:2}},"Drag the pin — or click the map — onto the actual parcel. The board proposal uses this exact point.")
+      ),
+      e("div",{style:{display:"flex",gap:6}},
+        pc&&e("button",{onClick:recentre,style:{padding:"5px 10px",background:"#F4F5FB",border:"1px solid #DDE0ED",borderRadius:5,fontSize:10,fontWeight:700,color:"#4A4BAE",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Centre on "+esc0(pc)),
+        (coords)&&e("button",{onClick:clearPin,style:{padding:"5px 10px",background:"transparent",border:"1px solid #C5C8E0",borderRadius:5,fontSize:10,fontWeight:700,color:"#7278A0",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Reset pin")
+      )
+    ),
+    hasLeaflet
+      ? e("div",{ref:elRef,style:{height:300,width:"100%",borderRadius:8,overflow:"hidden",border:"1px solid #E1E4F0"}})
+      : e("div",{style:{padding:"20px",fontSize:12,color:"#7278A0",textAlign:"center"}},"Map unavailable — the proposal will use the postcode location."),
+    e("div",{style:{fontSize:11,color:coords?"#2D7A65":"#9A7B3E",marginTop:8,fontWeight:600}},
+      coords?("✓ Exact pin set — "+coords[0].toFixed(5)+", "+coords[1].toFixed(5))
+            :("⚠ Using the postcode centroid ("+(pc||"no postcode")+") — drag the pin to the parcel for an exact location."))
+  );
+}
+function esc0(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
 // ── renderProposal — Board Proposal generator (params: city, data, gdv, lc, up, user)
 // One-touch, Cassidy-branded board paper built from the LIVE deal via the single engine
 // (calcDealMetrics / computeSFHMetrics). Opens as a viewable HTML document in a new tab
@@ -33,21 +112,12 @@ function renderProposal(city, data, gdv, lc, up, user){
 
   var EXIT_LABELS={plot_sales:"Open-market plot sales",forward_fund:"Forward funding",forward_sale:"Forward sale",stabilised:"Stabilised investment sale",retain:"Retain & rent",phased:"Phased delivery"};
 
-  // ── Geocode the postcode (postcodes.io → outcode → region fallback) ──────────
+  // ── Site coordinates: prefer the EXACT user-placed pin (land.siteLat/Lng), else the
+  //     postcode geocode (a sector centroid — near the village, not on the parcel). ──
   function geocode(){
-    return new Promise(function(resolve){
-      if(!pc){ resolve(null); return; }
-      var done=function(d){ return (d&&d.result&&d.result.latitude)?[d.result.latitude,d.result.longitude]:null; };
-      fetch("https://api.postcodes.io/postcodes/"+encodeURIComponent(pc))
-        .then(function(r){return r.json();})
-        .then(function(d){ var c=done(d); if(c){resolve(c);return;} throw 0; })
-        .catch(function(){
-          var oc=pc.split(" ")[0];
-          fetch("https://api.postcodes.io/outcodes/"+encodeURIComponent(oc))
-            .then(function(r){return r.json();}).then(function(d){ resolve(done(d)); })
-            .catch(function(){ resolve(null); });
-        });
-    });
+    var sl=num(l.siteLat), sg=num(l.siteLng);
+    if(sl&&sg) return Promise.resolve([sl,sg]);
+    return geocodePostcodeProp(pc);
   }
 
   function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
@@ -66,7 +136,7 @@ function renderProposal(city, data, gdv, lc, up, user){
     // Map block: real OSM embed when geocoded, else the indicative plan carries it.
     var mapBlock="";
     if(coords){
-      var la=coords[0], lo=coords[1], dLa=0.010, dLo=0.017;
+      var la=coords[0], lo=coords[1], dLa=0.007, dLo=0.011;
       var bbox=(lo-dLo)+","+(la-dLa)+","+(lo+dLo)+","+(la+dLa);
       mapBlock='<iframe title="Site location map" loading="lazy" class="osm" '+
         'src="https://www.openstreetmap.org/export/embed.html?bbox='+encodeURIComponent(bbox)+'&layer=mapnik&marker='+la+','+lo+'"></iframe>'+
@@ -283,6 +353,8 @@ function renderProposal(city, data, gdv, lc, up, user){
     ),
     !ready&&e("div",{style:{padding:"14px 16px",background:"rgba(154,123,62,0.08)",border:"1px solid rgba(154,123,62,0.3)",borderRadius:8,fontSize:12,color:"#7A5A2E",marginBottom:16}},
       "Complete the core appraisal first (Land, scheme sizing and Financial Modelling) so the proposal has a GDV and unit count to present. Current: GDV "+fmt(gdvV)+", "+(units||0)+" homes."),
+    // Exact-location picker — sets land.siteLat/Lng so the proposal map pins the real parcel
+    e(SiteLocationPicker,{data:data,up:up,pc:pc}),
     // live preview of what will be generated
     e("div",{style:Object.assign({},S.card,{background:"linear-gradient(160deg,#1E1F5C,#26286e)",color:"#EDEEFB",border:"none"})},
       e("div",{style:{fontSize:10,letterSpacing:".15em",textTransform:"uppercase",color:"#C9A227",fontWeight:700,marginBottom:10}},"Preview — headline figures"),
@@ -294,7 +366,7 @@ function renderProposal(city, data, gdv, lc, up, user){
         })
       ),
       e("div",{style:{fontSize:11,color:"#AEB2E4",marginTop:12,lineHeight:1.6}},
-        "The generated paper adds the scheme mix, a fully-costed appraisal table, planning position, a site map ("+(pc?"from "+pc:"add a postcode for a live map")+"), risks and a Proceed / Hold / Decline decision box.")
+        "The generated paper adds the scheme mix, a fully-costed appraisal table, planning position, the site map ("+((num(l.siteLat)&&num(l.siteLng))?"pinned to your exact location":pc?"from "+pc+" — drop the pin above for an exact spot":"add a postcode / drop the pin above")+"), risks and a Proceed / Hold / Decline decision box.")
     ),
     e("div",{style:{fontSize:11,color:"#7278A0",marginTop:12,fontStyle:"italic",lineHeight:1.6}},
       "Tip: in the opened page, use Print → “Save as PDF” to produce the file, or send the printed PDF to the board. All figures come live from this deal's engine — regenerate any time as the appraisal changes.")
