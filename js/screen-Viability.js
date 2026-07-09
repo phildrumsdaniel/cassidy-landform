@@ -220,8 +220,13 @@ function renderViability(city, data, gdv, lc, up, user){
                 );
               })
             ),
-            e("div",{style:{fontSize:10,color:"#B05A35",background:"rgba(176,90,53,0.06)",borderRadius:5,padding:"6px 8px"}},
-              "True finance ("+fmt(vc.tf)+") vs sheet ("+fmt(vm.devFin)+") — difference of "+fmt(Math.abs(vc.tf-vm.devFin))
+            e("div",{style:{fontSize:10,color:"#7278A0",background:"rgba(74,75,174,0.05)",borderRadius:5,padding:"7px 9px",lineHeight:1.6}},
+              // v10.18 — the two figures are different METHODS, not a reconciliation error. Spell that
+              // out so it stops reading as an unexplained gap (it was flagged repeatedly as a "bug").
+              e("b",{style:{color:"#4A4BAE"}},"Sheet Finance "+fmt(vm.devFin)),
+              " is the quick average-debt estimate (≈ half the build at the finance rate) and is what the margin above uses. ",
+              e("b",{style:{color:"#9A7B3E"}},"True Finance "+fmt(vc.tf)),
+              " is the full Normal-Distribution cashflow, where staged sales offset the debt — usually lower and more accurate. The "+fmt(Math.abs(vc.tf-vm.devFin))+" difference is the two methods, not an error."
             )
           ),
           e("div",{style:S.card},

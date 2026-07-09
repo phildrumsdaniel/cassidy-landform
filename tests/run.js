@@ -1053,6 +1053,15 @@ console.log("Landform engine consistency tests\n");
   ok("land cost is a material share of GDV (not ~0)", num(m.gdv) > 0 && (m.rlv / m.gdv) > 0.05);
 })();
 
+// 49 — Planning Strategy AI quotes the engine S106, not the blank input (v10.18)
+(function(){
+  // Only the per-unit S106 is set (via auto-fill/propagation); the total INPUT stays blank.
+  var deal = buildDealFromBrief({ town:"Rugby", postcode:"CV8 3", acres:88, askingPrice:12500000, density:12 });
+  deal.planning = Object.assign({}, deal.planning, { s106pu:23550 });
+  ok("planning.s106 total input is blank/zero", !num(deal.planning.s106));
+  ok("engine S106 (what the Planning prompt now quotes) is non-zero", num(calcDealMetrics(deal).s106) > 0);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

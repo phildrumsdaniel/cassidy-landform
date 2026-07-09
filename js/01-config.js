@@ -15,8 +15,12 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.17";
+var CURRENT_VERSION = "10.18";
 var VERSION_HISTORY = [
+  {v:"10.18", date:"Jul 2026", headline:"Planning Strategy AI now quotes the real S106; Detailed Appraisal 'True vs Sheet' finance explained",
+   affectsCalc:false,
+   changes:["PLANNING STRATEGY AI SAID 'S106 £0' — the Planning & Viability 'Planning Strategy' narrative claimed the S106 input was £0 even though every screen showed £24.87m. The prompt read the planning-stage S106 TOTAL input field (blank when only the per-unit figure or auto-fill is used) instead of the propagated engine figure. It now quotes the one engine's S106, matching the display — same stale-field class fixed across the other stages.",
+     "DETAILED APPRAISAL 'True vs Sheet Finance' clarified — the two finance figures (e.g. £8.83m vs £18.32m) were repeatedly read as an unreconciled error. They're two different methods: Sheet Finance is the quick average-debt estimate that drives the margin; True Finance is the full Normal-Distribution cashflow where staged sales offset the debt (usually lower, more accurate). The on-page note now spells this out so the gap reads as methodology, not a bug. (If you'd prefer the headline margin to use the accurate cashflow finance rather than the conservative sheet estimate, that's a small change on request.) 345 tests."]},
   {v:"10.17", date:"Jul 2026", headline:"Due Diligence: the AI Gap Analysis now receives its full task, and the % complete can't over-count",
    affectsCalc:false,
    changes:["DD GAP ANALYSIS PROMPT — an operator-precedence slip meant the AI never actually received the task. 'Missing: …list… || \"None\" + \". Provide: 1)…2)…3)…4)\"' parsed as '(the whole sentence) OR (the instructions)', and because the sentence is always truthy the entire 'Provide: critical items / deferrable items / missing items / timeline' block was dropped from every run — the AI was left to guess what to do. It now gets the complete, structured task, so the gap analysis is materially more useful.",

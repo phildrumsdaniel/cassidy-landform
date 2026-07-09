@@ -152,6 +152,10 @@ function renderPlanning(at, data, navTo, setData, setJourney, units, up, user){
         })
       ),
       e(AIPanel,{user:user,up:up,stage:"planning",data:data,persistKey:"planning_planning_strategy",label:"Planning Strategy",
-        prompt:buildHonestPrompt(data,"Planning strategy for "+at.toUpperCase()+" scheme. LPA: "+(p.lpa||"unknown")+", status: "+(p.status||"none")+", "+units+" units, "+(p.ahPct||0)+"% AH. S106: "+fmt(num(p.s106))+". Provide: 1) Risk rating (1-10), 2) NPPF 2024 hooks to use, 3) S106 negotiation strategy, 4) Affordable housing viability argument, 5) Realistic timeline from pre-app to consent, 6) Top 3 likely officer objections and responses.")})
+        // v10.18 — quote the S106 from the ONE engine (the propagated total, e.g. £24.87m),
+        // not the planning-stage total INPUT field (p.s106), which stays £0 when only the
+        // per-unit figure or auto-fill is used. The prompt was telling the AI "S106: £0"
+        // while every screen displayed £24.87m, so the narrative wrongly claimed no S106.
+        prompt:buildHonestPrompt(data,"Planning strategy for "+at.toUpperCase()+" scheme. LPA: "+(p.lpa||"unknown")+", status: "+(p.status||"none")+", "+units+" units, "+(p.ahPct||0)+"% AH. S106: "+fmt(num((typeof calcDealMetrics==="function"&&calcDealMetrics(data).s106)||p.s106||(num(p.units)*num(p.s106pu)))||0)+". Provide: 1) Risk rating (1-10), 2) NPPF 2024 hooks to use, 3) S106 negotiation strategy, 4) Affordable housing viability argument, 5) Realistic timeline from pre-app to consent, 6) Top 3 likely officer objections and responses.")})
     );
   }
