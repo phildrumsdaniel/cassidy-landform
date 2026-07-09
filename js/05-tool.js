@@ -1915,8 +1915,12 @@ function loadSiteIntoDeal(site){
   return e("div",{style:{display:"flex",minHeight:"100vh",overflowX:"hidden"}},
     isMobile&&mobileMenuOpen&&e("div",{onClick:closeMobile,style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.6)",zIndex:999,touchAction:"none"}}),
     e("aside",{style:{width:240,background:"#1E1F5C",display:"flex",flexDirection:"column",position:"fixed",left:0,top:0,bottom:0,overflowY:"auto",zIndex:1001,transition:"transform .25s cubic-bezier(.4,0,.2,1)",transform:isMobile?(mobileMenuOpen?"translateX(0)":"translateX(-100%)"):"translateX(0)"}},
-      e("div",{style:{padding:"14px 16px 12px",borderBottom:"1px solid rgba(255,255,255,0.1)",display:"flex",alignItems:"center",justifyContent:"space-between"}},
-        e("img",{src:"data:image/png;base64,"+LOGO,alt:"Cassidy Group",style:{width:120,height:"auto",filter:"drop-shadow(0 1px 4px rgba(0,0,0,0.25))"}})
+      e("div",{style:{padding:"14px 16px 12px",borderBottom:"1px solid rgba(255,255,255,0.1)"}},
+        // v10.21 — use the real Cassidy Group Ltd brand logo (same as the login page,
+        // BRAND_LOGO_PNG), on a white chip so the correct logo reads on the dark navy sidebar.
+        e("div",{style:{background:"#fff",borderRadius:8,padding:"9px 12px",display:"flex",alignItems:"center",justifyContent:"center"}},
+          e("img",{src:"data:image/png;base64,"+BRAND_LOGO_PNG,alt:"Cassidy Group",style:{width:"100%",maxWidth:172,height:"auto",display:"block"}})
+        )
       ),
       e("div",{style:{padding:"8px 0",flex:1}},
         (function(){

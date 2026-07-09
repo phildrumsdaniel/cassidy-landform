@@ -15,8 +15,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.20";
+var CURRENT_VERSION = "10.21";
 var VERSION_HISTORY = [
+  {v:"10.21", date:"Jul 2026", headline:"Correct Cassidy Group logo now used in the navigation sidebar and the Board Proposal",
+   affectsCalc:false,
+   changes:["BRAND LOGO CONSISTENCY — the navigation sidebar was still showing the older logo variant while the login page uses the real Cassidy Group Ltd brand artwork. The sidebar now uses that same real logo, and the new Board Proposal document uses it in place of the placeholder mark. Both sit on a clean white chip so the logo reads correctly on the dark navy backgrounds."]},
   {v:"10.20", date:"Jul 2026", headline:"New: one-touch Board Proposal — a Cassidy-branded, printable board paper generated from the live deal",
    affectsCalc:false,
    changes:["BOARD PROPOSAL (new report) — a new stage under Report generates a Cassidy-branded board paper from the live deal at the touch of a button. It pulls every figure from the one engine (GDV, units, guide price, residual land value, margin, S106, tenure split) and assembles a management-ready document: letterhead, headline figures, the scheme, a fully-costed appraisal table, planning position, key risks and a Proceed / Hold / Decline decision box. It opens as a web page you can read on screen AND Print / Save as PDF to send to the board, and embeds a real OpenStreetMap of the site geocoded from the postcode (with an indicative site plan as fallback). Regenerate any time as the appraisal changes. 345 tests."]},
