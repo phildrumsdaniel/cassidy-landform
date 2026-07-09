@@ -9,30 +9,8 @@ import { DayPlate, Diamond, BaseRibbon, Note, Eyebrow } from '../components/ui.j
 import { IconChevronLeft, IconChevronRight, IconPin } from '../components/icons.jsx'
 import MediaJournal from '../components/MediaJournal.jsx'
 import ShareSheet from '../components/ShareSheet.jsx'
+import MyBooking from '../components/MyBooking.jsx'
 import { useState } from 'react'
-
-function Stay({ s }) {
-  return (
-    <div className="stay">
-      <div className="stay-kind label">{s.kind}</div>
-      <div className="stay-name">{s.name}</div>
-      <div className="stay-meta">
-        {s.tel && <a className="tel" href={`tel:${s.tel}`}>☎ {s.phone}</a>}
-        {s.postcode && <span className="pc">{s.postcode}</span>}
-        {s.cost != null
-          ? <span className="cost">≈ £{s.cost}</span>
-          : <span className="cost tbc">Confirm rate</span>}
-      </div>
-      {s.note && <div className="stay-note">{s.note}</div>}
-      <div className="stay-links">
-        {s.url && <a className="btn ghost" href={s.url} target="_blank" rel="noreferrer">Book ↗</a>}
-        {s.lat != null && (
-          <a className="btn ghost" href={`https://www.google.com/maps/search/?api=1&query=${s.lat},${s.lng}`} target="_blank" rel="noreferrer">Directions ↗</a>
-        )}
-      </div>
-    </div>
-  )
-}
 
 export default function BaseDetail() {
   const { id } = useParams()
@@ -87,7 +65,7 @@ export default function BaseDetail() {
         {base.stays.length > 0 && (
           <div>
             <div className="section-title" style={{ margin: '10px 0 10px' }}><Diamond /><h2>Where you stay</h2></div>
-            {base.stays.map((s, i) => <Stay s={s} key={i} />)}
+            <MyBooking base={base} />
 
             <details className="alt-sites">
               <summary>Fully booked? Alternatives &amp; nearby sites</summary>
