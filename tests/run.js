@@ -1140,19 +1140,40 @@ console.log("Landform engine consistency tests\n");
   ok("dealNOI with no units → 0", dealNOI({ assetType:"btr", planning:{}, capitalise:{} }) === 0);
 })();
 
-// 52 — Verified area rents override the generic auto-fill for that market only (v10.30)
+// 52 — Verified rents key off the POSTCODE at the finest researched granularity (v10.31)
 (function(){
-  var rugby = { land:{ city:"rugby" } };
-  var cov   = { land:{ city:"coventry" } };
-  ok("verifiedRents present for Rugby", !!verifiedRents(rugby));
-  ok("verifiedRents null for Coventry", verifiedRents(cov) === null);
-  ok("Rugby 2-bed uses verified £1000", areaRentPcm(rugby, 2) === 1000);
-  ok("Rugby 3-bed uses verified £1175", areaRentPcm(rugby, 3) === 1175);
-  ok("Rugby 4-bed uses verified £1550", areaRentPcm(rugby, 4) === 1550);
-  // 1-bed has no verified figure → still the generic area derivation (MKT.rugby.btr × factor).
-  ok("Rugby 1-bed stays generic (not verified)", areaRentPcm(rugby, 1) === Math.round(MKT.rugby.btr * RENT_BED_FACTOR[1]));
-  // A non-verified market is untouched by the verified table.
-  ok("Coventry 3-bed stays generic", areaRentPcm(cov, 3) === Math.round(MKT.coventry.btr * RENT_BED_FACTOR[3]));
+  // (a) postcode splitter — outcode / sector / full.
+  var p = pcParts("CV6 5AB");
+  ok("pcParts outcode", p.outcode === "CV6");
+  ok("pcParts sector (district-level key)", p.sector === "CV6 5");
+  ok("pcParts full", p.full === "CV6 5AB");
+  ok("pcParts outcode-only input", pcParts("CV22").outcode === "CV22" && pcParts("CV22").sector === null);
+
+  // (b) A Rugby postcode gets the researched Rugby figures — even though CV geocodes to the
+  //     Coventry anchor market (this is the town-vs-district fix).
+  var rugbySite = { land:{ postcode:"CV22 5AB", city:"coventry" } };
+  ok("Rugby postcode resolves verified rents via outcode", !!verifiedRents(rugbySite));
+  ok("Rugby 2-bed uses verified £1000", areaRentPcm(rugbySite, 2) === 1000);
+  ok("Rugby 3-bed uses verified £1175", areaRentPcm(rugbySite, 3) === 1175);
+  ok("Rugby 4-bed uses verified £1550", areaRentPcm(rugbySite, 4) === 1550);
+  ok("Rugby 1-bed stays generic (no verified figure)", areaRentPcm(rugbySite, 1) === Math.round(MKT[dealCityKey(rugbySite)].btr * RENT_BED_FACTOR[1]));
+
+  // (c) A Coventry postcode with NO researched data is untouched — no fabricated figures.
+  var covSite = { land:{ postcode:"CV6 1AB", city:"coventry" } };
+  ok("Coventry CV6 has no verified rents (not fabricated)", verifiedRents(covSite) === null);
+  ok("Coventry 3-bed stays generic", areaRentPcm(covSite, 3) === Math.round(MKT.coventry.btr * RENT_BED_FACTOR[3]));
+
+  // (d) Most-specific wins: a sector entry beats an outcode entry (mechanism proof, using a
+  //     temporary injected district so we prove resolution without inventing a real rent).
+  var savedFull = VERIFIED_RENTS["CV6 5AB"], savedSector = VERIFIED_RENTS["CV6 5"];
+  VERIFIED_RENTS["CV6 5"] = { label:"test district", beds:{ 3:1300 } };
+  ok("sector-level entry resolves for CV6 5 (Foleshill-style district)", areaRentPcm({ land:{ postcode:"CV6 5AA" } }, 3) === 1300);
+  ok("neighbouring sector CV6 1 unaffected by CV6 5 entry", verifiedRents({ land:{ postcode:"CV6 1AA" } }) === null);
+  VERIFIED_RENTS["CV6 5AB"] = { label:"test parcel", beds:{ 3:1400 } };
+  ok("full-postcode entry beats the sector entry", areaRentPcm({ land:{ postcode:"CV6 5AB" } }, 3) === 1400);
+  // restore
+  if(savedFull === undefined) delete VERIFIED_RENTS["CV6 5AB"]; else VERIFIED_RENTS["CV6 5AB"] = savedFull;
+  if(savedSector === undefined) delete VERIFIED_RENTS["CV6 5"]; else VERIFIED_RENTS["CV6 5"] = savedSector;
 })();
 
 // ── Report ───────────────────────────────────────────────────────────────────

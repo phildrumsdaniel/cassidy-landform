@@ -20,8 +20,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.30";
+var CURRENT_VERSION = "10.31";
 var VERSION_HISTORY = [
+  {v:"10.31", date:"Jul 2026", headline:"District-level rents: verified rents now key off the site POSTCODE at sector granularity (full → sector → outcode → town), so rents vary by district within an outcode (e.g. CV6 Foleshill vs CV6 Coundon), not just by town"},
   {v:"10.30", date:"Jul 2026", headline:"Single source of truth for exit income: one shared dealNOI() drives the Exit page and Board Proposal (fixes BTR £0 NOI); negative-RLV Sell-Now fallback fixed; pension DCF now discounts at its own 4.5%; verified researched Rugby per-bed rents (2/3/4-bed) replace the generic auto-fill and are labelled 'verified'"},
   {v:"10.29", date:"Jul 2026", headline:"Long-income DCF hold model — CPI-indexed, collared rent over a 25-yr hold with term-and-reversion terminal value; shown alongside the static year-1 basis for the pension/SWF and Retain & Refinance rows on Exit and in the Board Proposal; assumptions editable on the Capitalisation stage"},
   {v:"10.28", date:"Jul 2026", headline:"Board Proposal: 'Exit scenarios' section — multi-buyer valuations, value range, hold-vs-sell, refinancing, yield benchmarks and logged HA/RP offers, live from the Exit engine"},
@@ -1825,17 +1826,47 @@ function dealCityKey(data){
   if(pc && typeof postcodeMarketKey === "function"){ var a = postcodeMarketKey(pc); if(a) return a; }
   return (pcd && pcd.city) ? pcd.city : c;
 }
-// VERIFIED_RENTS (v10.30) — researched, per-bed MONTHLY rents that OVERRIDE the generic
-// area-derived figures for specific markets. Keyed by the deal's resolved area (dealCityKey).
-// Only the listed bed sizes are overridden; any bed size not listed falls back to the generic
-// area derivation (e.g. 1-bed for Rugby, where no verified figure exists). Surfaced as
-// "verified" on the Capitalisation stage so it's clear these are researched, not defaults.
+// pcParts — split a UK postcode into its outcode / sector / full forms so rent (and other
+// hyper-local) lookups can key at the finest available level. Rents vary WITHIN an outcode
+// (e.g. CV6 Foleshill is cheaper than CV6 Coundon), so the sector — the outcode plus the first
+// digit of the incode, e.g. "CV6 5" — is the granularity that actually separates districts.
+//   "CV6 5AB" → { outcode:"CV6", sector:"CV6 5", full:"CV6 5AB" }
+//   "CV22"    → { outcode:"CV22", sector:null, full:null }   (outcode only)
+function pcParts(pc){
+  pc = (pc || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if(pc.length < 3) return null;
+  if(pc.length < 5) return { outcode: pc, sector: null, full: null };   // outcode only
+  var inc = pc.slice(-3), out = pc.slice(0, -3);
+  return { outcode: out, sector: out + " " + inc.charAt(0), full: out + " " + inc };
+}
+
+// VERIFIED_RENTS (v10.31) — researched, per-bed MONTHLY rents that OVERRIDE the generic
+// area-derived figures. Keyed by POSTCODE at whatever granularity was researched:
+//   • full postcode  "CV22 5AB"   — a specific parcel
+//   • sector         "CV6 5"      — a district (this is how Foleshill vs Coundon differ)
+//   • outcode        "CV22"       — a whole outcode where the district spread is small
+// The resolver tries full → sector → outcode → (legacy) town, so the MOST specific researched
+// figure always wins. Only the listed bed sizes are overridden; anything not listed (e.g. 1-bed)
+// falls back to the generic area derivation. Surfaced as "verified" on the Capitalisation stage.
+// To add a district: research it, then add e.g. "CV6 5":{label:"verified — CV6 5 Foleshill …",
+// beds:{2:…,3:…,4:…}}. Do NOT guess — only add figures that have actually been checked.
+var _VR_RUGBY = { label:"verified — Rugby researched (Rightmove/Zoopla/ONS, 2026)", beds:{ 2:1000, 3:1175, 4:1550 } };
 var VERIFIED_RENTS = {
-  rugby: { label:"verified — Rugby researched (Rightmove/Zoopla/ONS, 2026)", beds:{ 2:1000, 3:1175, 4:1550 } }
+  // Rugby town (researched Jul 2026) — applied across its outcodes until sector-level data exists.
+  "CV21": _VR_RUGBY, "CV22": _VR_RUGBY, "CV23": _VR_RUGBY
 };
-// verifiedRents — the verified rent record for the deal's area, or null if none.
+// verifiedRents — the most specific verified rent record for the deal's location, or null.
+// Keys off the site POSTCODE (so a Rugby CV22 site gets Rugby figures even though CV geocodes
+// to the Coventry anchor market), most-specific first; a legacy town key is a last resort.
 function verifiedRents(data){
-  var key = (typeof dealCityKey === "function") ? dealCityKey(data) : "";
+  var pc = (data && data.land && data.land.postcode) || (data && data.rlv && data.rlv.postcode) || "";
+  var p = pcParts(pc);
+  if(p){
+    if(p.full && VERIFIED_RENTS[p.full]) return VERIFIED_RENTS[p.full];
+    if(p.sector && VERIFIED_RENTS[p.sector]) return VERIFIED_RENTS[p.sector];
+    if(p.outcode && VERIFIED_RENTS[p.outcode]) return VERIFIED_RENTS[p.outcode];
+  }
+  var key = (typeof dealCityKey === "function") ? dealCityKey(data) : "";   // legacy town-level fallback
   return (key && VERIFIED_RENTS[key]) ? VERIFIED_RENTS[key] : null;
 }
 // areaRentPcm — correct monthly rent for a given bedroom count in the DEAL's area
