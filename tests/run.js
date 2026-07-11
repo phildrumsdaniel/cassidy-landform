@@ -1376,6 +1376,85 @@ console.log("Landform engine consistency tests\n");
   ok("Guide below RLV leaves positive headroom", (m.rlv - total) > 0 === (ask < m.rlv - a.total));
 })();
 
+// 57 — One-pager "path to a 15% margin" solver (v10.36)
+// Mirrors screen-Proposal.js: solve the engine for the lever value that reaches a 15% developer
+// margin, where margin = (GDV − devCost − land) / GDV. Proves the solved targets actually hit
+// 15%, and that a per-row-tenure affordable is correctly detected as an inert scheme-ahPct lever.
+(function(){
+  function clone(d){ return JSON.parse(JSON.stringify(d)); }
+  function marginOf(d, land){ var sm=computeSFHMetrics(d); var g=num(sm.gdv); return g>0?((g-num(sm.devCost)-(land||0))/g*100):-999; }
+  function solve(base, mutate, lo, hi, land){
+    function f(x){ var d=clone(base); mutate(d,x); return marginOf(d, land); }
+    var mLo=f(lo), mHi=f(hi);
+    if((mLo-15)*(mHi-15)>0) return null;
+    for(var i=0;i<46;i++){ var mid=(lo+hi)/2, m=f(mid); if((m-15)*(mLo-15)<=0){ hi=mid; mHi=m; } else { lo=mid; mLo=m; } }
+    return (lo+hi)/2;
+  }
+  // A sub-15% all-private scheme (margin at £0 land well under 15%).
+  var deal={ assetType:"sfh", land:{city:"maidstone", acres:271.7}, planning:{},
+    sfh:{city:"maidstone", acres:271.7, basePsf:300, buildPsf:205, finRate:7.5,
+      mix:[{type:"3-bed semi",count:"600",sqft:"1020",unitPrice:String(1020*300),buildPsf:"205"},
+           {type:"4-bed detached",count:"400",sqft:"1500",unitPrice:String(1500*330),buildPsf:"205"}]} };
+  var m0=marginOf(deal,0);
+  ok("Baseline scheme is below a 15% margin", m0 < 15);
+
+  // Sale-price factor that reaches 15%, then confirm applying it yields ~15%.
+  var fSale=solve(deal, function(d,x){ var s=d.sfh; s.basePsf=String(Math.round(300*x)); s.mix=s.mix.map(function(r){ r=Object.assign({},r); r.unitPrice=String(Math.round(num(r.unitPrice)*x)); return r; }); }, 0.6, 2.5, 0);
+  ok("Sale-price lever reaches 15%", fSale!=null);
+  if(fSale){ var d2=clone(deal); d2.sfh.basePsf=String(Math.round(300*fSale)); d2.sfh.mix=d2.sfh.mix.map(function(r){ r=Object.assign({},r); r.unitPrice=String(Math.round(num(r.unitPrice)*fSale)); return r; });
+    near("Solved sale price yields a 15% margin", marginOf(d2,0), 15, 0.3);
+    ok("Solved sale price is higher than current (£300)", Math.round(300*fSale) > 300); }
+
+  // Build-cost factor that reaches 15%.
+  var fBuild=solve(deal, function(d,x){ var s=d.sfh; s.buildPsf=String(Math.round(205*x)); s.mix=s.mix.map(function(r){ r=Object.assign({},r); if(num(r.buildPsf)) r.buildPsf=String(Math.round(num(r.buildPsf)*x)); return r; }); }, 0.30, 1.0, 0);
+  ok("Build-cost lever reaches 15%", fBuild!=null);
+  if(fBuild){ var d3=clone(deal); d3.sfh.buildPsf=String(Math.round(205*fBuild)); d3.sfh.mix=d3.sfh.mix.map(function(r){ r=Object.assign({},r); r.buildPsf=String(Math.round(205*fBuild)); return r; });
+    near("Solved build cost yields ~15% margin (±rounding of £/sqft)", marginOf(d3,0), 15, 0.6);
+    ok("Solved build cost is lower than current (£205)", Math.round(205*fBuild) < 205); }
+
+  // A guide price raises the bar: the sale target to hit 15% AFTER land must exceed the £0-land target.
+  var fSaleLand=solve(deal, function(d,x){ var s=d.sfh; s.basePsf=String(Math.round(300*x)); s.mix=s.mix.map(function(r){ r=Object.assign({},r); r.unitPrice=String(Math.round(num(r.unitPrice)*x)); return r; }); }, 0.6, 3.0, 15000000);
+  ok("15% target after £15m land needs a higher sale price than at £0 land", fSaleLand!=null && fSale!=null && fSaleLand > fSale);
+
+  // Affordable via PER-ROW tenure is an inert scheme-ahPct lever (changing ahPct doesn't move GDV).
+  var perRow={ assetType:"sfh", land:{city:"maidstone", acres:271.7}, planning:{ahPct:"40"},
+    sfh:{city:"maidstone", acres:271.7, ahPct:"40", basePsf:332, buildPsf:205,
+      mix:[{type:"3-bed semi",count:"600",sqft:"1020",unitPrice:String(1020*332)},
+           {type:"2-bed semi",count:"400",sqft:"800",unitPrice:String(800*194),tenure:"ahp_affordable"}]} };
+  var mA=marginOf(perRow,0);
+  var perRow0=clone(perRow); perRow0.sfh.ahPct="0"; perRow0.planning.ahPct="0";
+  ok("Per-row affordable ⇒ scheme ahPct is inert (correctly gated out)", Math.abs(marginOf(perRow0,0)-mA) <= 0.1);
+})();
+
+// 58 — Keystone sizes the house mix to the scheme's unit count (v10.37)
+// A brief that quotes an allocation (units) AND an indicative smaller mix must build a deal
+// whose mix sums to the allocation — so the appraisal, headline and board paper agree straight
+// out of Keystone, with no manual "auto-fill" needed on the SFH stage.
+(function(){
+  if(typeof buildDealFromBrief !== "function"){ ok("buildDealFromBrief available", false); return; }
+  function mixSum(d){ return (d.sfh.mix||[]).reduce(function(a,r){ return a+num(r.count); },0); }
+
+  // Allocation 1,800 + indicative 1,000-home mix → mix sized up to 1,800.
+  var brief={ town:"Maidstone", postcode:"TN12 0AA", acres:271.7, units:1800, affordablePct:40, askingPrice:60000000,
+    houseMix:[{type:"4-bed detached",count:320,sqft:1650,salePrice:1650*385},{type:"3-bed semi",count:300,sqft:1150,salePrice:1150*387},
+      {type:"2-bed terrace",count:140,sqft:850,salePrice:850*365},{type:"2-bed semi",count:180,sqft:800,salePrice:800*194,tenure:"affordable rent"},
+      {type:"3-bed semi",count:60,sqft:950,salePrice:950*300}] };
+  var d=buildDealFromBrief(brief);
+  ok("Keystone mix sized to the 1,800 allocation", mixSum(d)===1800);
+  ok("Keystone land & planning units = 1,800", num(d.land.units)===1800 && num(d.planning.units)===1800);
+  ok("Engine values the full-allocation mix at 1,800", computeSFHMetrics(d).totalUnits===1800);
+  ok("Scaling note recorded on the deal", (d._keystone.assumptions||[]).some(function(a){return /sized to the scheme/.test(a);}));
+
+  // Mix already agrees with units → left untouched (no spurious rescale).
+  var brief2={ town:"Maidstone", postcode:"TN12 0AA", acres:60, units:1000, affordablePct:30,
+    houseMix:[{type:"3-bed semi",count:600,sqft:1020,salePrice:1020*350},{type:"4-bed detached",count:400,sqft:1500,salePrice:1500*400}] };
+  ok("Matching mix is left as-is (sums to 1,000)", mixSum(buildDealFromBrief(brief2))===1000);
+
+  // Units only, no mix → a generated mix sums to the units.
+  var brief3={ town:"Maidstone", postcode:"TN12 0AA", acres:100, units:1200, affordablePct:30 };
+  ok("Units-only brief generates a mix summing to the units", mixSum(buildDealFromBrief(brief3))===1200);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

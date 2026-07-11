@@ -765,6 +765,68 @@ function renderProposal(city, data, gdv, lc, up, user){
       verdict=oProfitPct>=15?"◐ Enter a guide price":"◐ Review"; vcol="#4A4BAE";
       vsub="Maximum supportable land value is "+fmt(oRlv)+" ("+fmt(rlvPerPlot)+"/plot) at "+Math.round(oProfitPct)+"% target profit, before purchase costs. Enter the landowner's guide price to add SDLT, legals and acquisition and test the all-in position."; }
 
+    // ── PATH TO A 15% MARGIN ───────────────────────────────────────────────────
+    // When the scheme falls short of a 15% developer margin (after the land, if a guide is
+    // entered), solve the ENGINE for the value of each lever that would reach 15% — the actual
+    // figures needed to make it stack, not fixed % nudges. Each is re-appraised on
+    // computeSFHMetrics with only that lever changed, bisecting to the target. Margin here is
+    // the achievable developer margin at the current land cost: (GDV − dev cost − land) / GDV.
+    var TARGET_M=15;
+    var marginNow=oGdv>0?((oGdv-oDev-totalLandCost)/oGdv*100):0;
+    var pathBlock="";
+    if(oGdv>0 && marginNow < TARGET_M){
+      var curBase=oBasePsf, curBuild=oBuildPsf, landSolve=totalLandCost;
+      function cloneD(){ try{ return JSON.parse(JSON.stringify(data)); }catch(e){ return null; } }
+      function marginOf(d){ if(!d) return -999; var sm=computeSFHMetrics(d); var g=num(sm.gdv); return g>0?((g-num(sm.devCost)-landSolve)/g*100):-999; }
+      // Bisection solver: find x in [lo,hi] where the margin crosses TARGET_M (monotonic lever).
+      function solve(mutate, lo, hi){
+        function f(x){ var d=cloneD(); if(!d) return -999; try{ mutate(d,x); }catch(e){ return -999; } return marginOf(d); }
+        var mLo=f(lo), mHi=f(hi);
+        if((mLo-TARGET_M)*(mHi-TARGET_M)>0) return null;   // 15% not reachable within range
+        for(var i=0;i<46;i++){ var mid=(lo+hi)/2, m=f(mid);
+          if((m-TARGET_M)*(mLo-TARGET_M)<=0){ hi=mid; mHi=m; } else { lo=mid; mLo=m; } }
+        return (lo+hi)/2;
+      }
+      function scalePrices(s,x){ if(Array.isArray(s.mix)) s.mix=s.mix.map(function(r){ r=Object.assign({},r); if(num(r.unitPrice))r.unitPrice=String(Math.round(num(r.unitPrice)*x)); if(num(r.salePrice))r.salePrice=String(Math.round(num(r.salePrice)*x)); if(num(r.psf))r.psf=String(Math.round(num(r.psf)*x)); return r; }); }
+      function scaleBuild(s,x){ if(Array.isArray(s.mix)) s.mix=s.mix.map(function(r){ r=Object.assign({},r); if(num(r.buildPsf))r.buildPsf=String(Math.round(num(r.buildPsf)*x)); return r; }); }
+      var fSale=solve(function(d,x){ var s=d.sfh||(d.sfh={}); s.basePsf=String(Math.round((num(s.basePsf)||curBase)*x)); scalePrices(s,x); }, 0.6, 2.5);
+      var saleT=fSale?Math.round(curBase*fSale):null;
+      var fBuild=solve(function(d,x){ var s=d.sfh||(d.sfh={}); s.buildPsf=String(Math.round((num(s.buildPsf)||curBuild)*x)); scaleBuild(s,x); }, 0.30, 1.0);
+      var buildT=fBuild?Math.round(curBuild*fBuild):null;
+      function setAh(d,x){ var s=d.sfh||(d.sfh={}); s.ahPct=String(x); var p=d.planning||(d.planning={}); p.ahPct=String(x); p.afhPct=String(x); if(d.tenure)d.tenure.ahPct=String(x); }
+      // Is the scheme-level affordable % actually a live lever? It is NOT when affordable is
+      // captured as per-row tenure (the ahPct haircut is then bypassed), so changing it does
+      // nothing to GDV — don't offer it as a lever in that case.
+      var ahEffective=false;
+      if(ahPct>0){ var dz=cloneD(); if(dz){ setAh(dz,0); ahEffective=Math.abs(marginOf(dz)-marginNow)>0.1; } }
+      var ahT = ahEffective ? solve(function(d,x){ setAh(d,x); }, 0, ahPct) : null;
+      // Balanced combined path: a bit of each (sale +up to 10%, build −up to 12%, and AH −up to
+      // 15pts when it's a live lever).
+      var tC=solve(function(d,t){ var s=d.sfh||(d.sfh={}); var sf2=1+0.10*t, bf=1-0.12*t;
+        s.basePsf=String(Math.round((num(s.basePsf)||curBase)*sf2)); s.buildPsf=String(Math.round((num(s.buildPsf)||curBuild)*bf));
+        if(ahEffective) setAh(d,Math.max(0,ahPct-15*t));
+        if(Array.isArray(s.mix)) s.mix=s.mix.map(function(r){ r=Object.assign({},r); if(num(r.unitPrice))r.unitPrice=String(Math.round(num(r.unitPrice)*sf2)); if(num(r.buildPsf))r.buildPsf=String(Math.round(num(r.buildPsf)*bf)); return r; });
+      }, 0, 1);
+      var comboTxt="";
+      if(tC!=null){ comboTxt="Sale £"+Math.round(curBase*(1+0.10*tC))+"/sqft <b>+</b> build £"+Math.round(curBuild*(1-0.12*tC))+"/sqft"+(ahEffective?" <b>+</b> affordable "+Math.round(Math.max(0,ahPct-15*tC))+"%":"")+" — together reach 15%."; }
+      else { comboTxt="Even a combined push (sale +10%, build −12%"+(ahEffective?", affordable −15pts":"")+") falls short of 15% — it needs a step-change in sale values, a lower land basis, or grant support."; }
+      function leverLi(label, from, to, unit){
+        if(to==null) return '<tr><td>'+label+'</td><td class="n">'+from+unit+'</td><td class="n" style="color:#9298BC">not alone</td></tr>';
+        var better = /Affordable|Build/.test(label) ? to<num(String(from).replace(/[^0-9.]/g,"")) : true;
+        return '<tr><td>'+label+'</td><td class="n">'+from+unit+'</td><td class="n" style="color:#1B7A54;font-weight:800">'+to+unit+'</td></tr>';
+      }
+      pathBlock='<div style="margin-top:9px;border:1px solid #C9CCE4;border-radius:7px;padding:9px 11px;background:#FBFAF5">'+
+        '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#9A7B3E;font-weight:800;margin-bottom:4px">What makes it stack — path to a 15% margin</div>'+
+        '<div style="font-size:9px;color:#6A6F97;margin-bottom:5px">Currently <b style="color:#B05A35">'+pct(marginNow)+'</b> developer margin '+(totalLandCost>0?'after '+fmt(totalLandCost)+' all-in land':'at £0 land')+'. Any ONE of the following reaches 15% (each solved on the engine, holding the others fixed):</div>'+
+        '<table><tr><td style="color:#8A90B4;font-size:7.4px;letter-spacing:.05em;text-transform:uppercase;font-weight:700">Lever</td><td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Now</td><td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Needs to be</td></tr>'+
+          leverLi("Sale price","£"+curBase, saleT, "/sqft")+
+          leverLi("Build cost","£"+curBuild, buildT, "/sqft")+
+          (ahEffective?leverLi("Affordable %", ahPct, (ahT!=null?Math.round(ahT):null), "%"):'')+
+        '</table>'+
+        '<div style="font-size:9px;color:#3A3D6A;margin-top:5px;line-height:1.45"><b>Balanced route:</b> '+comboTxt+'</div>'+
+      '</div>';
+    }
+
     // Compact house mix — cap at 8 rows, roll up the rest so it always fits one page.
     var rows=(sf.rows||[]).filter(function(r){return num(r.count)>0;});
     var shown=rows.slice(0,8), rest=rows.slice(8);
@@ -880,6 +942,7 @@ function renderProposal(city, data, gdv, lc, up, user){
           '</div>'+
         '</div>'+
         '<div class="verdict" style="background:'+vcol+'"><div class="vh">'+verdict+'</div><div class="vs">'+vsub+'</div></div>'+
+        pathBlock+
         '<div class="foot"><b>Indicative appraisal — not a RICS Red Book valuation.</b> Figures are computed on Landform\'s engine from the inputs entered (site area, density, house mix, sale and build £/sqft, S106, finance and profit assumptions) and assume residential consent can be achieved. '+
           (askL<=0?'Enter a land guide price on the Board Proposal or Land stage to test purchase costs (SDLT, legals, acquisition) against the residual land value. ':'')+
           'Verify sale and build values against local comparables and a QS cost plan before commitment. Residual land value is the maximum supportable land PRICE at target developer profit'+(askL>0?'; the all-in position adds SDLT (non-residential land bands: 0% ≤£150k, 2% to £250k, 5% above) plus ~1.5% legals &amp; acquisition on the '+fmt(askL)+' guide price':'')+'. SDLT rates and reliefs vary — confirm with your tax adviser.</div>'+

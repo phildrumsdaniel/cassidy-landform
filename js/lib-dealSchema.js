@@ -276,6 +276,26 @@ function buildDealFromBrief(brief){
     journey = "sfh";
     genMixNote = "House mix auto-generated as a typical estate blend for " + units + " homes, priced off area benchmarks — refine the types and prices in SFH House Mix.";
   }
+  // v10.37 — size the house mix to the scheme's unit count. When a brief supplies BOTH an
+  // allocation/units figure AND a house mix that don't agree (e.g. a source doc quoting
+  // "circa 1,800 units" alongside an indicative ~1,000-home sample mix), scale the mix
+  // pro-rata so it sums to the units. This means Keystone fills the mix at the FULL allocation
+  // straight away — the board paper, one-pager and headline unit count all agree without any
+  // manual "auto-fill" on the SFH stage. Distribution is preserved; the last row absorbs the
+  // rounding remainder so the mix totals exactly `units`.
+  if((journey === "sfh" || journey === "land") && units > 0 && mix.length){
+    var mixTot0 = mix.reduce(function(a, r){ return a + num(r.count); }, 0);
+    if(mixTot0 > 0 && Math.abs(mixTot0 - units) > Math.max(20, units * 0.05)){
+      var _k = units / mixTot0, _acc = 0;
+      mix = mix.map(function(r, i){
+        var c = (i === mix.length - 1) ? Math.max(0, units - _acc) : Math.max(0, Math.round(num(r.count) * _k));
+        _acc += c;
+        return Object.assign({}, r, { count: String(c) });
+      });
+      genMixNote = "House mix sized to the scheme's " + units.toLocaleString() + " units (the brief's mix summed to " +
+        mixTot0.toLocaleString() + ") so the appraisal reflects the full allocation from the outset — refine the split in SFH House Mix.";
+    }
+  }
 
   var yieldPct = num(brief.netInitialYield) || 0;
 
