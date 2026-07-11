@@ -66,7 +66,8 @@ function renderKeystone(data, setData, up, navTo, user){
   async function readPdf(buf){
     if(typeof pdfjsLib === "undefined") throw new Error("PDF reader still loading — try again in a moment");
     if(pdfjsLib.GlobalWorkerOptions && !pdfjsLib.GlobalWorkerOptions.workerSrc){
-      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+      // v10.39 — self-hosted worker (was unpkg CDN), so PDF reading works without a CDN dependency.
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "js/vendor/pdf.worker.min.js";
     }
     var pdf = await pdfjsLib.getDocument({data:new Uint8Array(buf)}).promise;
     var out = [];
