@@ -1426,6 +1426,35 @@ console.log("Landform engine consistency tests\n");
   ok("Per-row affordable ⇒ scheme ahPct is inert (correctly gated out)", Math.abs(marginOf(perRow0,0)-mA) <= 0.1);
 })();
 
+// 58 — Keystone sizes the house mix to the scheme's unit count (v10.37)
+// A brief that quotes an allocation (units) AND an indicative smaller mix must build a deal
+// whose mix sums to the allocation — so the appraisal, headline and board paper agree straight
+// out of Keystone, with no manual "auto-fill" needed on the SFH stage.
+(function(){
+  if(typeof buildDealFromBrief !== "function"){ ok("buildDealFromBrief available", false); return; }
+  function mixSum(d){ return (d.sfh.mix||[]).reduce(function(a,r){ return a+num(r.count); },0); }
+
+  // Allocation 1,800 + indicative 1,000-home mix → mix sized up to 1,800.
+  var brief={ town:"Maidstone", postcode:"TN12 0AA", acres:271.7, units:1800, affordablePct:40, askingPrice:60000000,
+    houseMix:[{type:"4-bed detached",count:320,sqft:1650,salePrice:1650*385},{type:"3-bed semi",count:300,sqft:1150,salePrice:1150*387},
+      {type:"2-bed terrace",count:140,sqft:850,salePrice:850*365},{type:"2-bed semi",count:180,sqft:800,salePrice:800*194,tenure:"affordable rent"},
+      {type:"3-bed semi",count:60,sqft:950,salePrice:950*300}] };
+  var d=buildDealFromBrief(brief);
+  ok("Keystone mix sized to the 1,800 allocation", mixSum(d)===1800);
+  ok("Keystone land & planning units = 1,800", num(d.land.units)===1800 && num(d.planning.units)===1800);
+  ok("Engine values the full-allocation mix at 1,800", computeSFHMetrics(d).totalUnits===1800);
+  ok("Scaling note recorded on the deal", (d._keystone.assumptions||[]).some(function(a){return /sized to the scheme/.test(a);}));
+
+  // Mix already agrees with units → left untouched (no spurious rescale).
+  var brief2={ town:"Maidstone", postcode:"TN12 0AA", acres:60, units:1000, affordablePct:30,
+    houseMix:[{type:"3-bed semi",count:600,sqft:1020,salePrice:1020*350},{type:"4-bed detached",count:400,sqft:1500,salePrice:1500*400}] };
+  ok("Matching mix is left as-is (sums to 1,000)", mixSum(buildDealFromBrief(brief2))===1000);
+
+  // Units only, no mix → a generated mix sums to the units.
+  var brief3={ town:"Maidstone", postcode:"TN12 0AA", acres:100, units:1200, affordablePct:30 };
+  ok("Units-only brief generates a mix summing to the units", mixSum(buildDealFromBrief(brief3))===1200);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);
