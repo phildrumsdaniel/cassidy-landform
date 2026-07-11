@@ -20,8 +20,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.32";
+var CURRENT_VERSION = "10.33";
 var VERSION_HISTORY = [
+  {v:"10.33", date:"Jul 2026", headline:"One-page A4 land appraisal: a new ‘is this worth pursuing?’ briefing on the Board Proposal stage — site size, homes (SFH mix), GDV, the full cost stack (build, fees, finance, S106, roads, infra, profit) and residual land value tested against the landowner's asking price, with a clear verdict. Every figure comes straight from the appraisal engine so it reconciles exactly with the full board paper; prints to a single side of A4"},
   {v:"10.32", date:"Jul 2026", headline:"SFH House Mix fixes + Board Proposal viability pathways: editable Sqft/£psf cells now bind to and drive the real per-row figures the engine uses (was showing generic type defaults); new ‘Auto-price sale / type’ button propagates a Base Sale £/sqft correction to every row; scheme-basis reconciliation surfaces modelled-vs-brief unit counts; and the Board Proposal gains a ‘Viability pathways — reasons & actions’ section that quantifies the levers (modular build, affordable %, AHP grant, density, phased/deferred land, JV/promotion-only) to make a marginal scheme stack"},
   {v:"10.31", date:"Jul 2026", headline:"District-level rents: verified rents now key off the site POSTCODE at sector granularity (full → sector → outcode → town), so rents vary by district within an outcode (e.g. CV6 Foleshill vs CV6 Coundon), not just by town"},
   {v:"10.30", date:"Jul 2026", headline:"Single source of truth for exit income: one shared dealNOI() drives the Exit page and Board Proposal (fixes BTR £0 NOI); negative-RLV Sell-Now fallback fixed; pension DCF now discounts at its own 4.5%; verified researched Rugby per-bed rents (2/3/4-bed) replace the generic auto-fill and are labelled 'verified'"},

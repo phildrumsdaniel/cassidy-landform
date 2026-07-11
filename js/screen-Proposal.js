@@ -705,6 +705,163 @@ function renderProposal(city, data, gdv, lc, up, user){
     geocode().then(openDoc).catch(function(){ openDoc(null); });
   }
 
+  // ── ONE-PAGE A4 LAND APPRAISAL ─────────────────────────────────────────────
+  // A single side of A4 — the quick "is this worth pursuing?" briefing for a piece of land:
+  // size → homes (SFH mix) → GDV → the full cost stack (build, fees, finance, S106, roads,
+  // infra, profit) → residual land value, then tested against what the landowner is asking.
+  // Every figure comes straight from computeSFHMetrics, so it reconciles exactly with the
+  // full appraisal and the board paper — a compact sketch, but an accurate one.
+  function buildOnePagerHTML(){
+    var sf=SF||{};
+    var oUnits=num(sf.totalUnits)||units||0;
+    var oGdv=num(sf.gdv)||gdvV||0;
+    var oRetail=num(sf.retailGdv)||oGdv;
+    var oBuild=num(sf.buildCost), oFees=num(sf.fees), oCont=num(sf.contingency), oFin=num(sf.finance);
+    var oS106=num(sf.s106), oRoads=num(sf.roads), oInfra=num(sf.infra), oMkt=num(sf.marketing), oProfit=num(sf.profit);
+    var oDev=num(sf.devCost)||(oBuild+oFees+oCont+oFin+oS106+oRoads+oInfra+oMkt);
+    var oRlv=num(sf.rlv);
+    var oAvgSqft=Math.round(num(sf.avgSqft)||0);
+    var oBuildPsf=Math.round(num(sf.buildPsf)||0);
+    var oBasePsf=Math.round(num(sf.basePsf)||0);
+    var oProfitPct=oGdv>0?oProfit/oGdv*100:0;                 // target profit baked into the RLV
+    var askL=num(l.price)||ask||0;                            // what the landowner is asking
+    var profitAtAsk=askL>0?(oGdv-oDev-askL):oProfit;          // real profit if bought at the asking price
+    var marginAtAsk=oGdv>0?(profitAtAsk/oGdv*100):0;
+    var headroom=oRlv-askL;                                   // +ve ⇒ RLV covers the asking with room to spare
+    var oDensity=(acres>0&&oUnits>0)?Math.round(oUnits/acres):density;
+    var rlvPerPlot=oUnits>0?oRlv/oUnits:0;
+    var rlvPerAcre=acres>0?oRlv/acres:0;
+    var landPctGdv=oGdv>0&&askL>0?(askL/oGdv*100):0;
+
+    // Verdict — decision-useful: uses the margin achieved IF the land is bought at the asking price.
+    var verdict, vcol, vsub;
+    if(oRlv<=0){ verdict="✗ Does not stack"; vcol="#B05A35";
+      vsub="Build, costs and target profit exceed GDV — the residual land value is negative, so the site can't support any land payment at "+Math.round(oProfitPct)+"% profit as modelled."; }
+    else if(askL>0){
+      if(marginAtAsk>=15){ verdict="✓ Worth pursuing"; vcol="#1B7A54";
+        vsub="At the "+fmt(askL)+" asking price the scheme still returns a "+pct(marginAtAsk)+" margin ("+fmt(profitAtAsk)+" profit) — the residual land value of "+fmt(oRlv)+" covers the ask with "+fmt(headroom)+" to spare."; }
+      else if(marginAtAsk>=12){ verdict="⚠ Marginal — negotiate"; vcol="#9A7B3E";
+        vsub="At the "+fmt(askL)+" asking price the margin is only "+pct(marginAtAsk)+". The land supports up to "+fmt(oRlv)+" at target profit — offer nearer that to restore the margin."; }
+      else { verdict="✗ Overpriced as asked"; vcol="#B05A35";
+        vsub="The "+fmt(askL)+" asking exceeds the supportable land value of "+fmt(oRlv)+" by "+fmt(Math.abs(headroom))+" — margin at the ask is just "+pct(marginAtAsk)+". Pursue only at ~"+fmt(oRlv)+" or below."; }
+    } else {
+      verdict=oProfitPct>=15?"◐ Enter the asking price":"◐ Review"; vcol="#4A4BAE";
+      vsub="Maximum supportable land value is "+fmt(oRlv)+" ("+fmt(rlvPerPlot)+"/plot) at "+Math.round(oProfitPct)+"% target profit. Enter what the landowner is asking to test whether it pursues."; }
+
+    // Compact house mix — cap at 8 rows, roll up the rest so it always fits one page.
+    var rows=(sf.rows||[]).filter(function(r){return num(r.count)>0;});
+    var shown=rows.slice(0,8), rest=rows.slice(8);
+    var mixRows=shown.map(function(r){
+      var rev=num(r.retailGdv)||(num(r.sqft)*num(r.psf)*num(r.count));
+      return '<tr><td>'+esc(r.type||"House")+'</td><td class="n">'+num(r.count)+'</td><td class="n">'+(Math.round(num(r.sqft))||"—")+'</td><td class="n">£'+Math.round(num(r.psf))+'</td><td class="n">'+fmt(rev)+'</td></tr>';
+    }).join("");
+    if(rest.length){
+      var rc=rest.reduce(function(a,r){return a+num(r.count);},0);
+      var rrev=rest.reduce(function(a,r){return a+(num(r.retailGdv)||num(r.sqft)*num(r.psf)*num(r.count));},0);
+      mixRows+='<tr><td>+ '+rest.length+' more type'+(rest.length>1?"s":"")+'</td><td class="n">'+rc+'</td><td class="n">—</td><td class="n">—</td><td class="n">'+fmt(rrev)+'</td></tr>';
+    }
+    var ahU=Math.round(oUnits*ahPct/100);
+
+    function cRow(k,v,neg,strong){ return '<tr'+(strong?' class="s"':'')+'><td>'+k+'</td><td class="n">'+(neg?"−":"")+v+'</td></tr>'; }
+    var siteSub=[cityDisp,county,pc].filter(Boolean).join(" · ");
+
+    return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>'+
+      '<title>Land appraisal — '+esc(addr)+'</title><style>'+
+      '@page{size:A4 portrait;margin:10mm}'+
+      '*{box-sizing:border-box}'+
+      'html,body{margin:0}'+
+      'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#26284F;font-size:9.7px;line-height:1.4;font-variant-numeric:tabular-nums;-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#eef0f7}'+
+      '.pg{width:190mm;min-height:277mm;margin:6mm auto;background:#fff;padding:9mm 9mm 7mm;box-shadow:0 2px 14px rgba(0,0,0,.12)}'+
+      '@media print{body{background:#fff}.pg{margin:0;box-shadow:none;width:auto;min-height:auto;padding:0}.noprint{display:none}}'+
+      'h1{font-family:Georgia,serif;font-size:16px;color:#1B1D46;margin:0}'+
+      '.top{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1B1D46;padding-bottom:5px;margin-bottom:7px}'+
+      '.brand{font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:#9A7B3E;font-weight:800}'+
+      '.sub{color:#6A6F97;font-size:9px;margin-top:2px}'+
+      '.meta{text-align:right;font-size:8.3px;color:#6A6F97;line-height:1.5}'+
+      '.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin:8px 0}'+
+      '.kpi{border:1px solid #E0E2EC;border-radius:5px;padding:6px 7px;background:#FafBff}'+
+      '.kpi .l{font-size:7.4px;letter-spacing:.08em;text-transform:uppercase;color:#8A90B4;font-weight:700}'+
+      '.kpi .v{font-size:14px;font-weight:800;color:#1B1D46;margin-top:2px;font-family:Georgia,serif}'+
+      '.cols{display:grid;grid-template-columns:1.04fr 1fr;gap:9px;margin-top:2px}'+
+      '.card{border:1px solid #E0E2EC;border-radius:6px;padding:8px 9px}'+
+      '.ct{font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#4A4BAE;font-weight:800;margin-bottom:5px}'+
+      'table{width:100%;border-collapse:collapse}'+
+      'td{padding:2.4px 0;border-bottom:1px solid #F1F2F8}'+
+      'td.n{text-align:right;font-weight:600}'+
+      'tr.s td{border-top:1.4px solid #C9CCE4;border-bottom:none;font-weight:800;color:#1B1D46;padding-top:4px;font-size:10.4px}'+
+      '.mix td{font-size:9px}'+
+      '.mix thead td{color:#8A90B4;font-size:7.4px;letter-spacing:.05em;text-transform:uppercase;font-weight:700;border-bottom:1px solid #C9CCE4}'+
+      '.two{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}'+
+      '.box{background:#F6F7FC;border-radius:5px;padding:6px 7px}'+
+      '.box .l{font-size:7.4px;letter-spacing:.06em;text-transform:uppercase;color:#8A90B4;font-weight:700}'+
+      '.box .v{font-size:12px;font-weight:800;color:#1B1D46;margin-top:1px}'+
+      '.rr{display:flex;justify-content:space-between;color:#6A6F97;font-size:8.6px;padding:2px 0}'+
+      '.verdict{margin-top:9px;border-radius:7px;padding:9px 11px;color:#fff}'+
+      '.verdict .vh{font-size:13px;font-weight:800}'+
+      '.verdict .vs{font-size:9px;margin-top:2px;opacity:.96;line-height:1.45}'+
+      '.foot{margin-top:8px;font-size:7.4px;color:#9298BC;line-height:1.5;border-top:1px solid #EEF0F7;padding-top:5px}'+
+      '.btn{position:fixed;top:9px;right:9px;background:#1E1F5C;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25)}'+
+      '</style></head><body>'+
+      '<button class="btn noprint" onclick="window.print()">Print / Save as PDF</button>'+
+      '<div class="pg">'+
+        '<div class="top"><div><div class="brand">Cassidy Group · Land appraisal — one-page briefing</div>'+
+          '<h1>'+esc(addr)+'</h1><div class="sub">'+esc(siteSub||"—")+(acres>0?' · <b>'+esc(acres)+' acres</b>':'')+'</div></div>'+
+          '<div class="meta">'+(lpa?esc(lpa)+'<br/>':'')+esc(planStatus||"Unallocated")+'<br/>Indicative · v'+esc(typeof CURRENT_VERSION!=="undefined"?CURRENT_VERSION:"")+'</div></div>'+
+        '<div class="kpis">'+
+          '<div class="kpi"><div class="l">Homes</div><div class="v">'+(oUnits?oUnits.toLocaleString():"—")+'</div></div>'+
+          '<div class="kpi"><div class="l">GDV</div><div class="v">'+(oGdv>0?fmt(oGdv):"—")+'</div></div>'+
+          '<div class="kpi"><div class="l">Land asking</div><div class="v">'+(askL>0?fmt(askL):"—")+'</div></div>'+
+          '<div class="kpi"><div class="l">Residual land value</div><div class="v" style="color:'+(oRlv>0?"#1B7A54":"#B05A35")+'">'+(oRlv?((oRlv<0?"−":"")+fmt(Math.abs(oRlv))):"—")+'</div></div>'+
+          '<div class="kpi"><div class="l">Margin at ask</div><div class="v" style="color:'+(marginAtAsk>=15?"#1B7A54":marginAtAsk>=12?"#9A7B3E":"#B05A35")+'">'+(askL>0?pct(marginAtAsk):Math.round(oProfitPct)+"%*")+'</div></div>'+
+        '</div>'+
+        '<div class="cols">'+
+          '<div class="card"><div class="ct">Scheme &amp; house mix</div>'+
+            '<div class="rr"><span>Site area</span><b>'+(acres>0?acres+" acres · "+(acres*0.404686).toFixed(1)+" ha":"—")+'</b></div>'+
+            '<div class="rr"><span>Density</span><b>'+(oDensity>0?oDensity+" homes/acre · ≈"+Math.round(oDensity*2.471)+" dph":"—")+'</b></div>'+
+            '<div class="rr"><span>Homes (modelled mix)</span><b>'+(oUnits?oUnits.toLocaleString():"—")+(sitePotential>0?' <span style="color:#9298BC">of ~'+sitePotential.toLocaleString()+' site potential</span>':'')+'</b></div>'+
+            '<div class="rr"><span>Affordable (S106)</span><b>'+(ahPct?ahPct+"% · ~"+ahU.toLocaleString()+" homes":"—")+'</b></div>'+
+            '<div class="rr"><span>Avg home · sale £/sqft</span><b>'+(oAvgSqft?oAvgSqft.toLocaleString()+" sqft · £"+oBasePsf:"—")+'</b></div>'+
+            '<table class="mix" style="margin-top:6px"><thead><tr><td>Type</td><td class="n">Plots</td><td class="n">Sqft</td><td class="n">£/sqft</td><td class="n">Revenue</td></tr></thead><tbody>'+
+              (mixRows||'<tr><td colspan="5" style="color:#9298BC;padding:8px 0">No house mix entered — build the SFH House Mix to populate this.</td></tr>')+
+              '<tr class="s"><td>Total GDV</td><td class="n" style="text-align:right" colspan="4">'+(oGdv>0?fmt(oGdv):"—")+'</td></tr>'+
+            '</tbody></table>'+
+          '</div>'+
+          '<div class="card"><div class="ct">Appraisal — residual land value</div>'+
+            '<table>'+
+              cRow("Gross development value",fmt(oGdv),false,false)+
+              (oRetail>oGdv+1?'<tr><td style="color:#9298BC">— affordable / mix discount</td><td class="n" style="color:#9298BC">−'+fmt(oRetail-oGdv)+'</td></tr>':'')+
+              cRow("Build ("+ (oAvgSqft&&oUnits?Math.round(oAvgSqft*oUnits).toLocaleString()+" sqft @ £"+oBuildPsf:"")+")",fmt(oBuild),true,false)+
+              cRow("Professional fees",fmt(oFees),true,false)+
+              cRow("Contingency",fmt(oCont),true,false)+
+              cRow("Finance",fmt(oFin),true,false)+
+              cRow("S106 / CIL"+(oUnits>0?" (£"+fmtN(Math.round(oS106/oUnits))+"/plot)":""),fmt(oS106),true,false)+
+              (oRoads>0?cRow("Roads &amp; sewers",fmt(oRoads),true,false):'')+
+              (oInfra>0?cRow("Infrastructure &amp; SuDS",fmt(oInfra),true,false):'')+
+              (oMkt>0?cRow("Marketing / disposal",fmt(oMkt),true,false):'')+
+              cRow("Developer profit ("+Math.round(oProfitPct)+"%)",fmt(oProfit),true,false)+
+              cRow("Residual land value",(oRlv<0?"−":"")+fmt(Math.abs(oRlv)),false,true)+
+            '</table>'+
+            '<div class="two">'+
+              '<div class="box"><div class="l">Max land @ target profit</div><div class="v">'+(oRlv?((oRlv<0?"−":"")+fmt(Math.abs(oRlv))):"—")+'</div></div>'+
+              '<div class="box"><div class="l">'+(askL>0?"Headroom vs asking":"Per plot")+'</div><div class="v" style="color:'+(askL>0?(headroom>=0?"#1B7A54":"#B05A35"):"#1B1D46")+'">'+(askL>0?((headroom<0?"−":"+")+fmt(Math.abs(headroom))):fmt(rlvPerPlot))+'</div></div>'+
+            '</div>'+
+            '<div class="rr" style="margin-top:5px"><span>Per plot / per acre</span><b>'+fmt(rlvPerPlot)+' · '+(acres>0?fmt(rlvPerAcre):"—")+'</b></div>'+
+            (askL>0?'<div class="rr"><span>At the asking price</span><b>'+fmt(profitAtAsk)+' profit · '+pct(marginAtAsk)+' margin · land '+Math.round(landPctGdv)+'% of GDV</b></div>':'')+
+          '</div>'+
+        '</div>'+
+        '<div class="verdict" style="background:'+vcol+'"><div class="vh">'+verdict+'</div><div class="vs">'+vsub+'</div></div>'+
+        '<div class="foot"><b>Indicative appraisal — not a RICS Red Book valuation.</b> Figures are computed on Landform\'s engine from the inputs entered (site area, density, house mix, sale and build £/sqft, S106, finance and profit assumptions) and assume residential consent can be achieved. '+
+          (askL<=0?'Enter the landowner\'s asking price on the Land stage to test the margin and headroom. ':'')+
+          'Verify sale and build values against local comparables and a QS cost plan before commitment. Residual land value is the maximum supportable land price at the target developer profit'+(askL>0?'; “margin at ask” is the profit that remains if the land is bought at the '+fmt(askL)+' asking price':'')+'.</div>'+
+      '</div></body></html>';
+  }
+  function openOnePager(){
+    if(typeof notify==="function") notify("Generating one-page land appraisal…");
+    var w=window.open("","_blank");
+    if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the one-page appraisal."); return; }
+    w.document.open(); w.document.write(buildOnePagerHTML()); w.document.close();
+  }
+
   // ── On-screen panel ─────────────────────────────────────────────────────────
   return e("div",null,
     e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18,flexWrap:"wrap",gap:12}},
@@ -713,9 +870,15 @@ function renderProposal(city, data, gdv, lc, up, user){
         e("h2",{style:{fontSize:22,fontWeight:800,color:"#2E2F8A",margin:"0 0 4px"}},"Board Proposal"),
         e("p",{style:{fontSize:12,color:"#7278A0",lineHeight:1.7,maxWidth:620}},"A Cassidy-branded board paper built from this deal — headline figures, scheme, appraisal, planning, a site map and a clear recommendation. Opens as a web page you can read on screen and Print / Save as PDF to send to management.")
       ),
-      e("button",{onClick:generate,disabled:!ready,
-        style:{padding:"11px 22px",background:(!ready)?"#B7BAD8":"linear-gradient(135deg,#1E1F5C,#2E2F8A)",border:"none",borderRadius:8,color:"#fff",fontSize:13,fontWeight:800,cursor:(!ready)?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",boxShadow:"0 3px 12px rgba(30,31,92,.28)",whiteSpace:"nowrap"}},
-        "📋 Generate Board Proposal")
+      e("div",{style:{display:"flex",gap:10,flexWrap:"wrap",justifyContent:"flex-end"}},
+        e("button",{onClick:openOnePager,disabled:!ready,
+          title:"A single side of A4 — size, homes, GDV, the full cost stack and residual land value tested against the asking price. The quick ‘is this worth pursuing?’ briefing.",
+          style:{padding:"11px 20px",background:(!ready)?"#EDEEF6":"#fff",border:"1.5px solid "+((!ready)?"#D7D9E8":"#2E2F8A"),borderRadius:8,color:(!ready)?"#A9ACC6":"#2E2F8A",fontSize:13,fontWeight:800,cursor:(!ready)?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},
+          "📄 One-page appraisal (A4)"),
+        e("button",{onClick:generate,disabled:!ready,
+          style:{padding:"11px 22px",background:(!ready)?"#B7BAD8":"linear-gradient(135deg,#1E1F5C,#2E2F8A)",border:"none",borderRadius:8,color:"#fff",fontSize:13,fontWeight:800,cursor:(!ready)?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",boxShadow:"0 3px 12px rgba(30,31,92,.28)",whiteSpace:"nowrap"}},
+          "📋 Generate Board Proposal")
+      )
     ),
     !ready&&e("div",{style:{padding:"14px 16px",background:"rgba(154,123,62,0.08)",border:"1px solid rgba(154,123,62,0.3)",borderRadius:8,fontSize:12,color:"#7A5A2E",marginBottom:16}},
       "Complete the core appraisal first (Land, scheme sizing and Financial Modelling) so the proposal has a GDV and unit count to present. Current: GDV "+fmt(gdvV)+", "+(units||0)+" homes."),
