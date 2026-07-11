@@ -44,9 +44,13 @@ function renderScorecard(city, data, gdv, lc, up, user){
       if(prob>=50)return{s:4,l:"Moderate probability"};
       if(prob>0)return{s:3,l:"Speculative"};
       if(rl==="low")    return{s:8,l:"Low planning risk"};
-      // nothing set yet: lead with full consent (assumed) so the score reflects the
-      // consented, profitable basis. Set the status or risk level to refine.
-      return{s:9,l:"Full consent (assumed)"};
+      // v10.38 — nothing set yet → NEUTRAL, not rosy. Previously this returned an assumed
+      // "Full consent (assumed) 9/10", so a blank planning position silently became the
+      // ROSIEST possible assumption on a board-facing scorecard. An unassessed planning
+      // position on (typically) unconsented land should read as an open risk, not a near-max
+      // score. Users who want to present the consented basis can turn on Assumption Mode
+      // (handled above) or set a Planning Status / Risk Level to refine.
+      return{s:4,l:"Not yet assessed"};
     }
     function scoreMarket(){
       var c2=city||l.city||"manchester";

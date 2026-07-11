@@ -139,7 +139,16 @@ function renderKeystone(data, setData, up, navTo, user){
     // v10.7 — carry the raw Placona site forward so "Reset to raw import" keeps working
     // after a rebuild (buildDealFromBrief already stores _keystone.sourceBrief).
     function doBuild(){
-      setData(function(prev){ return Object.assign({}, deal, {_cloudDealId: undefined, _raw: prev._raw, keystone: Object.assign({}, prev.keystone||{}, {builtJourney:journey, builtAt:Date.now()}) }); });
+      setData(function(prev){
+        var built = Object.assign({}, deal, {_cloudDealId: undefined, _raw: prev._raw, keystone: Object.assign({}, prev.keystone||{}, {builtJourney:journey, builtAt:Date.now()}) });
+        // v10.38 — on a REBUILD (there was an existing deal), preserve the user's manual
+        // downstream work instead of silently wiping it (planning judgement, verified prices,
+        // exit strategy, constraint checks, etc.). Record what was kept for a banner.
+        var kept = [];
+        if(hasExisting && typeof preserveManualOnRebuild === "function") kept = preserveManualOnRebuild(prev, built);
+        built._keystone = Object.assign({}, built._keystone || {}, {preservedOnRebuild: kept, wasRebuild: !!hasExisting});
+        return built;
+      });
     }
     // v10.14 — non-blocking confirm (was native confirm(), which froze the browser).
     if(hasExisting) confirmToast("Replace the deal currently open with the one Keystone just built?\n\nYour saved portfolio deals are untouched.", doBuild, {confirmLabel:"Replace deal"});
@@ -263,6 +272,16 @@ function renderKeystone(data, setData, up, navTo, user){
       k.builtJourney && e("div",{style:{padding:"10px 12px",background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.35)",borderRadius:6,fontSize:12,color:"#1d5446",marginBottom:12,lineHeight:1.6}},
         e("strong",null,"✓ Built. "),"Loaded as a "+(journeyLabel[k.builtJourney]||k.builtJourney)+" deal. Open the ",e("strong",null,"Deal Dashboard")," to see the figures, or step through from ",e("strong",null,"Land Appraisal"),"."
       ),
+      // v10.38 — rebuild transparency: show which manual downstream inputs were preserved (and
+      // note that the scheme itself was re-derived from the brief), so a rebuild is never silently
+      // misleading. Only after a rebuild that carried an existing deal.
+      (data._keystone && data._keystone.wasRebuild) ? e("div",{style:{padding:"11px 13px",background:"rgba(74,75,174,0.06)",border:"1px solid rgba(74,75,174,0.3)",borderRadius:6,fontSize:11,color:"#3A3D6A",marginBottom:12,lineHeight:1.6}},
+        e("div",{style:{fontWeight:800,color:"#4A4BAE",marginBottom:3}},"↻ Rebuilt from the brief — your manual work was preserved"),
+        (data._keystone.preservedOnRebuild && data._keystone.preservedOnRebuild.length)
+          ? e("div",null,"Kept your manual inputs: ",e("strong",null,data._keystone.preservedOnRebuild.join(", ")),". ")
+          : e("div",null,"No manual downstream inputs needed preserving. "),
+        e("div",{style:{marginTop:4,color:"#7278A0"}},"The scheme itself — unit count, house mix and GDV/RLV — was re-derived from the brief. If you'd hand-tuned individual mix rows (per-type sizes or prices beyond the Base Sale £/sqft), re-check the ",e("strong",null,"SFH House Mix")," stage.")
+      ) : null,
       // v9.88 — Assumptions register: every default Keystone applied, so the appraisal is
       // complete on day one and you can see (and then tweak) exactly what it assumed.
       (data._keystone && data._keystone.assumptions && data._keystone.assumptions.length) ? e("div",{style:{border:"1px solid #DDE0ED",borderRadius:8,padding:"12px 14px",marginBottom:12,background:"#FBFBFE"}},
