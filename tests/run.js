@@ -1176,6 +1176,125 @@ console.log("Landform engine consistency tests\n");
   if(savedSector === undefined) delete VERIFIED_RENTS["CV6 5"]; else VERIFIED_RENTS["CV6 5"] = savedSector;
 })();
 
+// 53 — SFH House Mix: sale price edits & Base-£/sqft propagation (v10.32)
+// Reproduces the Staplehurst audit findings. The engine (computeSFHMetrics) prioritises a
+// row's stored unitPrice over sqft×psf, so a baked-in unitPrice silently overrides the
+// editable Sqft/£psf cells and the Base Sale £/sqft. These tests replicate the SFH screen's
+// pure edit helpers and assert the engine's GDV responds.
+(function(){
+  // Pure mirror of screen-SFH.js updMixPrice() — editing Sqft or £/sqft re-derives unitPrice.
+  function updMixPrice(mix, i, field, v, basePsf){
+    var m=mix.slice(); var prev=m[i]||{};
+    var inf=HOUSE_TYPES[prev.type]||HOUSE_TYPES["3-bed semi"]||{sqft:900,adj:1};
+    var prevSq=numOr(prev.sqft, inf.sqft);
+    var priorPsf=num(prev.psf)||(num(prev.unitPrice||prev.salePrice)&&prevSq?num(prev.unitPrice||prev.salePrice)/prevSq:0)||basePsf*(inf.adj||1);
+    var r=Object.assign({},prev); r[field]=v;
+    var newSq=field==="sqft"?(num(v)||inf.sqft):numOr(r.sqft, inf.sqft);
+    var newPsf=field==="psf"?num(v):priorPsf;
+    if(newSq>0&&newPsf>0){ r.unitPrice=String(Math.round(newSq*newPsf)); }
+    m[i]=r; return m;
+  }
+  // Pure mirror of the "Auto-price sale / type" button — reprice every row from Base £/sqft.
+  function autoPriceMix(mix, basePsf){
+    return mix.map(function(r){
+      var inf=HOUSE_TYPES[r.type]||HOUSE_TYPES["3-bed semi"]||{sqft:900,adj:1};
+      var sq=numOr(r.sqft, inf.sqft);
+      var psf2=Math.round(basePsf*(inf.adj||1));
+      var c=Object.assign({},r); c.psf=String(psf2);
+      if(sq>0) c.unitPrice=String(Math.round(sq*psf2));
+      return c;
+    });
+  }
+  function deal(mix, basePsf){
+    return { assetType:"sfh", land:{city:"maidstone"}, sfh:{ city:"maidstone", acres:50, ahPct:0, basePsf:basePsf, buildPsf:205, mix:mix } };
+  }
+  // Staplehurst-style rows: real per-type sqft + £/sqft baked as an absolute unit price.
+  var mix0=[
+    {type:"4-bed detached", count:"10", sqft:"1650", unitPrice:String(1650*385), tenure:"private"},
+    {type:"2-bed terrace",  count:"10", sqft:"850",  unitPrice:String(850*365),  tenure:"private"}
+  ];
+  var g0=computeSFHMetrics(deal(mix0,385)).gdv;
+  ok("SFH mix GDV uses real per-row sqft×£psf", g0 === 10*1650*385 + 10*850*365);
+
+  // Bug #2 documented: changing Base Sale £/sqft alone does NOT move GDV (baked unitPrice wins).
+  ok("Base £/sqft change alone leaves baked GDV unchanged (why the button is needed)",
+     computeSFHMetrics(deal(mix0,332)).gdv === g0);
+
+  // Fix: "Auto-price sale / type" reprices every row from the (corrected) Base £/sqft.
+  var repriced=autoPriceMix(mix0,332);
+  var gExpect = 10*1650*Math.round(332*1.18) + 10*850*Math.round(332*0.88);  // adj: 4-bd det 1.18, 2-bd terr 0.88
+  ok("Auto-price propagates corrected Base £/sqft into GDV", computeSFHMetrics(deal(repriced,332)).gdv === gExpect);
+  ok("Corrected base (£385→£332) lowers GDV as expected", gExpect < g0);
+
+  // Fix: editing the £/sqft cell re-derives unit price so the edit sticks in the engine.
+  var mPsf=updMixPrice(mix0,0,"psf","400",332);
+  ok("Editing £/sqft cell updates unit price", num(mPsf[0].unitPrice) === 1650*400);
+  ok("Editing £/sqft cell moves engine GDV", computeSFHMetrics(deal(mPsf,332)).gdv === 10*1650*400 + 10*850*365);
+
+  // Fix: editing the Sqft cell preserves the effective £/sqft and rescales the unit price.
+  var mSqft=updMixPrice(mix0,0,"sqft","1800",332);
+  ok("Editing Sqft preserves £/sqft (385) and rescales unit price", num(mSqft[0].unitPrice) === 1800*385);
+
+  // Fix: a row priced purely by sqft×psf (no unitPrice) is honoured by the engine — proves the
+  // editable cells feed through even when no baked unit price exists.
+  var mClean=[{type:"4-bed detached", count:"10", sqft:"1650", psf:"332", tenure:"private"}];
+  ok("Row with psf and no unitPrice values at sqft×psf", computeSFHMetrics(deal(mClean,332)).gdv === 10*1650*332);
+})();
+
+// 54 — Board Proposal viability pathways: lever re-appraisal directionality (v10.32)
+// Mirrors screen-Proposal.js viabilityPathwaysSection under() — each lever re-appraises the
+// whole deal on calcDealMetrics with one change. Proves the levers move RLV the right way and
+// that a marginal/negative scheme can be lifted by the combined pathway. Uses a Staplehurst-like
+// large SFH scheme deliberately built to NOT stack at realistic build costs.
+(function(){
+  function clone(d){ return JSON.parse(JSON.stringify(d)); }
+  function rlvOf(d){ var m=calcDealMetrics(d); return num(m.rlv); }
+  function under(base, mutate){ var d=clone(base); mutate(d); return rlvOf(d); }
+  // A big Kent SFH scheme: 1,000-plot mix, realistic £205 build, 35% affordable, high guide price.
+  function bigMix(){
+    return [
+      {type:"3-bed semi",    count:"400", sqft:"1020", unitPrice:String(1020*332), buildPsf:"205", tenure:"private"},
+      {type:"4-bed detached",count:"350", sqft:"1500", unitPrice:String(1500*Math.round(332*1.18)), buildPsf:"205", tenure:"private"},
+      {type:"2-bed terrace", count:"250", sqft:"850",  unitPrice:String(850*Math.round(332*0.88)),  buildPsf:"205", tenure:"private"}
+    ];
+  }
+  var deal={ assetType:"sfh", land:{city:"maidstone", acres:150, price:60000000, units:"1902"},
+    planning:{ahPct:"35"}, sfh:{ city:"maidstone", acres:150, ahPct:"35", basePsf:332, buildPsf:205, finRate:7.5, mix:bigMix() } };
+  var base=rlvOf(deal);
+
+  // Modular / timber-frame build −10% lifts the residual.
+  var vBuild=under(deal, function(d){
+    var s=d.sfh; var bp=num(s.buildPsf)||205; s.buildPsf=String(Math.round(bp*0.9));
+    s.mix=s.mix.map(function(r){ r=Object.assign({},r); if(num(r.buildPsf)>0) r.buildPsf=String(Math.round(num(r.buildPsf)*0.9)); return r; });
+  });
+  ok("Modular build −10% improves RLV", vBuild > base);
+
+  // Affordable % negotiation (35%→25%) lifts the residual (less GDV discount).
+  var vAh=under(deal, function(d){ d.sfh.ahPct="25"; d.planning.ahPct="25"; d.planning.afhPct="25"; });
+  ok("Affordable 35%→25% improves RLV", vAh > base);
+
+  // Density +15% changes RLV (sign depends on per-plot economics) — just prove it re-appraises.
+  var vDens=under(deal, function(d){ d.sfh.mix=d.sfh.mix.map(function(r){ r=Object.assign({},r); r.count=String(Math.round(num(r.count)*1.15)); return r; }); });
+  ok("Density +15% re-appraises to a different RLV", vDens !== base);
+
+  // Phased finance −30% lifts the residual (less finance cost).
+  var vPhase=under(deal, function(d){ d.sfh.finRate=String(7.5*0.7); });
+  ok("Phased finance −30% improves RLV", vPhase > base);
+
+  // Combined pathway (build + AH + phasing) then AHP grant on top clears more of the gap than any single lever.
+  var vCombo=under(deal, function(d){
+    var s=d.sfh; s.buildPsf=String(Math.round(205*0.9));
+    s.mix=s.mix.map(function(r){ r=Object.assign({},r); if(num(r.buildPsf)>0) r.buildPsf=String(Math.round(num(r.buildPsf)*0.9)); return r; });
+    s.ahPct="25"; d.planning.ahPct="25"; d.planning.afhPct="25";
+    s.finRate=String(7.5*0.7);
+  });
+  var ahUnits=Math.round(computeSFHMetrics(deal).totalUnits*0.35);
+  var comboPlusGrant=vCombo + ahUnits*50000;
+  ok("Combined pathway beats every single lever", vCombo > vBuild && vCombo > vAh && vCombo > vPhase);
+  ok("Combined pathway + AHP grant moves RLV materially toward viability", comboPlusGrant > base + 5000000);
+  ok("AHP grant uplift is positive across the affordable units", ahUnits*50000 > 0);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

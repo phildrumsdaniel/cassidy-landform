@@ -94,7 +94,16 @@ function renderProposal(city, data, gdv, lc, up, user){
   var cityDisp=cityName(city||l.city||"")||"";
   var county=l.county||"";
   var acres=num(l.acres||0);
-  var units=num(M.units||p.units||SF.totalUnits||(data.rlv&&data.rlv.units)||0);
+  // v10.32 — headline unit count MUST match the GDV basis. For an SFH scheme the GDV/RLV are
+  // computed from the modelled house mix (computeSFHMetrics.totalUnits), so when a real mix
+  // exists the proposal reads THAT figure — not the (often larger) site-capacity/brief number
+  // held on Land/Planning. The brief's capacity is surfaced separately as "site potential" so
+  // the board still sees the full-site headroom without the GDV appearing to value it.
+  // (Staplehurst: values the modelled 1,000 plots, notes the ~1,902 brief capacity alongside.)
+  var modelledUnits=num(SF.totalUnits)||0;
+  var siteUnits=num(M.units||p.units||l.units||(data.rlv&&data.rlv.units)||0);
+  var units=modelledUnits>0?modelledUnits:siteUnits;
+  var sitePotential=(modelledUnits>0 && siteUnits>modelledUnits*1.1)?siteUnits:0;
   var gdvV=num(M.gdv)||num(gdv)||0;
   var rlvV=num(M.rlv)||0;
   var marginV=isFinite(M.marginPct)?num(M.marginPct):0;
@@ -347,7 +356,7 @@ function renderProposal(city, data, gdv, lc, up, user){
         // 01 opportunity
         '<section><div class="sh"><span class="i">01</span><h2>The opportunity</h2></div>'+
           '<div class="callout">A <b>~'+esc(acres||"—")+'-acre</b> residential opportunity at <b>'+esc(cityDisp||addr)+'</b>'+
-          (ask>0?', guided at <b>'+fmt(ask)+'</b>':'')+'. As modelled it supports <b>~'+(units?units.toLocaleString():"—")+' homes</b> with a gross development value of <b>'+fmt(gdvV)+'</b>'+
+          (ask>0?', guided at <b>'+fmt(ask)+'</b>':'')+'. As modelled it supports <b>~'+(units?units.toLocaleString():"—")+' homes</b>'+(sitePotential>0?' (a modelled tranche of the site\'s ~'+sitePotential.toLocaleString()+'-home capacity)':'')+' with a gross development value of <b>'+fmt(gdvV)+'</b>'+
           (rlvV>0?' and a supportable land value of <b>'+fmt(rlvV)+'</b>':'')+
           (headroom>0?' — indicative headroom of <b>'+fmt(headroom)+'</b> to the residual land value':'')+
           '. Planning position: '+esc(planStatus)+' '+ccPill+'.</div></section>'+
@@ -362,7 +371,8 @@ function renderProposal(city, data, gdv, lc, up, user){
             rowHTML("Use","Residential — "+esc(((data.assetType||"SFH")+"").toUpperCase()))+
             rowHTML("Gross site area",(acres>0?acres+" acres":"—"),(acres>0?(acres*0.404686).toFixed(1)+" ha":""))+
             rowHTML("Density",(density>0?density+" homes/acre":"—"),(density>0?"≈"+Math.round(density*2.471)+" dph":""))+
-            rowHTML("Total homes",(units?units.toLocaleString():"—"))+
+            rowHTML("Total homes (modelled)",(units?units.toLocaleString():"—"),(sitePotential>0?"appraised basis":""))+
+            (sitePotential>0?rowHTML("Site potential (brief)",sitePotential.toLocaleString()+" homes","full-site capacity — a Phase-1 tranche is modelled above"):"")+
           '</div>'+
           '<div class="card">'+
             rowHTML("Open market",(ahPct?(100-ahPct)+"%":"—"),(pmUnits>0?"~"+pmUnits.toLocaleString()+" homes":""))+
@@ -406,8 +416,10 @@ function renderProposal(city, data, gdv, lc, up, user){
           '</div></section>'+
         // 06 exit scenarios (multi-buyer, hold-vs-sell, refinancing, yields, RP offers)
         exitScenariosSection("06")+
-        // 07 planning
-        '<section><div class="sh"><span class="i">07</span><h2>Planning position</h2></div><div class="g2">'+
+        // 07 viability pathways — reasons & actions (how to make a marginal scheme stack)
+        viabilityPathwaysSection("07")+
+        // 08 planning
+        '<section><div class="sh"><span class="i">08</span><h2>Planning position</h2></div><div class="g2">'+
           '<div class="card">'+
             rowHTML("Current status",esc(planStatus))+
             rowHTML("Local authority",esc(lpa||"To confirm"))+
@@ -419,14 +431,14 @@ function renderProposal(city, data, gdv, lc, up, user){
             '<li>Headline value <b>assumes residential consent</b>; structure acquisition to reflect planning risk.</li>'+
             '<li>NPPF 2024 policy hooks and 5-year land supply to be tested at pre-app.</li>'+
           '</ul></div></div></section>'+
-        // 08 risks
-        '<section><div class="sh"><span class="i">08</span><h2>Key risks</h2></div><div class="card"><ul class="pts">'+
+        // 09 risks
+        '<section><div class="sh"><span class="i">09</span><h2>Key risks</h2></div><div class="card"><ul class="pts">'+
           '<li><b>Planning.</b> '+esc(planStatus)+(ccVerdict&&ccVerdict!=="GO"?" — "+ccVerdict.toLowerCase()+" on the constraint check.":".")+' Stage spend gated on planning milestones.</li>'+
           '<li><b>Sales value.</b> Verify assumed values against local comparables; a ~5% slip materially compresses margin.</li>'+
           '<li><b>Build cost &amp; abnormals.</b> Firm up with a QS cost plan and ground investigation before commitment.</li>'+
         '</ul></div></section>'+
-        // 09 sources & provenance
-        '<section><div class="sh"><span class="i">09</span><h2>Sources &amp; data provenance</h2></div>'+
+        // 10 sources & provenance
+        '<section><div class="sh"><span class="i">10</span><h2>Sources &amp; data provenance</h2></div>'+
           '<p class="lead">Where this opportunity and its figures originated. Modelled figures are indicative and require independent verification before commitment.</p>'+
           '<div class="card src"><div class="sub-title">Where the site &amp; guide price came from</div>'+
             rowHTML("Sourced via",esc(importedVia))+
@@ -554,6 +566,117 @@ function renderProposal(city, data, gdv, lc, up, user){
             '<div style="font-size:11px;color:#666C93;margin-top:8px">Logged on the Exit Strategy stage — these are <b>actual offers received</b>, distinct from the modelled buyer-type valuations above. Golden Brick = land &amp; infrastructure ready; Turnkey = completed units handed over.</div>'
           : '<div style="font-size:13px;color:#666C93">No RP offers logged yet. Record actual Golden Brick / Turnkey offers on the Exit Strategy stage and they appear here as real offers received, alongside the modelled valuations above.</div>')+
       '</div></section>';
+  }
+  // ── Viability pathways — Reasons & Actions ─────────────────────────────────
+  // For a scheme that is marginal or doesn't stack at realistic costs, this section shows the
+  // board the realistic levers to make it work — each quantified from THIS deal's engine by
+  // re-running calcDealMetrics on a mutated copy of the deal (nothing hardcoded), plus the
+  // structural levers (JV / promotion-only) that change who bears capital and risk. It adapts:
+  // when the deal already stacks it reads as value-enhancement rather than rescue.
+  function viabilityPathwaysSection(num2){
+    function cloneDeal(){ try{ return JSON.parse(JSON.stringify(data)); }catch(e){ return null; } }
+    // Re-appraise the deal under a mutation; returns the new RLV/GDV/margin from the ONE engine.
+    function under(mutate){
+      var d=cloneDeal(); if(!d) return null;
+      try{ mutate(d); }catch(e){ return null; }
+      var m=(typeof calcDealMetrics==="function")?calcDealMetrics(d):{};
+      return { rlv:num(m.rlv), gdv:num(m.gdv), margin:isFinite(m.marginPct)?num(m.marginPct):0 };
+    }
+    var baseRlv=rlvV, baseGdv=gdvV, baseMargin=marginV;
+    var modelledUnits=num(SF.totalUnits)||units||0;
+    var effBuildPsf=num(SF.buildPsf)||(data.sfh&&num(data.sfh.buildPsf))||exMkt.build||195;
+    var stacks=baseRlv>0 && baseMargin>=15;
+    // Gap to viability: distance from break-even (RLV≥0) and from covering the asking price.
+    var gapToZero=baseRlv<0?Math.abs(baseRlv):0;
+    var gapToAsk=ask>0?(ask-baseRlv):0;   // positive ⇒ residual falls short of the guide price
+
+    // ---- Residual-improving levers (each re-appraised on the live engine) ----
+    var MOD_PCT=0.10;          // MMC / timber-frame indicative build saving (8–12%)
+    var lvBuild=under(function(d){
+      var s=d.sfh||(d.sfh={});
+      var bp=num(s.buildPsf)||effBuildPsf;
+      s.buildPsf=String(Math.round(bp*(1-MOD_PCT)));
+      if(Array.isArray(s.mix)) s.mix=s.mix.map(function(r){ r=Object.assign({},r); if(num(r.buildPsf)>0) r.buildPsf=String(Math.round(num(r.buildPsf)*(1-MOD_PCT))); return r; });
+    });
+    var AH_CUT=10;             // percentage-point reduction via viability negotiation
+    var ahTarget=Math.max(0,ahPct-AH_CUT);
+    var lvAh=ahPct>0?under(function(d){
+      var s=d.sfh||(d.sfh={}); s.ahPct=String(ahTarget);
+      var p2=d.planning||(d.planning={}); p2.ahPct=String(ahTarget); p2.afhPct=String(ahTarget);
+      if(d.tenure) d.tenure.ahPct=String(ahTarget);
+    }):null;
+    var GRANT_PU=50000;        // indicative AHP grant per affordable home (£28k–£80k range)
+    var ahUnits=Math.round(modelledUnits*ahPct/100);
+    var grantUplift=ahUnits>0?ahUnits*GRANT_PU:0;
+    var DENS_UP=0.15;          // +15% net developable / density test
+    var lvDens=under(function(d){
+      var s=d.sfh||(d.sfh={});
+      if(Array.isArray(s.mix)) s.mix=s.mix.map(function(r){ r=Object.assign({},r); if(num(r.count)>0) r.count=String(Math.round(num(r.count)*(1+DENS_UP))); return r; });
+    });
+    var FIN_CUT=0.30;          // phased delivery / deferred-land: ~30% less finance drawn
+    var lvPhase=under(function(d){ var s=d.sfh||(d.sfh={}); s.finRate=String((num(s.finRate)||7.5)*(1-FIN_CUT)); });
+
+    function delta(res){ return res? (res.rlv-baseRlv) : null; }
+    // Combined realistic pathway: modular build + AH negotiation + phased finance, then AHP grant on top.
+    var lvCombo=under(function(d){
+      var s=d.sfh||(d.sfh={});
+      var bp=num(s.buildPsf)||effBuildPsf; s.buildPsf=String(Math.round(bp*(1-MOD_PCT)));
+      if(Array.isArray(s.mix)) s.mix=s.mix.map(function(r){ r=Object.assign({},r); if(num(r.buildPsf)>0) r.buildPsf=String(Math.round(num(r.buildPsf)*(1-MOD_PCT))); return r; });
+      if(ahPct>0){ s.ahPct=String(ahTarget); var p2=d.planning||(d.planning={}); p2.ahPct=String(ahTarget); p2.afhPct=String(ahTarget); if(d.tenure) d.tenure.ahPct=String(ahTarget); }
+      s.finRate=String((num(s.finRate)||7.5)*(1-FIN_CUT));
+    });
+    var comboRlv=lvCombo?(lvCombo.rlv+grantUplift):null;
+    var comboClears=comboRlv!=null && comboRlv>0;
+    var comboCoversAsk=comboRlv!=null && ask>0 && comboRlv>=ask;
+
+    // Lever rows — only those we could compute, each with £ impact and the action to take.
+    function lvRow(name,detail,res,extra){
+      var d=extra!=null?extra:delta(res);
+      if(d==null) return "";
+      var col=d>=0?"#1B7A54":"#B05A35";
+      return '<tr><td><b>'+name+'</b><span class="mut" style="display:block">'+detail+'</span></td>'+
+        '<td class="n" style="color:'+col+';font-weight:800">'+(d>=0?"+":"−")+fmt(Math.abs(d))+'</td></tr>';
+    }
+    var leverRows=
+      lvRow("Modular / timber-frame build","MMC delivery at ~"+Math.round(MOD_PCT*100)+"% lower build £/sqft (£"+Math.round(effBuildPsf)+"→£"+Math.round(effBuildPsf*(1-MOD_PCT))+"). Action: tender a design-for-manufacture package; test against a QS cost plan.",lvBuild)+
+      (lvAh?lvRow("Affordable % negotiation","Viability-led reduction from "+ahPct+"% to "+ahTarget+"% affordable (NPPF viability, independent FVA). Action: commission a viability assessment; open pre-app with "+esc(lpa||"the LPA")+".",lvAh):"")+
+      (grantUplift>0?lvRow("Homes England AHP grant","~£"+fmtN(GRANT_PU)+"/home across "+ahUnits.toLocaleString()+" affordable homes (£28–80k range). Action: partner an RP to bid via the Investment Management System; make the land deal conditional on grant.",null,grantUplift):"")+
+      lvRow("Density / net-developable uplift","+"+Math.round(DENS_UP*100)+"% plots on the developable area (spreads fixed infrastructure). Action: masterplan test at pre-app — only accretive where the per-plot residual is positive.",lvDens)+
+      lvRow("Phased delivery + deferred land","Promotion-agreement structure: land paid from serviced-parcel receipts, ~"+Math.round(FIN_CUT*100)+"% less finance drawn. Action: structure an option / promotion agreement with staged draw-downs.",lvPhase);
+
+    var posLine = stacks
+      ? 'At the modelled inputs this scheme <b>stacks</b> — residual land value <b>'+fmt(baseRlv)+'</b> at a <b>'+pct(baseMargin)+'</b> margin. The levers below are value-enhancement, not rescue.'
+      : (baseRlv<0
+          ? 'At realistic build costs the scheme <b>does not stack as modelled</b> — residual land value is <b style="color:#B05A35">−'+fmt(Math.abs(baseRlv))+'</b> ('+pct(baseMargin)+' margin), a shortfall of <b>'+fmt(gapToZero)+'</b> to break-even'+(ask>0?' and <b>'+fmt(gapToAsk)+'</b> to the '+fmt(ask)+' guide price':'')+'. It is a genuine strategic land play with no consent and a multi-year horizon, so the board question is not “does it stack today” but “what realistic combination of levers makes it stack” — set out below, each quantified on this deal\'s own engine.'
+          : 'The scheme is <b>marginal</b> — residual land value <b>'+fmt(baseRlv)+'</b> at only <b>'+pct(baseMargin)+'</b> margin (below the 15% threshold). The levers below show what moves it into a comfortable position.');
+
+    var comboLine = comboRlv==null ? '' :
+      '<div class="callout" style="margin-top:13px;border-color:'+(comboClears?"#1B7A54":"#B05A35")+'"><b>Combined pathway.</b> Modular build (−'+Math.round(MOD_PCT*100)+'%)'+(ahPct>0?', affordable at '+ahTarget+'%':'')+', phased finance'+(grantUplift>0?' and ~£'+fmtN(GRANT_PU)+'/home AHP grant':'')+' together move the residual to <b style="color:'+(comboClears?"#1B7A54":"#B05A35")+'">'+(comboRlv<0?"−":"")+fmt(Math.abs(comboRlv))+'</b>'+
+      (comboClears
+        ? ' — which <b>clears break-even</b>'+(comboCoversAsk?' and covers the '+fmt(ask)+' guide price':(ask>0?', though still <b>'+fmt(ask-comboRlv)+'</b> short of the '+fmt(ask)+' guide (close the balance on land price or a deeper grant / MMC saving)':''))+'. On that basis the scheme is promotable.'
+        : ' — still short of break-even by <b>'+fmt(Math.abs(comboRlv))+'</b>. The residual levers alone don\'t close the gap, so the deal only works as a low-capital promotion/JV (below), a lower land entry price, or a materially higher sales assumption evidenced at valuation.')+
+      '</div>';
+
+    // Structural / capital levers — change who bears risk and capital, not the residual itself.
+    var structRows=[
+      ['JV / promotion-fee-only structure','Cassidy promotes the site to consent for a ~15–20% share of realised land value rather than funding build and sales — decoupling the return from development margin and capping capital at risk over the 4–6 year horizon. The primary structure for a no-consent strategic site.'],
+      ['Partial BTR / PRS bulk sale','Forward-sell a tranche (e.g. 25–35%) to a BTR/PRS operator at a modest discount to retail in exchange for absorption certainty across a large scheme — de-risks the sales rate and improves financeability, partly offsetting the value give-up.'],
+      ['Grant-conditional land deal','Make heads of terms conditional on AHP grant and pre-app outcome, so Cassidy only commits once the affordable subsidy and planning trajectory are confirmed — the exposure-control wrapper around the levers above.']
+    ].map(function(r){ return '<li><b>'+r[0]+'.</b> '+r[1]+'</li>'; }).join("");
+
+    return '<section><div class="sh"><span class="i">'+num2+'</span><h2>Viability pathways — reasons &amp; actions</h2></div>'+
+      '<p class="lead">'+posLine+'</p>'+
+      '<div class="g2" style="margin-top:6px">'+
+        '<div class="card"><div class="sub-title">Levers that improve the residual — impact on RLV</div><table class="ap">'+
+          '<tr><td><b>Lever &amp; action</b></td><td class="n"><b>Δ Residual land value</b></td></tr>'+
+          leverRows+
+        '</table><div style="font-size:11px;color:#98A0C0;margin-top:7px">Each figure re-appraises the whole deal on Landform\'s engine with only that lever changed — indicative, to be firmed up with a QS cost plan, an independent viability assessment and RP/grant evidence. Levers are not simply additive; the combined pathway is modelled jointly.</div></div>'+
+        '<div class="card"><div class="sub-title">Structural &amp; capital levers — reduce Cassidy\'s exposure</div><ul class="pts">'+structRows+'</ul>'+
+        '<div style="font-size:11px;color:#666C93;margin-top:8px">These don\'t change the residual — they change who funds the build and carries the risk. For a negative residual, lift it positive with the levers on the left <b>first</b>, then use these to capture the value with limited capital.</div></div>'+
+      '</div>'+
+      comboLine+
+      '<div class="callout" style="margin-top:13px"><b>Recommended sequence.</b> (1) Commission a QS cost plan and an independent viability assessment to firm up build and affordable %. (2) Open pre-app with '+esc(lpa||"the LPA")+' on density and affordable. (3) Partner an RP and scope the AHP grant. (4) Secure the land on a promotion / option agreement with deferred, consent-conditional payment — not an outright purchase — so Cassidy\'s capital tracks the planning risk over the multi-year planning horizon.</div>'+
+      '</section>';
   }
   function sitePlanSVG(ac,pcode,town){
     return '<svg class="plan" viewBox="0 0 820 300" role="img" aria-label="Indicative site plan">'+

@@ -20,8 +20,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.31";
+var CURRENT_VERSION = "10.32";
 var VERSION_HISTORY = [
+  {v:"10.32", date:"Jul 2026", headline:"SFH House Mix fixes + Board Proposal viability pathways: editable Sqft/£psf cells now bind to and drive the real per-row figures the engine uses (was showing generic type defaults); new ‘Auto-price sale / type’ button propagates a Base Sale £/sqft correction to every row; scheme-basis reconciliation surfaces modelled-vs-brief unit counts; and the Board Proposal gains a ‘Viability pathways — reasons & actions’ section that quantifies the levers (modular build, affordable %, AHP grant, density, phased/deferred land, JV/promotion-only) to make a marginal scheme stack"},
   {v:"10.31", date:"Jul 2026", headline:"District-level rents: verified rents now key off the site POSTCODE at sector granularity (full → sector → outcode → town), so rents vary by district within an outcode (e.g. CV6 Foleshill vs CV6 Coundon), not just by town"},
   {v:"10.30", date:"Jul 2026", headline:"Single source of truth for exit income: one shared dealNOI() drives the Exit page and Board Proposal (fixes BTR £0 NOI); negative-RLV Sell-Now fallback fixed; pension DCF now discounts at its own 4.5%; verified researched Rugby per-bed rents (2/3/4-bed) replace the generic auto-fill and are labelled 'verified'"},
   {v:"10.29", date:"Jul 2026", headline:"Long-income DCF hold model — CPI-indexed, collared rent over a 25-yr hold with term-and-reversion terminal value; shown alongside the static year-1 basis for the pension/SWF and Retain & Refinance rows on Exit and in the Board Proposal; assumptions editable on the Capitalisation stage"},

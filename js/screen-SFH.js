@@ -62,6 +62,22 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
     ];
     var mix=s.mix&&s.mix.some(function(r){return num(r.count)>0;})?s.mix:autoMix;
     function updMix(i,k,v){var m=mix.slice();m[i]=Object.assign({},m[i]);m[i][k]=v;up("sfh","mix",m);}
+    // v10.32 — sqft × £/sqft is the source of truth for a row's price. Because the engine
+    // (computeSFHMetrics) prioritises the stored unitPrice over sqft×psf, editing the Sqft or
+    // £/sqft cell must ALSO re-derive unitPrice — otherwise a baked-in autoMix unitPrice
+    // silently overrides the edit and GDV/RLV never move. Editing £/sqft sets the rate;
+    // editing Sqft preserves the current £/sqft and rescales the unit price.
+    function updMixPrice(i,field,v){
+      var m=mix.slice(); var prev=m[i]||{};
+      var inf=HOUSE_TYPES[prev.type]||HOUSE_TYPES["3-bed semi"]||{sqft:900,adj:1};
+      var prevSq=numOr(prev.sqft, inf.sqft);
+      var priorPsf=num(prev.psf)||(num(prev.unitPrice||prev.salePrice)&&prevSq?num(prev.unitPrice||prev.salePrice)/prevSq:0)||basePsf*(inf.adj||1);
+      var r=Object.assign({},prev); r[field]=v;
+      var newSq=field==="sqft"?(num(v)||inf.sqft):numOr(r.sqft, inf.sqft);
+      var newPsf=field==="psf"?num(v):priorPsf;
+      if(newSq>0&&newPsf>0){ r.unitPrice=String(Math.round(newSq*newPsf)); if(r.salePrice!==undefined) r.salePrice=r.unitPrice; }
+      m[i]=r; up("sfh","mix",m);
+    }
 
     var houseCalcs=mix.map(function(row){
       var cnt=num(row.count); if(!cnt)return null;
@@ -333,6 +349,24 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
               });
               up("sfh","mix",nm);
             },title:"Fill each row's build £/sqft from the BCIS-style benchmark for that house type"+(s.tier1Build?" (incl. Tier-1 main-contractor uplift)":"")+(s.haSpecBuild?" + HA low-carbon spec on affordable rows":""),style:{padding:"5px 12px",background:"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",flexShrink:0}},"🧱 Auto-cost build / type"),
+            // v10.32 — Auto-price sale £/sqft of every row from the Base Sale £/sqft × the
+            // per-type sale adjustment (HOUSE_TYPES.adj), refreshing unit price too. This is
+            // the sale-side analogue of "Auto-cost build/type": it lets a user globally correct
+            // an overstated (or understated) base sale assumption. Previously there was no way
+            // to propagate a Base Sale £/sqft change to already-populated rows, because each
+            // row carried a baked-in unit price that the engine prioritises.
+            e("button",{onClick:function(){
+              var nm=mix.map(function(r){
+                var inf=HOUSE_TYPES[r.type]||HOUSE_TYPES["3-bed semi"]||{sqft:900,adj:1};
+                var sq=numOr(r.sqft, inf.sqft);
+                var psf2=Math.round(basePsf*(inf.adj||1));
+                var c=Object.assign({},r);
+                c.psf=String(psf2);
+                if(sq>0){ c.unitPrice=String(Math.round(sq*psf2)); if(c.salePrice!==undefined) c.salePrice=c.unitPrice; }
+                return c;
+              });
+              up("sfh","mix",nm);
+            },title:"Set every row's sale £/sqft from the Base Sale £/sqft (£"+Math.round(basePsf)+") × the house-type adjustment, and refresh unit prices. Use this after changing the Base Sale £/sqft to push the correction through the whole mix.",style:{padding:"5px 12px",background:"#9A7B3E",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",flexShrink:0}},"💷 Auto-price sale / type"),
             e("button",{onClick:function(){
               var totalU2=Math.floor(sAcres*0.404686*(numOr(s.dph, 30)));
               if(totalU2<1)totalU2=20;
@@ -352,9 +386,17 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
           ),
           mix.map(function(row,i){
             var info=HOUSE_TYPES[row.type]||HOUSE_TYPES["3-bed semi"];
+            // v10.32 — bind the editable cells to the REAL per-row values the engine uses
+            // (computeSFHMetrics), not the generic HOUSE_TYPES default. rowSqft is the row's
+            // own sqft (falling back to the type default only when blank); effSp is the
+            // effective £/sqft the engine derives (unitPrice/sqft, else psf, else base×adj).
+            // Previously the Sqft/Unit £/Revenue cells showed info.sqft × a recomputed sp,
+            // so they displayed generic placeholders (e.g. 1020 sqft) while the appraisal
+            // engine and the "Full Breakdown" table below used the real figures.
+            var rowSqft=numOr(row.sqft, info&&info.sqft||850);
+            var unitPrice=num(row.unitPrice||row.salePrice||0);
             var sp=num(row.psf)||(basePsf*(info&&info.adj||1));
-            var unitPrice=num(row.unitPrice||0);
-            var effSp=unitPrice&&num(row.sqft||info&&info.sqft||850)?unitPrice/num(row.sqft||info&&info.sqft||850):sp;
+            var effSp=unitPrice&&rowSqft?unitPrice/rowSqft:sp;
             var cnt=num(row.count);
             // v9.29 — Exit-route-aware row colour: pension/AHP rows tinted differently
             var rowTint = cnt>0 ? (
@@ -370,10 +412,15 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
                 Object.keys(HOUSE_TYPES).map(function(t){return e("option",{key:t,value:t},t);})
               ),
               e("input",{type:"number",value:row.count||"",onChange:function(ev){updMix(i,"count",ev.target.value);},placeholder:"0",style:Object.assign({},S.input,{fontSize:12,padding:"5px 6px"})}),
-              e("span",{style:{fontSize:12,color:"#7278A0"}},info.sqft),
-              e("input",{type:"number",value:row.psf||"",onChange:function(ev){updMix(i,"psf",ev.target.value);},placeholder:"£"+Math.round(sp),style:Object.assign({},S.input,{fontSize:12,padding:"5px 6px"})}),
-              e("span",{style:{fontSize:12,fontWeight:600,color:"#2E2F8A"}},cnt>0?fmt(info.sqft*sp):"—"),
-              e("span",{style:{fontSize:13,fontWeight:700,color:cnt>0?"#4A4BAE":"#7278A0"}},cnt>0?fmt(info.sqft*sp*cnt):"—"),
+              // Sqft — now editable and bound to the row's real sqft (was a read-only span
+              // showing the generic type default). Editing it preserves £/sqft and rescales
+              // the unit price via updMixPrice so the appraisal actually moves.
+              e("input",{type:"number",value:row.sqft||"",onChange:function(ev){updMixPrice(i,"sqft",ev.target.value);},placeholder:String(info.sqft),title:"GIA sqft for this house type — engine uses "+rowSqft.toLocaleString()+" sqft",style:Object.assign({},S.input,{fontSize:12,padding:"5px 6px"})}),
+              // £/sqft — shows the effective rate the engine uses (derived from unit price when
+              // no explicit £/sqft is set), and edits re-derive unit price so GDV/RLV respond.
+              e("input",{type:"number",value:(row.psf!==undefined&&row.psf!=="")?row.psf:(cnt>0?String(Math.round(effSp)):""),onChange:function(ev){updMixPrice(i,"psf",ev.target.value);},placeholder:"£"+Math.round(effSp),title:"Sale £/sqft the engine uses for this row (£"+Math.round(effSp)+"). Edit to override, or press ‘Auto-price sale / type’ to reset every row from the Base Sale £/sqft.",style:Object.assign({},S.input,{fontSize:12,padding:"5px 6px"})}),
+              e("span",{style:{fontSize:12,fontWeight:600,color:"#2E2F8A"}},cnt>0?fmt(rowSqft*effSp):"—"),
+              e("span",{style:{fontSize:13,fontWeight:700,color:cnt>0?"#4A4BAE":"#7278A0"}},cnt>0?fmt(rowSqft*effSp*cnt):"—"),
               // v9.29 — Exit Route dropdown drives capitalisation in v9.30
               e("select",{
                 value:row.tenure||"private",
@@ -414,6 +461,49 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
           )
         )
       ),
+      // v10.32 — Scheme-basis reconciliation. The mix prices a specific number of plots
+      // (the modelled scheme), while the Land Appraisal / brief may carry a different
+      // site-capacity figure (e.g. a strategic site's headline potential). GDV/RLV always
+      // value the MODELLED mix, so when the two diverge materially the headline unit count
+      // (which reads land/planning units) can disagree with the GDV basis. This makes the
+      // difference explicit — a modelled tranche vs full-site potential, not an error — and
+      // offers one-click reconciliation either way. (Staplehurst: 1,000 modelled vs ~1,902 brief.)
+      (function(){
+        var modelled=totalUnits;
+        var briefUnits=num(sfhLand.units)||num(sfhPlan.units)||0;
+        if(!(modelled>0 && briefUnits>0)) return null;
+        var diff=Math.abs(briefUnits-modelled);
+        if(diff < Math.max(50, modelled*0.1)) return null;   // immaterial — no noise
+        var modelledLower=modelled<briefUnits;
+        return e("div",{style:{margin:"-4px 0 16px",padding:"13px 15px",background:"rgba(154,123,62,0.09)",border:"1px solid rgba(154,123,62,0.4)",borderRadius:8,fontSize:12,color:"#7B6432",lineHeight:1.6}},
+          e("div",{style:{fontWeight:800,color:"#8A6D2E",marginBottom:4,fontSize:12.5}},"⚖ Scheme basis — reconcile before the board paper"),
+          e("div",{style:{marginBottom:8}},
+            "This appraisal values the ",e("strong",null,"modelled mix of "+modelled.toLocaleString()+" plots"),
+            " (GDV, RLV and margin above are all on that basis). The Land Appraisal / brief carries ",
+            e("strong",null,briefUnits.toLocaleString()+" units"),
+            " as the "+(modelledLower?"full-site potential":"site figure")+". These are two different bases — a "+
+            (modelledLower?"modelled delivery tranche vs the site's headline capacity":"site figure vs the priced mix")+
+            ", not necessarily an error — but the headline unit count elsewhere reads the brief figure, so the two should be reconciled so the board sees one consistent number."
+          ),
+          e("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+            e("button",{onClick:function(){
+              setData(function(prev){
+                var nl=Object.assign({},prev.land||{},{units:String(modelled)});
+                var np=Object.assign({},prev.planning||{},{units:String(modelled)});
+                return Object.assign({},prev,{land:nl,planning:np});
+              });
+              notify("Scheme unit count set to the modelled "+modelled.toLocaleString()+" plots — headline now matches the appraisal basis.");
+            },title:"Set the Land Appraisal / Planning unit count to the "+modelled.toLocaleString()+" plots the mix actually prices, so every screen's headline agrees with this GDV/RLV.",style:{padding:"7px 13px",background:"#2D7A65",border:"none",color:"#fff",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Set scheme units = "+modelled.toLocaleString()+" (modelled) →"),
+            e("button",{onClick:function(){
+              var k=briefUnits/modelled;
+              var nm=mix.map(function(r){ var c=Object.assign({},r); if(num(r.count)>0) c.count=String(Math.max(1,Math.round(num(r.count)*k))); return c; });
+              up("sfh","mix",nm);
+              notify("Mix scaled pro-rata to ~"+briefUnits.toLocaleString()+" plots to match the brief. Review the per-type counts and re-check viability.");
+            },title:"Scale every mix row pro-rata so the modelled scheme totals ~"+briefUnits.toLocaleString()+" plots (the brief figure). GDV/RLV will re-compute at that scale.",style:{padding:"7px 13px",background:"#9A7B3E",border:"none",color:"#fff",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Scale mix to "+briefUnits.toLocaleString()+" (brief) →"),
+            e("div",{style:{flex:1,minWidth:180,fontSize:10,color:"#8A7048",alignSelf:"center",fontStyle:"italic"}},"For large strategic sites a modelled Phase-1 tranche is legitimate — just label it so it doesn't read as a discrepancy.")
+          )
+        );
+      })(),
       // Exit / buyer allocation — rolls up the per-row tenure/exit routes into
       // "what's going to whom" with units and realisable value per buyer.
       totalUnits>0 && (function(){
