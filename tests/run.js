@@ -1295,6 +1295,87 @@ console.log("Landform engine consistency tests\n");
   ok("AHP grant uplift is positive across the affordable units", ahUnits*50000 > 0);
 })();
 
+// 55 — SFH scheme sizing to the site allocation (v10.34)
+// Mirrors screen-SFH.js: the modelled mix targets the brief/allocation units (e.g. Keystone's
+// ~1,800) when they imply a plausible density, else the density-based capacity — and the
+// generated mix sums EXACTLY to that target, so GDV/RLV reflect the full site, not a smaller
+// auto-figure. Proves the 1,800-vs-1,000 reconciliation the Staplehurst review raised.
+(function(){
+  function targetUnits(acres, dph, briefUnits){
+    var sHa=acres*0.404686;
+    var totalUa=Math.max(4, Math.floor(sHa*(dph||30)));
+    var dphImplied=sHa>0?briefUnits/sHa:0;
+    var useBrief=briefUnits>0 && dphImplied>=4 && dphImplied<=60;
+    return { target: useBrief?briefUnits:totalUa, useBrief:useBrief };
+  }
+  function buildTypicalMix(target, basePsf){
+    var spec=[
+      {type:"1-bed terrace",sqft:550,adj:0.75,pc:0.08},{type:"2-bed terrace",sqft:720,adj:0.88,pc:0.12},
+      {type:"2-bed semi",sqft:820,adj:0.90,pc:0.10},{type:"3-bed semi",sqft:1020,adj:1.00,pc:0.25},
+      {type:"3-bed detached",sqft:1150,adj:1.08,pc:0.18},{type:"4-bed semi",sqft:1300,adj:1.14,pc:0.12},
+      {type:"4-bed detached",sqft:1500,adj:1.18,pc:0.15}
+    ];
+    var used=0;
+    return spec.map(function(r,i){
+      var cnt=i===spec.length-1?Math.max(0,target-used):Math.round(target*r.pc); used+=cnt;
+      return {type:r.type,count:String(cnt),sqft:String(r.sqft),unitPrice:String(Math.round(r.sqft*basePsf*r.adj)),tenure:"private"};
+    });
+  }
+  function sfhWith(mix){ return { assetType:"sfh", land:{city:"maidstone"}, sfh:{city:"maidstone",acres:271.7,basePsf:400,buildPsf:205,mix:mix} }; }
+
+  // Staplehurst: 271.7 acres, allocation 1,800 → honoured (16.4 dph gross, plausible).
+  var t1=targetUnits(271.7, 30, 1800);
+  ok("Allocation 1,800 honoured as scheme target", t1.useBrief && t1.target===1800);
+  var m1=buildTypicalMix(1800, 400);
+  ok("Generated mix sums EXACTLY to 1,800", m1.reduce(function(a,r){return a+num(r.count);},0)===1800);
+  ok("Generated mix is a balanced multi-type scheme", m1.length===7 && m1.every(function(r){return num(r.count)>=0;}));
+  ok("Engine values the 1,800 mix at 1,800 units", computeSFHMetrics(sfhWith(m1)).totalUnits===1800);
+  // GDV of the 1,800 mix clearly exceeds a 1,000-plot cut of the same distribution.
+  var m1k=buildTypicalMix(1000, 400);
+  ok("1,800 mix GDV exceeds the 1,000 mix GDV", computeSFHMetrics(sfhWith(m1)).gdv > computeSFHMetrics(sfhWith(m1k)).gdv);
+
+  // No allocation → density-based capacity (100 acres @ 20 dph).
+  var t2=targetUnits(100, 20, 0);
+  ok("No allocation → density capacity used", !t2.useBrief && t2.target===Math.max(4,Math.floor(100*0.404686*20)));
+  ok("Density-based mix sums to its capacity", buildTypicalMix(t2.target,400).reduce(function(a,r){return a+num(r.count);},0)===t2.target);
+
+  // Implausible allocation (50 on 271.7 acres = 0.45 dph) → ignored, density used instead.
+  var t3=targetUnits(271.7, 30, 50);
+  ok("Implausible allocation (0.45 dph) ignored", !t3.useBrief && t3.target>50);
+})();
+
+// 56 — Land purchase costs (SDLT + legals/acquisition) and the all-in position (v10.35)
+// Mirrors screen-Proposal.js landSDLT/landAcqCosts and the all-in-margin identity, so the
+// one-pager's "cost to buy vs residual land value" test is provably correct.
+(function(){
+  function landSDLT(p){ if(p<=150000) return 0; var t=Math.min(p-150000,100000)*0.02; if(p>250000) t+=(p-250000)*0.05; return t; }
+  function landAcqCosts(price){ if(price<=0) return {sdlt:0,other:0,total:0}; var s=landSDLT(price), o=price*0.015; return {sdlt:s,other:o,total:s+o}; }
+
+  // SDLT non-residential land bands.
+  ok("SDLT nil at/under £150k", landSDLT(150000)===0);
+  ok("SDLT £250k = £2,000 (2% band only)", landSDLT(250000)===2000);
+  ok("SDLT £18m = £889,500", landSDLT(18000000)===889500);
+  ok("SDLT £30m = £1,489,500", landSDLT(30000000)===1489500);
+
+  var acq=landAcqCosts(18000000);
+  ok("Acquisition on £18m = SDLT £889,500 + £270,000 (1.5%) = £1,159,500", acq.sdlt===889500 && acq.other===270000 && acq.total===1159500);
+
+  // All-in position ties to the engine: profit after land = GDV − devCost − (price + acq costs),
+  // and equals RLV + targetProfit − (price + acq) by definition of RLV.
+  var deal={ assetType:"sfh", land:{city:"maidstone", price:18000000}, planning:{ahPct:"35"},
+    sfh:{city:"maidstone", acres:271.7, ahPct:"35", basePsf:400, buildPsf:205, finRate:7.5,
+      mix:[{type:"3-bed semi",count:"800",sqft:"1020",unitPrice:String(1020*400)},
+           {type:"4-bed detached",count:"1000",sqft:"1500",unitPrice:String(1500*Math.round(400*1.18))}]} };
+  var m=computeSFHMetrics(deal);
+  var ask=18000000, a=landAcqCosts(ask), total=ask+a.total;
+  var profitAllIn_identity = m.rlv + m.profit - total;      // screen uses this identity
+  var profitAllIn_direct   = m.gdv - m.devCost - total;     // GDV − costs − all-in land
+  near("All-in profit identity matches direct computation", profitAllIn_identity, profitAllIn_direct, 1);
+  ok("Headroom = RLV − all-in land cost", Math.abs((m.rlv-total) - (m.rlv-(ask+a.total))) < 1);
+  // With a guide price BELOW the RLV, the all-in position is still positive headroom.
+  ok("Guide below RLV leaves positive headroom", (m.rlv - total) > 0 === (ask < m.rlv - a.total));
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

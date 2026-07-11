@@ -49,17 +49,37 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
     var s106Pu=numOr(s.s106pu, 8000);
     var roads=numOr(s.roads, 12000);
     var totalUa=Math.max(4,Math.floor(sAcres*0.404686*(numOr(s.dph, 30))));
-    var autoMix=[
-      // v9.29 — Expanded mix with 1-bed terrace and 4-bed semi
-      // Mix percentages target a balanced family-housing scheme suitable for AHP + private
-      {type:"1-bed terrace",beds:"1",count:String(Math.round(totalUa*0.08)),sqft:"550",unitPrice:String(Math.round(550*basePsf*0.75)),psf:"",tenure:"private",ahPct:"0"},
-      {type:"2-bed terrace",beds:"2",count:String(Math.round(totalUa*0.12)),sqft:"720",unitPrice:String(Math.round(720*basePsf*0.88)),psf:"",tenure:"private",ahPct:"0"},
-      {type:"2-bed semi",beds:"2",count:String(Math.round(totalUa*0.10)),sqft:"820",unitPrice:String(Math.round(820*basePsf*0.90)),psf:"",tenure:"private",ahPct:"0"},
-      {type:"3-bed semi",beds:"3",count:String(Math.round(totalUa*0.25)),sqft:"1020",unitPrice:String(Math.round(1020*basePsf)),psf:"",tenure:"private",ahPct:"0"},
-      {type:"3-bed detached",beds:"3",count:String(Math.round(totalUa*0.18)),sqft:"1150",unitPrice:String(Math.round(1150*basePsf*1.08)),psf:"",tenure:"private",ahPct:"0"},
-      {type:"4-bed semi",beds:"4",count:String(Math.round(totalUa*0.12)),sqft:"1300",unitPrice:String(Math.round(1300*basePsf*1.14)),psf:"",tenure:"private",ahPct:"0"},
-      {type:"4-bed detached",beds:"4",count:String(Math.round(totalUa*0.15)),sqft:"1500",unitPrice:String(Math.round(1500*basePsf*1.18)),psf:"",tenure:"private",ahPct:"0"},
-    ];
+    // v10.34 — size the modelled scheme to the site's ALLOCATION when the brief carries one
+    // (e.g. Keystone's "circa 1,800 units"), so the mix — and therefore GDV/RLV, the board
+    // paper and the one-pager — matches the source document instead of a smaller density-only
+    // figure. Strategic allocations are typically quoted at ~20 dph on the NET-DEVELOPABLE
+    // area (~80–85% of gross, after roads/open space/SuDS), which is why an 1,800-home
+    // allocation on 110 ha reads as ~16 dph gross. We honour the brief figure when it implies
+    // a plausible density (4–60 dph), else fall back to the density-based capacity.
+    var sfhBriefUnits = num(sfhLand.units) || num(sfhPlan.units) || 0;
+    var sfhDphImplied = sHa>0 ? sfhBriefUnits/sHa : 0;
+    var sfhUseBrief = sfhBriefUnits>0 && sfhDphImplied>=4 && sfhDphImplied<=60;
+    var targetUnits = sfhUseBrief ? sfhBriefUnits : totalUa;
+    // Build a balanced family-housing distribution summing to a target unit count. The last
+    // row absorbs the rounding remainder so the mix totals EXACTLY the target.
+    function buildTypicalMix(target){
+      var spec=[
+        {type:"1-bed terrace",beds:"1",sqft:550,adj:0.75,pc:0.08},
+        {type:"2-bed terrace",beds:"2",sqft:720,adj:0.88,pc:0.12},
+        {type:"2-bed semi",beds:"2",sqft:820,adj:0.90,pc:0.10},
+        {type:"3-bed semi",beds:"3",sqft:1020,adj:1.00,pc:0.25},
+        {type:"3-bed detached",beds:"3",sqft:1150,adj:1.08,pc:0.18},
+        {type:"4-bed semi",beds:"4",sqft:1300,adj:1.14,pc:0.12},
+        {type:"4-bed detached",beds:"4",sqft:1500,adj:1.18,pc:0.15}
+      ];
+      var used=0;
+      return spec.map(function(r,i){
+        var cnt = i===spec.length-1 ? Math.max(0,target-used) : Math.round(target*r.pc);
+        used += cnt;
+        return {type:r.type,beds:String(r.beds),count:String(cnt),sqft:String(r.sqft),unitPrice:String(Math.round(r.sqft*basePsf*r.adj)),psf:"",tenure:"private",ahPct:"0"};
+      });
+    }
+    var autoMix=buildTypicalMix(targetUnits);
     var mix=s.mix&&s.mix.some(function(r){return num(r.count)>0;})?s.mix:autoMix;
     function updMix(i,k,v){var m=mix.slice();m[i]=Object.assign({},m[i]);m[i][k]=v;up("sfh","mix",m);}
     // v10.32 — sqft × £/sqft is the source of truth for a row's price. Because the engine
@@ -312,7 +332,17 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
           e(Inp,{label:"Finance Rate %",type:"number",value:s.finRate,onChange:function(v){up("sfh","finRate",v);},placeholder:"7.5"}),
           e(Inp,{label:"Contingency %",type:"number",value:s.contingency,onChange:function(v){up("sfh","contingency",v);},placeholder:"5"}),
           sAcres>0?e("div",{style:{background:"#EEEEF8",borderRadius:8,padding:12,fontSize:12,color:"#3A3D6A",gridColumn:"span 1"}},
-            sAcres+" acres / "+sHa.toFixed(2)+" ha · ~"+sMaxUnits+" units at "+sDph+" dph"
+            e("div",null,sAcres+" acres / "+sHa.toFixed(2)+" ha · ~"+sMaxUnits+" units at "+sDph+" dph"),
+            // v10.34 — allocation reconciliation: an "1,800-home" brief on this ha is ~16 dph
+            // gross ≈ 20 dph on the net-developable area. Shows why the brief and a headline
+            // dph differ, and confirms the modelled scheme is sized to the allocation.
+            sfhBriefUnits>0 && e("div",{style:{marginTop:6,paddingTop:6,borderTop:"1px solid #D7D9EC",fontSize:11,lineHeight:1.5}},
+              e("span",{style:{fontWeight:700,color:sfhUseBrief?"#2D7A65":"#9A7B3E"}},"Site allocation (brief): "+sfhBriefUnits.toLocaleString()+" homes"),
+              " — "+Math.round(sfhDphImplied)+" dph gross ≈ "+Math.round(sfhDphImplied/0.82)+" dph on ~82% net-developable. ",
+              sfhUseBrief
+                ? e("span",{style:{color:"#2D7A65"}},"Auto-fill sizes the mix to this.")
+                : e("span",{style:{color:"#9A7B3E"}},"Outside 4–60 dph, so mix uses the density figure above instead.")
+            )
           ):e("div",null)
         ),
 
@@ -367,17 +397,18 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
               });
               up("sfh","mix",nm);
             },title:"Set every row's sale £/sqft from the Base Sale £/sqft (£"+Math.round(basePsf)+") × the house-type adjustment, and refresh unit prices. Use this after changing the Base Sale £/sqft to push the correction through the whole mix.",style:{padding:"5px 12px",background:"#9A7B3E",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",flexShrink:0}},"💷 Auto-price sale / type"),
+            // v10.34 — Auto-fill a sensible family-housing mix sized to the scheme TARGET —
+            // the site's allocation (brief) units when present, else the density-based capacity.
+            // Uses the same balanced distribution as the default mix, summing exactly to target.
             e("button",{onClick:function(){
-              var totalU2=Math.floor(sAcres*0.404686*(numOr(s.dph, 30)));
-              if(totalU2<1)totalU2=20;
-              var newMix=[
-                {type:"2-bed semi",beds:"2",count:String(Math.round(totalU2*0.10)),sqft:"820",unitPrice:String(Math.round(820*basePsf*0.88)),psf:"",tenure:"private",ahPct:"0"},
-                {type:"3-bed semi",beds:"3",count:String(Math.round(totalU2*0.35)),sqft:"1020",unitPrice:String(Math.round(1020*basePsf)),psf:"",tenure:"private",ahPct:"0"},
-                {type:"3-bed detached",beds:"3",count:String(Math.round(totalU2*0.30)),sqft:"1150",unitPrice:String(Math.round(1150*basePsf*1.08)),psf:"",tenure:"private",ahPct:"0"},
-                {type:"4-bed detached",beds:"4",count:String(Math.round(totalU2*0.25)),sqft:"1500",unitPrice:String(Math.round(1500*basePsf*1.22)),psf:"",tenure:"private",ahPct:"0"},
-              ];
-              up("sfh","mix",newMix);
-            },style:{padding:"5px 12px",background:"#2D7A65",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",flexShrink:0}},"⚡ Auto-fill Typical Mix")
+              var tgt=targetUnits>0?targetUnits:(totalUa||20);
+              up("sfh","mix",buildTypicalMix(tgt));
+              if(typeof notify==="function") notify("Filled a typical mix of "+tgt.toLocaleString()+" homes"+(sfhUseBrief?" — matching the site allocation of "+sfhBriefUnits.toLocaleString()+" units":" at "+numOr(s.dph,30)+" dph")+".");
+            },title:sfhUseBrief
+                ? "Fill a balanced family-housing mix totalling "+targetUnits.toLocaleString()+" homes — the site allocation from the brief ("+Math.round(sfhDphImplied)+" dph gross ≈ 20 dph on the net-developable area). Prices from the Base Sale £/sqft × per-type adjustment."
+                : "Fill a balanced family-housing mix totalling "+targetUnits.toLocaleString()+" homes at "+numOr(s.dph,30)+" dph. Set a site allocation on the Land/Keystone stage to size it to the brief instead.",
+              style:{padding:"5px 12px",background:"#2D7A65",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",flexShrink:0}},
+              sfhUseBrief?"⚡ Auto-fill mix → "+targetUnits.toLocaleString()+" homes":"⚡ Auto-fill Typical Mix")
             )
           ),
           // v9.29 — Single header row with Exit Route column added
