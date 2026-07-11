@@ -1295,6 +1295,55 @@ console.log("Landform engine consistency tests\n");
   ok("AHP grant uplift is positive across the affordable units", ahUnits*50000 > 0);
 })();
 
+// 55 — SFH scheme sizing to the site allocation (v10.34)
+// Mirrors screen-SFH.js: the modelled mix targets the brief/allocation units (e.g. Keystone's
+// ~1,800) when they imply a plausible density, else the density-based capacity — and the
+// generated mix sums EXACTLY to that target, so GDV/RLV reflect the full site, not a smaller
+// auto-figure. Proves the 1,800-vs-1,000 reconciliation the Staplehurst review raised.
+(function(){
+  function targetUnits(acres, dph, briefUnits){
+    var sHa=acres*0.404686;
+    var totalUa=Math.max(4, Math.floor(sHa*(dph||30)));
+    var dphImplied=sHa>0?briefUnits/sHa:0;
+    var useBrief=briefUnits>0 && dphImplied>=4 && dphImplied<=60;
+    return { target: useBrief?briefUnits:totalUa, useBrief:useBrief };
+  }
+  function buildTypicalMix(target, basePsf){
+    var spec=[
+      {type:"1-bed terrace",sqft:550,adj:0.75,pc:0.08},{type:"2-bed terrace",sqft:720,adj:0.88,pc:0.12},
+      {type:"2-bed semi",sqft:820,adj:0.90,pc:0.10},{type:"3-bed semi",sqft:1020,adj:1.00,pc:0.25},
+      {type:"3-bed detached",sqft:1150,adj:1.08,pc:0.18},{type:"4-bed semi",sqft:1300,adj:1.14,pc:0.12},
+      {type:"4-bed detached",sqft:1500,adj:1.18,pc:0.15}
+    ];
+    var used=0;
+    return spec.map(function(r,i){
+      var cnt=i===spec.length-1?Math.max(0,target-used):Math.round(target*r.pc); used+=cnt;
+      return {type:r.type,count:String(cnt),sqft:String(r.sqft),unitPrice:String(Math.round(r.sqft*basePsf*r.adj)),tenure:"private"};
+    });
+  }
+  function sfhWith(mix){ return { assetType:"sfh", land:{city:"maidstone"}, sfh:{city:"maidstone",acres:271.7,basePsf:400,buildPsf:205,mix:mix} }; }
+
+  // Staplehurst: 271.7 acres, allocation 1,800 → honoured (16.4 dph gross, plausible).
+  var t1=targetUnits(271.7, 30, 1800);
+  ok("Allocation 1,800 honoured as scheme target", t1.useBrief && t1.target===1800);
+  var m1=buildTypicalMix(1800, 400);
+  ok("Generated mix sums EXACTLY to 1,800", m1.reduce(function(a,r){return a+num(r.count);},0)===1800);
+  ok("Generated mix is a balanced multi-type scheme", m1.length===7 && m1.every(function(r){return num(r.count)>=0;}));
+  ok("Engine values the 1,800 mix at 1,800 units", computeSFHMetrics(sfhWith(m1)).totalUnits===1800);
+  // GDV of the 1,800 mix clearly exceeds a 1,000-plot cut of the same distribution.
+  var m1k=buildTypicalMix(1000, 400);
+  ok("1,800 mix GDV exceeds the 1,000 mix GDV", computeSFHMetrics(sfhWith(m1)).gdv > computeSFHMetrics(sfhWith(m1k)).gdv);
+
+  // No allocation → density-based capacity (100 acres @ 20 dph).
+  var t2=targetUnits(100, 20, 0);
+  ok("No allocation → density capacity used", !t2.useBrief && t2.target===Math.max(4,Math.floor(100*0.404686*20)));
+  ok("Density-based mix sums to its capacity", buildTypicalMix(t2.target,400).reduce(function(a,r){return a+num(r.count);},0)===t2.target);
+
+  // Implausible allocation (50 on 271.7 acres = 0.45 dph) → ignored, density used instead.
+  var t3=targetUnits(271.7, 30, 50);
+  ok("Implausible allocation (0.45 dph) ignored", !t3.useBrief && t3.target>50);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);
