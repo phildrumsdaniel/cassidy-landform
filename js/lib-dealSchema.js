@@ -414,6 +414,63 @@ function buildDealFromBrief(brief){
   return deal;
 }
 
+// v10.38 — preserveManualOnRebuild: when Keystone REBUILDS a deal from the brief, carry the
+// user's manual downstream work into the freshly-built deal so a rebuild refreshes the scheme
+// WITHOUT silently wiping planning judgement, verified prices and exit strategy. Mutates
+// `built` in place and returns a list of human-readable labels of what was preserved (for a
+// transparency banner). The scheme itself (units, house mix, GDV/RLV) is intentionally
+// re-derived from the brief — only manual, non-brief judgement is carried over.
+function _keystoneStageLabel(k){
+  return ({ exit:"Exit Strategy & Target Investor", constraintCheck:"Constraint Check", dd:"Due Diligence",
+    tenure:"Tenure Mix", hra:"High-Rise / Apartments", grants:"Grants", meetings:"Meetings",
+    assetOptimiser:"Asset Optimiser", recovery:"Planning Recovery", epe:"Energy / EPE",
+    scraper:"Import source", market:"Market data", riskRegister:"Risk Register", dataRoom:"Data Room" }[k]) || k;
+}
+function preserveManualOnRebuild(prev, built){
+  prev = prev || {}; built = built || {};
+  var kept = [];
+  // 1) Whole stages Keystone never regenerates → keep the user's entirely.
+  ["exit","constraintCheck","dd","tenure","hra","grants","meetings","assetOptimiser","recovery","epe","scraper","market","riskRegister","dataRoom"].forEach(function(k){
+    var pv = prev[k];
+    var hasContent = pv != null && (typeof pv !== "object" || Object.keys(pv).length > 0);
+    if(hasContent && built[k] == null){ built[k] = pv; kept.push(_keystoneStageLabel(k)); }
+  });
+  // 2) Manual JUDGEMENT fields inside regenerated stages → keep the user's value when set.
+  [ ["planning","status","Planning Status"],
+    ["planning","riskLevel","Planning Risk Level"],
+    ["planning","bng","Biodiversity Net Gain"],
+    ["planning","gateway","Fire Safety Gateway"],
+    ["planning","planningProb","Planning probability"],
+    ["sfh","basePsf","Base Sale £/sqft"],
+    ["sfh","buildPsf","Build £/sqft"] ].forEach(function(f){
+    var st = f[0], key = f[1], label = f[2];
+    var pv = prev[st] ? prev[st][key] : undefined;
+    if(pv != null && pv !== ""){
+      built[st] = Object.assign({}, built[st] || {});
+      var bv = built[st][key];
+      built[st][key] = pv;
+      if(String(bv == null ? "" : bv) !== String(pv)) kept.push(label);
+    }
+  });
+  // 3) If we kept a verified Base Sale £/sqft, reprice the freshly-generated mix to it (× per-type
+  //    adjustment) so the scheme is internally consistent — otherwise the mix would carry the
+  //    generic default price while the field shows the verified one.
+  if(prev.sfh && prev.sfh.basePsf != null && prev.sfh.basePsf !== "" && built.sfh && Array.isArray(built.sfh.mix) && typeof HOUSE_TYPES !== "undefined"){
+    var bp = num(prev.sfh.basePsf);
+    if(bp > 0){
+      built.sfh.mix = built.sfh.mix.map(function(r){
+        var inf = HOUSE_TYPES[r.type] || HOUSE_TYPES["3-bed semi"] || {sqft:900, adj:1};
+        var sq = num(r.sqft) || inf.sqft;
+        var psf = Math.round(bp * (inf.adj || 1));
+        var c = Object.assign({}, r, { psf:String(psf) });
+        if(sq > 0) c.unitPrice = String(Math.round(sq * psf));
+        return c;
+      });
+    }
+  }
+  return kept;
+}
+
 // Parse a loose human/AI string into a number: "£12,000,000", "£12m", "850k",
 // "32 acres", "200-250" (→ midpoint), "Not found" (→ 0).
 function _parseLooseNum(v){

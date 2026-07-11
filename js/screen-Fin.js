@@ -311,7 +311,12 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
         ),
         (function(){
           var progMths=num(f.programmeMths||36);
-          var u=num(f.units||units||0);
+          // v10.38 — use the CANONICAL scheme unit count (the mix-based figure for SFH, else the
+          // centralised calcDealMetrics count) — NOT the stale data.fin.units, which wasn't
+          // caught by the unit reconciliation and could show e.g. 1,902 while every other stage
+          // reads 1,800. f.units is a last-resort fallback only.
+          var u=isSFH ? (sfhTotalUnits || num(DM.units) || num(f.units||units||0))
+                      : (num(DM.units) || num(f.units||units||0));
           // v10.9 — sell-out tracks the programme unless the user sets an explicit rate;
           // and the finance rate is the ONE appraisal rate (f.finRate), not a separate 8%.
           var salesRate=num(f.salesRateWeek) || (u>0&&progMths>0 ? Math.round((u/(progMths*(52/12)))*100)/100 : 0.75);

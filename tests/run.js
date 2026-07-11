@@ -1455,6 +1455,81 @@ console.log("Landform engine consistency tests\n");
   ok("Units-only brief generates a mix summing to the units", mixSum(buildDealFromBrief(brief3))===1200);
 })();
 
+// 59 — Keystone rebuild preserves manual downstream work (v10.38)
+// A rebuild from the brief must NOT silently wipe planning judgement, verified prices, exit
+// strategy or constraint checks. preserveManualOnRebuild carries them into the fresh deal and
+// reports what it kept; the scheme itself (mix/units) is still re-derived from the brief.
+(function(){
+  if(typeof preserveManualOnRebuild !== "function"){ ok("preserveManualOnRebuild available", false); return; }
+  // A prior deal with manual downstream work the brief doesn't carry.
+  var prev = {
+    assetType:"sfh",
+    land:{ city:"maidstone", acres:271.7, units:"1800" },
+    planning:{ units:"1800", status:"none", riskLevel:"high", bng:"onsite10", gateway:"na", ahPct:"40" },
+    sfh:{ city:"maidstone", acres:271.7, basePsf:"332", buildPsf:"205", ahPct:"40",
+      mix:[{type:"3-bed semi",count:"1000",sqft:"1020",unitPrice:String(1020*332)},
+           {type:"4-bed detached",count:"800",sqft:"1500",unitPrice:String(1500*Math.round(332*1.18))}] },
+    exit:{ strategy:"forward_sale", investorType:"uk_pension" },
+    constraintCheck:{ results:{ score:62 } },
+    dd:{ notes:"site visit booked" }
+  };
+  // A freshly rebuilt deal (as buildDealFromBrief would produce) — brief-derived, generic price,
+  // and NONE of the manual fields.
+  var built = buildDealFromBrief({ town:"Maidstone", postcode:"TN12 0AA", acres:271.7, units:1800, affordablePct:40 });
+  ok("Fresh rebuild has no exit stage (would be wiped)", built.exit == null);
+  var freshBasePsf = num(built.sfh.basePsf);
+
+  var kept = preserveManualOnRebuild(prev, built);
+  // Whole stages carried over.
+  ok("Rebuild preserves the Exit stage", built.exit && built.exit.strategy === "forward_sale" && built.exit.investorType === "uk_pension");
+  ok("Rebuild preserves the Constraint Check", built.constraintCheck && num(built.constraintCheck.results.score) === 62);
+  ok("Rebuild preserves Due Diligence notes", built.dd && built.dd.notes === "site visit booked");
+  // Manual planning judgement carried over.
+  ok("Rebuild preserves Planning Risk Level", built.planning.riskLevel === "high");
+  ok("Rebuild preserves Planning Status", built.planning.status === "none");
+  ok("Rebuild preserves BNG", built.planning.bng === "onsite10");
+  ok("Rebuild preserves Fire Safety Gateway", built.planning.gateway === "na");
+  // Verified Base Sale £/sqft carried over AND the mix repriced to it.
+  ok("Rebuild preserves the verified Base Sale £/sqft (£332, not the generic default)", num(built.sfh.basePsf) === 332 && freshBasePsf !== 332);
+  (function(){
+    var semi = built.sfh.mix.filter(function(r){ return r.type === "3-bed semi"; })[0];
+    ok("Rebuilt mix is repriced to the verified £332 (3-bed semi @ £332)", semi && Math.round(num(semi.unitPrice)/num(semi.sqft)) === 332);
+  })();
+  // The scheme is still re-derived from the brief (mix sums to the 1,800 allocation).
+  ok("Scheme still re-derived from brief (mix sums to 1,800)", built.sfh.mix.reduce(function(a,r){return a+num(r.count);},0) === 1800);
+  // What was preserved is reported for the banner.
+  ok("Kept list reports Exit, Planning Risk Level and Base Sale £/sqft", kept.indexOf("Exit Strategy & Target Investor")>=0 && kept.indexOf("Planning Risk Level")>=0 && kept.indexOf("Base Sale £/sqft")>=0);
+
+  // A fresh build with no prior deal preserves nothing (empty list, no crash).
+  ok("No prior deal ⇒ nothing preserved", preserveManualOnRebuild({}, buildDealFromBrief({town:"Maidstone",acres:50,units:600})).length === 0);
+})();
+
+// 60 — Financial Modelling IRR/cashflow reads the CANONICAL unit count (v10.38)
+// The Fin IRR & Phased Cashflow block (and its copy-to-Excel summary) must use the same unit
+// count as every other stage — the mix-based figure for SFH / the centralised calcDealMetrics
+// count — NOT a stale data.fin.units that the reconciliation didn't touch.
+(function(){
+  // Replicates the fixed precedence in screen-Fin.js: u = isSFH ? (mixUnits || DM.units || …) : (DM.units || …)
+  function finUnits(data){
+    var isSFH = (data.assetType||"sfh")==="sfh";
+    var DM = calcDealMetrics(data);
+    var mixUnits = computeSFHMetrics(data).totalUnits || 0;
+    var f = data.fin||{};
+    return isSFH ? (mixUnits || num(DM.units) || num(f.units||0)) : (num(DM.units) || num(f.units||0));
+  }
+  // Deal where fin.units is STALE (1,902) but the mix and planning are the reconciled 1,800.
+  var deal={ assetType:"sfh", land:{city:"maidstone", acres:271.7, units:"1800"}, planning:{units:"1800", ahPct:"40"},
+    fin:{units:"1902", programmeMths:"36"},
+    sfh:{city:"maidstone", acres:271.7, ahPct:"40", basePsf:332, buildPsf:205,
+      mix:[{type:"3-bed semi",count:"1000",sqft:"1020",unitPrice:String(1020*332)},
+           {type:"4-bed detached",count:"800",sqft:"1500",unitPrice:String(1500*Math.round(332*1.18))}]} };
+  ok("Fin unit count uses the canonical 1,800, not the stale fin.units 1,902", finUnits(deal) === 1800);
+  ok("Canonical count equals the mix total", finUnits(deal) === computeSFHMetrics(deal).totalUnits);
+  // Even if fin.units is blank, it still resolves to the mix count.
+  var deal2=JSON.parse(JSON.stringify(deal)); delete deal2.fin.units;
+  ok("Blank fin.units still resolves to the canonical count", finUnits(deal2) === 1800);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);
