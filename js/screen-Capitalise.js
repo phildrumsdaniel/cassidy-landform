@@ -77,6 +77,10 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
         rentSourceLabel = "regional fallback";
       }
     })();
+    // v10.30 — if this area has researched, verified per-bed rents, say so explicitly
+    // (they drive the 2/3/4-bed auto-fill via areaRentPcm; 1-bed stays area-derived).
+    var _vRents = (typeof verifiedRents === "function") ? verifiedRents(data) : null;
+    if(_vRents && _vRents.label) rentSourceLabel = _vRents.label;
 
     // v9.51 — per-bed rents anchored on the AREA's typical (3-bed) rent via
     // areaRentPcm, so each bed size is realistic for the location (fixes the old
@@ -121,6 +125,12 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
     var capValueMin=selYield>0?netAnnualIncome/(selYield+0.01):0;
     var capValueMax=selYield>0?netAnnualIncome/(selYield-0.01):0;
     var capPerUnit=totalUnitsCalc>0?capValue/totalUnitsCalc:0;
+
+    // ── Multi-year DCF hold (v10.29) — CPI-indexed rent over the hold, discounted at the
+    //    same net initial yield. Additional view alongside the static NOI÷yield capValue. ──
+    var dcfP=(typeof capDCFParams==="function")?capDCFParams(data):{growth:2.75,floor:1,cap:4,years:25};
+    var dcfHold=(typeof computeDCFHoldValue==="function")?computeDCFHoldValue(netAnnualIncome,dcfP.growth,dcfP.floor,dcfP.cap,dcfP.years,selYield):{value:0,effectiveGrowth:0};
+    var dcfUpliftPct=capValue>0?(dcfHold.value/capValue-1)*100:0;
 
     // Gross initial yield on cost
     var buildCostEst=(num(rlvD.buildPsf||f.buildPsf||cityMkt.build||188))*units2*(num(rlvD.avgSqft||850));
@@ -909,6 +919,44 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
               e("div",{style:{fontSize:14,fontWeight:800,color:item.c}},item.v)
             );
           })
+        )
+      ),
+
+      // ── MULTI-YEAR DCF HOLD (INDEXED) ──────────────────────────────────────
+      // CPI-linked rent growth over a long hold, collared, with a term-and-reversion terminal
+      // value. Discount rate = the net initial yield above (one consistent assumption). Feeds the
+      // pension/SWF and Retain & Refinance rows on the Exit page and in the Board Proposal.
+      e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",marginBottom:14}},
+        e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:6}},
+          e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em"}},"Long-Income DCF — CPI-Indexed Hold (Term & Reversion)"),
+          e("div",{style:{fontSize:12,color:"#7278A0"}},"For pension / SWF & retain-and-refinance holds")
+        ),
+        e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:14,lineHeight:1.6}},
+          "Grows the net rent each year at a ",e("strong",{style:{color:"#3A3D6A"}},"CPI-linked uplift (collared)"),
+          ", runs it over the hold period, capitalises the final year's rent at the same net initial yield for a terminal value, and discounts every year back at that ",
+          e("strong",null,"same net initial yield ("+pct(selYield*100)+")"),". This is an ",e("strong",null,"additional, growth-adjusted basis")," shown next to the static year-1 value above — not a replacement."
+        ),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,minmax(120px,1fr))",gap:10,marginBottom:14}},
+          e(Inp,{label:"CPI / rent growth % pa",type:"number",step:"0.05",value:(cap.cpiGrowth!==undefined&&cap.cpiGrowth!=="")?cap.cpiGrowth:"",onChange:function(v){up("capitalise","cpiGrowth",v);},placeholder:String(DCF_DEFAULTS.cpi)}),
+          e(Inp,{label:"Floor % (collar min)",type:"number",step:"0.25",value:(cap.cpiFloor!==undefined&&cap.cpiFloor!=="")?cap.cpiFloor:"",onChange:function(v){up("capitalise","cpiFloor",v);},placeholder:String(DCF_DEFAULTS.floor)}),
+          e(Inp,{label:"Cap % (collar max)",type:"number",step:"0.25",value:(cap.cpiCap!==undefined&&cap.cpiCap!=="")?cap.cpiCap:"",onChange:function(v){up("capitalise","cpiCap",v);},placeholder:String(DCF_DEFAULTS.cap)}),
+          e(Inp,{label:"Hold period (years)",type:"number",step:"1",value:(cap.holdYears!==undefined&&cap.holdYears!=="")?cap.holdYears:"",onChange:function(v){up("capitalise","holdYears",v);},placeholder:String(DCF_DEFAULTS.years)})
+        ),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}},
+          [
+            {l:"Static year-1 basis",v:fmt(capValue),c:"#7278A0",s:"NOI ÷ "+pct(selYield*100)},
+            {l:dcfP.years+"-yr DCF (indexed)",v:dcfHold.value>0?fmt(dcfHold.value):"—",c:"#2D7A65",s:"@ "+(Math.round(dcfHold.effectiveGrowth*10000)/100)+"% growth, collared"},
+            {l:"Uplift vs static",v:(dcfHold.value>0&&capValue>0?(dcfUpliftPct>=0?"+":"")+Math.round(dcfUpliftPct*10)/10+"%":"—"),c:"#4A4BAE",s:"growth-adjusted premium"}
+          ].map(function(item){
+            return e("div",{key:item.l,style:{background:"#F7F8FC",borderRadius:8,padding:"12px",textAlign:"center",borderTop:"3px solid "+item.c}},
+              e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:3}},item.l),
+              e("div",{style:{fontSize:16,fontWeight:800,color:item.c}},item.v),
+              e("div",{style:{fontSize:9,color:"#9A9AAE",marginTop:3}},item.s)
+            );
+          })
+        ),
+        e("div",{style:{fontSize:10.5,color:"#9A7B3E",marginTop:10,lineHeight:1.6}},
+          "Collar: the annual uplift is held between the floor and cap — a "+DCF_DEFAULTS.floor+"% floor protects income in low-CPI years, a "+DCF_DEFAULTS.cap+"% cap keeps it prudent. Default CPI "+DCF_DEFAULTS.cpi+"% pa. Terminal value = year "+(dcfP.years+1)+" rent ÷ "+pct(selYield*100)+"."
         )
       ),
 

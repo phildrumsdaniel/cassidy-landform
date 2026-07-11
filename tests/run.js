@@ -1062,6 +1062,120 @@ console.log("Landform engine consistency tests\n");
   ok("engine S106 (what the Planning prompt now quotes) is non-zero", num(calcDealMetrics(deal).s106) > 0);
 })();
 
+// 50 — Multi-year DCF hold model: computeDCFHoldValue / capDCFParams (v10.29)
+(function(){
+  var NOI = 1000000, yF = 0.05, statik = NOI / yF;   // static NOI ÷ yield
+
+  // (a) The keystone identity: 0% growth (uncollared) + discount == exit yield ⇒ DCF == static.
+  var d0 = computeDCFHoldValue(NOI, 0, 0, 0, 25, yF);
+  near("DCF 0% growth equals static NOI/yield", d0.value, statik, 1);
+  ok("DCF 0% growth → effective growth is 0", d0.effectiveGrowth === 0);
+
+  // (b) Any positive indexation lifts the value above the static year-1 basis.
+  var dd = computeDCFHoldValue(NOI, 2.75, 1, 4, 25, yF);
+  ok("DCF with 2.75% CPI exceeds static basis", dd.value > statik);
+  near("DCF 2.75% CPI uses collared growth 2.75%", dd.effectiveGrowth, 0.0275, 1e-9);
+
+  // (c) Floor collar binds upward: a 0% CPI with a 1% floor grows at 1%, not 0%.
+  var df = computeDCFHoldValue(NOI, 0, 1, 4, 25, yF);
+  near("DCF floor collar binds (0% CPI → 1% growth)", df.effectiveGrowth, 0.01, 1e-9);
+  ok("DCF floored value exceeds the 0%-growth value", df.value > d0.value);
+
+  // (d) Cap collar binds downward: a 6% CPI with a 4% cap grows at 4%, not 6%.
+  var dc = computeDCFHoldValue(NOI, 6, 1, 4, 25, yF);
+  near("DCF cap collar binds (6% CPI → 4% growth)", dc.effectiveGrowth, 0.04, 1e-9);
+
+  // (e) A 1% floor "1" must NOT be read as a 100% fraction (the normalisation trap we hit).
+  ok("1% floor is not mistaken for 100% growth", df.value < dd.value && dd.value < dc.value);
+
+  // (f) exitYield tolerates a percent (5) or a fraction (0.05) identically.
+  near("DCF yield percent == fraction", computeDCFHoldValue(NOI,2.75,1,4,25,5).value, dd.value, 1);
+
+  // (g) Terminal value = year-(n+1) rent capitalised at the exit yield; discounted back.
+  near("DCF reversion NOI is year-26 grown rent", dd.reversionNOI, NOI*Math.pow(1.0275,25), 1);
+  near("DCF terminal value = reversion NOI / yield", dd.terminalValue, dd.reversionNOI/yF, 1);
+  near("DCF value = PV(income) + PV(terminal)", dd.value, dd.pvIncome + dd.pvTerminal, 1);
+
+  // (h) Degenerate guards: zero NOI or zero yield ⇒ zero value, never NaN/Infinity.
+  ok("DCF zero NOI → 0", computeDCFHoldValue(0,2.75,1,4,25,yF).value === 0);
+  ok("DCF zero yield → 0 (no divide-by-zero)", computeDCFHoldValue(NOI,2.75,1,4,25,0).value === 0);
+
+  // (i) capDCFParams: blank inputs fall back to defaults; an explicit 0 is honoured.
+  var pDef = capDCFParams({});
+  ok("capDCFParams default CPI 2.75", pDef.growth === 2.75);
+  ok("capDCFParams default floor 1", pDef.floor === 1);
+  ok("capDCFParams default cap 4", pDef.cap === 4);
+  ok("capDCFParams default hold 25yr", pDef.years === 25);
+  var p0 = capDCFParams({ capitalise:{ cpiGrowth:0, holdYears:30 } });
+  ok("capDCFParams honours explicit 0% CPI", p0.growth === 0);
+  ok("capDCFParams honours custom 30yr hold", p0.years === 30);
+
+  // (j) dealDCFHoldValue wires the deal's exit yield through the same core.
+  var deal = { capitalise:{ targetYield:5 } };
+  near("dealDCFHoldValue matches core at the deal yield", dealDCFHoldValue(deal, NOI).value, dd.value, 1);
+})();
+
+// 51 — Unified NOI (dealNOI) — single source of truth for Exit + Board Proposal (v10.30)
+(function(){
+  // (a) BTR bug fix: the SFH engine returns capNetRentPa=0 for a BTR scheme (no house mix);
+  //     dealNOI must still produce a positive NOI from the planning units.
+  var btr = { assetType:"btr", land:{city:"rugby"}, planning:{units:150, ahPct:25},
+    capitalise:{ marketRentPerUnitPa:14400, mgmtRate:25 } };
+  ok("SFH engine capNetRentPa is 0 for BTR (the old bug source)", num(computeSFHMetrics(btr).capNetRentPa) === 0);
+  ok("dealNOI(BTR) is positive (bug fixed)", dealNOI(btr) > 0);
+  // Expected: (112.5 priv + 37.5*0.65 ah) * 14400 * (1-0.25) = 136.875*14400*0.75
+  near("dealNOI(BTR) matches the engine rent+net convention", dealNOI(btr), 136.875*14400*0.75, 2);
+
+  // (b) For an SFH scheme dealNOI returns the SFH engine's own capNetRentPa (no divergence).
+  var sfh = { assetType:"sfh", land:{city:"rugby"}, planning:{units:120, ahPct:25},
+    sfh:{ basePsf:300, avgSqft:950, ahPct:25, mix:[{type:"3-bed",count:"120",sqft:"950",unitPrice:"285000",tenure:"private"}] },
+    capitalise:{ marketRentPerUnitPa:14400 } };
+  ok("dealNOI(SFH) equals computeSFHMetrics.capNetRentPa", num(computeSFHMetrics(sfh).capNetRentPa) > 0 && dealNOI(sfh) === num(computeSFHMetrics(sfh).capNetRentPa));
+
+  // (c) PBSA uses weekly rent × 52 when no per-unit override is present.
+  var pbsa = { assetType:"pbsa", land:{city:"manchester"}, planning:{units:200, ahPct:0 }, capitalise:{} };
+  ok("dealNOI(PBSA) positive from weekly MKT rent", dealNOI(pbsa) > 0);
+
+  // (d) No units anywhere ⇒ 0 (guard, never NaN).
+  ok("dealNOI with no units → 0", dealNOI({ assetType:"btr", planning:{}, capitalise:{} }) === 0);
+})();
+
+// 52 — Verified rents key off the POSTCODE at the finest researched granularity (v10.31)
+(function(){
+  // (a) postcode splitter — outcode / sector / full.
+  var p = pcParts("CV6 5AB");
+  ok("pcParts outcode", p.outcode === "CV6");
+  ok("pcParts sector (district-level key)", p.sector === "CV6 5");
+  ok("pcParts full", p.full === "CV6 5AB");
+  ok("pcParts outcode-only input", pcParts("CV22").outcode === "CV22" && pcParts("CV22").sector === null);
+
+  // (b) A Rugby postcode gets the researched Rugby figures — even though CV geocodes to the
+  //     Coventry anchor market (this is the town-vs-district fix).
+  var rugbySite = { land:{ postcode:"CV22 5AB", city:"coventry" } };
+  ok("Rugby postcode resolves verified rents via outcode", !!verifiedRents(rugbySite));
+  ok("Rugby 2-bed uses verified £1000", areaRentPcm(rugbySite, 2) === 1000);
+  ok("Rugby 3-bed uses verified £1175", areaRentPcm(rugbySite, 3) === 1175);
+  ok("Rugby 4-bed uses verified £1550", areaRentPcm(rugbySite, 4) === 1550);
+  ok("Rugby 1-bed stays generic (no verified figure)", areaRentPcm(rugbySite, 1) === Math.round(MKT[dealCityKey(rugbySite)].btr * RENT_BED_FACTOR[1]));
+
+  // (c) A Coventry postcode with NO researched data is untouched — no fabricated figures.
+  var covSite = { land:{ postcode:"CV6 1AB", city:"coventry" } };
+  ok("Coventry CV6 has no verified rents (not fabricated)", verifiedRents(covSite) === null);
+  ok("Coventry 3-bed stays generic", areaRentPcm(covSite, 3) === Math.round(MKT.coventry.btr * RENT_BED_FACTOR[3]));
+
+  // (d) Most-specific wins: a sector entry beats an outcode entry (mechanism proof, using a
+  //     temporary injected district so we prove resolution without inventing a real rent).
+  var savedFull = VERIFIED_RENTS["CV6 5AB"], savedSector = VERIFIED_RENTS["CV6 5"];
+  VERIFIED_RENTS["CV6 5"] = { label:"test district", beds:{ 3:1300 } };
+  ok("sector-level entry resolves for CV6 5 (Foleshill-style district)", areaRentPcm({ land:{ postcode:"CV6 5AA" } }, 3) === 1300);
+  ok("neighbouring sector CV6 1 unaffected by CV6 5 entry", verifiedRents({ land:{ postcode:"CV6 1AA" } }) === null);
+  VERIFIED_RENTS["CV6 5AB"] = { label:"test parcel", beds:{ 3:1400 } };
+  ok("full-postcode entry beats the sector entry", areaRentPcm({ land:{ postcode:"CV6 5AB" } }, 3) === 1400);
+  // restore
+  if(savedFull === undefined) delete VERIFIED_RENTS["CV6 5AB"]; else VERIFIED_RENTS["CV6 5AB"] = savedFull;
+  if(savedSector === undefined) delete VERIFIED_RENTS["CV6 5"]; else VERIFIED_RENTS["CV6 5"] = savedSector;
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

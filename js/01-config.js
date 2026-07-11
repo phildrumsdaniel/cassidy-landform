@@ -20,8 +20,12 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.27";
+var CURRENT_VERSION = "10.31";
 var VERSION_HISTORY = [
+  {v:"10.31", date:"Jul 2026", headline:"District-level rents: verified rents now key off the site POSTCODE at sector granularity (full → sector → outcode → town), so rents vary by district within an outcode (e.g. CV6 Foleshill vs CV6 Coundon), not just by town"},
+  {v:"10.30", date:"Jul 2026", headline:"Single source of truth for exit income: one shared dealNOI() drives the Exit page and Board Proposal (fixes BTR £0 NOI); negative-RLV Sell-Now fallback fixed; pension DCF now discounts at its own 4.5%; verified researched Rugby per-bed rents (2/3/4-bed) replace the generic auto-fill and are labelled 'verified'"},
+  {v:"10.29", date:"Jul 2026", headline:"Long-income DCF hold model — CPI-indexed, collared rent over a 25-yr hold with term-and-reversion terminal value; shown alongside the static year-1 basis for the pension/SWF and Retain & Refinance rows on Exit and in the Board Proposal; assumptions editable on the Capitalisation stage"},
+  {v:"10.28", date:"Jul 2026", headline:"Board Proposal: 'Exit scenarios' section — multi-buyer valuations, value range, hold-vs-sell, refinancing, yield benchmarks and logged HA/RP offers, live from the Exit engine"},
   {v:"10.27", date:"Jul 2026", headline:"Board Proposal: 'Rent & yield basis' research panel — live portal links, AI rent estimate, and apply to the yield",
    affectsCalc:false,
    changes:["RENT & YIELD RESEARCH — the exit yield is only as good as the rents behind it, so the Board Proposal now has a research panel to ground it in real area rents. It gives one-click links into the live ‘to let’ searches on Rightmove, Zoopla and Home.co.uk (filtered to the site postcode) plus ONS private-rent statistics — so you can verify actual achieved rents for the scheme's bed types. An AI estimate produces a rent range/median per bed size and the implied gross yield (clearly flagged as indicative, to verify against the listings). You then enter the verified average rent (£/month) and the exit yield, which feed the Capitalisation stage so the exit-route table and the generated proposal recalculate. NOTE: the portals block automated scraping, so the links open their real listings for you to confirm — nothing is scraped or applied without your say-so. 345 tests."]},
@@ -1822,13 +1826,59 @@ function dealCityKey(data){
   if(pc && typeof postcodeMarketKey === "function"){ var a = postcodeMarketKey(pc); if(a) return a; }
   return (pcd && pcd.city) ? pcd.city : c;
 }
+// pcParts — split a UK postcode into its outcode / sector / full forms so rent (and other
+// hyper-local) lookups can key at the finest available level. Rents vary WITHIN an outcode
+// (e.g. CV6 Foleshill is cheaper than CV6 Coundon), so the sector — the outcode plus the first
+// digit of the incode, e.g. "CV6 5" — is the granularity that actually separates districts.
+//   "CV6 5AB" → { outcode:"CV6", sector:"CV6 5", full:"CV6 5AB" }
+//   "CV22"    → { outcode:"CV22", sector:null, full:null }   (outcode only)
+function pcParts(pc){
+  pc = (pc || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if(pc.length < 3) return null;
+  if(pc.length < 5) return { outcode: pc, sector: null, full: null };   // outcode only
+  var inc = pc.slice(-3), out = pc.slice(0, -3);
+  return { outcode: out, sector: out + " " + inc.charAt(0), full: out + " " + inc };
+}
+
+// VERIFIED_RENTS (v10.31) — researched, per-bed MONTHLY rents that OVERRIDE the generic
+// area-derived figures. Keyed by POSTCODE at whatever granularity was researched:
+//   • full postcode  "CV22 5AB"   — a specific parcel
+//   • sector         "CV6 5"      — a district (this is how Foleshill vs Coundon differ)
+//   • outcode        "CV22"       — a whole outcode where the district spread is small
+// The resolver tries full → sector → outcode → (legacy) town, so the MOST specific researched
+// figure always wins. Only the listed bed sizes are overridden; anything not listed (e.g. 1-bed)
+// falls back to the generic area derivation. Surfaced as "verified" on the Capitalisation stage.
+// To add a district: research it, then add e.g. "CV6 5":{label:"verified — CV6 5 Foleshill …",
+// beds:{2:…,3:…,4:…}}. Do NOT guess — only add figures that have actually been checked.
+var _VR_RUGBY = { label:"verified — Rugby researched (Rightmove/Zoopla/ONS, 2026)", beds:{ 2:1000, 3:1175, 4:1550 } };
+var VERIFIED_RENTS = {
+  // Rugby town (researched Jul 2026) — applied across its outcodes until sector-level data exists.
+  "CV21": _VR_RUGBY, "CV22": _VR_RUGBY, "CV23": _VR_RUGBY
+};
+// verifiedRents — the most specific verified rent record for the deal's location, or null.
+// Keys off the site POSTCODE (so a Rugby CV22 site gets Rugby figures even though CV geocodes
+// to the Coventry anchor market), most-specific first; a legacy town key is a last resort.
+function verifiedRents(data){
+  var pc = (data && data.land && data.land.postcode) || (data && data.rlv && data.rlv.postcode) || "";
+  var p = pcParts(pc);
+  if(p){
+    if(p.full && VERIFIED_RENTS[p.full]) return VERIFIED_RENTS[p.full];
+    if(p.sector && VERIFIED_RENTS[p.sector]) return VERIFIED_RENTS[p.sector];
+    if(p.outcode && VERIFIED_RENTS[p.outcode]) return VERIFIED_RENTS[p.outcode];
+  }
+  var key = (typeof dealCityKey === "function") ? dealCityKey(data) : "";   // legacy town-level fallback
+  return (key && VERIFIED_RENTS[key]) ? VERIFIED_RENTS[key] : null;
+}
 // areaRentPcm — correct monthly rent for a given bedroom count in the DEAL's area
-// (city or postcode). Anchored on the local typical (3-bed) rent; returns 0 if the
-// area has no rent benchmark so callers can fall back. Always editable downstream.
+// (city or postcode). Prefers a VERIFIED figure where one exists for this area + bed size;
+// otherwise anchored on the local typical (3-bed) rent. Returns 0 if the area has no rent
+// benchmark so callers can fall back. Always editable downstream.
 function areaRentPcm(data, beds){
+  var b = Math.max(0, Math.min(6, Math.round(num(beds) || 3)));
+  var vr = (typeof verifiedRents === "function") ? verifiedRents(data) : null;
+  if(vr && vr.beds && vr.beds[b] != null) return num(vr.beds[b]);
   var mk = MKT[dealCityKey(data)];
   if(!mk || !mk.btr) return 0;
-  var b = Math.max(0, Math.min(6, Math.round(num(beds) || 3)));
   return Math.round(mk.btr * (RENT_BED_FACTOR[b] != null ? RENT_BED_FACTOR[b] : 1));
 }
 // UK region for the deal's area — used to label regional build-cost benchmarks correctly
@@ -2024,6 +2074,109 @@ function dealYield(data){
   var t = num((data.capitalise && data.capitalise.targetYield));
   if(t > 0) return t > 1 ? t : t * 100;   // stored as percent normally; tolerate fraction
   return areaYield(data);
+}
+
+// ── Multi-year DCF hold model (v10.29) ───────────────────────────────────────
+// A term-and-reversion DCF for a long income hold (pension/SWF, retain & refinance).
+// Rent grows each year at a CPI-linked rate, collared between a floor and a cap;
+// the explicit projection runs `years` years, then year (years+1) rent is capitalised
+// at the SAME exit yield for a terminal value; every cash flow plus the terminal value
+// is discounted back to present at the exit yield (discount rate = exit yield, per spec).
+//
+// This is an ADDITIONAL basis shown alongside the static year-1 NOI÷yield figure — it is
+// the single source of truth for the "25-yr DCF (indexed)" number on the Exit page and in
+// the Board Proposal. All rate inputs tolerate either a fraction (0.045) or a percent (4.5).
+var DCF_DEFAULTS = { cpi:2.75, floor:1.0, cap:4.0, years:25 };
+
+// Resolve the DCF assumptions from the Capitalisation stage, falling back to the defaults.
+// A blank/absent input uses the default; an explicit 0 is honoured (so 0% growth is valid).
+function capDCFParams(data){
+  var cap = (data && data.capitalise) || {};
+  var pick = function(v, d){ return (v === "" || v == null || !isFinite(Number(v))) ? d : Number(v); };
+  return {
+    growth: pick(cap.cpiGrowth, DCF_DEFAULTS.cpi),
+    floor:  pick(cap.cpiFloor,  DCF_DEFAULTS.floor),
+    cap:    pick(cap.cpiCap,    DCF_DEFAULTS.cap),
+    years:  Math.max(1, Math.round(pick(cap.holdYears, DCF_DEFAULTS.years)))
+  };
+}
+
+// computeDCFHoldValue — the reusable core. Both the Exit page and the Board Proposal call this.
+//   annualNOI   year-1 stabilised net operating income (£/yr)
+//   growthRate  CPI assumption, as a PERCENT (e.g. 2.75) — matches the Capitalisation inputs
+//   floor, cap  the collar applied to the growth assumption, as PERCENTS (e.g. 1 and 4)
+//   years       explicit hold period (e.g. 25)
+//   exitYield   the deal exit/target yield — used as BOTH discount rate and terminal cap rate;
+//               tolerant of a fraction (0.047) or a percent (4.7)
+// Returns {value, effectiveGrowth, pvIncome, terminalValue, pvTerminal, reversionNOI, years, exitYield}.
+// Note: growth/floor/cap are PERCENTS (÷100 unconditionally) so a 1% floor ("1") is never mistaken
+// for a 100% fraction; exitYield is auto-detected because yields are never anywhere near 1.0.
+function computeDCFHoldValue(annualNOI, growthRate, floor, cap, years, exitYield){
+  var pctToFrac = function(r){ r = Number(r); return isFinite(r) ? r/100 : 0; };
+  var yieldFrac = function(r){ r = Number(r); if(!isFinite(r)) return 0; return r > 1 ? r/100 : r; };
+  annualNOI = Number(annualNOI); if(!isFinite(annualNOI)) annualNOI = 0;
+  years = Math.round(Number(years)); if(!isFinite(years) || years < 1) years = 1;
+  var g = pctToFrac(growthRate), fl = pctToFrac(floor), cp = pctToFrac(cap), y = yieldFrac(exitYield);
+  // Collar the growth assumption: floor binds up, cap binds down.
+  if(isFinite(fl) && g < fl) g = fl;
+  if(isFinite(cp) && cp > 0 && g > cp) g = cp;
+  var empty = { value:0, effectiveGrowth:g, pvIncome:0, terminalValue:0, pvTerminal:0, reversionNOI:0, years:years, exitYield:y };
+  if(!(y > 0) || !(annualNOI > 0)) return empty;
+  var d = y;                                   // discount rate = exit yield (per spec)
+  var pvIncome = 0;
+  for(var t = 1; t <= years; t++){
+    var noiT = annualNOI * Math.pow(1 + g, t - 1);   // year 1 = base NOI, grows thereafter
+    pvIncome += noiT / Math.pow(1 + d, t);
+  }
+  var reversionNOI = annualNOI * Math.pow(1 + g, years);   // year (years+1) rent, e.g. year 26
+  var terminalValue = reversionNOI / y;                    // capitalise at the exit yield
+  var pvTerminal = terminalValue / Math.pow(1 + d, years);
+  return {
+    value: pvIncome + pvTerminal, effectiveGrowth: g, pvIncome: pvIncome,
+    terminalValue: terminalValue, pvTerminal: pvTerminal, reversionNOI: reversionNOI,
+    years: years, exitYield: y
+  };
+}
+
+// dealDCFHoldValue — convenience wrapper: resolve the DCF params + exit yield from the deal,
+// then run computeDCFHoldValue for a given year-1 NOI. exitYield defaults to dealYield().
+function dealDCFHoldValue(data, annualNOI, exitYieldFraction){
+  var p = capDCFParams(data);
+  var y = (typeof exitYieldFraction === "number" && exitYieldFraction > 0)
+    ? exitYieldFraction
+    : ((typeof dealYield === "function" ? dealYield(data)/100 : 0) || 0.047);
+  return computeDCFHoldValue(annualNOI, p.growth, p.floor, p.cap, p.years, y);
+}
+
+// ── dealNOI (v10.30) — the ONE net operating income (£/yr) for the whole appraisal ───────
+// Single source of truth for the Exit Strategy page AND the Board Proposal, so the two can
+// never compute NOI independently again. Works for every tenure:
+//   • SFH: the SFH engine's capitalised net rent (capNetRentPa) when it produced one.
+//   • BTR / PBSA / SFH-without-a-mix: net rent built from the planning unit count using the
+//     SAME rent + gross-to-net conventions as the engine. This fixes the BTR £0 bug, where
+//     the SFH engine returns 0 because a BTR scheme has no priced house mix.
+function dealNOI(data){
+  data = data || {};
+  var SF = (typeof computeSFHMetrics === "function") ? computeSFHMetrics(data) : {};
+  if(num(SF.capNetRentPa) > 0) return num(SF.capNetRentPa);   // SFH engine value — single source for SFH
+  var cap = data.capitalise || {};
+  var at = ((data.assetType || "") + "").toLowerCase();
+  var mk = ((typeof MKT !== "undefined") && (MKT[(typeof dealCityKey === "function") ? dealCityKey(data) : ""] || MKT.manchester)) || {btr:900, pbsa:180};
+  var units = num(data.planning && data.planning.units) || num(data.rlv && data.rlv.units) || num(SF.totalUnits) || 0;
+  if(units <= 0) return 0;
+  // Gross rent per unit p.a.: explicit override → area rent → MKT fallback (PBSA weekly, else monthly).
+  var grossPerUnitPa = num(cap.marketRentPerUnitPa)
+    || ((typeof areaMarketRentPa === "function") ? num(areaMarketRentPa(data)) : 0)
+    || (at === "pbsa" ? num(mk.pbsa) * 52 : num(mk.btr) * 12);
+  if(!(grossPerUnitPa > 0)) return 0;
+  // Affordable units produce a lower rent (income effect), mirroring the engine's ahRentFactor.
+  var ahPctR = num((data.planning || {}).ahPct) || num((data.planning || {}).afhPct) || num((data.tenure || {}).ahPct) || num(cap.ahPct) || 0;
+  var ahRentFactor = numOr(cap.ahRentFactor, 0.65);
+  var privUnits = units * (1 - ahPctR / 100), ahUnits = units * (ahPctR / 100);
+  var grossPa = (privUnits + ahUnits * ahRentFactor) * grossPerUnitPa;
+  var capMgmtRate = numOr(cap.mgmtRate, 25);   // 25% gross-to-net, same as computeSFHMetrics
+  var net = grossPa * (1 - capMgmtRate / 100);
+  return net > 0 ? net : 0;
 }
 
 // Capitalisation yields by buyer type (lower = higher price)
