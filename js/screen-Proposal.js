@@ -705,6 +705,15 @@ function renderProposal(city, data, gdv, lc, up, user){
     geocode().then(openDoc).catch(function(){ openDoc(null); });
   }
 
+  // v10.35 — Land ACQUISITION costs on a guide/offer price, so the appraisal evaluates the
+  // true cost of buying the site, not just the headline price. SDLT uses the England
+  // NON-RESIDENTIAL / bare-land bands (0% ≤£150k, 2% £150k–£250k, 5% >£250k); legals and
+  // acquisition/agent are taken at a combined ~1.5%. These sit ON TOP of the price — the
+  // residual land value (RLV) is the max supportable PRICE at target profit, and the point of
+  // this is to test a real guide price, plus its purchase costs, against that RLV.
+  function landSDLT(p){ p=num(p); if(p<=150000) return 0; var t=Math.min(p-150000,100000)*0.02; if(p>250000) t+=(p-250000)*0.05; return t; }
+  function landAcqCosts(price){ price=num(price); if(price<=0) return {sdlt:0,other:0,total:0}; var sdlt=landSDLT(price), other=price*0.015; return {sdlt:sdlt,other:other,total:sdlt+other}; }
+
   // ── ONE-PAGE A4 LAND APPRAISAL ─────────────────────────────────────────────
   // A single side of A4 — the quick "is this worth pursuing?" briefing for a piece of land:
   // size → homes (SFH mix) → GDV → the full cost stack (build, fees, finance, S106, roads,
@@ -732,21 +741,29 @@ function renderProposal(city, data, gdv, lc, up, user){
     var rlvPerPlot=oUnits>0?oRlv/oUnits:0;
     var rlvPerAcre=acres>0?oRlv/acres:0;
     var landPctGdv=oGdv>0&&askL>0?(askL/oGdv*100):0;
+    // Land purchase costs on the guide price, and the ALL-IN position (price + SDLT + legals +
+    // acquisition). The all-in margin/headroom is the honest test — it's what actually leaves
+    // Cassidy's account to secure the land, set against the residual land value.
+    var acq=landAcqCosts(askL);
+    var totalLandCost=askL+acq.total;
+    var profitAllIn=askL>0?(oRlv+oProfit-totalLandCost):oProfit;   // = GDV − devCost − totalLandCost
+    var marginAllIn=oGdv>0?(profitAllIn/oGdv*100):0;
+    var headroomAllIn=oRlv-totalLandCost;                         // RLV vs the all-in cost of buying
 
-    // Verdict — decision-useful: uses the margin achieved IF the land is bought at the asking price.
+    // Verdict — decision-useful: uses the margin AFTER the full cost of acquiring the land.
     var verdict, vcol, vsub;
     if(oRlv<=0){ verdict="✗ Does not stack"; vcol="#B05A35";
       vsub="Build, costs and target profit exceed GDV — the residual land value is negative, so the site can't support any land payment at "+Math.round(oProfitPct)+"% profit as modelled."; }
     else if(askL>0){
-      if(marginAtAsk>=15){ verdict="✓ Worth pursuing"; vcol="#1B7A54";
-        vsub="At the "+fmt(askL)+" asking price the scheme still returns a "+pct(marginAtAsk)+" margin ("+fmt(profitAtAsk)+" profit) — the residual land value of "+fmt(oRlv)+" covers the ask with "+fmt(headroom)+" to spare."; }
-      else if(marginAtAsk>=12){ verdict="⚠ Marginal — negotiate"; vcol="#9A7B3E";
-        vsub="At the "+fmt(askL)+" asking price the margin is only "+pct(marginAtAsk)+". The land supports up to "+fmt(oRlv)+" at target profit — offer nearer that to restore the margin."; }
+      if(marginAllIn>=15){ verdict="✓ Worth pursuing"; vcol="#1B7A54";
+        vsub="At the "+fmt(askL)+" guide price plus "+fmt(acq.total)+" purchase costs (SDLT, legals, acquisition), the all-in land cost is "+fmt(totalLandCost)+" — still a "+pct(marginAllIn)+" margin ("+fmt(profitAllIn)+" profit). The residual land value of "+fmt(oRlv)+" covers it with "+fmt(headroomAllIn)+" to spare."; }
+      else if(marginAllIn>=12){ verdict="⚠ Marginal — negotiate"; vcol="#9A7B3E";
+        vsub="After the "+fmt(acq.total)+" purchase costs the all-in land cost is "+fmt(totalLandCost)+" and the margin is only "+pct(marginAllIn)+". The land is worth up to "+fmt(oRlv)+" at target profit — offer nearer "+fmt(oRlv-acq.total)+" to restore the margin."; }
       else { verdict="✗ Overpriced as asked"; vcol="#B05A35";
-        vsub="The "+fmt(askL)+" asking exceeds the supportable land value of "+fmt(oRlv)+" by "+fmt(Math.abs(headroom))+" — margin at the ask is just "+pct(marginAtAsk)+". Pursue only at ~"+fmt(oRlv)+" or below."; }
+        vsub="With "+fmt(acq.total)+" purchase costs the all-in cost of "+fmt(totalLandCost)+" exceeds the "+fmt(oRlv)+" residual land value by "+fmt(Math.abs(headroomAllIn))+" — margin just "+pct(marginAllIn)+". Pursue only at a price near "+fmt(Math.max(0,oRlv-acq.total))+" or below."; }
     } else {
-      verdict=oProfitPct>=15?"◐ Enter the asking price":"◐ Review"; vcol="#4A4BAE";
-      vsub="Maximum supportable land value is "+fmt(oRlv)+" ("+fmt(rlvPerPlot)+"/plot) at "+Math.round(oProfitPct)+"% target profit. Enter what the landowner is asking to test whether it pursues."; }
+      verdict=oProfitPct>=15?"◐ Enter a guide price":"◐ Review"; vcol="#4A4BAE";
+      vsub="Maximum supportable land value is "+fmt(oRlv)+" ("+fmt(rlvPerPlot)+"/plot) at "+Math.round(oProfitPct)+"% target profit, before purchase costs. Enter the landowner's guide price to add SDLT, legals and acquisition and test the all-in position."; }
 
     // Compact house mix — cap at 8 rows, roll up the rest so it always fits one page.
     var rows=(sf.rows||[]).filter(function(r){return num(r.count)>0;});
@@ -810,9 +827,9 @@ function renderProposal(city, data, gdv, lc, up, user){
         '<div class="kpis">'+
           '<div class="kpi"><div class="l">Homes</div><div class="v">'+(oUnits?oUnits.toLocaleString():"—")+'</div></div>'+
           '<div class="kpi"><div class="l">GDV</div><div class="v">'+(oGdv>0?fmt(oGdv):"—")+'</div></div>'+
-          '<div class="kpi"><div class="l">Land asking</div><div class="v">'+(askL>0?fmt(askL):"—")+'</div></div>'+
+          '<div class="kpi"><div class="l">Land guide price</div><div class="v">'+(askL>0?fmt(askL):"—")+'</div></div>'+
           '<div class="kpi"><div class="l">Residual land value</div><div class="v" style="color:'+(oRlv>0?"#1B7A54":"#B05A35")+'">'+(oRlv?((oRlv<0?"−":"")+fmt(Math.abs(oRlv))):"—")+'</div></div>'+
-          '<div class="kpi"><div class="l">Margin at ask</div><div class="v" style="color:'+(marginAtAsk>=15?"#1B7A54":marginAtAsk>=12?"#9A7B3E":"#B05A35")+'">'+(askL>0?pct(marginAtAsk):Math.round(oProfitPct)+"%*")+'</div></div>'+
+          '<div class="kpi"><div class="l">'+(askL>0?"Margin (all-in)":"Target profit")+'</div><div class="v" style="color:'+(askL>0?(marginAllIn>=15?"#1B7A54":marginAllIn>=12?"#9A7B3E":"#B05A35"):"#1B1D46")+'">'+(askL>0?pct(marginAllIn):Math.round(oProfitPct)+"%")+'</div></div>'+
         '</div>'+
         '<div class="cols">'+
           '<div class="card"><div class="ct">Scheme &amp; house mix</div>'+
@@ -846,13 +863,26 @@ function renderProposal(city, data, gdv, lc, up, user){
               '<div class="box"><div class="l">'+(askL>0?"Headroom vs asking":"Per plot")+'</div><div class="v" style="color:'+(askL>0?(headroom>=0?"#1B7A54":"#B05A35"):"#1B1D46")+'">'+(askL>0?((headroom<0?"−":"+")+fmt(Math.abs(headroom))):fmt(rlvPerPlot))+'</div></div>'+
             '</div>'+
             '<div class="rr" style="margin-top:5px"><span>Per plot / per acre</span><b>'+fmt(rlvPerPlot)+' · '+(acres>0?fmt(rlvPerAcre):"—")+'</b></div>'+
-            (askL>0?'<div class="rr"><span>At the asking price</span><b>'+fmt(profitAtAsk)+' profit · '+pct(marginAtAsk)+' margin · land '+Math.round(landPctGdv)+'% of GDV</b></div>':'')+
+            (askL>0
+              ? '<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #D7D9EC">'+
+                  '<div class="ct" style="margin-bottom:3px">Land — value vs cost to buy</div>'+
+                  '<table>'+
+                    cRow("Residual land value (max @ profit)",fmt(oRlv),false,false)+
+                    cRow("Guide price (as entered)",fmt(askL),false,false)+
+                    cRow("+ SDLT on land (non-resi bands)",fmt(acq.sdlt),false,false)+
+                    cRow("+ Legals &amp; acquisition (1.5%)",fmt(acq.other),false,false)+
+                    cRow("= Total cost to acquire",fmt(totalLandCost),false,true)+
+                  '</table>'+
+                  '<div class="rr" style="margin-top:4px"><span>Headroom — RLV less all-in cost</span><b style="color:'+(headroomAllIn>=0?"#1B7A54":"#B05A35")+'">'+(headroomAllIn<0?"−":"+")+fmt(Math.abs(headroomAllIn))+'</b></div>'+
+                  '<div class="rr"><span>Profit / margin after land</span><b style="color:'+(marginAllIn>=15?"#1B7A54":marginAllIn>=12?"#9A7B3E":"#B05A35")+'">'+fmt(profitAllIn)+' · '+pct(marginAllIn)+' (land '+Math.round(landPctGdv)+'% of GDV)</b></div>'+
+                '</div>'
+              : '<div class="rr" style="margin-top:6px;color:#9A7B3E"><span>Guide price</span><b>Enter one to test purchase costs vs RLV</b></div>')+
           '</div>'+
         '</div>'+
         '<div class="verdict" style="background:'+vcol+'"><div class="vh">'+verdict+'</div><div class="vs">'+vsub+'</div></div>'+
         '<div class="foot"><b>Indicative appraisal — not a RICS Red Book valuation.</b> Figures are computed on Landform\'s engine from the inputs entered (site area, density, house mix, sale and build £/sqft, S106, finance and profit assumptions) and assume residential consent can be achieved. '+
-          (askL<=0?'Enter the landowner\'s asking price on the Land stage to test the margin and headroom. ':'')+
-          'Verify sale and build values against local comparables and a QS cost plan before commitment. Residual land value is the maximum supportable land price at the target developer profit'+(askL>0?'; “margin at ask” is the profit that remains if the land is bought at the '+fmt(askL)+' asking price':'')+'.</div>'+
+          (askL<=0?'Enter a land guide price on the Board Proposal or Land stage to test purchase costs (SDLT, legals, acquisition) against the residual land value. ':'')+
+          'Verify sale and build values against local comparables and a QS cost plan before commitment. Residual land value is the maximum supportable land PRICE at target developer profit'+(askL>0?'; the all-in position adds SDLT (non-residential land bands: 0% ≤£150k, 2% to £250k, 5% above) plus ~1.5% legals &amp; acquisition on the '+fmt(askL)+' guide price':'')+'. SDLT rates and reliefs vary — confirm with your tax adviser.</div>'+
       '</div></body></html>';
   }
   function openOnePager(){
@@ -884,6 +914,38 @@ function renderProposal(city, data, gdv, lc, up, user){
       "Complete the core appraisal first (Land, scheme sizing and Financial Modelling) so the proposal has a GDV and unit count to present. Current: GDV "+fmt(gdvV)+", "+(units||0)+" homes."),
     // Exact-location picker — sets land.siteLat/Lng so the proposal map pins the real parcel
     e(SiteLocationPicker,{data:data,up:up,pc:pc}),
+
+    // ── Land guide price & purchase costs — evaluate the cost of buying vs the RLV ─
+    (function(){
+      var _ask=num(l.price)||0;
+      var _rlv=num(SF.rlv), _gdv=num(SF.gdv), _prof=num(SF.profit);
+      var _acq=landAcqCosts(_ask);
+      var _total=_ask+_acq.total;
+      var _profAllIn=_ask>0?(_rlv+_prof-_total):_prof;
+      var _marginAllIn=_gdv>0?(_profAllIn/_gdv*100):0;
+      var _headroom=_rlv-_total;
+      function tile(l2,v,c,s){ return e("div",{key:l2,style:{minWidth:120}},
+        e("div",{style:{fontSize:9,color:"#8A90B4",textTransform:"uppercase",letterSpacing:".06em",fontWeight:700}},l2),
+        e("div",{style:{fontSize:16,fontWeight:800,color:c,fontFamily:"Georgia,serif"}},v),
+        s?e("div",{style:{fontSize:9,color:"#9298BC"}},s):null); }
+      return e("div",{style:Object.assign({},S.card,{borderLeft:"4px solid #9A7B3E"})},
+        e("div",{style:{fontSize:12,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"💷 Land guide price & purchase costs"),
+        e("div",{style:{fontSize:11,color:"#7278A0",lineHeight:1.6,marginBottom:10}},
+          "What the landowner is asking (or your target offer). The one-page appraisal and board paper test it against the residual land value and add the true purchase costs — SDLT (non-residential land bands), legals and acquisition (~1.5%). Writes to the same field as the Land stage."),
+        e("div",{style:{display:"flex",gap:18,flexWrap:"wrap",alignItems:"flex-end"}},
+          e("div",{style:{flex:"0 0 auto",minWidth:200}},
+            e(Inp,{label:"Guide / offer price (£)",type:"number",value:l.price||"",onChange:function(v){up("land","price",v);},placeholder:"e.g. 25000000"})),
+          (SF.totalUnits>0)
+            ? e("div",{style:{flex:1,minWidth:260,display:"flex",gap:16,flexWrap:"wrap"}},
+                tile("Residual land value",_rlv?fmt(_rlv):"—",_rlv>0?"#2D7A65":"#B05A35"),
+                _ask>0&&tile("All-in land cost",fmt(_total),"#4A4BAE","+"+fmt(_acq.total)+" costs"),
+                _ask>0&&tile("Headroom vs RLV",(_headroom<0?"−":"+")+fmt(Math.abs(_headroom)),_headroom>=0?"#2D7A65":"#B05A35"),
+                _ask>0&&tile("Margin after land",pct(_marginAllIn),_marginAllIn>=15?"#2D7A65":_marginAllIn>=12?"#9A7B3E":"#B05A35")
+              )
+            : e("div",{style:{fontSize:11,color:"#9A7B3E",alignSelf:"center"}},"Build the SFH House Mix to see the residual land value and headroom here.")
+        )
+      );
+    })(),
 
     // ── Rent & yield research — ground the exit yield in real area rents ─────────
     e("div",{style:Object.assign({},S.card,{borderLeft:"4px solid #2D7A65"})},
