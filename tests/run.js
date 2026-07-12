@@ -625,6 +625,28 @@ console.log("Landform engine consistency tests\n");
   ok("yield set on Fin flows back to Capitalisation", num(b.capitalise.targetYield) === 5.25);
 })();
 
+// 26b — v10.60: a MANUAL figure change replicates to every page that shows it.
+(function(){
+  var anyStage = function(){ return true; };
+  // the user's example: build £/sqft edited on one stage lands on all build siblings
+  var bd = applySharedInput({}, "sfh", "buildPsf", 255.21, "sfh", anyStage);
+  ok("manual build £/sqft replicates to Fin & RLV", num(bd.fin.buildPsf) === 255.21 && num(bd.rlv.buildPsf) === 255.21);
+  // and every computed figure follows, because the engine reads the shared build rate
+  var m1 = computeSFHMetrics(sfhDeal({ sfh:{ buildPsf:200 } }));
+  var m2 = computeSFHMetrics(sfhDeal({ sfh:{ buildPsf:255.21 } }));
+  ok("changing build £/sqft moves the computed build cost everywhere", Math.abs(m2.buildCost - m1.buildCost) > 1000);
+  // new shared groups
+  var ap = applySharedInput({}, "rlv", "askingPrice", 8000000, "rlv", anyStage);
+  ok("asking price replicates to land.price & scorecard", num(ap.land.price) === 8000000 && num(ap.scorecard.askingPrice) === 8000000);
+  var sz = applySharedInput({}, "sfh", "avgSqft", 980, "sfh", anyStage);
+  ok("average unit size replicates to RLV", num(sz.rlv.avgSqft) === 980);
+  var lp = applySharedInput({}, "planning", "lpa", "Maidstone BC", "planning", anyStage);
+  ok("LPA replicates to land & constraint check", lp.land.lpa === "Maidstone BC" && lp.constraintCheck.lpa === "Maidstone BC");
+  // normalizeSharedFields back-fills a blank sibling from an existing value (on load)
+  var nf = normalizeSharedFields({ land:{ price:9000000 }, rlv:{}, scorecard:{} });
+  ok("normalize back-fills asking price to blank siblings", num(nf.rlv.askingPrice) === 9000000 && num(nf.scorecard.askingPrice) === 9000000);
+})();
+
 // 27 — Per-house-type area rents (anchored on the 3-bed typical, not 1-bed)
 (function(){
   var d = { land:{city:"maldon"} };

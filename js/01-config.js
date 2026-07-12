@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.59";
+var CURRENT_VERSION = "10.60";
 var VERSION_HISTORY = [
+  {v:"10.60", date:"Jul 2026", headline:"One figure, everywhere: a manually-changed figure now replicates to every page that shows it. The shared-field propagation (edit build £/sqft on any stage → Financial Modelling and RLV update, and every derived £m recomputes via the one engine) was extended to more figures — the land asking/guide price (Quick Appraisal ↔ RLV ↔ Scorecard), average unit size, site address and the local planning authority — and the Quick Appraisal's sale-£/sqft edit now keeps its RLV sibling in step too. So change a number once and it's the same on every page."},
   {v:"10.59", date:"Jul 2026", headline:"NEW ‘🚀 Complete the whole journey with AI’ on Keystone — one click fills the WHOLE SFH journey, not just the pricing. On top of researching per-type sale prices & rents, it now also fills, via AI (using national-builder / market benchmarks): Planning (consent risk, Biodiversity Net Gain, probability & timeline, strategy note), Exit strategy & target buyer (open-market plot sales + bulk sale of affordable to a housing association, and the institutional forward-fund alternative), a Grant & funding strategy (Homes England AHP etc.), and a planning & GIS Constraints screen (Green Belt, flood, AONB, access…). Due Diligence, Meeting Transcripts, Data Room and the Risk Register are deliberately left for a human. Every field stays editable and is flagged indicative — review each stage."},
   {v:"10.58", date:"Jul 2026", headline:"NEW ‘Basis of figures — how each number was derived’ section on BOTH the one-page appraisal and the board proposal, so the substance behind the headline numbers is on the page. It states, per line and pulled from the actual deal: the sale value (AI market research of local new-build launches, or Land Registry £/sqft + new-build premium), the build cost (all-in vs construction-only, BCIS basis), the finance (the exact S-curve / peak-debt calculation), S106, developer profit (with the profit-on-cost note), rents & yield (AI-researched local rents, capitalised at the net initial yield) and that the land figure is the maximum supportable residual — not an agreed price. Same source for both reports so they can't diverge."},
   {v:"10.57", date:"Jul 2026", headline:"The Keystone build now AUTO-FILLS the Capitalisation per-bed rents. Keystone's ‘Complete with AI’ already researches per-house-type rents when it prices the scheme — those now also write straight into the Capitalisation stage's 1/2/3/4-bed rent fields (and the weighted market rent that drives the pension / forward-fund value). So a fresh Keystone build lands with realistic local rents already in place — no separate ‘research & fill area rents’ click needed (the button remains for a manual refresh). Rents stay editable; verify against live listings."},
@@ -3006,7 +3007,14 @@ var SHARED_FIELD_GROUPS = [
   [["sfh","s106pu"],["fin","s106pu"],["planning","s106pu"],["rlv","s106pu"]],
   [["sfh","buildInclusive"],["fin","buildInclusive"],["rlv","buildInclusive"]],
   // ── Exit / capitalisation yield (stored as a % on each stage) — two-way ──
-  [["capitalise","targetYield"],["fin","exitYield"]]
+  [["capitalise","targetYield"],["fin","exitYield"]],
+  // v10.60 — more shared figures so a MANUAL change to any of these replicates to every page
+  // that shows it (the derived £m figures already recompute via the one engine; these keep the
+  // raw INPUT boxes in sync across screens too).
+  [["land","price"],["rlv","askingPrice"],["scorecard","askingPrice"]],          // land asking / guide price
+  [["sfh","avgSqft"],["rlv","avgSqft"]],                                          // average unit size
+  [["land","address"],["constraintCheck","address"],["scorecard","address"]],     // site address
+  [["planning","lpa"],["land","lpa"],["constraintCheck","lpa"],["planMonitor","lpa"]]  // local planning authority
 ];
 function _sharedGroupsFor(section, key){
   return SHARED_FIELD_GROUPS.filter(function(g){ return g.some(function(t){ return t[0]===section && t[1]===key; }); });
