@@ -9,6 +9,38 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
     var addr=l.address||"Development Site";
     var units2=num(p.units||rlvD.units||0)||50;
 
+    // v10.56 — AI: research & fill the AREA's per-bed market rents. The auto-populated rents
+    // come from the market table (MKT[area].btr scaled per bed), which can be low/stale for a
+    // given location. This researches typical local new-build rents and writes cap.rent1..4, so
+    // the capitalisation NOI and the pension / forward-fund value reflect real local rents.
+    // Indicative — the user verifies against live listings.
+    function aiFillRents(){
+      if(typeof callAI!=="function"){ if(typeof notify==="function") notify("AI isn't available in this session."); return; }
+      var town=(typeof cityName==="function"?cityName(city):city)||"the area";
+      var pc=((l.postcode||rlvD.postcode||"")+"").toUpperCase();
+      up("capitalise","_aiRentBusy",true);
+      if(typeof notify==="function") notify("Researching "+town+" market rents…");
+      var sys="You are a UK lettings valuer. Output STRICT JSON only — no prose, no markdown fences. Figures are indicative and to be verified against live listings.";
+      var prompt="Give typical CURRENT achieved MONTHLY market rents (£ per month) to let a NEW-BUILD home in "+town+" ("+(pc||"postcode unknown")+"). Reflect the REAL local market for this specific area, not a national average. Output EXACTLY this JSON: {\"rent1\":<1-bed>,\"rent2\":<2-bed>,\"rent3\":<3-bed>,\"rent4\":<4-bed>}. Whole numbers only — no £ signs or commas.";
+      callAI(user,"capitalise",sys,prompt).then(function(res){
+        var a=res.indexOf("{"), b=res.lastIndexOf("}");
+        var obj=JSON.parse((a>=0&&b>a)?res.substring(a,b+1):res);
+        setData(function(prev){
+          var c=Object.assign({},prev.capitalise||{});
+          if(num(obj.rent1)>0) c.rent1=String(Math.round(num(obj.rent1)));
+          if(num(obj.rent2)>0) c.rent2=String(Math.round(num(obj.rent2)));
+          if(num(obj.rent3)>0) c.rent3=String(Math.round(num(obj.rent3)));
+          if(num(obj.rent4)>0) c.rent4=String(Math.round(num(obj.rent4)));
+          c.rentSource="AI market research"; c._aiRentBusy=false;
+          return Object.assign({},prev,{capitalise:c});
+        });
+        if(typeof notify==="function") notify("Rents updated from AI research — verify against live Rightmove/Zoopla listings.");
+      }).catch(function(err){
+        up("capitalise","_aiRentBusy",false);
+        if(typeof notify==="function") notify("Couldn't fetch rents — try again. ("+((err&&err.message)||err)+")");
+      });
+    }
+
     // ── Bedroom mix input (default from SFH mix if available) ─────────────
     // v9.38 — Improved derivation: handle 1-bed apartment, 4-bed semi, 5-bed detached,
     // executive variants, bungalows. Previously the catch-all fell to 2-bed by default,
@@ -81,6 +113,8 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
     // (they drive the 2/3/4-bed auto-fill via areaRentPcm; 1-bed stays area-derived).
     var _vRents = (typeof verifiedRents === "function") ? verifiedRents(data) : null;
     if(_vRents && _vRents.label) rentSourceLabel = _vRents.label;
+    // v10.56 — once AI has researched & filled the rents, say so.
+    if(cap.rentSource === "AI market research") rentSourceLabel = "AI market research (verify vs listings)";
 
     // v9.51 — per-bed rents anchored on the AREA's typical (3-bed) rent via
     // areaRentPcm, so each bed size is realistic for the location (fixes the old
@@ -750,8 +784,15 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
           );
         })(),
 
-        e("div",{style:{fontSize:10,color:"#7278A0",marginBottom:12}},
-          "Rents auto-populated from "+rentSourceLabel+" at 100% of the local market. Adjust to match your scheme. Area rent: 1-bed £"+rent1+"/mo, 2-bed £"+rent2+", 3-bed £"+rent3+", 4-bed £"+rent4+"/mo."
+        e("div",{style:{fontSize:10,color:"#7278A0",marginBottom:8}},
+          "Rents auto-populated from "+rentSourceLabel+" at 100% of the local market. Adjust to match your scheme, or research real local rents with AI. Area rent: 1-bed £"+rent1+"/mo, 2-bed £"+rent2+", 3-bed £"+rent3+", 4-bed £"+rent4+"/mo."
+        ),
+        // v10.56 — one-click AI rent research → fills the 1/2/3/4-bed fields with real local rents
+        e("div",{style:{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:12}},
+          e("button",{onClick:aiFillRents, disabled:!!cap._aiRentBusy,
+            style:{padding:"8px 14px",background:cap._aiRentBusy?"#9AAAB4":"#2D7A65",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:700,cursor:cap._aiRentBusy?"wait":"pointer",fontFamily:"DM Sans,sans-serif"}},
+            cap._aiRentBusy?"⏳ Researching…":"🤖 AI: research & fill area rents"),
+          e("span",{style:{fontSize:10,color:"#9298BC",flex:"1 1 200px",lineHeight:1.5}},"Pulls typical local new-build rents for 1/2/3/4-bed into the fields below (they stay editable). Indicative — verify against live Rightmove/Zoopla listings.")
         ),
         // v9.52 — Scheme-type banner + affordable-rent discount radio buttons.
         (function(){
