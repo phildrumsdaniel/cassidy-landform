@@ -84,6 +84,260 @@ function esc0(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g
 // real OpenStreetMap of the site (geocoded from the postcode) plus an indicative site plan.
 // Loaded before 05-tool.js. Uses globals: e, S, fmt, pct, num, fmtN, cityName, notify,
 // calcDealMetrics, computeSFHMetrics, constraintVerdict, REGION_LATLNG, dealCityKey.
+// v10.41 — buildLandOnePager: the one-page A4 land appraisal, extracted to a shared GLOBAL so
+// BOTH the Board Proposal stage and the Quick Appraisal page generate the IDENTICAL one-pager
+// from any deal (single source — it can never diverge). Every figure is computed from the deal.
+function buildLandOnePager(data, cityHint){
+  data = data || {};
+  var l=data.land||{}, p=data.planning||{}, ten=data.tenure||{};
+  var M=(typeof calcDealMetrics==="function")?calcDealMetrics(data):{};
+  var SF=(typeof computeSFHMetrics==="function")?computeSFHMetrics(data):{};
+  var addr=l.address||(data.scraper&&data.scraper.result&&data.scraper.result.address)||"Development Site";
+  var pc=(l.postcode||(data.rlv&&data.rlv.postcode)||"").toUpperCase().trim();
+  var cityDisp=((typeof cityName==="function")?cityName(cityHint||l.city||""):"")||"";
+  var county=l.county||"";
+  var acres=num(l.acres||0);
+  var modelledUnits=num(SF.totalUnits)||0;
+  var siteUnits=num(M.units||p.units||l.units||(data.rlv&&data.rlv.units)||0);
+  var units=modelledUnits>0?modelledUnits:siteUnits;
+  var sitePotential=(modelledUnits>0 && siteUnits>modelledUnits*1.1)?siteUnits:0;
+  var gdvV=num(M.gdv)||num(SF.gdv)||0;
+  var ask=num(l.price||0);
+  var ahPct=num(p.ahPct||p.afhPct||ten.ahPct||0);
+  var planStatus=p.status||l.planningStatus||"Unallocated";
+  var lpa=p.lpa||l.localAuthority||"";
+  var density=(acres>0&&units>0)?Math.round(units/acres):0;
+  function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function landSDLT(pp){ pp=num(pp); if(pp<=150000) return 0; var t=Math.min(pp-150000,100000)*0.02; if(pp>250000) t+=(pp-250000)*0.05; return t; }
+  function landAcqCosts(price){ price=num(price); if(price<=0) return {sdlt:0,other:0,total:0}; var sdlt=landSDLT(price), other=price*0.015; return {sdlt:sdlt,other:other,total:sdlt+other}; }
+    var sf=SF||{};
+    var oUnits=num(sf.totalUnits)||units||0;
+    var oGdv=num(sf.gdv)||gdvV||0;
+    var oRetail=num(sf.retailGdv)||oGdv;
+    var oBuild=num(sf.buildCost), oFees=num(sf.fees), oCont=num(sf.contingency), oFin=num(sf.finance);
+    var oS106=num(sf.s106), oRoads=num(sf.roads), oInfra=num(sf.infra), oMkt=num(sf.marketing), oProfit=num(sf.profit);
+    var oDev=num(sf.devCost)||(oBuild+oFees+oCont+oFin+oS106+oRoads+oInfra+oMkt);
+    var oRlv=num(sf.rlv);
+    var oAvgSqft=Math.round(num(sf.avgSqft)||0);
+    var oBuildPsf=Math.round(num(sf.buildPsf)||0);
+    var oBasePsf=Math.round(num(sf.basePsf)||0);
+    var oProfitPct=oGdv>0?oProfit/oGdv*100:0;                 // target profit baked into the RLV
+    var askL=num(l.price)||ask||0;                            // what the landowner is asking
+    var profitAtAsk=askL>0?(oGdv-oDev-askL):oProfit;          // real profit if bought at the asking price
+    var marginAtAsk=oGdv>0?(profitAtAsk/oGdv*100):0;
+    var headroom=oRlv-askL;                                   // +ve ⇒ RLV covers the asking with room to spare
+    var oDensity=(acres>0&&oUnits>0)?Math.round(oUnits/acres):density;
+    var rlvPerPlot=oUnits>0?oRlv/oUnits:0;
+    var rlvPerAcre=acres>0?oRlv/acres:0;
+    var landPctGdv=oGdv>0&&askL>0?(askL/oGdv*100):0;
+    // Land purchase costs on the guide price, and the ALL-IN position (price + SDLT + legals +
+    // acquisition). The all-in margin/headroom is the honest test — it's what actually leaves
+    // Cassidy's account to secure the land, set against the residual land value.
+    var acq=landAcqCosts(askL);
+    var totalLandCost=askL+acq.total;
+    var profitAllIn=askL>0?(oRlv+oProfit-totalLandCost):oProfit;   // = GDV − devCost − totalLandCost
+    var marginAllIn=oGdv>0?(profitAllIn/oGdv*100):0;
+    var headroomAllIn=oRlv-totalLandCost;                         // RLV vs the all-in cost of buying
+
+    // Verdict — decision-useful: uses the margin AFTER the full cost of acquiring the land.
+    var verdict, vcol, vsub;
+    if(oRlv<=0){ verdict="✗ Does not stack"; vcol="#B05A35";
+      vsub="Build, costs and target profit exceed GDV — the residual land value is negative, so the site can't support any land payment at "+Math.round(oProfitPct)+"% profit as modelled."; }
+    else if(askL>0){
+      if(marginAllIn>=15){ verdict="✓ Worth pursuing"; vcol="#1B7A54";
+        vsub="At the "+fmt(askL)+" guide price plus "+fmt(acq.total)+" purchase costs (SDLT, legals, acquisition), the all-in land cost is "+fmt(totalLandCost)+" — still a "+pct(marginAllIn)+" margin ("+fmt(profitAllIn)+" profit). The residual land value of "+fmt(oRlv)+" covers it with "+fmt(headroomAllIn)+" to spare."; }
+      else if(marginAllIn>=12){ verdict="⚠ Marginal — negotiate"; vcol="#9A7B3E";
+        vsub="After the "+fmt(acq.total)+" purchase costs the all-in land cost is "+fmt(totalLandCost)+" and the margin is only "+pct(marginAllIn)+". The land is worth up to "+fmt(oRlv)+" at target profit — offer nearer "+fmt(oRlv-acq.total)+" to restore the margin."; }
+      else { verdict="✗ Overpriced as asked"; vcol="#B05A35";
+        vsub="With "+fmt(acq.total)+" purchase costs the all-in cost of "+fmt(totalLandCost)+" exceeds the "+fmt(oRlv)+" residual land value by "+fmt(Math.abs(headroomAllIn))+" — margin just "+pct(marginAllIn)+". Pursue only at a price near "+fmt(Math.max(0,oRlv-acq.total))+" or below."; }
+    } else {
+      verdict=oProfitPct>=15?"◐ Enter a guide price":"◐ Review"; vcol="#4A4BAE";
+      vsub="Maximum supportable land value is "+fmt(oRlv)+" ("+fmt(rlvPerPlot)+"/plot) at "+Math.round(oProfitPct)+"% target profit, before purchase costs. Enter the landowner's guide price to add SDLT, legals and acquisition and test the all-in position."; }
+
+    // ── PATH TO A 15% MARGIN ───────────────────────────────────────────────────
+    // When the scheme falls short of a 15% developer margin (after the land, if a guide is
+    // entered), solve the ENGINE for the value of each lever that would reach 15% — the actual
+    // figures needed to make it stack, not fixed % nudges. Each is re-appraised on
+    // computeSFHMetrics with only that lever changed, bisecting to the target. Margin here is
+    // the achievable developer margin at the current land cost: (GDV − dev cost − land) / GDV.
+    var TARGET_M=15;
+    var marginNow=oGdv>0?((oGdv-oDev-totalLandCost)/oGdv*100):0;
+    var pathBlock="";
+    if(oGdv>0 && marginNow < TARGET_M){
+      var curBase=oBasePsf, curBuild=oBuildPsf, landSolve=totalLandCost;
+      function cloneD(){ try{ return JSON.parse(JSON.stringify(data)); }catch(e){ return null; } }
+      function marginOf(d){ if(!d) return -999; var sm=computeSFHMetrics(d); var g=num(sm.gdv); return g>0?((g-num(sm.devCost)-landSolve)/g*100):-999; }
+      // Bisection solver: find x in [lo,hi] where the margin crosses TARGET_M (monotonic lever).
+      function solve(mutate, lo, hi){
+        function f(x){ var d=cloneD(); if(!d) return -999; try{ mutate(d,x); }catch(e){ return -999; } return marginOf(d); }
+        var mLo=f(lo), mHi=f(hi);
+        if((mLo-TARGET_M)*(mHi-TARGET_M)>0) return null;   // 15% not reachable within range
+        for(var i=0;i<46;i++){ var mid=(lo+hi)/2, m=f(mid);
+          if((m-TARGET_M)*(mLo-TARGET_M)<=0){ hi=mid; mHi=m; } else { lo=mid; mLo=m; } }
+        return (lo+hi)/2;
+      }
+      function scalePrices(s,x){ if(Array.isArray(s.mix)) s.mix=s.mix.map(function(r){ r=Object.assign({},r); if(num(r.unitPrice))r.unitPrice=String(Math.round(num(r.unitPrice)*x)); if(num(r.salePrice))r.salePrice=String(Math.round(num(r.salePrice)*x)); if(num(r.psf))r.psf=String(Math.round(num(r.psf)*x)); return r; }); }
+      function scaleBuild(s,x){ if(Array.isArray(s.mix)) s.mix=s.mix.map(function(r){ r=Object.assign({},r); if(num(r.buildPsf))r.buildPsf=String(Math.round(num(r.buildPsf)*x)); return r; }); }
+      var fSale=solve(function(d,x){ var s=d.sfh||(d.sfh={}); s.basePsf=String(Math.round((num(s.basePsf)||curBase)*x)); scalePrices(s,x); }, 0.6, 2.5);
+      var saleT=fSale?Math.round(curBase*fSale):null;
+      var fBuild=solve(function(d,x){ var s=d.sfh||(d.sfh={}); s.buildPsf=String(Math.round((num(s.buildPsf)||curBuild)*x)); scaleBuild(s,x); }, 0.30, 1.0);
+      var buildT=fBuild?Math.round(curBuild*fBuild):null;
+      function setAh(d,x){ var s=d.sfh||(d.sfh={}); s.ahPct=String(x); var p=d.planning||(d.planning={}); p.ahPct=String(x); p.afhPct=String(x); if(d.tenure)d.tenure.ahPct=String(x); }
+      // Is the scheme-level affordable % actually a live lever? It is NOT when affordable is
+      // captured as per-row tenure (the ahPct haircut is then bypassed), so changing it does
+      // nothing to GDV — don't offer it as a lever in that case.
+      var ahEffective=false;
+      if(ahPct>0){ var dz=cloneD(); if(dz){ setAh(dz,0); ahEffective=Math.abs(marginOf(dz)-marginNow)>0.1; } }
+      var ahT = ahEffective ? solve(function(d,x){ setAh(d,x); }, 0, ahPct) : null;
+      // Balanced combined path: a bit of each (sale +up to 10%, build −up to 12%, and AH −up to
+      // 15pts when it's a live lever).
+      var tC=solve(function(d,t){ var s=d.sfh||(d.sfh={}); var sf2=1+0.10*t, bf=1-0.12*t;
+        s.basePsf=String(Math.round((num(s.basePsf)||curBase)*sf2)); s.buildPsf=String(Math.round((num(s.buildPsf)||curBuild)*bf));
+        if(ahEffective) setAh(d,Math.max(0,ahPct-15*t));
+        if(Array.isArray(s.mix)) s.mix=s.mix.map(function(r){ r=Object.assign({},r); if(num(r.unitPrice))r.unitPrice=String(Math.round(num(r.unitPrice)*sf2)); if(num(r.buildPsf))r.buildPsf=String(Math.round(num(r.buildPsf)*bf)); return r; });
+      }, 0, 1);
+      var comboTxt="";
+      if(tC!=null){ comboTxt="Sale £"+Math.round(curBase*(1+0.10*tC))+"/sqft <b>+</b> build £"+Math.round(curBuild*(1-0.12*tC))+"/sqft"+(ahEffective?" <b>+</b> affordable "+Math.round(Math.max(0,ahPct-15*tC))+"%":"")+" — together reach 15%."; }
+      else { comboTxt="Even a combined push (sale +10%, build −12%"+(ahEffective?", affordable −15pts":"")+") falls short of 15% — it needs a step-change in sale values, a lower land basis, or grant support."; }
+      function leverLi(label, from, to, unit){
+        if(to==null) return '<tr><td>'+label+'</td><td class="n">'+from+unit+'</td><td class="n" style="color:#9298BC">not alone</td></tr>';
+        var better = /Affordable|Build/.test(label) ? to<num(String(from).replace(/[^0-9.]/g,"")) : true;
+        return '<tr><td>'+label+'</td><td class="n">'+from+unit+'</td><td class="n" style="color:#1B7A54;font-weight:800">'+to+unit+'</td></tr>';
+      }
+      pathBlock='<div style="margin-top:9px;border:1px solid #C9CCE4;border-radius:7px;padding:9px 11px;background:#FBFAF5">'+
+        '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#9A7B3E;font-weight:800;margin-bottom:4px">What makes it stack — path to a 15% margin</div>'+
+        '<div style="font-size:9px;color:#6A6F97;margin-bottom:5px">Currently <b style="color:#B05A35">'+pct(marginNow)+'</b> developer margin '+(totalLandCost>0?'after '+fmt(totalLandCost)+' all-in land':'at £0 land')+'. Any ONE of the following reaches 15% (each solved on the engine, holding the others fixed):</div>'+
+        '<table><tr><td style="color:#8A90B4;font-size:7.4px;letter-spacing:.05em;text-transform:uppercase;font-weight:700">Lever</td><td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Now</td><td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Needs to be</td></tr>'+
+          leverLi("Sale price","£"+curBase, saleT, "/sqft")+
+          leverLi("Build cost","£"+curBuild, buildT, "/sqft")+
+          (ahEffective?leverLi("Affordable %", ahPct, (ahT!=null?Math.round(ahT):null), "%"):'')+
+        '</table>'+
+        '<div style="font-size:9px;color:#3A3D6A;margin-top:5px;line-height:1.45"><b>Balanced route:</b> '+comboTxt+'</div>'+
+      '</div>';
+    }
+
+    // Compact house mix — cap at 8 rows, roll up the rest so it always fits one page.
+    var rows=(sf.rows||[]).filter(function(r){return num(r.count)>0;});
+    var shown=rows.slice(0,8), rest=rows.slice(8);
+    var mixRows=shown.map(function(r){
+      var rev=num(r.retailGdv)||(num(r.sqft)*num(r.psf)*num(r.count));
+      return '<tr><td>'+esc(r.type||"House")+'</td><td class="n">'+num(r.count)+'</td><td class="n">'+(Math.round(num(r.sqft))||"—")+'</td><td class="n">£'+Math.round(num(r.psf))+'</td><td class="n">'+fmt(rev)+'</td></tr>';
+    }).join("");
+    if(rest.length){
+      var rc=rest.reduce(function(a,r){return a+num(r.count);},0);
+      var rrev=rest.reduce(function(a,r){return a+(num(r.retailGdv)||num(r.sqft)*num(r.psf)*num(r.count));},0);
+      mixRows+='<tr><td>+ '+rest.length+' more type'+(rest.length>1?"s":"")+'</td><td class="n">'+rc+'</td><td class="n">—</td><td class="n">—</td><td class="n">'+fmt(rrev)+'</td></tr>';
+    }
+    var ahU=Math.round(oUnits*ahPct/100);
+
+    function cRow(k,v,neg,strong){ return '<tr'+(strong?' class="s"':'')+'><td>'+k+'</td><td class="n">'+(neg?"−":"")+v+'</td></tr>'; }
+    var siteSub=[cityDisp,county,pc].filter(Boolean).join(" · ");
+
+    return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>'+
+      '<title>Land appraisal — '+esc(addr)+'</title><style>'+
+      '@page{size:A4 portrait;margin:10mm}'+
+      '*{box-sizing:border-box}'+
+      'html,body{margin:0}'+
+      'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#26284F;font-size:9.7px;line-height:1.4;font-variant-numeric:tabular-nums;-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#eef0f7}'+
+      '.pg{width:190mm;min-height:277mm;margin:6mm auto;background:#fff;padding:9mm 9mm 7mm;box-shadow:0 2px 14px rgba(0,0,0,.12)}'+
+      '@media print{body{background:#fff}.pg{margin:0;box-shadow:none;width:auto;min-height:auto;padding:0}.noprint{display:none}}'+
+      'h1{font-family:Georgia,serif;font-size:16px;color:#1B1D46;margin:0}'+
+      '.top{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1B1D46;padding-bottom:5px;margin-bottom:7px}'+
+      '.brand{font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:#9A7B3E;font-weight:800}'+
+      '.sub{color:#6A6F97;font-size:9px;margin-top:2px}'+
+      '.meta{text-align:right;font-size:8.3px;color:#6A6F97;line-height:1.5}'+
+      '.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin:8px 0}'+
+      '.kpi{border:1px solid #E0E2EC;border-radius:5px;padding:6px 7px;background:#FafBff}'+
+      '.kpi .l{font-size:7.4px;letter-spacing:.08em;text-transform:uppercase;color:#8A90B4;font-weight:700}'+
+      '.kpi .v{font-size:14px;font-weight:800;color:#1B1D46;margin-top:2px;font-family:Georgia,serif}'+
+      '.cols{display:grid;grid-template-columns:1.04fr 1fr;gap:9px;margin-top:2px}'+
+      '.card{border:1px solid #E0E2EC;border-radius:6px;padding:8px 9px}'+
+      '.ct{font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#4A4BAE;font-weight:800;margin-bottom:5px}'+
+      'table{width:100%;border-collapse:collapse}'+
+      'td{padding:2.4px 0;border-bottom:1px solid #F1F2F8}'+
+      'td.n{text-align:right;font-weight:600}'+
+      'tr.s td{border-top:1.4px solid #C9CCE4;border-bottom:none;font-weight:800;color:#1B1D46;padding-top:4px;font-size:10.4px}'+
+      '.mix td{font-size:9px}'+
+      '.mix thead td{color:#8A90B4;font-size:7.4px;letter-spacing:.05em;text-transform:uppercase;font-weight:700;border-bottom:1px solid #C9CCE4}'+
+      '.two{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}'+
+      '.box{background:#F6F7FC;border-radius:5px;padding:6px 7px}'+
+      '.box .l{font-size:7.4px;letter-spacing:.06em;text-transform:uppercase;color:#8A90B4;font-weight:700}'+
+      '.box .v{font-size:12px;font-weight:800;color:#1B1D46;margin-top:1px}'+
+      '.rr{display:flex;justify-content:space-between;color:#6A6F97;font-size:8.6px;padding:2px 0}'+
+      '.verdict{margin-top:9px;border-radius:7px;padding:9px 11px;color:#fff}'+
+      '.verdict .vh{font-size:13px;font-weight:800}'+
+      '.verdict .vs{font-size:9px;margin-top:2px;opacity:.96;line-height:1.45}'+
+      '.foot{margin-top:8px;font-size:7.4px;color:#9298BC;line-height:1.5;border-top:1px solid #EEF0F7;padding-top:5px}'+
+      '.btn{position:fixed;top:9px;right:9px;background:#1E1F5C;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25)}'+
+      '</style></head><body>'+
+      '<button class="btn noprint" onclick="window.print()">Print / Save as PDF</button>'+
+      '<div class="pg">'+
+        '<div class="top"><div><div class="brand">Cassidy Group · Land appraisal — one-page briefing</div>'+
+          '<h1>'+esc(addr)+'</h1><div class="sub">'+esc(siteSub||"—")+(acres>0?' · <b>'+esc(acres)+' acres</b>':'')+'</div></div>'+
+          '<div class="meta">'+(lpa?esc(lpa)+'<br/>':'')+esc(planStatus||"Unallocated")+'<br/>Indicative · v'+esc(typeof CURRENT_VERSION!=="undefined"?CURRENT_VERSION:"")+'</div></div>'+
+        '<div class="kpis">'+
+          '<div class="kpi"><div class="l">Homes</div><div class="v">'+(oUnits?oUnits.toLocaleString():"—")+'</div></div>'+
+          '<div class="kpi"><div class="l">GDV</div><div class="v">'+(oGdv>0?fmt(oGdv):"—")+'</div></div>'+
+          '<div class="kpi"><div class="l">Land guide price</div><div class="v">'+(askL>0?fmt(askL):"—")+'</div></div>'+
+          '<div class="kpi"><div class="l">Residual land value</div><div class="v" style="color:'+(oRlv>0?"#1B7A54":"#B05A35")+'">'+(oRlv?((oRlv<0?"−":"")+fmt(Math.abs(oRlv))):"—")+'</div></div>'+
+          '<div class="kpi"><div class="l">'+(askL>0?"Margin (all-in)":"Target profit")+'</div><div class="v" style="color:'+(askL>0?(marginAllIn>=15?"#1B7A54":marginAllIn>=12?"#9A7B3E":"#B05A35"):"#1B1D46")+'">'+(askL>0?pct(marginAllIn):Math.round(oProfitPct)+"%")+'</div></div>'+
+        '</div>'+
+        '<div class="cols">'+
+          '<div class="card"><div class="ct">Scheme &amp; house mix</div>'+
+            '<div class="rr"><span>Site area</span><b>'+(acres>0?acres+" acres · "+(acres*0.404686).toFixed(1)+" ha":"—")+'</b></div>'+
+            '<div class="rr"><span>Density</span><b>'+(oDensity>0?oDensity+" homes/acre · ≈"+Math.round(oDensity*2.471)+" dph":"—")+'</b></div>'+
+            '<div class="rr"><span>Homes (modelled mix)</span><b>'+(oUnits?oUnits.toLocaleString():"—")+(sitePotential>0?' <span style="color:#9298BC">of ~'+sitePotential.toLocaleString()+' site potential</span>':'')+'</b></div>'+
+            '<div class="rr"><span>Affordable (S106)</span><b>'+(ahPct?ahPct+"% · ~"+ahU.toLocaleString()+" homes":"—")+'</b></div>'+
+            '<div class="rr"><span>Avg home · sale £/sqft</span><b>'+(oAvgSqft?oAvgSqft.toLocaleString()+" sqft · £"+oBasePsf:"—")+'</b></div>'+
+            '<table class="mix" style="margin-top:6px"><thead><tr><td>Type</td><td class="n">Plots</td><td class="n">Sqft</td><td class="n">£/sqft</td><td class="n">Revenue</td></tr></thead><tbody>'+
+              (mixRows||'<tr><td colspan="5" style="color:#9298BC;padding:8px 0">No house mix entered — build the SFH House Mix to populate this.</td></tr>')+
+              '<tr class="s"><td>Total GDV</td><td class="n" style="text-align:right" colspan="4">'+(oGdv>0?fmt(oGdv):"—")+'</td></tr>'+
+            '</tbody></table>'+
+          '</div>'+
+          '<div class="card"><div class="ct">Appraisal — residual land value</div>'+
+            '<table>'+
+              cRow("Gross development value",fmt(oGdv),false,false)+
+              (oRetail>oGdv+1?'<tr><td style="color:#9298BC">— affordable / mix discount</td><td class="n" style="color:#9298BC">−'+fmt(oRetail-oGdv)+'</td></tr>':'')+
+              cRow("Build ("+ (oAvgSqft&&oUnits?Math.round(oAvgSqft*oUnits).toLocaleString()+" sqft @ £"+oBuildPsf:"")+")",fmt(oBuild),true,false)+
+              cRow("Professional fees",fmt(oFees),true,false)+
+              cRow("Contingency",fmt(oCont),true,false)+
+              cRow("Finance",fmt(oFin),true,false)+
+              cRow("S106 / CIL"+(oUnits>0?" (£"+fmtN(Math.round(oS106/oUnits))+"/plot)":""),fmt(oS106),true,false)+
+              (oRoads>0?cRow("Roads &amp; sewers",fmt(oRoads),true,false):'')+
+              (oInfra>0?cRow("Infrastructure &amp; SuDS",fmt(oInfra),true,false):'')+
+              (oMkt>0?cRow("Marketing / disposal",fmt(oMkt),true,false):'')+
+              cRow("Developer profit ("+Math.round(oProfitPct)+"%)",fmt(oProfit),true,false)+
+              cRow("Residual land value",(oRlv<0?"−":"")+fmt(Math.abs(oRlv)),false,true)+
+            '</table>'+
+            '<div class="two">'+
+              '<div class="box"><div class="l">Max land @ target profit</div><div class="v">'+(oRlv?((oRlv<0?"−":"")+fmt(Math.abs(oRlv))):"—")+'</div></div>'+
+              '<div class="box"><div class="l">'+(askL>0?"Headroom vs asking":"Per plot")+'</div><div class="v" style="color:'+(askL>0?(headroom>=0?"#1B7A54":"#B05A35"):"#1B1D46")+'">'+(askL>0?((headroom<0?"−":"+")+fmt(Math.abs(headroom))):fmt(rlvPerPlot))+'</div></div>'+
+            '</div>'+
+            '<div class="rr" style="margin-top:5px"><span>Per plot / per acre</span><b>'+fmt(rlvPerPlot)+' · '+(acres>0?fmt(rlvPerAcre):"—")+'</b></div>'+
+            (askL>0
+              ? '<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #D7D9EC">'+
+                  '<div class="ct" style="margin-bottom:3px">Land — value vs cost to buy</div>'+
+                  '<table>'+
+                    cRow("Residual land value (max @ profit)",fmt(oRlv),false,false)+
+                    cRow("Guide price (as entered)",fmt(askL),false,false)+
+                    cRow("+ SDLT on land (non-resi bands)",fmt(acq.sdlt),false,false)+
+                    cRow("+ Legals &amp; acquisition (1.5%)",fmt(acq.other),false,false)+
+                    cRow("= Total cost to acquire",fmt(totalLandCost),false,true)+
+                  '</table>'+
+                  '<div class="rr" style="margin-top:4px"><span>Headroom — RLV less all-in cost</span><b style="color:'+(headroomAllIn>=0?"#1B7A54":"#B05A35")+'">'+(headroomAllIn<0?"−":"+")+fmt(Math.abs(headroomAllIn))+'</b></div>'+
+                  '<div class="rr"><span>Profit / margin after land</span><b style="color:'+(marginAllIn>=15?"#1B7A54":marginAllIn>=12?"#9A7B3E":"#B05A35")+'">'+fmt(profitAllIn)+' · '+pct(marginAllIn)+' (land '+Math.round(landPctGdv)+'% of GDV)</b></div>'+
+                '</div>'
+              : '<div class="rr" style="margin-top:6px;color:#9A7B3E"><span>Guide price</span><b>Enter one to test purchase costs vs RLV</b></div>')+
+          '</div>'+
+        '</div>'+
+        '<div class="verdict" style="background:'+vcol+'"><div class="vh">'+verdict+'</div><div class="vs">'+vsub+'</div></div>'+
+        pathBlock+
+        '<div class="foot"><b>Indicative appraisal — not a RICS Red Book valuation.</b> Figures are computed on Landform\'s engine from the inputs entered (site area, density, house mix, sale and build £/sqft, S106, finance and profit assumptions) and assume residential consent can be achieved. '+
+          (askL<=0?'Enter a land guide price on the Board Proposal or Land stage to test purchase costs (SDLT, legals, acquisition) against the residual land value. ':'')+
+          'Verify sale and build values against local comparables and a QS cost plan before commitment. Residual land value is the maximum supportable land PRICE at target developer profit'+(askL>0?'; the all-in position adds SDLT (non-residential land bands: 0% ≤£150k, 2% to £250k, 5% above) plus ~1.5% legals &amp; acquisition on the '+fmt(askL)+' guide price':'')+'. SDLT rates and reliefs vary — confirm with your tax adviser.</div>'+
+      '</div></body></html>';
+}
+
 function renderProposal(city, data, gdv, lc, up, user){
   var l=data.land||{}; var p=data.planning||{}; var ten=data.tenure||{}; var ex=data.exit||{};
   var M=(typeof calcDealMetrics==="function")?calcDealMetrics(data):{};
@@ -720,234 +974,7 @@ function renderProposal(city, data, gdv, lc, up, user){
   // infra, profit) → residual land value, then tested against what the landowner is asking.
   // Every figure comes straight from computeSFHMetrics, so it reconciles exactly with the
   // full appraisal and the board paper — a compact sketch, but an accurate one.
-  function buildOnePagerHTML(){
-    var sf=SF||{};
-    var oUnits=num(sf.totalUnits)||units||0;
-    var oGdv=num(sf.gdv)||gdvV||0;
-    var oRetail=num(sf.retailGdv)||oGdv;
-    var oBuild=num(sf.buildCost), oFees=num(sf.fees), oCont=num(sf.contingency), oFin=num(sf.finance);
-    var oS106=num(sf.s106), oRoads=num(sf.roads), oInfra=num(sf.infra), oMkt=num(sf.marketing), oProfit=num(sf.profit);
-    var oDev=num(sf.devCost)||(oBuild+oFees+oCont+oFin+oS106+oRoads+oInfra+oMkt);
-    var oRlv=num(sf.rlv);
-    var oAvgSqft=Math.round(num(sf.avgSqft)||0);
-    var oBuildPsf=Math.round(num(sf.buildPsf)||0);
-    var oBasePsf=Math.round(num(sf.basePsf)||0);
-    var oProfitPct=oGdv>0?oProfit/oGdv*100:0;                 // target profit baked into the RLV
-    var askL=num(l.price)||ask||0;                            // what the landowner is asking
-    var profitAtAsk=askL>0?(oGdv-oDev-askL):oProfit;          // real profit if bought at the asking price
-    var marginAtAsk=oGdv>0?(profitAtAsk/oGdv*100):0;
-    var headroom=oRlv-askL;                                   // +ve ⇒ RLV covers the asking with room to spare
-    var oDensity=(acres>0&&oUnits>0)?Math.round(oUnits/acres):density;
-    var rlvPerPlot=oUnits>0?oRlv/oUnits:0;
-    var rlvPerAcre=acres>0?oRlv/acres:0;
-    var landPctGdv=oGdv>0&&askL>0?(askL/oGdv*100):0;
-    // Land purchase costs on the guide price, and the ALL-IN position (price + SDLT + legals +
-    // acquisition). The all-in margin/headroom is the honest test — it's what actually leaves
-    // Cassidy's account to secure the land, set against the residual land value.
-    var acq=landAcqCosts(askL);
-    var totalLandCost=askL+acq.total;
-    var profitAllIn=askL>0?(oRlv+oProfit-totalLandCost):oProfit;   // = GDV − devCost − totalLandCost
-    var marginAllIn=oGdv>0?(profitAllIn/oGdv*100):0;
-    var headroomAllIn=oRlv-totalLandCost;                         // RLV vs the all-in cost of buying
-
-    // Verdict — decision-useful: uses the margin AFTER the full cost of acquiring the land.
-    var verdict, vcol, vsub;
-    if(oRlv<=0){ verdict="✗ Does not stack"; vcol="#B05A35";
-      vsub="Build, costs and target profit exceed GDV — the residual land value is negative, so the site can't support any land payment at "+Math.round(oProfitPct)+"% profit as modelled."; }
-    else if(askL>0){
-      if(marginAllIn>=15){ verdict="✓ Worth pursuing"; vcol="#1B7A54";
-        vsub="At the "+fmt(askL)+" guide price plus "+fmt(acq.total)+" purchase costs (SDLT, legals, acquisition), the all-in land cost is "+fmt(totalLandCost)+" — still a "+pct(marginAllIn)+" margin ("+fmt(profitAllIn)+" profit). The residual land value of "+fmt(oRlv)+" covers it with "+fmt(headroomAllIn)+" to spare."; }
-      else if(marginAllIn>=12){ verdict="⚠ Marginal — negotiate"; vcol="#9A7B3E";
-        vsub="After the "+fmt(acq.total)+" purchase costs the all-in land cost is "+fmt(totalLandCost)+" and the margin is only "+pct(marginAllIn)+". The land is worth up to "+fmt(oRlv)+" at target profit — offer nearer "+fmt(oRlv-acq.total)+" to restore the margin."; }
-      else { verdict="✗ Overpriced as asked"; vcol="#B05A35";
-        vsub="With "+fmt(acq.total)+" purchase costs the all-in cost of "+fmt(totalLandCost)+" exceeds the "+fmt(oRlv)+" residual land value by "+fmt(Math.abs(headroomAllIn))+" — margin just "+pct(marginAllIn)+". Pursue only at a price near "+fmt(Math.max(0,oRlv-acq.total))+" or below."; }
-    } else {
-      verdict=oProfitPct>=15?"◐ Enter a guide price":"◐ Review"; vcol="#4A4BAE";
-      vsub="Maximum supportable land value is "+fmt(oRlv)+" ("+fmt(rlvPerPlot)+"/plot) at "+Math.round(oProfitPct)+"% target profit, before purchase costs. Enter the landowner's guide price to add SDLT, legals and acquisition and test the all-in position."; }
-
-    // ── PATH TO A 15% MARGIN ───────────────────────────────────────────────────
-    // When the scheme falls short of a 15% developer margin (after the land, if a guide is
-    // entered), solve the ENGINE for the value of each lever that would reach 15% — the actual
-    // figures needed to make it stack, not fixed % nudges. Each is re-appraised on
-    // computeSFHMetrics with only that lever changed, bisecting to the target. Margin here is
-    // the achievable developer margin at the current land cost: (GDV − dev cost − land) / GDV.
-    var TARGET_M=15;
-    var marginNow=oGdv>0?((oGdv-oDev-totalLandCost)/oGdv*100):0;
-    var pathBlock="";
-    if(oGdv>0 && marginNow < TARGET_M){
-      var curBase=oBasePsf, curBuild=oBuildPsf, landSolve=totalLandCost;
-      function cloneD(){ try{ return JSON.parse(JSON.stringify(data)); }catch(e){ return null; } }
-      function marginOf(d){ if(!d) return -999; var sm=computeSFHMetrics(d); var g=num(sm.gdv); return g>0?((g-num(sm.devCost)-landSolve)/g*100):-999; }
-      // Bisection solver: find x in [lo,hi] where the margin crosses TARGET_M (monotonic lever).
-      function solve(mutate, lo, hi){
-        function f(x){ var d=cloneD(); if(!d) return -999; try{ mutate(d,x); }catch(e){ return -999; } return marginOf(d); }
-        var mLo=f(lo), mHi=f(hi);
-        if((mLo-TARGET_M)*(mHi-TARGET_M)>0) return null;   // 15% not reachable within range
-        for(var i=0;i<46;i++){ var mid=(lo+hi)/2, m=f(mid);
-          if((m-TARGET_M)*(mLo-TARGET_M)<=0){ hi=mid; mHi=m; } else { lo=mid; mLo=m; } }
-        return (lo+hi)/2;
-      }
-      function scalePrices(s,x){ if(Array.isArray(s.mix)) s.mix=s.mix.map(function(r){ r=Object.assign({},r); if(num(r.unitPrice))r.unitPrice=String(Math.round(num(r.unitPrice)*x)); if(num(r.salePrice))r.salePrice=String(Math.round(num(r.salePrice)*x)); if(num(r.psf))r.psf=String(Math.round(num(r.psf)*x)); return r; }); }
-      function scaleBuild(s,x){ if(Array.isArray(s.mix)) s.mix=s.mix.map(function(r){ r=Object.assign({},r); if(num(r.buildPsf))r.buildPsf=String(Math.round(num(r.buildPsf)*x)); return r; }); }
-      var fSale=solve(function(d,x){ var s=d.sfh||(d.sfh={}); s.basePsf=String(Math.round((num(s.basePsf)||curBase)*x)); scalePrices(s,x); }, 0.6, 2.5);
-      var saleT=fSale?Math.round(curBase*fSale):null;
-      var fBuild=solve(function(d,x){ var s=d.sfh||(d.sfh={}); s.buildPsf=String(Math.round((num(s.buildPsf)||curBuild)*x)); scaleBuild(s,x); }, 0.30, 1.0);
-      var buildT=fBuild?Math.round(curBuild*fBuild):null;
-      function setAh(d,x){ var s=d.sfh||(d.sfh={}); s.ahPct=String(x); var p=d.planning||(d.planning={}); p.ahPct=String(x); p.afhPct=String(x); if(d.tenure)d.tenure.ahPct=String(x); }
-      // Is the scheme-level affordable % actually a live lever? It is NOT when affordable is
-      // captured as per-row tenure (the ahPct haircut is then bypassed), so changing it does
-      // nothing to GDV — don't offer it as a lever in that case.
-      var ahEffective=false;
-      if(ahPct>0){ var dz=cloneD(); if(dz){ setAh(dz,0); ahEffective=Math.abs(marginOf(dz)-marginNow)>0.1; } }
-      var ahT = ahEffective ? solve(function(d,x){ setAh(d,x); }, 0, ahPct) : null;
-      // Balanced combined path: a bit of each (sale +up to 10%, build −up to 12%, and AH −up to
-      // 15pts when it's a live lever).
-      var tC=solve(function(d,t){ var s=d.sfh||(d.sfh={}); var sf2=1+0.10*t, bf=1-0.12*t;
-        s.basePsf=String(Math.round((num(s.basePsf)||curBase)*sf2)); s.buildPsf=String(Math.round((num(s.buildPsf)||curBuild)*bf));
-        if(ahEffective) setAh(d,Math.max(0,ahPct-15*t));
-        if(Array.isArray(s.mix)) s.mix=s.mix.map(function(r){ r=Object.assign({},r); if(num(r.unitPrice))r.unitPrice=String(Math.round(num(r.unitPrice)*sf2)); if(num(r.buildPsf))r.buildPsf=String(Math.round(num(r.buildPsf)*bf)); return r; });
-      }, 0, 1);
-      var comboTxt="";
-      if(tC!=null){ comboTxt="Sale £"+Math.round(curBase*(1+0.10*tC))+"/sqft <b>+</b> build £"+Math.round(curBuild*(1-0.12*tC))+"/sqft"+(ahEffective?" <b>+</b> affordable "+Math.round(Math.max(0,ahPct-15*tC))+"%":"")+" — together reach 15%."; }
-      else { comboTxt="Even a combined push (sale +10%, build −12%"+(ahEffective?", affordable −15pts":"")+") falls short of 15% — it needs a step-change in sale values, a lower land basis, or grant support."; }
-      function leverLi(label, from, to, unit){
-        if(to==null) return '<tr><td>'+label+'</td><td class="n">'+from+unit+'</td><td class="n" style="color:#9298BC">not alone</td></tr>';
-        var better = /Affordable|Build/.test(label) ? to<num(String(from).replace(/[^0-9.]/g,"")) : true;
-        return '<tr><td>'+label+'</td><td class="n">'+from+unit+'</td><td class="n" style="color:#1B7A54;font-weight:800">'+to+unit+'</td></tr>';
-      }
-      pathBlock='<div style="margin-top:9px;border:1px solid #C9CCE4;border-radius:7px;padding:9px 11px;background:#FBFAF5">'+
-        '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#9A7B3E;font-weight:800;margin-bottom:4px">What makes it stack — path to a 15% margin</div>'+
-        '<div style="font-size:9px;color:#6A6F97;margin-bottom:5px">Currently <b style="color:#B05A35">'+pct(marginNow)+'</b> developer margin '+(totalLandCost>0?'after '+fmt(totalLandCost)+' all-in land':'at £0 land')+'. Any ONE of the following reaches 15% (each solved on the engine, holding the others fixed):</div>'+
-        '<table><tr><td style="color:#8A90B4;font-size:7.4px;letter-spacing:.05em;text-transform:uppercase;font-weight:700">Lever</td><td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Now</td><td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Needs to be</td></tr>'+
-          leverLi("Sale price","£"+curBase, saleT, "/sqft")+
-          leverLi("Build cost","£"+curBuild, buildT, "/sqft")+
-          (ahEffective?leverLi("Affordable %", ahPct, (ahT!=null?Math.round(ahT):null), "%"):'')+
-        '</table>'+
-        '<div style="font-size:9px;color:#3A3D6A;margin-top:5px;line-height:1.45"><b>Balanced route:</b> '+comboTxt+'</div>'+
-      '</div>';
-    }
-
-    // Compact house mix — cap at 8 rows, roll up the rest so it always fits one page.
-    var rows=(sf.rows||[]).filter(function(r){return num(r.count)>0;});
-    var shown=rows.slice(0,8), rest=rows.slice(8);
-    var mixRows=shown.map(function(r){
-      var rev=num(r.retailGdv)||(num(r.sqft)*num(r.psf)*num(r.count));
-      return '<tr><td>'+esc(r.type||"House")+'</td><td class="n">'+num(r.count)+'</td><td class="n">'+(Math.round(num(r.sqft))||"—")+'</td><td class="n">£'+Math.round(num(r.psf))+'</td><td class="n">'+fmt(rev)+'</td></tr>';
-    }).join("");
-    if(rest.length){
-      var rc=rest.reduce(function(a,r){return a+num(r.count);},0);
-      var rrev=rest.reduce(function(a,r){return a+(num(r.retailGdv)||num(r.sqft)*num(r.psf)*num(r.count));},0);
-      mixRows+='<tr><td>+ '+rest.length+' more type'+(rest.length>1?"s":"")+'</td><td class="n">'+rc+'</td><td class="n">—</td><td class="n">—</td><td class="n">'+fmt(rrev)+'</td></tr>';
-    }
-    var ahU=Math.round(oUnits*ahPct/100);
-
-    function cRow(k,v,neg,strong){ return '<tr'+(strong?' class="s"':'')+'><td>'+k+'</td><td class="n">'+(neg?"−":"")+v+'</td></tr>'; }
-    var siteSub=[cityDisp,county,pc].filter(Boolean).join(" · ");
-
-    return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>'+
-      '<title>Land appraisal — '+esc(addr)+'</title><style>'+
-      '@page{size:A4 portrait;margin:10mm}'+
-      '*{box-sizing:border-box}'+
-      'html,body{margin:0}'+
-      'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#26284F;font-size:9.7px;line-height:1.4;font-variant-numeric:tabular-nums;-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#eef0f7}'+
-      '.pg{width:190mm;min-height:277mm;margin:6mm auto;background:#fff;padding:9mm 9mm 7mm;box-shadow:0 2px 14px rgba(0,0,0,.12)}'+
-      '@media print{body{background:#fff}.pg{margin:0;box-shadow:none;width:auto;min-height:auto;padding:0}.noprint{display:none}}'+
-      'h1{font-family:Georgia,serif;font-size:16px;color:#1B1D46;margin:0}'+
-      '.top{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1B1D46;padding-bottom:5px;margin-bottom:7px}'+
-      '.brand{font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:#9A7B3E;font-weight:800}'+
-      '.sub{color:#6A6F97;font-size:9px;margin-top:2px}'+
-      '.meta{text-align:right;font-size:8.3px;color:#6A6F97;line-height:1.5}'+
-      '.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin:8px 0}'+
-      '.kpi{border:1px solid #E0E2EC;border-radius:5px;padding:6px 7px;background:#FafBff}'+
-      '.kpi .l{font-size:7.4px;letter-spacing:.08em;text-transform:uppercase;color:#8A90B4;font-weight:700}'+
-      '.kpi .v{font-size:14px;font-weight:800;color:#1B1D46;margin-top:2px;font-family:Georgia,serif}'+
-      '.cols{display:grid;grid-template-columns:1.04fr 1fr;gap:9px;margin-top:2px}'+
-      '.card{border:1px solid #E0E2EC;border-radius:6px;padding:8px 9px}'+
-      '.ct{font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#4A4BAE;font-weight:800;margin-bottom:5px}'+
-      'table{width:100%;border-collapse:collapse}'+
-      'td{padding:2.4px 0;border-bottom:1px solid #F1F2F8}'+
-      'td.n{text-align:right;font-weight:600}'+
-      'tr.s td{border-top:1.4px solid #C9CCE4;border-bottom:none;font-weight:800;color:#1B1D46;padding-top:4px;font-size:10.4px}'+
-      '.mix td{font-size:9px}'+
-      '.mix thead td{color:#8A90B4;font-size:7.4px;letter-spacing:.05em;text-transform:uppercase;font-weight:700;border-bottom:1px solid #C9CCE4}'+
-      '.two{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}'+
-      '.box{background:#F6F7FC;border-radius:5px;padding:6px 7px}'+
-      '.box .l{font-size:7.4px;letter-spacing:.06em;text-transform:uppercase;color:#8A90B4;font-weight:700}'+
-      '.box .v{font-size:12px;font-weight:800;color:#1B1D46;margin-top:1px}'+
-      '.rr{display:flex;justify-content:space-between;color:#6A6F97;font-size:8.6px;padding:2px 0}'+
-      '.verdict{margin-top:9px;border-radius:7px;padding:9px 11px;color:#fff}'+
-      '.verdict .vh{font-size:13px;font-weight:800}'+
-      '.verdict .vs{font-size:9px;margin-top:2px;opacity:.96;line-height:1.45}'+
-      '.foot{margin-top:8px;font-size:7.4px;color:#9298BC;line-height:1.5;border-top:1px solid #EEF0F7;padding-top:5px}'+
-      '.btn{position:fixed;top:9px;right:9px;background:#1E1F5C;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25)}'+
-      '</style></head><body>'+
-      '<button class="btn noprint" onclick="window.print()">Print / Save as PDF</button>'+
-      '<div class="pg">'+
-        '<div class="top"><div><div class="brand">Cassidy Group · Land appraisal — one-page briefing</div>'+
-          '<h1>'+esc(addr)+'</h1><div class="sub">'+esc(siteSub||"—")+(acres>0?' · <b>'+esc(acres)+' acres</b>':'')+'</div></div>'+
-          '<div class="meta">'+(lpa?esc(lpa)+'<br/>':'')+esc(planStatus||"Unallocated")+'<br/>Indicative · v'+esc(typeof CURRENT_VERSION!=="undefined"?CURRENT_VERSION:"")+'</div></div>'+
-        '<div class="kpis">'+
-          '<div class="kpi"><div class="l">Homes</div><div class="v">'+(oUnits?oUnits.toLocaleString():"—")+'</div></div>'+
-          '<div class="kpi"><div class="l">GDV</div><div class="v">'+(oGdv>0?fmt(oGdv):"—")+'</div></div>'+
-          '<div class="kpi"><div class="l">Land guide price</div><div class="v">'+(askL>0?fmt(askL):"—")+'</div></div>'+
-          '<div class="kpi"><div class="l">Residual land value</div><div class="v" style="color:'+(oRlv>0?"#1B7A54":"#B05A35")+'">'+(oRlv?((oRlv<0?"−":"")+fmt(Math.abs(oRlv))):"—")+'</div></div>'+
-          '<div class="kpi"><div class="l">'+(askL>0?"Margin (all-in)":"Target profit")+'</div><div class="v" style="color:'+(askL>0?(marginAllIn>=15?"#1B7A54":marginAllIn>=12?"#9A7B3E":"#B05A35"):"#1B1D46")+'">'+(askL>0?pct(marginAllIn):Math.round(oProfitPct)+"%")+'</div></div>'+
-        '</div>'+
-        '<div class="cols">'+
-          '<div class="card"><div class="ct">Scheme &amp; house mix</div>'+
-            '<div class="rr"><span>Site area</span><b>'+(acres>0?acres+" acres · "+(acres*0.404686).toFixed(1)+" ha":"—")+'</b></div>'+
-            '<div class="rr"><span>Density</span><b>'+(oDensity>0?oDensity+" homes/acre · ≈"+Math.round(oDensity*2.471)+" dph":"—")+'</b></div>'+
-            '<div class="rr"><span>Homes (modelled mix)</span><b>'+(oUnits?oUnits.toLocaleString():"—")+(sitePotential>0?' <span style="color:#9298BC">of ~'+sitePotential.toLocaleString()+' site potential</span>':'')+'</b></div>'+
-            '<div class="rr"><span>Affordable (S106)</span><b>'+(ahPct?ahPct+"% · ~"+ahU.toLocaleString()+" homes":"—")+'</b></div>'+
-            '<div class="rr"><span>Avg home · sale £/sqft</span><b>'+(oAvgSqft?oAvgSqft.toLocaleString()+" sqft · £"+oBasePsf:"—")+'</b></div>'+
-            '<table class="mix" style="margin-top:6px"><thead><tr><td>Type</td><td class="n">Plots</td><td class="n">Sqft</td><td class="n">£/sqft</td><td class="n">Revenue</td></tr></thead><tbody>'+
-              (mixRows||'<tr><td colspan="5" style="color:#9298BC;padding:8px 0">No house mix entered — build the SFH House Mix to populate this.</td></tr>')+
-              '<tr class="s"><td>Total GDV</td><td class="n" style="text-align:right" colspan="4">'+(oGdv>0?fmt(oGdv):"—")+'</td></tr>'+
-            '</tbody></table>'+
-          '</div>'+
-          '<div class="card"><div class="ct">Appraisal — residual land value</div>'+
-            '<table>'+
-              cRow("Gross development value",fmt(oGdv),false,false)+
-              (oRetail>oGdv+1?'<tr><td style="color:#9298BC">— affordable / mix discount</td><td class="n" style="color:#9298BC">−'+fmt(oRetail-oGdv)+'</td></tr>':'')+
-              cRow("Build ("+ (oAvgSqft&&oUnits?Math.round(oAvgSqft*oUnits).toLocaleString()+" sqft @ £"+oBuildPsf:"")+")",fmt(oBuild),true,false)+
-              cRow("Professional fees",fmt(oFees),true,false)+
-              cRow("Contingency",fmt(oCont),true,false)+
-              cRow("Finance",fmt(oFin),true,false)+
-              cRow("S106 / CIL"+(oUnits>0?" (£"+fmtN(Math.round(oS106/oUnits))+"/plot)":""),fmt(oS106),true,false)+
-              (oRoads>0?cRow("Roads &amp; sewers",fmt(oRoads),true,false):'')+
-              (oInfra>0?cRow("Infrastructure &amp; SuDS",fmt(oInfra),true,false):'')+
-              (oMkt>0?cRow("Marketing / disposal",fmt(oMkt),true,false):'')+
-              cRow("Developer profit ("+Math.round(oProfitPct)+"%)",fmt(oProfit),true,false)+
-              cRow("Residual land value",(oRlv<0?"−":"")+fmt(Math.abs(oRlv)),false,true)+
-            '</table>'+
-            '<div class="two">'+
-              '<div class="box"><div class="l">Max land @ target profit</div><div class="v">'+(oRlv?((oRlv<0?"−":"")+fmt(Math.abs(oRlv))):"—")+'</div></div>'+
-              '<div class="box"><div class="l">'+(askL>0?"Headroom vs asking":"Per plot")+'</div><div class="v" style="color:'+(askL>0?(headroom>=0?"#1B7A54":"#B05A35"):"#1B1D46")+'">'+(askL>0?((headroom<0?"−":"+")+fmt(Math.abs(headroom))):fmt(rlvPerPlot))+'</div></div>'+
-            '</div>'+
-            '<div class="rr" style="margin-top:5px"><span>Per plot / per acre</span><b>'+fmt(rlvPerPlot)+' · '+(acres>0?fmt(rlvPerAcre):"—")+'</b></div>'+
-            (askL>0
-              ? '<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #D7D9EC">'+
-                  '<div class="ct" style="margin-bottom:3px">Land — value vs cost to buy</div>'+
-                  '<table>'+
-                    cRow("Residual land value (max @ profit)",fmt(oRlv),false,false)+
-                    cRow("Guide price (as entered)",fmt(askL),false,false)+
-                    cRow("+ SDLT on land (non-resi bands)",fmt(acq.sdlt),false,false)+
-                    cRow("+ Legals &amp; acquisition (1.5%)",fmt(acq.other),false,false)+
-                    cRow("= Total cost to acquire",fmt(totalLandCost),false,true)+
-                  '</table>'+
-                  '<div class="rr" style="margin-top:4px"><span>Headroom — RLV less all-in cost</span><b style="color:'+(headroomAllIn>=0?"#1B7A54":"#B05A35")+'">'+(headroomAllIn<0?"−":"+")+fmt(Math.abs(headroomAllIn))+'</b></div>'+
-                  '<div class="rr"><span>Profit / margin after land</span><b style="color:'+(marginAllIn>=15?"#1B7A54":marginAllIn>=12?"#9A7B3E":"#B05A35")+'">'+fmt(profitAllIn)+' · '+pct(marginAllIn)+' (land '+Math.round(landPctGdv)+'% of GDV)</b></div>'+
-                '</div>'
-              : '<div class="rr" style="margin-top:6px;color:#9A7B3E"><span>Guide price</span><b>Enter one to test purchase costs vs RLV</b></div>')+
-          '</div>'+
-        '</div>'+
-        '<div class="verdict" style="background:'+vcol+'"><div class="vh">'+verdict+'</div><div class="vs">'+vsub+'</div></div>'+
-        pathBlock+
-        '<div class="foot"><b>Indicative appraisal — not a RICS Red Book valuation.</b> Figures are computed on Landform\'s engine from the inputs entered (site area, density, house mix, sale and build £/sqft, S106, finance and profit assumptions) and assume residential consent can be achieved. '+
-          (askL<=0?'Enter a land guide price on the Board Proposal or Land stage to test purchase costs (SDLT, legals, acquisition) against the residual land value. ':'')+
-          'Verify sale and build values against local comparables and a QS cost plan before commitment. Residual land value is the maximum supportable land PRICE at target developer profit'+(askL>0?'; the all-in position adds SDLT (non-residential land bands: 0% ≤£150k, 2% to £250k, 5% above) plus ~1.5% legals &amp; acquisition on the '+fmt(askL)+' guide price':'')+'. SDLT rates and reliefs vary — confirm with your tax adviser.</div>'+
-      '</div></body></html>';
-  }
+  function buildOnePagerHTML(){ return buildLandOnePager(data, city); }
   function openOnePager(){
     if(typeof notify==="function") notify("Generating one-page land appraisal…");
     var w=window.open("","_blank");
