@@ -208,10 +208,10 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
       e("div", { style:{ marginTop:12, padding:"9px 11px", background:buildInclusive?"rgba(45,122,101,0.06)":"rgba(154,123,62,0.06)", border:"1px solid "+(buildInclusive?"rgba(45,122,101,0.3)":"rgba(154,123,62,0.35)"), borderRadius:6, display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" } },
         e("label", { style:{ display:"flex", alignItems:"center", gap:8, cursor:"pointer", fontSize:12, color:"#3A3D6A", fontWeight:600 } },
           e("input", { type:"checkbox", checked:buildInclusive, onChange:function(ev){ up("sfh","buildInclusive", ev.target.checked); }, style:{ width:16, height:16, cursor:"pointer", accentColor:"#2D7A65" } }),
-          "🧱 Build £/sqft is all-in — includes roads, drainage & site infrastructure (SuDS)"),
+          "🧱 Build £/sqft is all-in — includes professional fees, contingency, roads, drainage & SuDS"),
         e("span", { style:{ flex:1, minWidth:200, fontSize:10.5, color:buildInclusive?"#2D7A65":"#9A7B3E", lineHeight:1.5 } },
-          buildInclusive ? "On — roads, site infrastructure & SuDS are inside your build rate, so they're not added again. Marketing/disposal is a separate sale cost, left at £0."
-                         : "Off — roads (£12k/plot) and site infrastructure/SuDS (£53k/acre) are added as separate cost lines on top of the build rate.")
+          buildInclusive ? "On — professional fees, contingency, roads, site infrastructure & SuDS are all inside your build rate, so they're not added again (finance is charged on the build cost). Marketing/disposal is a separate sale cost, left at £0."
+                         : "Off — professional fees (12%), contingency (5%), roads (£12k/plot) and site infrastructure/SuDS (£53k/acre) are added as separate cost lines on top of the build rate.")
       )
     ),
 
@@ -233,8 +233,8 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
           e("div", { style:{ display:"flex", justifyContent:"space-between", padding:"4px 0", fontSize:13, fontWeight:700, color:"#2E2F8A", borderBottom:"2px solid #DDE0ED", marginBottom:4 } },
             e("span", null, homes.toLocaleString()+" homes sold"), e("span", null, fmt(gdv))),
           costRow("Build ("+buildSqft.toLocaleString()+" sqft @ £"+effBuildPsf+")", num(M.buildCost)),
-          costRow("Professional fees", num(M.fees)),
-          costRow("Contingency", num(M.contingency)),
+          num(M.fees) > 0 && costRow("Professional fees", num(M.fees)),
+          num(M.contingency) > 0 && costRow("Contingency", num(M.contingency)),
           costRow("Finance", num(M.finance)),
           costRow("S106 / CIL (£"+fmtN(Math.round(s106pu))+"/plot)", num(M.s106)),
           num(M.roads) > 0 && costRow("Roads & sewers", num(M.roads)),

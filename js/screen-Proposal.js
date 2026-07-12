@@ -299,8 +299,8 @@ function buildLandOnePager(data, cityHint){
               cRow("Gross development value",fmt(oGdv),false,false)+
               (oRetail>oGdv+1?'<tr><td style="color:#9298BC">— affordable / mix discount</td><td class="n" style="color:#9298BC">−'+fmt(oRetail-oGdv)+'</td></tr>':'')+
               cRow("Build ("+ (oAvgSqft&&oUnits?Math.round(oAvgSqft*oUnits).toLocaleString()+" sqft @ £"+oBuildPsf:"")+")",fmt(oBuild),true,false)+
-              cRow("Professional fees",fmt(oFees),true,false)+
-              cRow("Contingency",fmt(oCont),true,false)+
+              (oFees>0?cRow("Professional fees",fmt(oFees),true,false):'')+
+              (oCont>0?cRow("Contingency",fmt(oCont),true,false):'')+
               cRow("Finance",fmt(oFin),true,false)+
               cRow("S106 / CIL"+(oUnits>0?" (£"+fmtN(Math.round(oS106/oUnits))+"/plot)":""),fmt(oS106),true,false)+
               (oRoads>0?cRow("Roads &amp; sewers",fmt(oRoads),true,false):'')+

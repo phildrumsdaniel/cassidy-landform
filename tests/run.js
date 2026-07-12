@@ -109,14 +109,22 @@ console.log("Landform engine consistency tests\n");
   near("RLV: engine == SFH-screen formula", c.rlv, sfhScreenRlv(d));
 })();
 
-// 4 — build-inclusive toggle zeroes roads/infra (no double-count)
+// 4 — build-inclusive toggle: an all-in rate covers fees, contingency, roads & infra
+// (no double-count), and finance is then charged on the build cost alone. (v10.48)
 (function(){
   var off = computeSFHMetrics(sfhDeal({ sfh:{ buildInclusive:false } }));
   var on  = computeSFHMetrics(sfhDeal({ sfh:{ buildInclusive:true } }));
   ok("roads+infra > 0 when toggle off", off.roads > 0 && off.infra > 0);
+  ok("fees+contingency > 0 when toggle off", off.fees > 0 && off.contingency > 0);
   ok("roads == 0 when build inclusive", on.roads === 0);
   ok("infra == 0 when build inclusive", on.infra === 0);
-  near("RLV improves by exactly roads+infra when toggled on", on.rlv - off.rlv, off.roads + off.infra);
+  ok("professional fees == 0 when build inclusive", on.fees === 0);
+  ok("contingency == 0 when build inclusive", on.contingency === 0);
+  ok("finance charged on build cost alone when inclusive (drops)", on.finance < off.finance);
+  // RLV improves by exactly the cost lines the all-in rate absorbs: fees + contingency +
+  // roads + infra, plus the finance saved by not financing the (now-absorbed) fees.
+  near("RLV improves by exactly the absorbed lines when toggled on",
+    on.rlv - off.rlv, (off.fees + off.contingency + off.roads + off.infra) + (off.finance - on.finance));
 })();
 
 // 5 — net land bid = gross RLV − acquisition costs
@@ -186,10 +194,16 @@ console.log("Landform engine consistency tests\n");
     ok("solver sales answer lifts RLV to about break-even", calcDealMetrics(d3).rlv >= -500000);
   }
 
-  // all-in build option equals the roads+infra it removes
+  // all-in build option equals the exact RLV swing from folding fees, contingency, roads
+  // & infra into the rate (v10.48 — was roads+infra only).
   var optAllIn = optimiseScheme(sfhDeal(), { targetRlv:0 });
   ok("solver surfaces the build-inclusive option", !!optAllIn.allInOption);
-  if (optAllIn.allInOption) near("all-in delta == roads+infra removed", optAllIn.allInOption.delta, 200*12000 + 32*53000, 2);
+  if (optAllIn.allInOption) {
+    var _off = computeSFHMetrics(sfhDeal({ sfh:{ buildInclusive:false } }));
+    var _on  = computeSFHMetrics(sfhDeal({ sfh:{ buildInclusive:true } }));
+    near("all-in delta == the absorbed cost lines (fees+cont+roads+infra+finance saved)", optAllIn.allInOption.delta, _on.rlv - _off.rlv, 2);
+    ok("all-in delta now exceeds roads+infra alone", optAllIn.allInOption.delta > 200*12000 + 32*53000);
+  }
 
   // a viable scheme reports stacks=true
   var good = optimiseScheme(sfhDeal({ sfh:{ buildInclusive:true } }), { targetRlv:0 });
