@@ -1777,6 +1777,15 @@ console.log("Landform engine consistency tests\n");
   ok("3-bed semi has a higher margin per sqft than the 4-bed detached", o.types[0].marginPsf > o.types[1].marginPsf);
   ok("optimised mix leans toward the 3-bed semi (more of them)", num(o.optimised.mix.filter(function(r){return r.type==="3-bed semi";})[0].count) > 250);
   ok("optimisation increases the £ available for land + profit", o.optimised.surplus > o.current.surplus);
+  // v10.61 — the optimised mix must keep the SAME total unit count (no rounding drift, e.g. 1,800→1,789).
+  ok("optimised mix preserves the total unit count", o.optimised.mix.reduce(function(a,r){return a+num(r.count);},0) === 500);
+  // and it holds for an awkward total that rounds badly across types
+  var d2={ assetType:"sfh", land:{city:"maidstone", acres:271.7}, planning:{},
+    sfh:{city:"maidstone", acres:271.7, buildInclusive:true, buildPsf:250,
+      mix:[{type:"2-bed semi",count:"270",sqft:"720",unitPrice:"300000"},{type:"3-bed semi",count:"684",sqft:"900",unitPrice:"400000"},
+           {type:"3-bed detached",count:"486",sqft:"1000",unitPrice:"440000"},{type:"4-bed detached",count:"360",sqft:"1250",unitPrice:"520000"}]} };
+  var o2=optimiseSfhMix(d2,"profit");
+  ok("optimiser holds a 1,800-home total exactly (no 1,789 drift)", o2.optimised.mix.reduce(function(a,r){return a+num(r.count);},0) === 1800);
   // Rent mode ranks by rent per sqft and still returns totals.
   var oR=optimiseSfhMix(d,"rent");
   ok("rent mode returns per-type rent & yield", oR && oR.types.every(function(t){ return t.rentPcm >= 0 && t.grossYield >= 0; }));
