@@ -7,6 +7,11 @@ function Tool(props){
     try{var s=localStorage.getItem("cassidy_deal"); if(!s) return {}; var parsed=JSON.parse(s); return migrateLoadedDeal(parsed).data || parsed;}catch(e){return {};}
   }()); var data=ds[0]; var setData=ds[1];
   var ss=useState("navigator"); var stage=ss[0]; var setStage=ss[1];
+  // v10.46 — Simple mode: collapse the menu to the essentials (Find → Quick Appraisal → Report),
+  // persisted so it sticks. The full 30-stage journey is one toggle away.
+  var smd=useState(function(){ try{ return localStorage.getItem("landform_simple")==="1"; }catch(e){ return false; } }());
+  var simpleMode=smd[0];
+  function setSimpleMode(v){ try{ localStorage.setItem("landform_simple", v?"1":"0"); }catch(e){} smd[1](v); }
   var mob=useState(false); var mobileMenuOpen=mob[0]; var setMobileMenuOpen=mob[1];
   var fup=useState(false); var showFileUpload=fup[0]; var setShowFileUpload=fup[1];
   var fpr=useState(false); var fileProcessing=fpr[0]; var setFileProcessing=fpr[1];
@@ -59,7 +64,6 @@ var ALL_STAGES = [
   {id:"quick",           label:"Quick Appraisal",    icon:"⚡", group:"0. Start", journeys:["all","land","property","sfh","btr","pbsa","recovery","asset"]},
   {id:"keystone",        label:"Keystone — Deal Builder", icon:"🪨", group:"0. Start", journeys:["all","land","property","sfh","btr","pbsa","recovery","asset"]},
   {id:"navigator",       label:"Process Navigator",  icon:"🧭", group:"0. Start",    journeys:["all","land","property","sfh","btr","pbsa","recovery","asset"]},
-  {id:"navigator",       label:"Process Navigator",  icon:"🧭", group:"0. Start",    journeys:["all","land","property","sfh","btr","pbsa","recovery","asset"]},
   {id:"assetOptimiser",  label:"Asset Exit Optimiser", icon:"🏛", group:"0. Start",    journeys:["asset","all"]},
   // ── 1. FIND ──────────────────────────────────────────────────────────────
   {id:"placona",     label:"Placona Agent",         icon:"🤖", group:"1. Find",     journeys:["land","sfh","btr","pbsa","all"]},
@@ -100,6 +104,10 @@ var ALL_STAGES = [
   {id:"propagation", label:"Propagation Audit",    icon:"🔬", group:"7. Audit",    journeys:["all"]},
   {id:"buildcosts",  label:"Build Cost Library",   icon:"🧱", group:"7. Audit",    journeys:["all"]},
 ];
+
+// v10.46 — the stages shown in SIMPLE MODE: find a site, quick-appraise it, report/track.
+// Everything else stays available the moment Simple mode is turned off.
+var SIMPLE_MODE_STAGES = ["keystone","scraper","placona","constraint","land","quick","sfh","proposal","scorecard","dashboard","portfolio"];
 
 // ──────────────────────────────────────────────────────────────────────
 // STAGE RELEVANCE (v9.31)
@@ -313,6 +321,7 @@ var JOURNEYS = {
 
   function stageVisibleForFlow(s){
     if(!s || !s.journeys)return true;
+    if(simpleMode && SIMPLE_MODE_STAGES.indexOf(s.id) < 0) return false;   // v10.46 — Simple mode filter
     var flowSchemes=activeSchemeFilters();
     if(flowSchemes.length===0&&exits.length===0)return s.id==="quick" || s.id==="keystone" || s.id==="navigator" || s.id==="portfolio" || s.id==="dashboard";
     for(var sj=0;sj<flowSchemes.length;sj++){
@@ -1924,6 +1933,13 @@ function loadSiteIntoDeal(site){
         e("div",{style:{background:"#fff",borderRadius:8,padding:"9px 12px",display:"flex",alignItems:"center",justifyContent:"center"}},
           e("img",{src:cassidyLogoSrc(),alt:"Cassidy Group Ltd",style:{width:"100%",maxWidth:172,height:"auto",display:"block"}})
         )
+      ),
+      // v10.46 — Simple mode toggle: collapse the menu to Find → Quick Appraisal → Report.
+      e("div",{style:{padding:"8px 12px 0"}},
+        e("button",{onClick:function(){ var next=!simpleMode; setSimpleMode(next); if(next && SIMPLE_MODE_STAGES.indexOf(stage)<0) setStage("quick"); },
+          style:{width:"100%",padding:"7px 10px",background:simpleMode?"#2D7A65":"rgba(255,255,255,0.08)",border:"1px solid "+(simpleMode?"#2D7A65":"rgba(255,255,255,0.2)"),color:"#fff",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
+          simpleMode?"⚡ Simple mode — ON (tap for full menu)":"☰ Full menu — tap for Simple mode"),
+        e("div",{style:{fontSize:8.5,color:"rgba(255,255,255,0.42)",textAlign:"center",marginTop:3,lineHeight:1.4}}, simpleMode?"Essentials only — Find → Quick Appraisal → Report":"All stages shown")
       ),
       e("div",{style:{padding:"8px 0",flex:1}},
         (function(){

@@ -496,7 +496,8 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
       // that maximises the £ available for land + profit (or rental yield), within realistic bounds.
       (function(){
         var optMode = s.optMode==="rent" ? "rent" : "profit";
-        var opt = (typeof optimiseSfhMix==="function") ? optimiseSfhMix(data, optMode) : null;
+        var optBounds = { minPct:(s.optMinPct!==undefined&&s.optMinPct!=="")?num(s.optMinPct):"", maxPct:(s.optMaxPct!==undefined&&s.optMaxPct!=="")?num(s.optMaxPct):"" };
+        var opt = (typeof optimiseSfhMix==="function") ? optimiseSfhMix(data, optMode, optBounds) : null;
         if(!opt || !opt.types.length) return null;
         var isRent = optMode==="rent";
         var gcols = "1.5fr 58px 92px 100px 92px";
@@ -539,8 +540,17 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
             opt.uplift>10000 && e("button",{onClick:function(){ up("sfh","mix",opt.optimised.mix); if(typeof notify==="function") notify("Applied the optimised mix — "+opt.optimised.units.toLocaleString()+" homes, "+fmt(opt.optimised.surplus)+" for land + profit."); },
               style:{padding:"9px 15px",background:"#2D7A65",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"Apply optimised mix →")
           ),
+          // v10.46 — tunable mix bounds (how concentrated the optimised mix can get per type).
+          e("div",{style:{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginTop:10,fontSize:11,color:"#7278A0"}},
+            e("span",{style:{fontWeight:700}},"Mix bounds per type:"),
+            e("span",null,"min"),
+            e("input",{type:"number",value:s.optMinPct||"",onChange:function(ev){up("sfh","optMinPct",ev.target.value);},placeholder:"10",style:{width:50,padding:"4px 6px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:11,fontFamily:"DM Sans,sans-serif",textAlign:"center"}}),
+            e("span",null,"% · max"),
+            e("input",{type:"number",value:s.optMaxPct||"",onChange:function(ev){up("sfh","optMaxPct",ev.target.value);},placeholder:"40",style:{width:50,padding:"4px 6px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:11,fontFamily:"DM Sans,sans-serif",textAlign:"center"}}),
+            e("span",{style:{color:"#9298BC"}},"% — raise the max to allow a more dominant type; tune to how Cassidy actually sells.")
+          ),
           e("div",{style:{fontSize:10,color:"#9298BC",marginTop:8,lineHeight:1.5}},
-            "Indicative — leans toward the best-returning types within realistic bounds (no type above ~40% or below ~10%); a pure optimum ('all 3-beds') isn't deliverable on planning or sales absorption. "+(isRent?"":"Only bites when real per-type prices are entered — a flat £/sqft makes every type similar.")),
+            "Indicative — leans toward the best-returning types within the bounds above; a pure optimum ('all 3-beds') isn't deliverable on planning or sales absorption. "+(isRent?"":"Only bites when real per-type prices are entered — a flat £/sqft makes every type similar.")),
           e(AIPanel,{user:user,up:up,stage:"sfh",data:data,persistKey:"sfh_mix_area_prices",label:"🤖 AI: research area new-build prices & rents by type",
             system:"You are a UK new-build residential valuer. Be specific and numerate; use a compact markdown table. Always caveat as indicative, to verify against live listings.",
             prompt:buildHonestPrompt(data,"For NEW-BUILD homes in "+cityName(sfhCity)+" ("+(sfhPc||"postcode TBC")+"), give a compact table of typical achieved SALE PRICE and MONTHLY RENT by house type/size: 2-bed terrace, 2-bed semi, 3-bed semi, 3-bed detached, 4-bed detached (and 1-bed if relevant). Columns: Type | Typical sqft | New-build sale price | Sale £/sqft | Monthly rent | Rent £/sqft·yr. Explicitly note where a bigger home sells at a LOWER £/sqft. End with which size gives the best profit-per-sqft and the best rental yield in THIS specific area, and a one-line caveat to verify against Rightmove/Zoopla and update the per-type prices in the mix.","sfh")})

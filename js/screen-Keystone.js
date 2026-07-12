@@ -150,6 +150,12 @@ function renderKeystone(data, setData, up, navTo, user){
         built._keystone = Object.assign({}, built._keystone || {}, {preservedOnRebuild: kept, wasRebuild: !!hasExisting});
         return built;
       });
+      // v10.46 — auto-run "Complete with AI" on build: research area prices/rents, apply them,
+      // optimise the mix. Non-blocking (the deal loads immediately); any failure leaves it as
+      // built. Only for a housing scheme that actually has a mix.
+      if((deal.assetType === "sfh" || deal.assetType === "land") && deal.sfh && deal.sfh.mix && deal.sfh.mix.length && typeof completeWithAI === "function"){
+        setTimeout(function(){ completeWithAI(deal); }, 60);
+      }
     }
     // v10.14 — non-blocking confirm (was native confirm(), which froze the browser).
     if(hasExisting) confirmToast("Replace the deal currently open with the one Keystone just built?\n\nYour saved portfolio deals are untouched.", doBuild, {confirmLabel:"Replace deal"});
@@ -160,12 +166,13 @@ function renderKeystone(data, setData, up, navTo, user){
   // apply them to the mix (replacing the flat default), feed rents into capitalisation, and apply
   // the profit-maximising mix. One click does what used to be manual pricing + optimising. The
   // deal is only changed if the AI returns usable figures; any failure leaves it untouched.
-  async function completeWithAI(){
-    var sfh0 = data.sfh || {};
-    if(!(sfh0.mix && sfh0.mix.length)){ notify("Build the deal first, then complete it with AI."); return; }
+  async function completeWithAI(dealArg){
+    var deal = dealArg || data;
+    var sfh0 = deal.sfh || {};
+    if(!(sfh0.mix && sfh0.mix.length)){ if(!dealArg) notify("Build the deal first, then complete it with AI."); return; }
     setK({ enriching:true, enrichNote:"" });
-    var sfhCity = sfh0.city || (data.land && data.land.city) || "";
-    var pc = (data.land && data.land.postcode) || "";
+    var sfhCity = sfh0.city || (deal.land && deal.land.city) || "";
+    var pc = (deal.land && deal.land.postcode) || "";
     var typeList = sfh0.mix.filter(function(r){ return num(r.count) > 0; }).map(function(r){ return r.type; })
       .filter(function(v, i, a){ return v && a.indexOf(v) === i; });
     var sys = "You are a UK new-build residential valuer. Output STRICT JSON only — no prose, no markdown fences. Figures are indicative and to be verified.";
@@ -179,7 +186,7 @@ function renderKeystone(data, setData, up, navTo, user){
       var obj = JSON.parse((a >= 0 && b > a) ? res.substring(a, b + 1) : res);
       var aiTypes = obj.types || obj.prices || [];
       if(!(aiTypes && aiTypes.length)) throw new Error("no per-type figures returned");
-      var out = applyMarketPricesAndOptimise(data, aiTypes, { optimise:true });
+      var out = applyMarketPricesAndOptimise(deal, aiTypes, { optimise:true });
       if(!out.applied) throw new Error("none of the AI types matched the mix");
       setData(function(prev){ return Object.assign({}, prev, { sfh: out.data.sfh, capitalise: out.data.capitalise || prev.capitalise }); });
       var note = "Applied real area prices to " + out.applied + " house type" + (out.applied === 1 ? "" : "s") +

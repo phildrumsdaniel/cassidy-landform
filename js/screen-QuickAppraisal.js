@@ -20,6 +20,14 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
   var defBuildPsf = Math.round(num(mkt.build) || 205);
   var effBasePsf = num(s.basePsf) || defBasePsf;
   var effBuildPsf = num(s.buildPsf) || defBuildPsf;
+  // v10.46 — the new-build SALE premium is visible and tunable. Probe newBuildPsf to recover the
+  // area's default premium %, back out the "existing-home" £/sqft, and let the user adjust the
+  // premium (it only touches SALE — build cost is the raw construction rate).
+  var nbProbe = (typeof newBuildPsf === "function") ? newBuildPsf(postcode || cityKey, 1000) : null;
+  var areaPremiumPct = nbProbe ? num(nbProbe.premiumPct) : 17;
+  var existingPsf = Math.max(1, Math.round(defBasePsf / (1 + areaPremiumPct/100)));
+  var premiumPct = num(s.basePsf) > 0 ? Math.round((num(s.basePsf)/existingPsf - 1)*100)
+                 : (s.nbPremiumPct !== undefined && s.nbPremiumPct !== "" ? num(s.nbPremiumPct) : areaPremiumPct);
   var ahPct     = numOr(s.ahPct,   num(p.ahPct) || 30);
   var s106pu    = numOr(s.s106pu,  num(p.s106pu) || 15000);
   var finRate   = numOr(s.finRate, 7.5);
@@ -127,6 +135,16 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
       return Object.assign({}, prev, { sfh: Object.assign({}, sp, { basePsf: v, mix: mix }) });
     });
   }
+  // Tuning the new-build premium sets the sale £/sqft = existing-home £/sqft × (1 + premium),
+  // and reprices the mix. Build cost is untouched (it's the raw construction rate).
+  function setPremium(v){
+    var nb = Math.round(existingPsf * (1 + num(v)/100));
+    setData(function(prev){
+      var sp = prev.sfh || {};
+      var mix = nb > 0 ? repriceMix(sp.mix || [], nb) : (sp.mix || []);
+      return Object.assign({}, prev, { sfh: Object.assign({}, sp, { nbPremiumPct: v, basePsf: String(nb), mix: mix }) });
+    });
+  }
   function setAcres(v){ up("land", "acres", v); }
   function densityTo(perAcre){ if(acres > 0) setHomes(acres * perAcre); }
   // Generate the one-page A4 board proposal straight from this page's figures. Uses the shared
@@ -168,8 +186,9 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
       e("div", { style:{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))", gap:12 } },
         e(Inp, { label:"Site area (acres)", type:"number", value:(s.acres !== undefined && s.acres !== "") ? s.acres : (l.acres || ""), onChange:setAcres, placeholder:"e.g. 40" }),
         e(Inp, { label:"Homes on the land", type:"number", value:String(effHomes || ""), onChange:setHomes, placeholder:acres > 0 ? String(Math.round(acres*12)) : "e.g. 480" }),
-        e(Inp, { label:"Sale price £/sqft"+(defBasePsf ? " — "+cityName(cityKey)+" new-build ≈ £"+defBasePsf : ""), type:"number", value:s.basePsf || "", onChange:setBasePsf, placeholder:"£"+defBasePsf }),
-        e(Inp, { label:"Build cost £/sqft"+(defBuildPsf ? " — area ≈ £"+defBuildPsf : ""), type:"number", value:s.buildPsf || "", onChange:function(v){ up("sfh","buildPsf",v); }, placeholder:"£"+defBuildPsf }),
+        e(Inp, { label:"Sale price £/sqft — £"+existingPsf+" local + "+premiumPct+"% new-build", type:"number", value:s.basePsf || "", onChange:setBasePsf, placeholder:"£"+effBasePsf }),
+        e(Inp, { label:"New-build premium % (sale only)", type:"number", value:(s.nbPremiumPct !== undefined && s.nbPremiumPct !== "") ? s.nbPremiumPct : "", onChange:setPremium, placeholder:String(premiumPct) }),
+        e(Inp, { label:"Build cost £/sqft — construction cost, no premium", type:"number", value:s.buildPsf || "", onChange:function(v){ up("sfh","buildPsf",v); }, placeholder:"£"+defBuildPsf }),
         e(Inp, { label:"Affordable housing %", type:"number", value:(s.ahPct !== undefined && s.ahPct !== "") ? s.ahPct : "", onChange:function(v){ up("sfh","ahPct",v); }, placeholder:String(ahPct) }),
         e(Inp, { label:"Developer profit %", type:"number", value:(s.profitPct !== undefined && s.profitPct !== "") ? s.profitPct : "", onChange:function(v){ up("sfh","profitPct",v); }, placeholder:"17.5" }),
         e(Inp, { label:"S106 / CIL per plot (£)", type:"number", value:s.s106pu || "", onChange:function(v){ up("sfh","s106pu",v); }, placeholder:fmtN(s106pu) }),
