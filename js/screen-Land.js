@@ -94,6 +94,13 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
           carry("planning", "units");
           carry("rlv", "units");
           carry("sfh", "totalUnits");
+          // v10.62 — the entered units are authoritative: rescale the SFH house mix pro-rata so
+          // the modelled homes match exactly (fixes a mix that drifted to 1,789/1,902 vs 1,800).
+          var _sfhPrev = prev.sfh || {};
+          if(_sfhPrev.mix && _sfhPrev.mix.length && num(value) > 0 && typeof scaleMixToUnits === "function"){
+            next.sfh = Object.assign({}, next.sfh || _sfhPrev);
+            next.sfh.mix = scaleMixToUnits(_sfhPrev.mix, num(value));
+          }
         }
         if(key === "avgSqft"){
           carry("rlv", "avgSqft");

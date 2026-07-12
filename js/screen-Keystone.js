@@ -242,7 +242,13 @@ function renderKeystone(data, setData, up, navTo, user){
   // into the brief so the build (and the whole appraisal) uses it.
   var briefObj = (function(){ try{ return JSON.parse(k.brief||"{}"); }catch(e2){ return null; } })();
   var briefAcres = briefObj ? num(briefObj.acres) : 0;
-  var briefDensity = (briefObj && num(briefObj.density||briefObj.homesPerAcre)) || 12;
+  var briefUnits = briefObj ? num(briefObj.units) : 0;
+  // v10.62 — the density slider is whole homes/acre, so it can't hit an exact total (6.63/acre
+  // ≈ 7 → 1,902 not 1,800). The brief's UNITS are therefore the authoritative figure: show the
+  // implied (decimal) density from them, and offer a direct "total homes" override that sets the
+  // exact number the whole build reconciles to.
+  var briefDensity = (briefUnits > 0 && briefAcres > 0) ? (briefUnits / briefAcres)
+    : ((briefObj && num(briefObj.density||briefObj.homesPerAcre)) || 12);
   briefDensity = Math.max(4, Math.min(40, briefDensity));
   function patchBrief(patch){
     var o; try{ o = JSON.parse(k.brief||"{}"); }catch(e2){ return; }
@@ -253,7 +259,13 @@ function renderKeystone(data, setData, up, navTo, user){
     d = Math.max(4, Math.min(40, Math.round(d)));
     patchBrief({ density:d, units: Math.round(briefAcres * d) });
   }
-  var densityUnits = Math.round(briefAcres * briefDensity);
+  // v10.62 — direct manual override of the TOTAL homes; sets the exact unit count in the brief
+  // (and back-computes the implied density for display) so the build populates to this figure.
+  function setUnits(n){
+    n = Math.max(1, Math.round(num(n)));
+    patchBrief({ units:n, density: briefAcres > 0 ? Math.round((n / briefAcres) * 100) / 100 : "" });
+  }
+  var densityUnits = briefUnits > 0 ? briefUnits : Math.round(briefAcres * briefDensity);
   // v10.47 — capacity vs the source's stated figure. Keystone develops from what the source
   // says (statedUnits); this shows the land's fuller capacity at a higher reference density so
   // the headroom is visible before building — the source's number leads, the potential is flagged.
@@ -288,8 +300,18 @@ function renderKeystone(data, setData, up, navTo, user){
       ),
       e("div",{style:{textAlign:"center",minWidth:150}},
         e("div",{style:{fontSize:26,fontWeight:800,color:"#2E2F8A",lineHeight:1}}, densityUnits.toLocaleString()+" homes"),
-        e("div",{style:{fontSize:11,color:"#7278A0",marginTop:2}}, e("b",null,briefDensity+" homes/acre"),"  ·  ≈"+Math.round(briefDensity*2.471)+" per hectare (dph)")
+        e("div",{style:{fontSize:11,color:"#7278A0",marginTop:2}}, e("b",null,(Math.round(briefDensity*100)/100)+" homes/acre"),"  ·  ≈"+Math.round(briefDensity*2.471)+" per hectare (dph)")
       )
+    ),
+    // v10.62 — manual TOTAL-HOMES override: type the exact figure the whole build should use.
+    e("div",{style:{display:"flex",alignItems:"flex-end",gap:12,flexWrap:"wrap",marginTop:14,padding:"10px 12px",background:"rgba(45,122,101,0.06)",border:"1px solid rgba(45,122,101,0.3)",borderRadius:8}},
+      e("div",{style:{display:"flex",flexDirection:"column",gap:3}},
+        e("label",{style:{fontSize:10,color:"#2D5A47",textTransform:"uppercase",letterSpacing:".05em",fontWeight:700}},"Total homes — manual override"),
+        e("input",{type:"number",min:1,step:1,value:briefUnits||"",placeholder:String(densityUnits),
+          onChange:function(ev){ setUnits(num(ev.target.value)); },
+          style:{width:150,padding:"9px 10px",border:"1px solid #2D7A65",borderRadius:6,fontSize:18,fontWeight:800,color:"#1E7A5C",fontFamily:"DM Sans,sans-serif",background:"#fff"}})),
+      e("div",{style:{flex:"1 1 220px",fontSize:10.5,color:"#2D5A47",lineHeight:1.5}},
+        "Type the exact number of homes and the whole build reconciles to it. The density slider is whole homes/acre, so it can't hit every total (e.g. "+(briefAcres>0?(Math.round(briefUnits/briefAcres*100)/100):"—")+"/acre = "+briefUnits.toLocaleString()+" needs a decimal). This override wins.")
     ),
     e("div",{style:{display:"flex",gap:6,flexWrap:"wrap",marginTop:12}},
       [["8","Low / large plots"],["12","Typical estate"],["16","Suburban"],["20","Higher density"]].map(function(p){

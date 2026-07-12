@@ -155,6 +155,21 @@ function keystoneGenerateMix(units, cityKey, postcode){
   });
 }
 
+// v10.62 — scaleMixToUnits: rescale a house mix pro-rata so its counts sum EXACTLY to a target
+// unit total (the last row absorbs the rounding remainder). Used so a manual units figure stays
+// authoritative — the modelled mix reconciles to it instead of drifting (e.g. 1,800 ≠ 1,789/1,902).
+function scaleMixToUnits(mix, target){
+  mix = mix || []; target = Math.round(num(target));
+  var tot = mix.reduce(function(a, r){ return a + num(r.count); }, 0);
+  if(target <= 0 || tot <= 0 || tot === target) return mix;
+  var k = target / tot, acc = 0;
+  return mix.map(function(r, i){
+    var c = (i === mix.length - 1) ? Math.max(0, target - acc) : Math.max(0, Math.round(num(r.count) * k));
+    acc += c;
+    return Object.assign({}, r, { count: String(c) });
+  });
+}
+
 // keystoneMarketKey — resolve a free-text town to a known market key that drives
 // pricing, build cost and yield. Normalises spaces AND hyphens (so "Ryton-on-Dunsmore"
 // can match), maps nearby villages to their nearest named market, and — crucially —
@@ -736,5 +751,5 @@ function rawImportBrief(deal){
 
 // Expose to the headless test harness (Node) without breaking the browser global scope.
 if(typeof module !== "undefined" && module.exports){
-  module.exports = { buildDealFromBrief: buildDealFromBrief, detectJourney: detectJourney, keystoneBriefFromPlaconaSite: keystoneBriefFromPlaconaSite, rawImportBrief: rawImportBrief, KEYSTONE_BRIEF_SCHEMA: KEYSTONE_BRIEF_SCHEMA, KEYSTONE_JOURNEY_FILLERS: KEYSTONE_JOURNEY_FILLERS, applyMarketPricesAndOptimise: applyMarketPricesAndOptimise };
+  module.exports = { buildDealFromBrief: buildDealFromBrief, detectJourney: detectJourney, keystoneBriefFromPlaconaSite: keystoneBriefFromPlaconaSite, rawImportBrief: rawImportBrief, KEYSTONE_BRIEF_SCHEMA: KEYSTONE_BRIEF_SCHEMA, KEYSTONE_JOURNEY_FILLERS: KEYSTONE_JOURNEY_FILLERS, applyMarketPricesAndOptimise: applyMarketPricesAndOptimise, scaleMixToUnits: scaleMixToUnits };
 }

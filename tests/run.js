@@ -1786,6 +1786,14 @@ console.log("Landform engine consistency tests\n");
            {type:"3-bed detached",count:"486",sqft:"1000",unitPrice:"440000"},{type:"4-bed detached",count:"360",sqft:"1250",unitPrice:"520000"}]} };
   var o2=optimiseSfhMix(d2,"profit");
   ok("optimiser holds a 1,800-home total exactly (no 1,789 drift)", o2.optimised.mix.reduce(function(a,r){return a+num(r.count);},0) === 1800);
+  // v10.62 — scaleMixToUnits reconciles a drifted mix back to an authoritative unit total
+  if(typeof scaleMixToUnits === "function"){
+    var drifted=[{type:"a",count:"600"},{type:"b",count:"700"},{type:"c",count:"602"}]; // sums 1902
+    var fixed=scaleMixToUnits(drifted, 1800);
+    ok("scaleMixToUnits rescales a 1,902 mix to exactly 1,800", fixed.reduce(function(a,r){return a+num(r.count);},0) === 1800);
+    ok("scaleMixToUnits keeps the distribution order (largest stays largest-ish)", num(fixed[1].count) > num(fixed[0].count));
+    ok("scaleMixToUnits is a no-op when already on target", scaleMixToUnits([{count:"100"},{count:"100"}], 200).reduce(function(a,r){return a+num(r.count);},0) === 200);
+  }
   // Rent mode ranks by rent per sqft and still returns totals.
   var oR=optimiseSfhMix(d,"rent");
   ok("rent mode returns per-type rent & yield", oR && oR.types.every(function(t){ return t.rentPcm >= 0 && t.grossYield >= 0; }));
