@@ -184,14 +184,14 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
   var capMktRentPerUnitPa = num(M.capMarketRentPerUnitPa);
   var capD = data.capitalise || {};
   var capYieldPct = num(capD.targetYield); if(capYieldPct > 0 && capYieldPct < 1) capYieldPct *= 100;
-  if(!(capYieldPct > 0)) capYieldPct = 4.5;
-  capYieldPct = Math.max(3.8, Math.min(6, capYieldPct));
+  if(!(capYieldPct > 0)) capYieldPct = 4.9;
+  capYieldPct = Math.max(4.5, Math.min(6, capYieldPct));   // v10.55 — 4.5% institutional floor (never capitalise more keenly)
   function capIV(y){ return y > 0 ? capNetRentPa / (y/100) : 0; }                        // investment value the fund pays
   function capProfitAllIn(y){ return capIV(y) - devCost - allInLand; }                   // actual profit given the land cost
   function capMaxLand(y){ var iv = capIV(y); return iv - devCost - iv*(profitPct/100); } // max land at target profit
   function capMarginAllIn(y){ var iv = capIV(y); return iv > 0 ? (capProfitAllIn(y)/iv*100) : 0; }
   function setCapYield(v){ up("capitalise","targetYield", v); }
-  var capYieldRow = [3.8, 4.25, 4.5, 5.0, 5.5, 6.0];
+  var capYieldRow = [4.5, 4.75, 5.0, 5.25, 5.5, 6.0];
   var capIVsel = capIV(capYieldPct);
 
   return e("div", null,
@@ -216,6 +216,8 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
         e(Inp, { label:"Developer profit %", type:"number", value:(s.profitPct !== undefined && s.profitPct !== "") ? s.profitPct : "", onChange:function(v){ up("sfh","profitPct",v); }, placeholder:"17.5" }),
         e(Inp, { label:"S106 / CIL per plot (£)", type:"number", value:s.s106pu || "", onChange:function(v){ up("sfh","s106pu",v); }, placeholder:fmtN(s106pu) }),
         e(Inp, { label:"Finance rate %", type:"number", value:s.finRate || "", onChange:function(v){ up("sfh","finRate",v); }, placeholder:"7.5" }),
+        e(Inp, { label:"Programme (years) — build & sell", type:"number", value:s.programmeYears || "", onChange:function(v){ up("sfh","programmeYears",v); }, placeholder:String(num(M.financeProgYears)||"") }),
+        e(Inp, { label:"Peak debt (% of build) — lower = faster sales/more phases", type:"number", value:s.peakDebtPct || "", onChange:function(v){ up("sfh","peakDebtPct",v); }, placeholder:String(num(M.financePeakDebtPct)||"") }),
         e(Inp, { label:"Landowner's asking price (£)", type:"number", value:l.price || "", onChange:function(v){ up("land","price",v); }, placeholder:"e.g. 8000000" })
       ),
       acres > 0 && e("div", { style:{ marginTop:12, display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" } },
@@ -258,7 +260,7 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
           costRow("Build ("+buildSqft.toLocaleString()+" sqft @ £"+effBuildPsf+")", num(M.buildCost)),
           num(M.fees) > 0 && costRow("Professional fees", num(M.fees)),
           num(M.contingency) > 0 && costRow("Contingency", num(M.contingency)),
-          costRow("Finance", num(M.finance)),
+          costRow("Finance ("+(num(M.financeProgYears)||"?")+"yr · peak "+(num(M.financePeakDebtPct)||"?")+"% · "+finRate+"% pa, S-curve)", num(M.finance)),
           costRow("S106 / CIL (£"+fmtN(Math.round(s106pu))+"/plot)", num(M.s106)),
           num(M.roads) > 0 && costRow("Roads & sewers", num(M.roads)),
           num(M.infra) > 0 && costRow("Infrastructure & SuDS", num(M.infra)),
@@ -287,6 +289,26 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
         )
       ),
 
+      // ── PROFIT SENSITIVITY ─────────────────────────────────────────────────────
+      // Residual land value at a range of developer profit targets — house-builders often want
+      // 20%+ on GDV (or profit-on-cost), so show the swing rather than a single 17.5% figure.
+      gdv > 0 && (function(){
+        var profitRow = [17.5, 20, 25, 30];
+        function rlvAtProfit(p){ return (gdv - devCost) - gdv*(p/100); }
+        return e("div", { style:Object.assign({}, S.card, { borderLeft:"4px solid #4A4BAE", marginTop:14 }) },
+          e("div", { style:S.cardTitle }, "Land value vs developer profit target"),
+          e("div", { style:{ fontSize:11, color:"#7278A0", lineHeight:1.5, marginBottom:10 } },
+            "The residual land value at different profit targets. 17.5% of GDV is the planning-viability benchmark; volume house-builders often target 20%+ (a ‘30% margin’ is usually profit-on-cost, ≈ 22–23% on GDV). Everything else held constant."),
+          e("div", { style:{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))", gap:10 } },
+            profitRow.map(function(p){
+              var v = rlvAtProfit(p), on = Math.abs(p - profitPct) < 0.25;
+              return e("div", { key:p, style:{ border:"1px solid "+(on?"#4A4BAE":"#E0E2EC"), background:on?"rgba(74,75,174,0.06)":"#FAFBFF", borderRadius:8, padding:"9px 11px" } },
+                e("div", { style:{ fontSize:10, color:"#8A90B4", fontWeight:700, textTransform:"uppercase", letterSpacing:".05em" } }, p+"% profit"+(on?" · current":"")),
+                e("div", { style:{ fontSize:18, fontWeight:800, marginTop:3, color:v >= 0 ? "#1B7A54" : "#B05A35" } }, (v < 0 ? "−" : "") + fmt(Math.abs(v))));
+            }))
+        );
+      })(),
+
       // ── VERDICT ──────────────────────────────────────────────────────────────
       e("div", { style:{ marginTop:14, borderRadius:9, padding:"14px 18px", background:vcol, color:"#fff" } },
         e("div", { style:{ fontSize:16, fontWeight:800 } }, verdict),
@@ -298,13 +320,13 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
         e("div", { style:S.cardTitle }, "4 · Forward-fund exit — the whole scheme sold to a pension fund"),
         e("p", { style:{ fontSize:11.5, color:"#7278A0", lineHeight:1.6, margin:"0 0 12px", maxWidth:700 } },
           "Instead of selling homes one by one, the finished scheme is let and the whole rented investment is bought by an institution at a ", e("b", null, "net initial yield"),
-          ". A keener (lower) yield means the fund pays more — so a 3.8% exit is worth far more than a 6% one. Net rent ≈ ", e("b", null, fmt(capNetRentPa)+" p.a."),
+          ". A keener (lower) yield means the fund pays more — so a 4.5% exit is worth far more than a 6% one (4.5% is the institutional floor; we don't capitalise more keenly). Net rent ≈ ", e("b", null, fmt(capNetRentPa)+" p.a."),
           " (", fmt(capMktRentPerUnitPa), "/home gross, after 25% management)."),
         // yield control (3.8%–6%)
         e("div", { style:{ display:"flex", alignItems:"center", gap:14, flexWrap:"wrap", marginBottom:12 } },
-          e("input", { type:"range", min:3.8, max:6, step:0.1, value:capYieldPct, onChange:function(ev){ setCapYield(num(ev.target.value)); }, style:{ flex:"1 1 240px", accentColor:"#2D7A65", cursor:"pointer" } }),
+          e("input", { type:"range", min:4.5, max:6, step:0.1, value:capYieldPct, onChange:function(ev){ setCapYield(num(ev.target.value)); }, style:{ flex:"1 1 240px", accentColor:"#2D7A65", cursor:"pointer" } }),
           e("div", { style:{ display:"flex", flexDirection:"column", alignItems:"center", gap:3 } },
-            e("input", { type:"number", min:3.8, max:6, step:0.1, value:capYieldPct, onChange:function(ev){ setCapYield(num(ev.target.value)); },
+            e("input", { type:"number", min:4.5, max:6, step:0.1, value:capYieldPct, onChange:function(ev){ setCapYield(num(ev.target.value)); },
               style:{ width:76, padding:"7px 8px", border:"1px solid #C8CDE0", borderRadius:6, fontSize:16, fontWeight:800, textAlign:"center", color:"#1B7A54", fontFamily:"DM Sans,sans-serif", background:"#fff" } }),
             e("div", { style:{ fontSize:9, color:"#7278A0", textTransform:"uppercase", letterSpacing:".06em", fontWeight:700 } }, "net yield %"))
         ),
@@ -348,6 +370,33 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
         e("button", { onClick:function(){ navTo("sfh"); }, style:{ padding:"9px 16px", background:"#fff", border:"1px solid #4A4BAE", color:"#4A4BAE", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "Refine the house mix →"),
         e("button", { onClick:function(){ navTo("proposal"); }, style:{ padding:"9px 16px", background:"#fff", border:"1px solid #DDE0ED", color:"#3A3D6A", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "Full board paper →")
       ),
+
+      // ── VERIFY BEFORE COMMITTING — ground the key assumptions ───────────────────
+      (function(){
+        var town = (typeof cityName === "function" ? cityName(cityKey) : cityKey) || "the area";
+        var g = function(q){ return "https://www.google.com/search?q=" + encodeURIComponent(q); };
+        var salesLinks = [
+          ["🏠 New-build prices — " + town, g("new build homes for sale " + town + " " + (postcode||"")), "#2D7A65"],
+          ["Persimmon / Barratt / Redrow — " + town, g("Persimmon OR Barratt OR Redrow new homes " + town), "#4A4BAE"],
+          ["Land Registry sold prices", "https://www.gov.uk/search-house-prices"],
+          ["Local registered providers (affordable buyer)", g("largest housing associations " + town + " Kent registered provider")]
+        ];
+        var ahHomes = Math.round(homes * (ahPct/100));
+        return e("div", { style:Object.assign({}, S.card, { borderLeft:"4px solid #9A7B3E", marginTop:14 }) },
+          e("div", { style:S.cardTitle }, "Verify before committing"),
+          e("div", { style:{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:10 } },
+            salesLinks.map(function(lk){
+              return e("a", { key:lk[0], href:lk[1], target:"_blank", rel:"noopener",
+                style:{ padding:"7px 12px", background:"#fff", border:"1px solid "+(lk[2]||"#DDE0ED"), borderRadius:6, fontSize:11, fontWeight:700, color:lk[2]||"#3A3D6A", textDecoration:"none" } }, lk[0]+" ↗");
+            })),
+          e("ul", { style:{ margin:0, paddingLeft:16, fontSize:10.5, color:"#7278A0", lineHeight:1.6 } },
+            e("li", null, e("b", null, "Sale £/sqft"), ": the £"+effBasePsf+" here is a Land-Registry-derived figure + "+premiumPct+"% new-build premium — check it against actual local new-build launches (links above)."),
+            e("li", null, e("b", null, "Floor area basis"), ": houses are priced on GIA (whole internal area) — there is no GIA→NIA deduction (the ~10–15% efficiency loss applies only to flats with communal areas)."),
+            e("li", null, e("b", null, "Affordable"), ": ~"+ahHomes.toLocaleString()+" homes ("+ahPct+"%) would be sold to a registered provider — confirm current appetite (in Kent, e.g. Golding Homes, Clarion, Moat, Southern Housing)."),
+            e("li", null, e("b", null, "Assumptions"), ": S106 (£"+fmtN(Math.round(s106pu))+"/plot), the "+(num(M.financeProgYears)||"?")+"-year programme and planning timeline are estimates — replace with the actual heads of terms and programme. The residual land value is the maximum supportable price, not an agreed land value.")
+          )
+        );
+      })(),
 
       e("div", { style:{ fontSize:10, color:"#9298BC", marginTop:14, lineHeight:1.5, borderTop:"1px solid #EEF0F7", paddingTop:8 } },
         "Indicative rule-of-thumb — not a RICS Red Book valuation. Assumes residential consent can be achieved. Sale and build £/sqft, S106 and finance are best-practice starting points for the area; verify against local comparables and a QS cost plan before commitment.")

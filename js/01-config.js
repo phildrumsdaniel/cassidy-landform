@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.54";
+var CURRENT_VERSION = "10.55";
 var VERSION_HISTORY = [
+  {v:"10.55", date:"Jul 2026", headline:"Appraisal-realism upgrade (from a reviewer's queries): (1) FINANCE is now modelled on an S-curve / peak-debt basis — finance = (build) × peak-debt% × rate × programme-years × 0.6 — with editable ‘Programme (years)’ and ‘Peak debt %’ inputs, so a big phased scheme shows a realistic multi-year interest cost (e.g. ~£75m, tunable up for slow sales) instead of a flat 12% of build. (2) Keystone's default house sizes cut to volume-builder norms (avg ~970 sqft, was ~1,159). (3) NEW profit-sensitivity strip — residual land value at 17.5 / 20 / 25 / 30% developer profit, so the Board sees the swing. (4) The forward-fund yield floor is now 4.5% (institutional floor — never capitalise more keenly). (5) NEW ‘Verify before committing’ block — links to check local new-build sale prices (Persimmon/Barratt/Redrow, Land Registry) and local registered providers, plus notes that houses price on GIA (no NIA deduction) and that S106/programme/land value are assumptions. Same changes flow into the printed one-pager"},
   {v:"10.54", date:"Jul 2026", headline:"Clarity fix on the Quick Appraisal forward-fund exit: a NEGATIVE ‘max land’ figure now shows in RED (it was hardcoded green, so a −£120m read like a headline positive), and a plain-English line now compares the two exits directly — e.g. ‘this exit supports −£120.41m of land vs +£78.53m on the build-to-sell appraisal above. Build-to-sell is the stronger exit here — forward-funding suits rental blocks (flats/BTR) more than houses built for sale.’ The build-to-sell residual land value is unchanged; this only stops the forward-fund figure being mistaken for the deal's headline. Same red-for-negative fix applied to the printed one-pager's forward-fund table"},
   {v:"10.53", date:"Jul 2026", headline:"The real Cassidy Group logo now appears on every generated/printed report — not just the Board Proposal. Added to the one-page land appraisal (top-right), the Investor Teaser and Investor Memorandum covers, the Grant Strategy Pack and the Land deal summary, using the same official brand artwork as the login and sidebar. So anything you print or save as PDF carries the Cassidy mark. (Reports keep a text fallback if the artwork ever fails to load.)"},
   {v:"10.52", date:"Jul 2026", headline:"Two board-proposal improvements: (1) the one-page appraisal and board paper now open IN-APP (an overlay with Close and Print / Save-as-PDF buttons) instead of a new browser tab — so on a phone you're no longer stranded on the PDF and can close straight back into Landform and regenerate any time; (2) when NO land guide price is entered, the board proposal and the printed one-pager now show an indicative MARKET land-value guide for the area by land type — agricultural / farmland, greenbelt/strategic hope value, allocated, outline and full-consent £/acre bands (× the site acreage) — so there's a reference for what the land would typically cost, with a note that brownfield ≈ consented value less remediation. Clearly flagged as market context; the residual land value remains the figure to trust for what to actually pay"},
@@ -2647,7 +2648,23 @@ function computeSFHMetrics(data){
   // construction-only rate and both lines return.
   var sfhFees = buildInclusive ? 0 : buildCost * (numOr(sfh.feesPct, 12) / 100);
   var sfhContingency = buildInclusive ? 0 : buildCost * (numOr(sfh.contingency, 5) / 100);
-  var sfhFinance = (buildCost + sfhFees) * (numOr(sfh.finRate, 7.5) / 100);
+  // v10.55 — FINANCE on an S-CURVE / PEAK-DEBT basis, not a flat rate × build. For a large
+  // phased scheme the interest depends on how long the programme runs and how much debt is
+  // outstanding at peak — sales receipts recycle capital, so peak debt is far below the total
+  // build cost. Both are derived from the scheme's scale and are editable on the deal:
+  //   • programmeYears — bigger schemes run longer (≈ 1 + units/350, clamped 2–10 yrs).
+  //   • peakDebtPct — % of (build+fees) outstanding at peak; more phases ⇒ lower peak
+  //     (≈ 200 / phases, clamped 30–100%), where phases ≈ ceil(units/300).
+  //   finance = (build + fees) × peakDebt% × rate × programmeYears × 0.6 (S-curve avg utilisation)
+  // A single-phase small scheme (peak ~100%, ~2 yrs) lands near the old flat figure; a big
+  // phased scheme shows a realistic multi-year interest cost. Tune peakDebt up for slow sales.
+  var FIN_SCURVE = 0.6;
+  var finPhases = num(sfh.phases) > 0 ? num(sfh.phases) : Math.max(1, Math.ceil(totalUnits / 300));
+  var finProgYears = num(sfh.programmeYears) > 0 ? num(sfh.programmeYears)
+    : Math.max(2, Math.min(10, Math.round((1 + totalUnits / 350) * 10) / 10));
+  var finPeakDebtPct = num(sfh.peakDebtPct) > 0 ? num(sfh.peakDebtPct)
+    : Math.max(30, Math.min(100, Math.round(200 / finPhases)));
+  var sfhFinance = (buildCost + sfhFees) * (finPeakDebtPct / 100) * (numOr(sfh.finRate, 7.5) / 100) * finProgYears * FIN_SCURVE;
   var sfhS106 = totalUnits * numOr(sfh.s106pu, 8000);
   var sfhRoads = buildInclusive ? 0 : totalUnits * numOr(sfh.roads, 12000);
   var sfhInfra = buildInclusive ? 0 : sfhAcres * 53000;
@@ -2687,6 +2704,7 @@ function computeSFHMetrics(data){
 
   return {rows:rows,totalUnits:totalUnits,avgSqft:totalUnits>0?totalSqft/totalUnits:0,retailGdv:retailGdv,blendedGdv:effectiveBlended,gdv:effectiveBlended,ahFactor:ahFactor,buildCost:buildCost,hasNonPrivate:hasNonPrivate,basePsf:basePsf,buildPsf:buildPsf,
     acres:sfhAcres,buildInclusive:buildInclusive,fees:sfhFees,contingency:sfhContingency,finance:sfhFinance,s106:sfhS106,roads:sfhRoads,infra:sfhInfra,marketing:sfhMarketing,profit:sfhProfit,devCost:sfhDevCost,rlv:sfhGrossRlv,
+    financeProgYears:finProgYears,financePeakDebtPct:finPeakDebtPct,financePhases:finPhases,financeSCurve:FIN_SCURVE,
     capMarketRentPerUnitPa:mktRentPerUnitPa,capGrossRentPa:capGrossRentPa,capNetRentPa:capNetRentPa,capYield:capYield,capInvestmentValue:capInvestmentValue,capProfit:capProfit,capRlv:capRlv,ahPctResolved:ahPctR};
 }
 
@@ -2717,6 +2735,13 @@ function optimiseSfhMix(data, mode, opts){
   var rows = (sfh.mix || []).filter(function(r){ return num(r.count) > 0; });
   if(!rows.length) return null;
 
+  // v10.55 — mirror the engine's S-curve/peak-debt finance so per-plot margins track the appraisal.
+  var optUnits = rows.reduce(function(a, r){ return a + num(r.count); }, 0);
+  var optPhases = num(sfh.phases) > 0 ? num(sfh.phases) : Math.max(1, Math.ceil(optUnits / 300));
+  var optProgYears = num(sfh.programmeYears) > 0 ? num(sfh.programmeYears) : Math.max(2, Math.min(10, Math.round((1 + optUnits / 350) * 10) / 10));
+  var optPeakDebtPct = num(sfh.peakDebtPct) > 0 ? num(sfh.peakDebtPct) : Math.max(30, Math.min(100, Math.round(200 / optPhases)));
+  var finMult = (optPeakDebtPct / 100) * optProgYears * 0.6;
+
   // Aggregate by type, then compute per-plot economics.
   var byType = {};
   rows.forEach(function(r){
@@ -2730,7 +2755,7 @@ function optimiseSfhMix(data, mode, opts){
   var types = Object.keys(byType).map(function(k){
     var t = byType[k];
     var build = t.sqft * t.buildPsf;
-    var cost = build + build * feesPct + build * contPct + (build + build * feesPct) * finRate + s106pu + roadsPu + t.price * mktgPct;
+    var cost = build + build * feesPct + build * contPct + (build + build * feesPct) * finRate * finMult + s106pu + roadsPu + t.price * mktgPct;
     var margin = t.price - cost;                                  // per plot, before land / infra / developer profit
     var rentPcm = (typeof areaRentPcm === "function") ? areaRentPcm(data, t.beds) : 0;
     return { type:t.type, beds:t.beds, sqft:t.sqft, count:t.count,
