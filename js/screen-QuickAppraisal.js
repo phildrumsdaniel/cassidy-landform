@@ -171,6 +171,26 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
   }
   var buildSqft = homes > 0 ? Math.round((num(M.avgSqft) || 0) * homes) : 0;
 
+  // ── v10.49 — FORWARD-FUND / CAPITALISATION EXIT ────────────────────────────
+  // What an institution (e.g. a pension fund) would pay for the WHOLE rented scheme at a net
+  // initial yield, and the profit that throws off. A keener (lower) yield ⇒ the fund pays more
+  // ⇒ more profit, so a 3.8% exit is worth far more than a 6% one. The user picks the yield
+  // across the 3.8%–6% range; the table shows the spread. Rent is derived by the engine from the
+  // scheme's own market values (computeSFHMetrics: capNetRentPa), so it can't diverge.
+  var capNetRentPa = num(M.capNetRentPa);
+  var capMktRentPerUnitPa = num(M.capMarketRentPerUnitPa);
+  var capD = data.capitalise || {};
+  var capYieldPct = num(capD.targetYield); if(capYieldPct > 0 && capYieldPct < 1) capYieldPct *= 100;
+  if(!(capYieldPct > 0)) capYieldPct = 4.5;
+  capYieldPct = Math.max(3.8, Math.min(6, capYieldPct));
+  function capIV(y){ return y > 0 ? capNetRentPa / (y/100) : 0; }                        // investment value the fund pays
+  function capProfitAllIn(y){ return capIV(y) - devCost - allInLand; }                   // actual profit given the land cost
+  function capMaxLand(y){ var iv = capIV(y); return iv - devCost - iv*(profitPct/100); } // max land at target profit
+  function capMarginAllIn(y){ var iv = capIV(y); return iv > 0 ? (capProfitAllIn(y)/iv*100) : 0; }
+  function setCapYield(v){ up("capitalise","targetYield", v); }
+  var capYieldRow = [3.8, 4.25, 4.5, 5.0, 5.5, 6.0];
+  var capIVsel = capIV(capYieldPct);
+
   return e("div", null,
     e("div", { style:{ marginBottom:16 } },
       e("div", { style:{ fontSize:11, color:"#7278A0", textTransform:"uppercase", letterSpacing:".12em", fontWeight:700, marginBottom:4 } }, "Quick Appraisal"),
@@ -208,10 +228,10 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
       e("div", { style:{ marginTop:12, padding:"9px 11px", background:buildInclusive?"rgba(45,122,101,0.06)":"rgba(154,123,62,0.06)", border:"1px solid "+(buildInclusive?"rgba(45,122,101,0.3)":"rgba(154,123,62,0.35)"), borderRadius:6, display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" } },
         e("label", { style:{ display:"flex", alignItems:"center", gap:8, cursor:"pointer", fontSize:12, color:"#3A3D6A", fontWeight:600 } },
           e("input", { type:"checkbox", checked:buildInclusive, onChange:function(ev){ up("sfh","buildInclusive", ev.target.checked); }, style:{ width:16, height:16, cursor:"pointer", accentColor:"#2D7A65" } }),
-          "🧱 Build £/sqft is all-in — includes roads, drainage & site infrastructure (SuDS)"),
+          "🧱 Build £/sqft is all-in — includes professional fees, contingency, roads, drainage & SuDS"),
         e("span", { style:{ flex:1, minWidth:200, fontSize:10.5, color:buildInclusive?"#2D7A65":"#9A7B3E", lineHeight:1.5 } },
-          buildInclusive ? "On — roads, site infrastructure & SuDS are inside your build rate, so they're not added again. Marketing/disposal is a separate sale cost, left at £0."
-                         : "Off — roads (£12k/plot) and site infrastructure/SuDS (£53k/acre) are added as separate cost lines on top of the build rate.")
+          buildInclusive ? "On — professional fees, contingency, roads, site infrastructure & SuDS are all inside your build rate, so they're not added again (finance is charged on the build cost). Marketing/disposal is a separate sale cost, left at £0."
+                         : "Off — professional fees (12%), contingency (5%), roads (£12k/plot) and site infrastructure/SuDS (£53k/acre) are added as separate cost lines on top of the build rate.")
       )
     ),
 
@@ -233,8 +253,8 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
           e("div", { style:{ display:"flex", justifyContent:"space-between", padding:"4px 0", fontSize:13, fontWeight:700, color:"#2E2F8A", borderBottom:"2px solid #DDE0ED", marginBottom:4 } },
             e("span", null, homes.toLocaleString()+" homes sold"), e("span", null, fmt(gdv))),
           costRow("Build ("+buildSqft.toLocaleString()+" sqft @ £"+effBuildPsf+")", num(M.buildCost)),
-          costRow("Professional fees", num(M.fees)),
-          costRow("Contingency", num(M.contingency)),
+          num(M.fees) > 0 && costRow("Professional fees", num(M.fees)),
+          num(M.contingency) > 0 && costRow("Contingency", num(M.contingency)),
           costRow("Finance", num(M.finance)),
           costRow("S106 / CIL (£"+fmtN(Math.round(s106pu))+"/plot)", num(M.s106)),
           num(M.roads) > 0 && costRow("Roads & sewers", num(M.roads)),
@@ -268,6 +288,54 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
       e("div", { style:{ marginTop:14, borderRadius:9, padding:"14px 18px", background:vcol, color:"#fff" } },
         e("div", { style:{ fontSize:16, fontWeight:800 } }, verdict),
         e("div", { style:{ fontSize:12.5, marginTop:3, opacity:0.96, lineHeight:1.5 } }, vmsg)
+      ),
+
+      // ── FORWARD-FUND / CAPITALISATION EXIT ────────────────────────────────────
+      capNetRentPa > 0 && e("div", { style:Object.assign({}, S.card, { borderLeft:"4px solid #2D7A65", marginTop:14 }) },
+        e("div", { style:S.cardTitle }, "4 · Forward-fund exit — the whole scheme sold to a pension fund"),
+        e("p", { style:{ fontSize:11.5, color:"#7278A0", lineHeight:1.6, margin:"0 0 12px", maxWidth:700 } },
+          "Instead of selling homes one by one, the finished scheme is let and the whole rented investment is bought by an institution at a ", e("b", null, "net initial yield"),
+          ". A keener (lower) yield means the fund pays more — so a 3.8% exit is worth far more than a 6% one. Net rent ≈ ", e("b", null, fmt(capNetRentPa)+" p.a."),
+          " (", fmt(capMktRentPerUnitPa), "/home gross, after 25% management)."),
+        // yield control (3.8%–6%)
+        e("div", { style:{ display:"flex", alignItems:"center", gap:14, flexWrap:"wrap", marginBottom:12 } },
+          e("input", { type:"range", min:3.8, max:6, step:0.1, value:capYieldPct, onChange:function(ev){ setCapYield(num(ev.target.value)); }, style:{ flex:"1 1 240px", accentColor:"#2D7A65", cursor:"pointer" } }),
+          e("div", { style:{ display:"flex", flexDirection:"column", alignItems:"center", gap:3 } },
+            e("input", { type:"number", min:3.8, max:6, step:0.1, value:capYieldPct, onChange:function(ev){ setCapYield(num(ev.target.value)); },
+              style:{ width:76, padding:"7px 8px", border:"1px solid #C8CDE0", borderRadius:6, fontSize:16, fontWeight:800, textAlign:"center", color:"#1B7A54", fontFamily:"DM Sans,sans-serif", background:"#fff" } }),
+            e("div", { style:{ fontSize:9, color:"#7278A0", textTransform:"uppercase", letterSpacing:".06em", fontWeight:700 } }, "net yield %"))
+        ),
+        // headline KPIs at the selected yield
+        e("div", { style:{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))", gap:10, marginBottom:12 } },
+          kpi("Fund pays (investment value)", fmt(capIVsel), "#1B7A54"),
+          asking > 0 ? kpi("Profit (forward-fund, all-in)", (capProfitAllIn(capYieldPct) < 0 ? "−" : "") + fmt(Math.abs(capProfitAllIn(capYieldPct))), capProfitAllIn(capYieldPct) >= 0 ? "#1B7A54" : "#B05A35")
+                     : kpi("Max land @ "+(Math.round(profitPct*10)/10)+"% profit", fmt(capMaxLand(capYieldPct)), "#1B7A54"),
+          asking > 0 ? kpi("Margin (all-in)", pct(capMarginAllIn(capYieldPct)), capMarginAllIn(capYieldPct) >= 15 ? "#1B7A54" : capMarginAllIn(capYieldPct) >= 12 ? "#9A7B3E" : "#B05A35")
+                     : kpi("Developer profit @ target", fmt(capIVsel*(profitPct/100)), "#1B1D46")
+        ),
+        // sensitivity table across the 3.8%–6% range
+        e("div", { style:{ overflowX:"auto" } },
+          e("table", { style:{ width:"100%", borderCollapse:"collapse", fontSize:11.5 } },
+            e("thead", null, e("tr", { style:{ color:"#8A90B4" } },
+              e("th", { style:{ textAlign:"left", padding:"4px 6px", fontWeight:700 } }, "Net yield"),
+              e("th", { style:{ textAlign:"right", padding:"4px 6px", fontWeight:700 } }, "Fund pays"),
+              e("th", { style:{ textAlign:"right", padding:"4px 6px", fontWeight:700 } }, asking > 0 ? "Profit (all-in)" : "Max land value"),
+              e("th", { style:{ textAlign:"right", padding:"4px 6px", fontWeight:700 } }, asking > 0 ? "Margin" : "Profit @ target"))),
+            e("tbody", null, capYieldRow.map(function(y){
+              var sel = Math.abs(y - capYieldPct) < 0.05, prof = capProfitAllIn(y), marg = capMarginAllIn(y);
+              return e("tr", { key:y, style:{ borderTop:"1px solid #F1F2F8", background:sel ? "rgba(45,122,101,0.08)" : "transparent", fontWeight:sel ? 800 : 500, color:"#3A3D6A" } },
+                e("td", { style:{ textAlign:"left", padding:"5px 6px" } }, y.toFixed(1)+"%"),
+                e("td", { style:{ textAlign:"right", padding:"5px 6px" } }, fmt(capIV(y))),
+                e("td", { style:{ textAlign:"right", padding:"5px 6px", color: asking > 0 ? (prof >= 0 ? "#1B7A54" : "#B05A35") : "#3A3D6A" } }, asking > 0 ? ((prof < 0 ? "−" : "") + fmt(Math.abs(prof))) : fmt(capMaxLand(y))),
+                e("td", { style:{ textAlign:"right", padding:"5px 6px", color: asking > 0 ? (marg >= 15 ? "#1B7A54" : marg >= 12 ? "#9A7B3E" : "#B05A35") : "#3A3D6A" } }, asking > 0 ? pct(marg) : fmt(capIV(y)*(profitPct/100))));
+            })))
+        ),
+        // compare exits
+        e("div", { style:{ fontSize:11, color:"#7278A0", marginTop:10, lineHeight:1.5, borderTop:"1px solid #EEF0F7", paddingTop:8 } },
+          asking > 0
+            ? e("span", null, "Compare exits at ", e("b", null, capYieldPct.toFixed(1)+"%"), ": forward-fund profit ", e("b", { style:{ color: capProfitAllIn(capYieldPct) >= 0 ? "#1B7A54" : "#B05A35" } }, fmt(capProfitAllIn(capYieldPct))), " (", pct(capMarginAllIn(capYieldPct)), ") vs build-to-sell ", e("b", null, fmt(profitAllIn)), " (", pct(marginAllIn), "). ", capIVsel > gdv ? "The forward-fund exit is worth more here." : "Build-to-sell is worth more here.")
+            : e("span", null, "At ", e("b", null, capYieldPct.toFixed(1)+"%"), " the rented scheme is worth ", e("b", { style:{ color:"#1B7A54" } }, fmt(capIVsel)), " to an institution vs ", fmt(gdv), " selling home-by-home. Enter an asking price above to see the forward-fund profit and margin.")
+        )
       ),
 
       e("div", { style:{ display:"flex", gap:10, flexWrap:"wrap", marginTop:14 } },

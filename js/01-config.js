@@ -20,8 +20,12 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.46";
+var CURRENT_VERSION = "10.50";
 var VERSION_HISTORY = [
+  {v:"10.50", date:"Jul 2026", headline:"Keystone now builds ALL-IN by default — a raw Keystone build treats the build £/sqft as fully-loaded, so professional fees and contingency are inside the rate (not added on top), roads/drainage/SuDS too, and finance is charged on the build cost alone. Marketing/disposal is left at £0 (a sale-side cost, matching the Quick Appraisal). Previously a fresh Keystone build left the ‘all-in’ toggle off, so it still stacked ~12% fees + ~5% contingency + ~3% marketing on top of the £250 — turning a viable scheme's residual land value negative. Finance and S106 remain (real costs). Turn off ‘Build £/sqft is all-in’ on the SFH / Quick Appraisal stage for a construction-only rate"},
+  {v:"10.49", date:"Jul 2026", headline:"NEW forward-fund / capitalisation exit on the Quick Appraisal — see what a pension fund would pay for the WHOLE rented scheme at a net initial yield, with a slider across 3.8%–6% and a sensitivity table showing the investment value, developer profit and margin at each yield (a keener yield means the fund pays more). It compares the forward-fund exit to building-to-sell side by side, and the figure feeds the printable one-page board proposal — which now carries a ‘Forward-fund exit’ block so the report shows both exits. Rent is derived by the one engine from the scheme's own market values, so the page and the PDF can't diverge"},
+  {v:"10.48", date:"Jul 2026", headline:"The ‘Build £/sqft is all-in’ toggle now also absorbs PROFESSIONAL FEES and CONTINGENCY — not just roads/drainage/SuDS. When your build rate is a fully-loaded all-in figure (Cassidy's usual basis, e.g. £250/sqft), the engine no longer adds ~12% fees or ~5% contingency on top (they're already inside the rate), and finance is charged on the build cost alone — so nothing is double-counted. Turn the toggle OFF for a construction-only rate and both lines return. Applied in the one engine, so every screen — Quick Appraisal, SFH House Mix, Financial Modelling, RLV, the board one-pager — reconciles. Marketing/disposal stays a separate sale-side cost at £0 by default"},
+  {v:"10.47", date:"Jul 2026", headline:"Keystone now develops from what the SOURCE brief states FIRST, then flags the land's fuller capacity as upside. A capacity/allocation phrase (‘room for 1,800 houses’, ‘circa 1,800 units’) is captured as the scheme's unit figure and honoured; a new ‘density’ field captures a stated homes/acre (or dph, converted). The appraisal is built from the stated figure, and a source-led note leads the assumptions: e.g. ‘Source states room for 1,800 homes (~6.3/acre) — the appraisal is built from this. Land capacity: ~5,700 at 20/acre — potential upside.’ The Keystone density card shows the same comparison with a one-click ‘Model N at 20/acre’ button"},
   {v:"10.46", date:"Jul 2026", headline:"Five refinements: (1) ‘Complete with AI’ now AUTO-RUNS on Keystone build — research prices/rents, apply & optimise, no button; (2) the new-build premium is now visible AND tunable on the Quick Appraisal (sale £/sqft shown as ‘£X local + Y% new-build’, with an editable premium %); (3) the Mix Optimiser bounds (min/max % per type) are now editable — tune to how Cassidy sells; (4) NEW Simple mode toggle collapses the menu to Find → Quick Appraisal → Report; (5) sale/build £/sqft labels spell out ‘incl. premium’ vs ‘construction cost, no premium’. Also fixed a duplicate ‘Process Navigator’ nav item"},
   {v:"10.45", date:"Jul 2026", headline:"Keystone fills more of the deal automatically: it now auto-builds the TENURE MIX from the affordable % (open-market / affordable-rent / shared-ownership), so the Tenure Mix stage is complete with no manual entry. And a one-click ‘🤖 Complete with AI’ on Keystone researches the area's new-build sale prices AND rents per house type, applies them to the mix (a 4-bed detached that fetches a lower £/sqft than a 3-bed semi now shows it), feeds the rents into capitalisation, and applies the profit-maximising mix from the optimiser — the whole scheme priced and value-engineered from one click"},
   {v:"10.44", date:"Jul 2026", headline:"NEW Mix Optimiser on the SFH House Mix stage — ranks every house type by profit PER SQFT (the land-efficient metric) and by rent per sqft for a BTR/forward sale, then proposes the mix that maximises the money available for land + profit (within realistic planning/market bounds). It bites when you enter the real per-type prices — a 4-bed detached that sells at a lower £/sqft than a 3-bed semi is correctly shown as less profitable per acre. Includes an AI helper to research area new-build prices & rents by type"},
@@ -2548,8 +2552,13 @@ function computeSFHMetrics(data){
   // v10.12 — default 12% (matching the Financial Modelling input placeholder and the
   // generic-path default), so a fresh deal with no explicit fees% computes what the input
   // shows instead of a silent 10%.
-  var sfhFees = buildCost * (numOr(sfh.feesPct, 12) / 100);
-  var sfhContingency = buildCost * (numOr(sfh.contingency, 5) / 100);
+  // v10.48 — when the build £/sqft is declared ALL-IN, it already covers professional fees
+  // (design team, planning, QS) and the contingency buffer — the same principle as roads/
+  // SuDS. Adding them again would double-count against the rate, so they're zeroed and
+  // finance is charged on the build cost alone. Turn the all-in toggle OFF for a
+  // construction-only rate and both lines return.
+  var sfhFees = buildInclusive ? 0 : buildCost * (numOr(sfh.feesPct, 12) / 100);
+  var sfhContingency = buildInclusive ? 0 : buildCost * (numOr(sfh.contingency, 5) / 100);
   var sfhFinance = (buildCost + sfhFees) * (numOr(sfh.finRate, 7.5) / 100);
   var sfhS106 = totalUnits * numOr(sfh.s106pu, 8000);
   var sfhRoads = buildInclusive ? 0 : totalUnits * numOr(sfh.roads, 12000);
@@ -2610,9 +2619,12 @@ function optimiseSfhMix(data, mode, opts){
   var market = MKT[cityKey] || MKT.manchester;
   var basePsf = num(sfh.basePsf) || (market && market.btr ? Math.max(150, Math.min(650, Math.round(estSalePsfFromRent(market.btr)))) : 260);
   var schemeBuildPsf = num(sfh.buildPsf) || (market && market.build) || 195;
-  var feesPct = numOr(sfh.feesPct, 12) / 100, contPct = numOr(sfh.contingency, 5) / 100, finRate = numOr(sfh.finRate, 7.5) / 100;
+  // v10.48 — an all-in build rate already covers fees + contingency (as it does roads/SuDS),
+  // so the optimiser's per-plot cost must zero them too or its margins would diverge from the engine.
+  var inclusive = !!sfh.buildInclusive;
+  var feesPct = inclusive ? 0 : numOr(sfh.feesPct, 12) / 100, contPct = inclusive ? 0 : numOr(sfh.contingency, 5) / 100, finRate = numOr(sfh.finRate, 7.5) / 100;
   var s106pu = numOr(sfh.s106pu, 8000), mktgPct = numOr(sfh.marketingPct, 0) / 100;
-  var roadsPu = (!!sfh.buildInclusive) ? 0 : numOr(sfh.roads, 12000);
+  var roadsPu = inclusive ? 0 : numOr(sfh.roads, 12000);
 
   var rows = (sfh.mix || []).filter(function(r){ return num(r.count) > 0; });
   if(!rows.length) return null;
@@ -3260,7 +3272,7 @@ function optimiseScheme(data, opts){
     var rlvAllIn = rlvWith(function(d){ d.sfh.buildInclusive = true; });
     if (rlvAllIn > base.rlv + 1) {
       allInOption = { resultRlv: rlvAllIn, delta: rlvAllIn - base.rlv,
-        note:"If your build £/sqft already includes roads, drainage and site infrastructure, tick 'build is all-in' — that alone adds "+(Math.round((rlvAllIn-base.rlv)/1000))+"k to the residual." };
+        note:"If your build £/sqft is all-in — already covering professional fees, contingency, roads, drainage and site infrastructure — tick 'build is all-in' — that alone adds "+(Math.round((rlvAllIn-base.rlv)/1000))+"k to the residual." };
     }
   }
 

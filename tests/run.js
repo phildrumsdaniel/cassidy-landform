@@ -109,14 +109,35 @@ console.log("Landform engine consistency tests\n");
   near("RLV: engine == SFH-screen formula", c.rlv, sfhScreenRlv(d));
 })();
 
-// 4 — build-inclusive toggle zeroes roads/infra (no double-count)
+// 4 — build-inclusive toggle: an all-in rate covers fees, contingency, roads & infra
+// (no double-count), and finance is then charged on the build cost alone. (v10.48)
 (function(){
   var off = computeSFHMetrics(sfhDeal({ sfh:{ buildInclusive:false } }));
   var on  = computeSFHMetrics(sfhDeal({ sfh:{ buildInclusive:true } }));
   ok("roads+infra > 0 when toggle off", off.roads > 0 && off.infra > 0);
+  ok("fees+contingency > 0 when toggle off", off.fees > 0 && off.contingency > 0);
   ok("roads == 0 when build inclusive", on.roads === 0);
   ok("infra == 0 when build inclusive", on.infra === 0);
-  near("RLV improves by exactly roads+infra when toggled on", on.rlv - off.rlv, off.roads + off.infra);
+  ok("professional fees == 0 when build inclusive", on.fees === 0);
+  ok("contingency == 0 when build inclusive", on.contingency === 0);
+  ok("finance charged on build cost alone when inclusive (drops)", on.finance < off.finance);
+  // RLV improves by exactly the cost lines the all-in rate absorbs: fees + contingency +
+  // roads + infra, plus the finance saved by not financing the (now-absorbed) fees.
+  near("RLV improves by exactly the absorbed lines when toggled on",
+    on.rlv - off.rlv, (off.fees + off.contingency + off.roads + off.infra) + (off.finance - on.finance));
+})();
+
+// 4b — SFH forward-fund / capitalisation exit (v10.49 — drives the Quick Appraisal yield card
+// and the one-pager). Investment value = net rent / yield, so a keener yield ⇒ higher value.
+(function(){
+  function withYield(y){ var d = sfhDeal(); d.capitalise = { targetYield:y }; return d; }
+  var at38 = computeSFHMetrics(withYield(3.8));
+  var at60 = computeSFHMetrics(withYield(6.0));
+  ok("cap: net rent p.a. derived from the scheme", at38.capNetRentPa > 0);
+  near("cap: investment value == net rent / yield (3.8%)", at38.capInvestmentValue, at38.capNetRentPa / 0.038, 1);
+  near("cap: investment value == net rent / yield (6.0%)", at60.capInvestmentValue, at60.capNetRentPa / 0.06, 1);
+  ok("cap: a keener yield pays more (3.8% > 6.0%)", at38.capInvestmentValue > at60.capInvestmentValue);
+  ok("cap: same net rent regardless of exit yield", Math.abs(at38.capNetRentPa - at60.capNetRentPa) < 1);
 })();
 
 // 5 — net land bid = gross RLV − acquisition costs
@@ -186,10 +207,16 @@ console.log("Landform engine consistency tests\n");
     ok("solver sales answer lifts RLV to about break-even", calcDealMetrics(d3).rlv >= -500000);
   }
 
-  // all-in build option equals the roads+infra it removes
+  // all-in build option equals the exact RLV swing from folding fees, contingency, roads
+  // & infra into the rate (v10.48 — was roads+infra only).
   var optAllIn = optimiseScheme(sfhDeal(), { targetRlv:0 });
   ok("solver surfaces the build-inclusive option", !!optAllIn.allInOption);
-  if (optAllIn.allInOption) near("all-in delta == roads+infra removed", optAllIn.allInOption.delta, 200*12000 + 32*53000, 2);
+  if (optAllIn.allInOption) {
+    var _off = computeSFHMetrics(sfhDeal({ sfh:{ buildInclusive:false } }));
+    var _on  = computeSFHMetrics(sfhDeal({ sfh:{ buildInclusive:true } }));
+    near("all-in delta == the absorbed cost lines (fees+cont+roads+infra+finance saved)", optAllIn.allInOption.delta, _on.rlv - _off.rlv, 2);
+    ok("all-in delta now exceeds roads+infra alone", optAllIn.allInOption.delta > 200*12000 + 32*53000);
+  }
 
   // a viable scheme reports stacks=true
   var good = optimiseScheme(sfhDeal({ sfh:{ buildInclusive:true } }), { targetRlv:0 });
@@ -704,6 +731,32 @@ console.log("Landform engine consistency tests\n");
   ok("low-count upsize flagged", d4._keystone.assumptions.join(" ").toLowerCase().indexOf("homes/acre") >= 0);
 })();
 
+// 35a — v10.47: DEVELOP FROM THE SOURCE FIRST, surface land capacity as upside.
+// A source that quotes "room for 1,800 houses" on a big site is honoured as the scheme's
+// basis (not overridden), and the land's fuller capacity at a higher density is flagged.
+(function(){
+  // 1,800 on 285 acres ≈ 6.3/acre — plausible, so honoured (NOT upsized).
+  var d = buildDealFromBrief({ town:"Maidstone", postcode:"ME17 1AA", acres:285, units:1800 });
+  ok("source's stated 1,800 honoured, not overridden", num(d.land.units) === 1800);
+  near("land capacity computed at 20/acre (285×20≈5700)", num(d.land.capacityAtRef), 5700, 0);
+  ok("reference density recorded", num(d.land.capacityRefDensity) === 20);
+  ok("source's stated figure preserved on land", num(d.land.statedUnits) === 1800);
+  var notes = d._keystone.assumptions.join(" ");
+  ok("capacity note leads with the source's stated figure", /Source states room for 1,800 homes/.test(notes));
+  ok("capacity note flags the ~5,700 upside", /5,700/.test(notes) && /upside/.test(notes.toLowerCase()));
+  ok("capacity note comes first (source-led)", /^Source states room for 1,800/.test(d._keystone.assumptions[0]));
+  ok("implied density surfaced for the density card", num(d.land.assumedDensity) > 6 && num(d.land.assumedDensity) < 7);
+
+  // A scheme already near the reference density gets NO upside flag (no false 'headroom').
+  var dense = buildDealFromBrief({ town:"Maidstone", postcode:"ME17 1AA", acres:100, units:1800 });
+  ok("no capacity flag when scheme already ~ reference density", !/Land capacity/.test(dense._keystone.assumptions.join(" ")));
+  ok("no capacity number stored when there is no material headroom", !dense.land.capacityAtRef || num(dense.land.capacityAtRef) < num(dense.land.units)*1.2);
+
+  // An explicit stated density is captured (per-acre) and drives capacity/units.
+  var dd = buildDealFromBrief({ town:"Maidstone", postcode:"ME17 1AA", acres:100, density:20 });
+  near("explicit 20/acre on 100 acres → 2,000 homes", num(dd.land.units), 2000, 0);
+})();
+
 // 35b — Keystone flags an unrecognised location (Ryton/Wolston) and maps it to a market
 (function(){
   var ry = buildDealFromBrief({ town:"Ryton-on-Dunsmore", acres:88, askingPrice:12500000 });
@@ -765,7 +818,12 @@ console.log("Landform engine consistency tests\n");
   var deal = buildDealFromBrief({ town:"Rugby", postcode:"CV8 3", acres:88, askingPrice:12500000 });
   deal.land.price = 12500000;
   var d = calcDealMetrics(deal);
-  ok("disposal/marketing cost applied to built deal (>0)", num(d.marketing) > 0);
+  // v10.50 — Keystone builds ALL-IN: the build £/sqft covers professional fees, contingency,
+  // roads & SuDS (so those are £0), and marketing/disposal is a sale-side cost left at £0.
+  ok("Keystone build is all-in (buildInclusive on)", deal.sfh.buildInclusive === true);
+  var sfh0 = computeSFHMetrics(deal);
+  ok("all-in: professional fees + contingency folded into the build rate (=0)", num(sfh0.fees) === 0 && num(sfh0.contingency) === 0);
+  ok("all-in: marketing/disposal left at £0 on a Keystone build", num(sfh0.marketing) === 0);
   ok("capitalisation investment value computed (>0)", num(d.capInvestmentValue) > 0);
   ok("both exit profits reported", isFinite(d.sellProfit) && isFinite(d.capProfit));
   // Affordable is NOT a capital haircut in the capitalise value: with 30% affordable,
@@ -774,6 +832,9 @@ console.log("Landform engine consistency tests\n");
   near("capitalise reflects 30% affordable as rent, not a capital haircut", sfhM.ahPctResolved, 30, 0);
   ok("capitalise value ignores the build-to-sell blended haircut (uses market rent base)",
      sfhM.capInvestmentValue > sfhM.gdv * 0.5);   // sane: not collapsed by the affordable discount
+  // A marketing % that IS set still applies as a disposal cost.
+  var withMkt = JSON.parse(JSON.stringify(deal)); withMkt.sfh.marketingPct = 3;
+  ok("explicit marketingPct applies a disposal cost", computeSFHMetrics(withMkt).marketing > 0);
   // Hand-built deals with no marketingPct are unchanged (default 0)
   var plain = { assetType:"sfh", land:{city:"maldon", acres:32}, sfh:{ city:"maldon", buildPsf:220,
     mix:[{type:"3-bed semi",count:"100",sqft:"1000",unitPrice:"400000",tenure:"private"}] } };
@@ -784,8 +845,9 @@ console.log("Landform engine consistency tests\n");
 (function(){
   var deal = buildDealFromBrief({ town:"Rugby", postcode:"CV8 3", acres:88, askingPrice:12500000 });
   deal.land.price = 12500000;
+  deal.sfh.marketingPct = 3;   // explicitly budget disposal so the reconciliation still exercises marketing
   var sfh = computeSFHMetrics(deal), dm = calcDealMetrics(deal);
-  ok("disposal/marketing present on both engines", num(sfh.marketing) > 0 && num(dm.marketing) > 0);
+  ok("disposal/marketing present on both engines when set", num(sfh.marketing) > 0 && num(dm.marketing) > 0);
   near("computeSFHMetrics.rlv == calcDealMetrics.rlv (both include disposal)", sfh.rlv, dm.rlv, 1000);
   // the scorecard reads the engine residual, not the asking price
   ok("engine RLV is the residual, not the ask", Math.abs(dm.rlv - deal.land.price) > 1000000);

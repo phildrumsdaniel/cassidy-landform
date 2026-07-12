@@ -139,6 +139,18 @@ function buildLandOnePager(data, cityHint){
     var marginAllIn=oGdv>0?(profitAllIn/oGdv*100):0;
     var headroomAllIn=oRlv-totalLandCost;                         // RLV vs the all-in cost of buying
 
+    // ── v10.49 — FORWARD-FUND / CAPITALISATION EXIT ────────────────────────────
+    // What an institution (pension fund) would pay for the whole rented scheme at a net initial
+    // yield, and the profit at that scale. Net rent comes from the engine (computeSFHMetrics), so
+    // the printed report and the Quick Appraisal show the same figure. A keener yield ⇒ more value.
+    var oCapNetRent=num(sf.capNetRentPa)||0;
+    var oCapYieldPct=num((data.capitalise||{}).targetYield); if(oCapYieldPct>0&&oCapYieldPct<1) oCapYieldPct*=100;
+    if(!(oCapYieldPct>0)) oCapYieldPct=4.5; oCapYieldPct=Math.max(3.8,Math.min(6,oCapYieldPct));
+    function oCapIV(y){ return y>0?oCapNetRent/(y/100):0; }
+    function oCapProfitAllIn(y){ return oCapIV(y)-oDev-totalLandCost; }
+    function oCapMaxLand(y){ var iv=oCapIV(y); return iv-oDev-iv*(oProfitPct/100); }
+    var oCapYields=[3.8,4.5,5.0,6.0];
+
     // Verdict — decision-useful: uses the margin AFTER the full cost of acquiring the land.
     var verdict, vcol, vsub;
     if(oRlv<=0){ verdict="✗ Does not stack"; vcol="#B05A35";
@@ -299,8 +311,8 @@ function buildLandOnePager(data, cityHint){
               cRow("Gross development value",fmt(oGdv),false,false)+
               (oRetail>oGdv+1?'<tr><td style="color:#9298BC">— affordable / mix discount</td><td class="n" style="color:#9298BC">−'+fmt(oRetail-oGdv)+'</td></tr>':'')+
               cRow("Build ("+ (oAvgSqft&&oUnits?Math.round(oAvgSqft*oUnits).toLocaleString()+" sqft @ £"+oBuildPsf:"")+")",fmt(oBuild),true,false)+
-              cRow("Professional fees",fmt(oFees),true,false)+
-              cRow("Contingency",fmt(oCont),true,false)+
+              (oFees>0?cRow("Professional fees",fmt(oFees),true,false):'')+
+              (oCont>0?cRow("Contingency",fmt(oCont),true,false):'')+
               cRow("Finance",fmt(oFin),true,false)+
               cRow("S106 / CIL"+(oUnits>0?" (£"+fmtN(Math.round(oS106/oUnits))+"/plot)":""),fmt(oS106),true,false)+
               (oRoads>0?cRow("Roads &amp; sewers",fmt(oRoads),true,false):'')+
@@ -331,6 +343,24 @@ function buildLandOnePager(data, cityHint){
           '</div>'+
         '</div>'+
         '<div class="verdict" style="background:'+vcol+'"><div class="vh">'+verdict+'</div><div class="vs">'+vsub+'</div></div>'+
+        (oCapNetRent>0
+          ? '<div style="margin-top:9px;border:1px solid #BFD9CF;border-radius:7px;padding:9px 11px;background:#F5FBF8">'+
+              '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#1B7A54;font-weight:800;margin-bottom:4px">Forward-fund exit — whole scheme sold to a pension fund</div>'+
+              '<div style="font-size:9px;color:#6A6F97;margin-bottom:5px">The completed scheme let and sold as a rented investment at a net initial yield (net rent '+fmt(oCapNetRent)+'/yr, after 25% management). A keener (lower) yield means the fund pays more. '+(askL>0?'Profit is after the '+fmt(totalLandCost)+' all-in land cost.':'Max land value is at '+Math.round(oProfitPct)+'% target profit.')+'</div>'+
+              '<table><tr>'+
+                '<td style="color:#8A90B4;font-size:7.4px;letter-spacing:.05em;text-transform:uppercase;font-weight:700">Net yield</td>'+
+                '<td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Fund pays</td>'+
+                '<td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">'+(askL>0?'Profit (all-in)':'Max land')+'</td>'+
+                '<td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">'+(askL>0?'Margin':'Profit @ target')+'</td></tr>'+
+                oCapYields.map(function(y){ var iv=oCapIV(y), pr=oCapProfitAllIn(y), mg=iv>0?pr/iv*100:0, sel=Math.abs(y-oCapYieldPct)<0.05;
+                  return '<tr'+(sel?' style="background:rgba(27,122,84,.09);font-weight:800"':'')+'>'+
+                    '<td>'+y.toFixed(1)+'%</td>'+
+                    '<td class="n">'+fmt(iv)+'</td>'+
+                    '<td class="n" style="color:'+(askL>0?(pr>=0?'#1B7A54':'#B05A35'):'#3A3D6A')+'">'+(askL>0?((pr<0?'−':'')+fmt(Math.abs(pr))):fmt(oCapMaxLand(y)))+'</td>'+
+                    '<td class="n" style="color:'+(askL>0?(mg>=15?'#1B7A54':mg>=12?'#9A7B3E':'#B05A35'):'#3A3D6A')+'">'+(askL>0?pct(mg):fmt(iv*(oProfitPct/100)))+'</td></tr>'; }).join('')+
+              '</table>'+
+            '</div>'
+          : '')+
         pathBlock+
         '<div class="foot"><b>Indicative appraisal — not a RICS Red Book valuation.</b> Figures are computed on Landform\'s engine from the inputs entered (site area, density, house mix, sale and build £/sqft, S106, finance and profit assumptions) and assume residential consent can be achieved. '+
           (askL<=0?'Enter a land guide price on the Board Proposal or Land stage to test purchase costs (SDLT, legals, acquisition) against the residual land value. ':'')+

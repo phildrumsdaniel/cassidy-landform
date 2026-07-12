@@ -116,7 +116,12 @@ function renderKeystone(data, setData, up, navTo, user){
     var schemaKeys = Object.keys(KEYSTONE_BRIEF_SCHEMA).map(function(f){ return f+": "+KEYSTONE_BRIEF_SCHEMA[f]; }).join("\n");
     var sys = "You are a UK residential development analyst building a deal brief for the Landform appraisal tool. Extract ONLY facts that are present or clearly implied. Do NOT invent figures. Output STRICT JSON only — no prose, no markdown fences.";
     var prompt = "From the SOURCE below, produce a single JSON object for this Landform deal brief. Use these fields (omit any you can't fill):\n\n"+schemaKeys+
-      "\n\nRules: numbers as numbers (no £ or commas); houseMix and rents as arrays; put anything you assumed or couldn't find into an 'assumptions' array; choose assetType only if obvious, else leave it out (Landform auto-detects). \n\nSOURCE:\n"+(k.source||"").substring(0,12000);
+      "\n\nRules: numbers as numbers (no £ or commas); houseMix and rents as arrays; put anything you assumed or couldn't find into an 'assumptions' array; choose assetType only if obvious, else leave it out (Landform auto-detects)." +
+      "\n\nDEVELOP FROM THE SOURCE'S OWN FIGURES FIRST — do not substitute your own estimates for figures the source states:" +
+      "\n• A capacity/allocation statement IS the unit figure: 'room for 1,800 houses', 'circa 1,800 units', 'allocated for ~1,000 homes', 'capacity for 1,800 dwellings' → units: 1800. Never drop it as vague. Quote the exact wording in assumptions." +
+      "\n• Capture the site area (acres) exactly as stated. If given in hectares, convert: acres ≈ ha × 2.471." +
+      "\n• Capture any stated or target density into 'density' as HOMES PER ACRE. If the source says dph (dwellings/hectare), convert to per-acre (÷ 2.471) and note the original figure and its unit (dph vs per-acre) in assumptions." +
+      "\nSOURCE:\n"+(k.source||"").substring(0,12000);
     try{
       var res = await callAI(user, "keystone", sys, prompt);
       // pull the JSON object out of the response
@@ -218,6 +223,20 @@ function renderKeystone(data, setData, up, navTo, user){
     patchBrief({ density:d, units: Math.round(briefAcres * d) });
   }
   var densityUnits = Math.round(briefAcres * briefDensity);
+  // v10.47 — capacity vs the source's stated figure. Keystone develops from what the source
+  // says (statedUnits); this shows the land's fuller capacity at a higher reference density so
+  // the headroom is visible before building — the source's number leads, the potential is flagged.
+  var refDensity = (typeof KEYSTONE_REF_DENSITY !== "undefined") ? KEYSTONE_REF_DENSITY : 20;
+  var statedUnits = briefObj ? num(briefObj.units) : 0;
+  var capacityAtRef = briefAcres > 0 ? Math.round(briefAcres * refDensity) : 0;
+  var impliedDensity = (briefAcres > 0 && statedUnits > 0) ? (Math.round((statedUnits / briefAcres) * 10) / 10) : 0;
+  var capacityBanner = (statedUnits > 0 && capacityAtRef >= statedUnits * 1.2) ? e("div",{style:{marginTop:12,padding:"10px 12px",background:"rgba(74,75,174,0.06)",border:"1px solid rgba(74,75,174,0.25)",borderRadius:8,fontSize:11,color:"#3A3D6A",lineHeight:1.6}},
+    e("b",null,"Source states room for "+statedUnits.toLocaleString()+" homes"),
+    " (~"+impliedDensity+"/acre) — the appraisal develops from this. ",
+    e("b",null,"Land capacity: ~"+capacityAtRef.toLocaleString()+" homes at "+refDensity+"/acre"),
+    " on "+briefAcres+" acres — potential upside of ~"+(capacityAtRef-statedUnits).toLocaleString()+". Drag the density up to model the fuller scheme.",
+    e("button",{onClick:function(){ setDensity(refDensity); },style:{marginLeft:8,padding:"3px 10px",background:"#4A4BAE",color:"#fff",border:"none",borderRadius:5,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Model "+capacityAtRef.toLocaleString()+" at "+refDensity+"/acre")
+  ) : null;
   var densityCard = (briefObj && briefAcres > 0) ? e("div",{style:Object.assign({},S.card,{borderLeft:"4px solid #4A4BAE"})},
     e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:8}},
       e("div",{style:S.cardTitle},"2b · Scheme density — size it to the land"),
@@ -249,6 +268,7 @@ function renderKeystone(data, setData, up, navTo, user){
           p[0]+"/acre · "+p[1]);
       })
     ),
+    capacityBanner,
     e("div",{style:{fontSize:10,color:"#9A7B3E",marginTop:10,fontStyle:"italic"}},
       "Sets the unit count in the brief to "+densityUnits.toLocaleString()+". Net developable area is usually less than the gross site — trim the density if there are constraints, buffers or open space.")
   ) : null;

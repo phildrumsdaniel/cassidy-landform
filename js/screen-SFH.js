@@ -136,12 +136,14 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
       : (ahApplied ? retailGdv * sfhAhF : retailGdv));
     var totalBuild=houseCalcs.reduce(function(a,h){return a+h.build;},0);
     var sFeesPct=numOr(s.feesPct,12);  // v10.12 — read fees % (shared with Fin/RLV), was hard-coded 10%
-    var fees=totalBuild*(sFeesPct/100); var contCost=totalBuild*(sCont/100);
-    var finCost=(totalBuild+fees)*(sFin/100);
     // v9.47 — buildInclusive: if the build £/sqft already covers roads/drainage/
     // infrastructure, zero those lines so they are not double-counted. Matches
     // computeSFHMetrics exactly so screen, deal-state and AI agree.
+    // v10.48 — an all-in rate also covers professional fees + contingency, so zero them too
+    // (finance then charged on the build cost alone) — mirrors the engine.
     var buildInclusive = !!s.buildInclusive;
+    var fees=buildInclusive ? 0 : totalBuild*(sFeesPct/100); var contCost=buildInclusive ? 0 : totalBuild*(sCont/100);
+    var finCost=(totalBuild+fees)*(sFin/100);
     var s106Total=totalUnits*s106Pu;
     var roadsTotal=buildInclusive ? 0 : totalUnits*roads;
     var infra=buildInclusive ? 0 : sAcres*53000;
@@ -295,12 +297,12 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
         return e("div",{style:{margin:"-8px 0 14px",padding:"12px 14px",background:inc?"rgba(45,122,101,0.07)":"rgba(243,244,248,0.6)",border:"1px solid "+(inc?"rgba(45,122,101,0.35)":"#E0E2EC"),borderRadius:6,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}},
           e("label",{style:{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,color:"#3A3D6A",fontWeight:600}},
             e("input",{type:"checkbox",checked:inc,onChange:function(ev){up("sfh","buildInclusive",ev.target.checked);},style:{width:16,height:16,cursor:"pointer",accentColor:"#2D7A65"}}),
-            "🧱 Build £/sqft already includes roads, drainage & site infrastructure"
+            "🧱 Build £/sqft is all-in — includes professional fees, contingency, roads, drainage & site infrastructure"
           ),
           e("div",{style:{flex:1,minWidth:220,fontSize:10,color:inc?"#2D7A65":"#7278A0",lineHeight:1.5}},
             inc
-              ? e("span",null,e("strong",null,"On. "),"Roads/Sewers and Site Infra/SuDS lines are set to £0 — they are assumed to be within your build £/sqft, so nothing is double-counted.")
-              : "Tick if your build rate is all-in (covers external works, roads, drainage, SuDS). Leave unticked to add those as separate optional cost lines below."
+              ? e("span",null,e("strong",null,"On. "),"Professional fees, Contingency, Roads/Sewers and Site Infra/SuDS lines are set to £0 — they are assumed within your build £/sqft (finance is charged on the build cost), so nothing is double-counted.")
+              : "Tick if your build rate is all-in (covers professional fees, contingency, external works, roads, drainage, SuDS). Leave unticked to add those as separate cost lines below."
           )
         );
       })(),
