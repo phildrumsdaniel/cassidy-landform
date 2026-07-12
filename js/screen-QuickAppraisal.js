@@ -244,7 +244,7 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
         kpi("Homes", homes.toLocaleString()),
         kpi("Gross dev value (GDV)", gdv > 0 ? fmt(gdv) : "—"),
         kpi("Worth to us (RLV)", (rlv < 0 ? "−" : "") + fmt(Math.abs(rlv)), rlv > 0 ? "#1B7A54" : "#B05A35"),
-        kpi(asking > 0 ? "Asking price" : "Max land @ profit", asking > 0 ? fmt(asking) : fmt(rlv)),
+        kpi(asking > 0 ? "Asking price" : "Max land @ profit", asking > 0 ? fmt(asking) : ((rlv < 0 ? "−" : "") + fmt(Math.abs(rlv))), asking > 0 ? "#1B1D46" : (rlv >= 0 ? "#1B1D46" : "#B05A35")),
         kpi(asking > 0 ? "Margin (all-in)" : "Developer profit", asking > 0 ? pct(marginAllIn) : (Math.round(profitPct*10)/10)+"%", asking > 0 ? (marginAllIn >= 15 ? "#1B7A54" : marginAllIn >= 12 ? "#9A7B3E" : "#B05A35") : "#1B1D46")
       ),
 
@@ -312,7 +312,7 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
         e("div", { style:{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))", gap:10, marginBottom:12 } },
           kpi("Fund pays (investment value)", fmt(capIVsel), "#1B7A54"),
           asking > 0 ? kpi("Profit (forward-fund, all-in)", (capProfitAllIn(capYieldPct) < 0 ? "−" : "") + fmt(Math.abs(capProfitAllIn(capYieldPct))), capProfitAllIn(capYieldPct) >= 0 ? "#1B7A54" : "#B05A35")
-                     : kpi("Max land @ "+(Math.round(profitPct*10)/10)+"% profit", fmt(capMaxLand(capYieldPct)), "#1B7A54"),
+                     : kpi("Max land @ "+(Math.round(profitPct*10)/10)+"% profit", (capMaxLand(capYieldPct) < 0 ? "−" : "") + fmt(Math.abs(capMaxLand(capYieldPct))), capMaxLand(capYieldPct) >= 0 ? "#1B7A54" : "#B05A35"),
           asking > 0 ? kpi("Margin (all-in)", pct(capMarginAllIn(capYieldPct)), capMarginAllIn(capYieldPct) >= 15 ? "#1B7A54" : capMarginAllIn(capYieldPct) >= 12 ? "#9A7B3E" : "#B05A35")
                      : kpi("Developer profit @ target", fmt(capIVsel*(profitPct/100)), "#1B1D46")
         ),
@@ -329,7 +329,7 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
               return e("tr", { key:y, style:{ borderTop:"1px solid #F1F2F8", background:sel ? "rgba(45,122,101,0.08)" : "transparent", fontWeight:sel ? 800 : 500, color:"#3A3D6A" } },
                 e("td", { style:{ textAlign:"left", padding:"5px 6px" } }, y.toFixed(1)+"%"),
                 e("td", { style:{ textAlign:"right", padding:"5px 6px" } }, fmt(capIV(y))),
-                e("td", { style:{ textAlign:"right", padding:"5px 6px", color: asking > 0 ? (prof >= 0 ? "#1B7A54" : "#B05A35") : "#3A3D6A" } }, asking > 0 ? ((prof < 0 ? "−" : "") + fmt(Math.abs(prof))) : fmt(capMaxLand(y))),
+                e("td", { style:{ textAlign:"right", padding:"5px 6px", color: asking > 0 ? (prof >= 0 ? "#1B7A54" : "#B05A35") : (capMaxLand(y) >= 0 ? "#1B7A54" : "#B05A35") } }, asking > 0 ? ((prof < 0 ? "−" : "") + fmt(Math.abs(prof))) : ((capMaxLand(y) < 0 ? "−" : "") + fmt(Math.abs(capMaxLand(y))))),
                 e("td", { style:{ textAlign:"right", padding:"5px 6px", color: asking > 0 ? (marg >= 15 ? "#1B7A54" : marg >= 12 ? "#9A7B3E" : "#B05A35") : "#3A3D6A" } }, asking > 0 ? pct(marg) : fmt(capIV(y)*(profitPct/100))));
             })))
         ),
@@ -337,7 +337,7 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
         e("div", { style:{ fontSize:11, color:"#7278A0", marginTop:10, lineHeight:1.5, borderTop:"1px solid #EEF0F7", paddingTop:8 } },
           asking > 0
             ? e("span", null, "Compare exits at ", e("b", null, capYieldPct.toFixed(1)+"%"), ": forward-fund profit ", e("b", { style:{ color: capProfitAllIn(capYieldPct) >= 0 ? "#1B7A54" : "#B05A35" } }, fmt(capProfitAllIn(capYieldPct))), " (", pct(capMarginAllIn(capYieldPct)), ") vs build-to-sell ", e("b", null, fmt(profitAllIn)), " (", pct(marginAllIn), "). ", capIVsel > gdv ? "The forward-fund exit is worth more here." : "Build-to-sell is worth more here.")
-            : e("span", null, "At ", e("b", null, capYieldPct.toFixed(1)+"%"), " the rented scheme is worth ", e("b", { style:{ color:"#1B7A54" } }, fmt(capIVsel)), " to an institution vs ", fmt(gdv), " selling home-by-home. Enter an asking price above to see the forward-fund profit and margin.")
+            : e("span", null, "At ", e("b", null, capYieldPct.toFixed(1)+"%"), " the rented scheme is worth ", e("b", { style:{ color:"#1B7A54" } }, fmt(capIVsel)), " to an institution vs ", fmt(gdv), " selling home-by-home. So this exit supports ", e("b", { style:{ color: capMaxLand(capYieldPct) >= 0 ? "#1B7A54" : "#B05A35" } }, (capMaxLand(capYieldPct) < 0 ? "−" : "") + fmt(Math.abs(capMaxLand(capYieldPct)))), " of land, vs ", e("b", { style:{ color: rlv >= 0 ? "#1B7A54" : "#B05A35" } }, (rlv < 0 ? "−" : "") + fmt(Math.abs(rlv))), " on the build-to-sell appraisal above. ", e("b", null, rlv > capMaxLand(capYieldPct) ? "Build-to-sell is the stronger exit here" : "Forward-funding is the stronger exit here"), rlv > capMaxLand(capYieldPct) ? " — forward-funding suits rental blocks (flats/BTR) more than houses built for sale." : ".")
         )
       ),
 
