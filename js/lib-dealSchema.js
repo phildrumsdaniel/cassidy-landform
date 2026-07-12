@@ -511,6 +511,9 @@ function applyMarketPricesAndOptimise(data, aiTypes, opts){
     return r;
   });
   sfh.mix = mix;
+  // v10.58 — record that real prices came from AI market research, so the board paper / one-pager
+  // can state the provenance ("per-type prices verified by AI research of local new-build launches").
+  if(applied > 0) sfh.pricesSource = "AI market research";
 
   // Feed the per-type rents into capitalisation so a forward-sale / BTR valuation reflects the
   // real local rents, not a single benchmark. Two things are written:
