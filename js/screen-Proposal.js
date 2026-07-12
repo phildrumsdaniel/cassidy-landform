@@ -339,7 +339,17 @@ function buildLandOnePager(data, cityHint){
                   '<div class="rr" style="margin-top:4px"><span>Headroom — RLV less all-in cost</span><b style="color:'+(headroomAllIn>=0?"#1B7A54":"#B05A35")+'">'+(headroomAllIn<0?"−":"+")+fmt(Math.abs(headroomAllIn))+'</b></div>'+
                   '<div class="rr"><span>Profit / margin after land</span><b style="color:'+(marginAllIn>=15?"#1B7A54":marginAllIn>=12?"#9A7B3E":"#B05A35")+'">'+fmt(profitAllIn)+' · '+pct(marginAllIn)+' (land '+Math.round(landPctGdv)+'% of GDV)</b></div>'+
                 '</div>'
-              : '<div class="rr" style="margin-top:6px;color:#9A7B3E"><span>Guide price</span><b>Enter one to test purchase costs vs RLV</b></div>')+
+              : (typeof landValueGuide==="function" ? (function(){
+                  var g=landValueGuide(data), a=g.acres;
+                  return '<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #D7D9EC">'+
+                    '<div class="ct" style="margin-bottom:3px;color:#7A5A2E">Indicative market land values — no guide price entered</div>'+
+                    '<div style="font-size:8px;color:#6A6F97;margin-bottom:4px;line-height:1.4">Typical local prices by planning status'+(a>0?' (× '+a+' acres)':'')+'. Market context to frame an offer — the residual land value above is what to pay.</div>'+
+                    '<table>'+
+                      g.bands.map(function(b){ return '<tr><td>'+esc(b.label)+'</td><td class="n">£'+fmtN(Math.round(b.lo))+'–'+fmtN(Math.round(b.hi))+'/ac'+(a>0?' · '+fmt(b.lo*a)+'–'+fmt(b.hi*a):'')+'</td></tr>'; }).join('')+
+                    '</table>'+
+                    '<div style="font-size:7.5px;color:#9298BC;margin-top:3px;font-style:italic">Brownfield / previously-developed land ≈ consented value less demolition &amp; remediation. Indicative — verify with local agents.</div>'+
+                  '</div>';
+                })() : '<div class="rr" style="margin-top:6px;color:#9A7B3E"><span>Guide price</span><b>Enter one to test purchase costs vs RLV</b></div>'))+
           '</div>'+
         '</div>'+
         '<div class="verdict" style="background:'+vcol+'"><div class="vh">'+verdict+'</div><div class="vs">'+vsub+'</div></div>'+
@@ -980,9 +990,13 @@ function renderProposal(city, data, gdv, lc, up, user){
   }
 
   function openDoc(coords){
+    var html=buildHTML(coords);
+    // v10.52 — show IN-APP (overlay) so you stay in Landform and can close/regenerate; a new tab
+    // strands you on mobile. Falls back to a new tab if the overlay can't be created.
+    if(typeof showReportOverlay==="function" && showReportOverlay(html, "Board Proposal")) return;
     var w=window.open("","_blank");
     if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the board proposal."); return; }
-    w.document.open(); w.document.write(buildHTML(coords)); w.document.close();
+    w.document.open(); w.document.write(html); w.document.close();
   }
   function generate(){
     if(typeof notify==="function") notify("Generating board proposal…");
@@ -1007,9 +1021,11 @@ function renderProposal(city, data, gdv, lc, up, user){
   function buildOnePagerHTML(){ return buildLandOnePager(data, city); }
   function openOnePager(){
     if(typeof notify==="function") notify("Generating one-page land appraisal…");
+    var html=buildOnePagerHTML();
+    if(typeof showReportOverlay==="function" && showReportOverlay(html, "One-page land appraisal")) return;
     var w=window.open("","_blank");
     if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the one-page appraisal."); return; }
-    w.document.open(); w.document.write(buildOnePagerHTML()); w.document.close();
+    w.document.open(); w.document.write(html); w.document.close();
   }
 
   // ── On-screen panel ─────────────────────────────────────────────────────────
@@ -1063,7 +1079,23 @@ function renderProposal(city, data, gdv, lc, up, user){
                 _ask>0&&tile("Margin after land",pct(_marginAllIn),_marginAllIn>=15?"#2D7A65":_marginAllIn>=12?"#9A7B3E":"#B05A35")
               )
             : e("div",{style:{fontSize:11,color:"#9A7B3E",alignSelf:"center"}},"Build the SFH House Mix to see the residual land value and headroom here.")
-        )
+        ),
+        // v10.52 — no guide price entered → show indicative MARKET land values by land type,
+        // so there's a reference for what the land would typically cost in this area.
+        (_ask<=0 && typeof landValueGuide==="function") && (function(){
+          var g=landValueGuide(data), a=g.acres;
+          return e("div",{style:{marginTop:12,paddingTop:12,borderTop:"1px dashed #E0D6BE"}},
+            e("div",{style:{fontSize:11,fontWeight:800,color:"#7A5A2E",marginBottom:3}},"📍 No guide price yet — indicative market land values"+(cityDisp?" for "+cityDisp:"")),
+            e("div",{style:{fontSize:10.5,color:"#9298BC",lineHeight:1.5,marginBottom:8}},"What land of each type typically changes hands for locally, by planning status"+(a>0?" (× "+a+" acres)":"")+". Broad market context to frame an offer — the residual land value is the figure to trust for what to actually pay."),
+            e("div",{style:{display:"grid",gap:2}}, g.bands.map(function(b){
+              return e("div",{key:b.key,style:{display:"flex",justifyContent:"space-between",gap:10,fontSize:11,padding:"4px 0",borderBottom:"1px solid #F4F1E8"}},
+                e("span",{style:{color:"#3A3D6A",flex:1}},b.label),
+                e("span",{style:{color:"#2E2F8A",fontWeight:700,whiteSpace:"nowrap",textAlign:"right"}},
+                  "£"+fmtN(Math.round(b.lo))+"–"+fmtN(Math.round(b.hi))+"/ac"+(a>0?" · "+fmt(b.lo*a)+"–"+fmt(b.hi*a):"")));
+            })),
+            e("div",{style:{fontSize:9.5,color:"#9298BC",marginTop:6,fontStyle:"italic",lineHeight:1.5}},"Brownfield / previously-developed land is usually valued on the consented-residential basis less demolition & remediation. Indicative only — verify against local land comparables and agents.")
+          );
+        })()
       );
     })(),
 
