@@ -45,10 +45,17 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
     : (effHomes > 0 && typeof keystoneGenerateMix === "function" ? keystoneGenerateMix(effHomes, cityKey, postcode) : []);
   var effMix = repriceMix(baseMix, effBasePsf);
 
+  // v10.42 — treat the build £/sqft as ALL-IN by default: it already includes roads, drainage
+  // and site infrastructure (SuDS), so those are NOT added as separate lines and double-counted.
+  // (Marketing/disposal is a sale-side cost and is left at £0 here too.) Toggle it off for a deal
+  // whose build rate is construction-only, with externals priced separately. Persisted to the
+  // deal so the detailed stages read the same assumption — nothing diverges.
+  var buildInclusive = s.buildInclusive !== false;   // default ON (undefined ⇒ inclusive)
+
   // The effective deal the numbers are computed from (persisted values win; defaults fill gaps).
   var effData = Object.assign({}, data, { sfh: Object.assign({}, s, {
     mix: effMix, city: cityKey, acres: acres || "", basePsf: effBasePsf, buildPsf: effBuildPsf,
-    ahPct: ahPct, s106pu: s106pu, finRate: finRate, profitPct: profitPct,
+    ahPct: ahPct, s106pu: s106pu, finRate: finRate, profitPct: profitPct, buildInclusive: buildInclusive,
     contingency: numOr(s.contingency, 5), feesPct: numOr(s.feesPct, 12), marketingPct: numOr(s.marketingPct, 0)
   }) });
   var M = computeSFHMetrics(effData);
@@ -105,8 +112,9 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
     var gen = (typeof keystoneGenerateMix === "function") ? keystoneGenerateMix(n, cityKey, postcode) : [];
     var priced = repriceMix(gen, effBasePsf);
     setData(function(prev){
+      var pin = (prev.sfh && prev.sfh.buildInclusive !== undefined) ? prev.sfh.buildInclusive : true;   // lock in the inclusive default
       return Object.assign({}, prev, {
-        sfh: Object.assign({}, prev.sfh || {}, { mix: priced, city: cityKey, acres: (num(prev.sfh && prev.sfh.acres) || num(prev.land && prev.land.acres) || acres || "") }),
+        sfh: Object.assign({}, prev.sfh || {}, { mix: priced, city: cityKey, buildInclusive: pin, acres: (num(prev.sfh && prev.sfh.acres) || num(prev.land && prev.land.acres) || acres || "") }),
         land: Object.assign({}, prev.land || {}, { units: String(n) }),
         planning: Object.assign({}, prev.planning || {}, { units: String(n) })
       });
@@ -175,6 +183,16 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
             style:{ padding:"5px 11px", background:on ? "#4A4BAE" : "#fff", color:on ? "#fff" : "#3A3D6A", border:"1px solid "+(on ? "#4A4BAE" : "#DDE0ED"), borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } },
             d+"/acre = "+(acres > 0 ? Math.round(acres*d).toLocaleString() : "?")+" homes"); }),
         homes > 0 && e("span", { style:{ fontSize:11, color:"#9298BC", marginLeft:4 } }, "Now: "+hpa+" homes/acre · ≈"+dph+" dph · avg home "+avgSqft.toLocaleString()+" sqft")
+      ),
+      // Build-inclusive toggle — avoids double-counting roads/drainage/site infra when the build
+      // £/sqft is already all-in (Cassidy's usual basis). Persisted so every stage agrees.
+      e("div", { style:{ marginTop:12, padding:"9px 11px", background:buildInclusive?"rgba(45,122,101,0.06)":"rgba(154,123,62,0.06)", border:"1px solid "+(buildInclusive?"rgba(45,122,101,0.3)":"rgba(154,123,62,0.35)"), borderRadius:6, display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" } },
+        e("label", { style:{ display:"flex", alignItems:"center", gap:8, cursor:"pointer", fontSize:12, color:"#3A3D6A", fontWeight:600 } },
+          e("input", { type:"checkbox", checked:buildInclusive, onChange:function(ev){ up("sfh","buildInclusive", ev.target.checked); }, style:{ width:16, height:16, cursor:"pointer", accentColor:"#2D7A65" } }),
+          "🧱 Build £/sqft is all-in — includes roads, drainage & site infrastructure (SuDS)"),
+        e("span", { style:{ flex:1, minWidth:200, fontSize:10.5, color:buildInclusive?"#2D7A65":"#9A7B3E", lineHeight:1.5 } },
+          buildInclusive ? "On — roads, site infrastructure & SuDS are inside your build rate, so they're not added again. Marketing/disposal is a separate sale cost, left at £0."
+                         : "Off — roads (£12k/plot) and site infrastructure/SuDS (£53k/acre) are added as separate cost lines on top of the build rate.")
       )
     ),
 
