@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.57";
+var CURRENT_VERSION = "10.58";
 var VERSION_HISTORY = [
+  {v:"10.58", date:"Jul 2026", headline:"NEW ‘Basis of figures — how each number was derived’ section on BOTH the one-page appraisal and the board proposal, so the substance behind the headline numbers is on the page. It states, per line and pulled from the actual deal: the sale value (AI market research of local new-build launches, or Land Registry £/sqft + new-build premium), the build cost (all-in vs construction-only, BCIS basis), the finance (the exact S-curve / peak-debt calculation), S106, developer profit (with the profit-on-cost note), rents & yield (AI-researched local rents, capitalised at the net initial yield) and that the land figure is the maximum supportable residual — not an agreed price. Same source for both reports so they can't diverge."},
   {v:"10.57", date:"Jul 2026", headline:"The Keystone build now AUTO-FILLS the Capitalisation per-bed rents. Keystone's ‘Complete with AI’ already researches per-house-type rents when it prices the scheme — those now also write straight into the Capitalisation stage's 1/2/3/4-bed rent fields (and the weighted market rent that drives the pension / forward-fund value). So a fresh Keystone build lands with realistic local rents already in place — no separate ‘research & fill area rents’ click needed (the button remains for a manual refresh). Rents stay editable; verify against live listings."},
   {v:"10.56", date:"Jul 2026", headline:"NEW ‘🤖 AI: research & fill area rents’ button on the Capitalisation stage. The per-bed rents were auto-populated from the market table (which can be low/stale for a location); one click now researches typical CURRENT local new-build rents for 1/2/3/4-bed and writes them straight into the rent fields, so the capitalisation NOI and the pension / forward-fund value reflect real local rents. The fields stay editable and are flagged as indicative — verify against live Rightmove/Zoopla listings."},
   {v:"10.55", date:"Jul 2026", headline:"Appraisal-realism upgrade (from a reviewer's queries): (1) FINANCE is now modelled on an S-curve / peak-debt basis — finance = (build) × peak-debt% × rate × programme-years × 0.6 — with editable ‘Programme (years)’ and ‘Peak debt %’ inputs, so a big phased scheme shows a realistic multi-year interest cost (e.g. ~£75m, tunable up for slow sales) instead of a flat 12% of build. (2) Keystone's default house sizes cut to volume-builder norms (avg ~970 sqft, was ~1,159). (3) NEW profit-sensitivity strip — residual land value at 17.5 / 20 / 25 / 30% developer profit, so the Board sees the swing. (4) The forward-fund yield floor is now 4.5% (institutional floor — never capitalise more keenly). (5) NEW ‘Verify before committing’ block — links to check local new-build sale prices (Persimmon/Barratt/Redrow, Land Registry) and local registered providers, plus notes that houses price on GIA (no NIA deduction) and that S106/programme/land value are assumptions. Same changes flow into the printed one-pager"},
@@ -1939,6 +1940,59 @@ function showReportOverlay(html, title){
     document.addEventListener("keydown", onKey);
     return true;
   }catch(e){ return false; }
+}
+
+// v10.58 — basisOfFigures: the RATIONALE behind every headline number, derived from the actual
+// deal, so a board paper / one-pager can show the SUBSTANCE behind the figures — where the sale
+// value, build cost, rents, finance, S106, profit and land value came from and how they were
+// calculated, including whether AI market research was applied. Returns { town, lines:[{k,v}] };
+// both report generators render the same lines so they can never diverge.
+function basisOfFigures(data){
+  data = data || {};
+  var sfh = data.sfh || {}, l = data.land || {}, cap = data.capitalise || {};
+  var M = (typeof computeSFHMetrics === "function") ? computeSFHMetrics(data) : {};
+  var town = (typeof cityName === "function" && typeof dealCityKey === "function") ? cityName(dealCityKey(data)) : (l.city || "the area");
+  var pc = (l.postcode || (data.rlv && data.rlv.postcode) || "").toUpperCase();
+  var lines = [];
+
+  // Sale value
+  var basePsf = Math.round(num(sfh.basePsf) || num(M.basePsf) || 0);
+  var premium = num(sfh.nbPremiumPct);
+  var aiPriced = sfh.pricesSource === "AI market research";
+  lines.push({ k:"Sale value", v:"£" + basePsf + "/sqft. " + (aiPriced
+    ? "Per-type prices come from AI market research of comparable new-build launches (Persimmon / Barratt / Redrow-type) in " + town + " — a larger detached home correctly shows a LOWER £/sqft than a smaller semi. Verify against live launches."
+    : "Derived from the postcode's Land Registry £/sqft" + (premium > 0 ? " + a " + premium + "% new-build premium" : "") + " — indicative; verify against local new-build launches (Persimmon / Barratt / Redrow) or run ‘Complete with AI’.") });
+
+  // Build cost
+  var buildPsf = Math.round(num(sfh.buildPsf) || num(M.buildPsf) || 0);
+  lines.push({ k:"Build cost", v:"£" + buildPsf + "/sqft" + (M.buildInclusive
+    ? " treated as ALL-IN — covers construction, professional fees, contingency, roads/drainage & SuDS; finance is charged on the build cost."
+    : " (construction only; professional fees, contingency, roads & SuDS are added as separate lines).") + " BCIS-range benchmark for the scheme type — confirm with a QS cost plan." });
+
+  // Finance
+  if(num(M.finance) > 0) lines.push({ k:"Finance", v:"S-curve / peak-debt basis: build × " + (num(M.financePeakDebtPct) || "?") + "% peak debt × " + (num(sfh.finRate) || 12) + "% pa × " + (num(M.financeProgYears) || "?") + " yrs × 0.6 average utilisation = " + fmt(num(M.finance)) + ". Reflects a phased programme where sales receipts recycle capital (peak debt « total build). Set ‘Programme (years)’ and ‘Peak debt %’ to your funding plan, or forward-fund." });
+
+  // S106
+  var s106pu = num(sfh.s106pu);
+  lines.push({ k:"S106 / CIL", v:fmt(s106pu) + "/plot — " + (s106pu > 0 && sfh.s106pu !== "" ? "as entered" : "policy-typical assumption") + " (Education, Highways & cycleways, Health, Open space, Sport/community, Monitoring). Replace with the actual s106 heads of terms and the LPA’s CIL rate." });
+
+  // Developer profit
+  var profitPct = Math.round((num(sfh.profitPct) || 17.5) * 10) / 10;
+  lines.push({ k:"Developer profit", v:profitPct + "% of GDV — the planning-viability benchmark (15–20%). A housebuilder’s ‘~30% margin’ is usually profit-on-cost (≈ 22–23% on GDV); see the profit-sensitivity table for the swing." });
+
+  // Rents & capitalisation
+  if(num(M.capNetRentPa) > 0){
+    var y = num(cap.targetYield); if(y > 0 && y < 1) y *= 100; if(!(y > 0)) y = 4.9;
+    var aiRents = cap.rentSource === "AI market research";
+    lines.push({ k:"Rents & yield", v:"Net rent " + fmt(num(M.capNetRentPa)) + "/yr" + (aiRents
+      ? " — per-bed rents from AI market research of local new-build lettings"
+      : " — from area market data (run the AI rent research to localise)") + ", capitalised at a " + (Math.round(y * 10) / 10) + "% net initial yield (4.5% institutional floor). Drives the pension / forward-fund exit." });
+  }
+
+  // Land value
+  lines.push({ k:"Land value", v:"The " + fmt(num(M.rlv)) + " is the RESIDUAL land value — the maximum supportable land price at target profit, not an agreed price. Raw / strategic land trades well below this; the gap is the promotion upside. See the market land-value guide for typical £/acre by planning status." });
+
+  return { town:town, pc:pc, lines:lines };
 }
 // pcParts — split a UK postcode into its outcode / sector / full forms so rent (and other
 // hyper-local) lookups can key at the finest available level. Rents vary WITHIN an outcode

@@ -380,6 +380,13 @@ function buildLandOnePager(data, cityHint){
             '</div>'
           : '')+
         pathBlock+
+        (typeof basisOfFigures==="function" ? (function(){
+          var bo=basisOfFigures(data);
+          return '<div style="margin-top:9px;border:1px solid #C9CCE4;border-radius:7px;padding:9px 11px;background:#fff">'+
+            '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#2E2F8A;font-weight:800;margin-bottom:5px">Basis of figures &mdash; how each number was derived</div>'+
+            '<table>'+bo.lines.map(function(x){ return '<tr><td style="width:20%;color:#4A4BAE;font-weight:700;vertical-align:top;padding:2px 6px 2px 0;border:none">'+esc(x.k)+'</td><td style="color:#3A3D6A;line-height:1.45;padding:2px 0;border:none">'+esc(x.v)+'</td></tr>'; }).join('')+'</table>'+
+          '</div>';
+        })() : '')+
         '<div class="foot"><b>Indicative appraisal — not a RICS Red Book valuation.</b> Figures are computed on Landform\'s engine from the inputs entered (site area, density, house mix, sale and build £/sqft, S106, finance and profit assumptions) and assume residential consent can be achieved. '+
           (askL<=0?'Enter a land guide price on the Board Proposal or Land stage to test purchase costs (SDLT, legals, acquisition) against the residual land value. ':'')+
           'Verify sale and build values against local comparables and a QS cost plan before commitment. Residual land value is the maximum supportable land PRICE at target developer profit'+(askL>0?'; the all-in position adds SDLT (non-residential land bands: 0% ≤£150k, 2% to £250k, 5% above) plus ~1.5% legals &amp; acquisition on the '+fmt(askL)+' guide price':'')+'. SDLT rates and reliefs vary — confirm with your tax adviser.</div>'+
@@ -756,6 +763,9 @@ function renderProposal(city, data, gdv, lc, up, user){
           '<div class="card" style="margin-top:13px"><div class="sub-title">Modelling assumptions applied by Landform</div>'+
             (assumptions.length?('<ul class="pts">'+assumptions.map(function(a){return '<li>'+esc(a)+'</li>';}).join("")+'</ul>'):'<div style="font-size:13px;color:#666C93">No specific assumptions recorded — figures entered directly.</div>')+
           '</div>'+
+          (typeof basisOfFigures==="function" ? ('<div class="card" style="margin-top:13px"><div class="sub-title">Basis of figures — how each number was derived</div>'+
+            basisOfFigures(data).lines.map(function(x){ return rowHTML(esc(x.k), esc(x.v)); }).join("")+
+          '</div>') : '')+
           '<div class="card src" style="margin-top:13px"><div class="sub-title">External data sources</div><ul class="pts">'+
             '<li><b>Land Registry</b> — sold-price comparables: '+(num(mkt.lrPsf)?("£"+mkt.lrPsf+"/sq ft from "+(mkt.lrTotalTx||0)+" sales"+(mkt.lrSector?" in "+esc(mkt.lrSector):"")):"to run at valuation stage")+'.</li>'+
             '<li><b>Constraint assessment</b> — AI planning &amp; GIS review'+((data.constraintCheck&&data.constraintCheck.results&&data.constraintCheck.results.score)?(": "+(ccVerdict||"assessed")+" "+data.constraintCheck.results.score+"/100"+(data.constraintCheck.results.date?", "+esc(data.constraintCheck.results.date):"")):" (run in the Constraint Check stage)")+'.</li>'+

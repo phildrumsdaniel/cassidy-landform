@@ -181,6 +181,24 @@ console.log("Landform engine consistency tests\n");
   ok("small scheme: 100% peak debt (single phase)", small.financePeakDebtPct === 100);
 })();
 
+// 4e — v10.58: basisOfFigures gives the rationale/provenance behind each headline number,
+// and reflects whether AI market research was applied (for the board paper / one-pager).
+(function(){
+  if(typeof basisOfFigures === "function"){
+    var d = sfhDeal({ sfh:{ buildInclusive:true, pricesSource:"AI market research" }, capitalise:{ rentSource:"AI market research", rent3:"1600" } });
+    var bo = basisOfFigures(d);
+    var byK = {}; bo.lines.forEach(function(x){ byK[x.k] = x.v; });
+    ok("basis covers the key drivers", byK["Sale value"] && byK["Build cost"] && byK["Finance"] && byK["Developer profit"] && byK["Land value"]);
+    ok("basis names AI research on sale prices when applied", /AI market research/.test(byK["Sale value"]));
+    ok("basis explains the S-curve finance derivation", /S-curve|peak debt/i.test(byK["Finance"]));
+    ok("basis states RLV is the max supportable (not agreed) price", /maximum supportable|not an agreed/i.test(byK["Land value"]));
+    // without AI, it points to Land Registry + premium instead
+    var d2 = sfhDeal();
+    var byK2 = {}; basisOfFigures(d2).lines.forEach(function(x){ byK2[x.k] = x.v; });
+    ok("basis falls back to Land Registry basis when no AI research", /Land Registry/.test(byK2["Sale value"]));
+  }
+})();
+
 // 5 — net land bid = gross RLV − acquisition costs
 (function(){
   var d = sfhDeal({ rlv:{ includeAcqCosts:true } });
