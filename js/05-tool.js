@@ -55,7 +55,10 @@ function Tool(props){
 // ── STAGES ───────────────────────────────────────────────────────────────────
 var ALL_STAGES = [
   // ── 0. START ─────────────────────────────────────────────────────────────
+  // v10.40 — the SIMPLE front door: the whole rule-of-thumb appraisal on one interactive page.
+  {id:"quick",           label:"Quick Appraisal",    icon:"⚡", group:"0. Start", journeys:["all","land","property","sfh","btr","pbsa","recovery","asset"]},
   {id:"keystone",        label:"Keystone — Deal Builder", icon:"🪨", group:"0. Start", journeys:["all","land","property","sfh","btr","pbsa","recovery","asset"]},
+  {id:"navigator",       label:"Process Navigator",  icon:"🧭", group:"0. Start",    journeys:["all","land","property","sfh","btr","pbsa","recovery","asset"]},
   {id:"navigator",       label:"Process Navigator",  icon:"🧭", group:"0. Start",    journeys:["all","land","property","sfh","btr","pbsa","recovery","asset"]},
   {id:"assetOptimiser",  label:"Asset Exit Optimiser", icon:"🏛", group:"0. Start",    journeys:["asset","all"]},
   // ── 1. FIND ──────────────────────────────────────────────────────────────
@@ -311,7 +314,7 @@ var JOURNEYS = {
   function stageVisibleForFlow(s){
     if(!s || !s.journeys)return true;
     var flowSchemes=activeSchemeFilters();
-    if(flowSchemes.length===0&&exits.length===0)return s.id==="keystone" || s.id==="navigator" || s.id==="portfolio" || s.id==="dashboard";
+    if(flowSchemes.length===0&&exits.length===0)return s.id==="quick" || s.id==="keystone" || s.id==="navigator" || s.id==="portfolio" || s.id==="dashboard";
     for(var sj=0;sj<flowSchemes.length;sj++){
       if(s.journeys.indexOf(flowSchemes[sj])>=0)return true;
     }
@@ -1870,6 +1873,7 @@ function loadSiteIntoDeal(site){
 
   // ── RENDER STAGE ───────────────────────────────────────────────────────────
   function renderStage(){
+    if(stage==="quick")return renderQuickAppraisal(city, data, navTo, setData, up, user);
     if(stage==="portfolio")return renderPortfolio(data, logMigration, navTo, saveDeal, setData, user);
     if(stage==="scorecard")return renderScorecard(city, data, gdv, lc, up, user);
     if(stage==="placona")return renderPlacona(data, loadSiteIntoDeal, up, user, navTo);
