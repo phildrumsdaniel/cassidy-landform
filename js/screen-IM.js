@@ -83,7 +83,7 @@ function renderIM(at, city, data, gdv, lc, up, user){
         '@media print{.cover{-webkit-print-color-adjust:exact;print-color-adjust:exact;}body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}'+
         '</style></head><body>'+
         '<div class="cover">'+
-          '<div><div class="cover-logo">CASSIDY</div><div class="cover-sub">GROUP</div></div>'+
+          ((typeof BRAND_LOGO_PNG!=="undefined"&&BRAND_LOGO_PNG&&typeof cassidyLogoSrc==="function")?'<div style="background:#fff;border-radius:8px;padding:7px 12px;display:inline-flex"><img src="'+cassidyLogoSrc()+'" alt="Cassidy Group Ltd" style="height:38px;width:auto;max-width:220px;display:block"/></div>':'<div><div class="cover-logo">CASSIDY</div><div class="cover-sub">GROUP</div></div>')+
           '<div>'+
             '<div class="cover-tag">INVESTOR MEMORANDUM — CONFIDENTIAL</div>'+
             '<div class="cover-title">'+addr+'</div>'+

@@ -54,7 +54,7 @@ function renderTeaser(city, data, gdv, lc, up, user){
         '</style></head><body><div class="page">'+
         '<div class="header">'+
           '<div class="logo-bar">'+
-            '<div><div class="logo-text">CASSIDY</div><div class="logo-sub">GROUP</div></div>'+
+            ((typeof BRAND_LOGO_PNG!=="undefined"&&BRAND_LOGO_PNG&&typeof cassidyLogoSrc==="function")?'<div style="background:#fff;border-radius:7px;padding:6px 10px;display:inline-flex"><img src="'+cassidyLogoSrc()+'" alt="Cassidy Group Ltd" style="height:32px;width:auto;max-width:190px;display:block"/></div>':'<div><div class="logo-text">CASSIDY</div><div class="logo-sub">GROUP</div></div>')+
             '<div class="confidential">CONFIDENTIAL — NOT FOR DISTRIBUTION</div>'+
           '</div>'+
           '<div class="site-name">'+addr+'</div>'+

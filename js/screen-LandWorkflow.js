@@ -229,6 +229,7 @@ function renderLandWorkflow(at, city, data, effUnits, gdv, lc, margin, mergeResp
                 var printContent="<!DOCTYPE html><html><head><title>"+
                   (data.land&&data.land.address||"Deal Summary")+" — Cassidy Group"+
                   "</title><style>body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;color:#1A1A3E;font-size:12px}h1{font-size:22px;color:#2E2F8A;border-bottom:3px solid #EDE84A;padding-bottom:8px}h2{font-size:14px;color:#4A4BAE;margin-top:20px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.box{background:#F7F8FC;border:1px solid #DDE0ED;padding:10px;border-radius:4px}.label{font-size:9px;color:#999;text-transform:uppercase}.value{font-size:16px;font-weight:bold;color:#2E2F8A}.footer{margin-top:30px;font-size:10px;color:#999;border-top:1px solid #eee;padding-top:10px}</style></head><body>"+
+                  ((typeof BRAND_LOGO_PNG!=="undefined"&&BRAND_LOGO_PNG&&typeof cassidyLogoSrc==="function")?'<div style="text-align:right;margin-bottom:8px"><img src="'+cassidyLogoSrc()+'" alt="Cassidy Group Ltd" style="height:30px;width:auto;max-width:180px;display:inline-block"/></div>':'')+
                   "<h1>"+(data.land&&data.land.address||"Development Site")+"</h1>"+
                   "<p><strong>City:</strong> "+cityName(city)+" &nbsp;|&nbsp; <strong>Asset:</strong> "+at.toUpperCase()+" &nbsp;|&nbsp; <strong>LPA:</strong> "+(data.planning&&data.planning.lpa||"—")+"</p>"+
                   "<h2>Financial Summary</h2><div class=grid>"+
