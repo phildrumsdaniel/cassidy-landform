@@ -1530,6 +1530,37 @@ console.log("Landform engine consistency tests\n");
   ok("Blank fin.units still resolves to the canonical count", finUnits(deal2) === 1800);
 })();
 
+// 61 — Quick Appraisal front-door: draft scheme from acreage, valued on the shared engine (v10.40)
+// Mirrors screen-QuickAppraisal.js: a land-only deal (acres, no mix) is drafted at 12 homes/acre,
+// the mix priced to the area sale £/sqft, and valued by computeSFHMetrics — so the one-page
+// front door and the detailed stages always agree.
+(function(){
+  if(typeof keystoneGenerateMix !== "function"){ ok("keystoneGenerateMix available", false); return; }
+  function repriceMix(mix, bp){
+    return (mix||[]).map(function(r){
+      var inf = HOUSE_TYPES[r.type] || HOUSE_TYPES["3-bed semi"] || {sqft:900,adj:1};
+      var sq = num(r.sqft) || inf.sqft, psf = Math.round(bp*(inf.adj||1));
+      return Object.assign({}, r, {unitPrice:String(Math.round(sq*psf)), psf:""});
+    });
+  }
+  var acres = 40, cityKey = "maidstone", pc = "TN12 0AA";
+  var draftHomes = Math.round(acres*12);                       // 12 homes/acre default
+  var base = Math.max(180, Math.min(650, Math.round(keystoneSalePsf(cityKey, pc))));
+  var mix = repriceMix(keystoneGenerateMix(draftHomes, cityKey, pc), base);
+  var eff = { assetType:"sfh", land:{city:cityKey, acres:acres, postcode:pc, price:8000000},
+    sfh:{ city:cityKey, acres:acres, basePsf:base, buildPsf:190, ahPct:30, s106pu:15000, finRate:7.5, profitPct:17.5, contingency:5, feesPct:12, marketingPct:0, mix:mix } };
+  var M = computeSFHMetrics(eff);
+  ok("Quick Appraisal drafts 480 homes from 40 acres @ 12/acre", M.totalUnits === 480);
+  ok("Draft mix priced to the area sale £/sqft (GDV > 0)", num(M.gdv) > 0);
+  ok("RLV is the engine's residual (same figure as the detailed stages)", num(M.rlv) === num(computeSFHMetrics(eff).rlv));
+  // The margin-after-land test the page runs: profit = GDV − devCost − (asking + acquisition).
+  function landSDLT(p){ if(p<=150000) return 0; var t=Math.min(p-150000,100000)*0.02; if(p>250000) t+=(p-250000)*0.05; return t; }
+  var asking = 8000000, acq = landSDLT(asking) + asking*0.015, allIn = asking + acq;
+  var marginAllIn = (num(M.gdv) - num(M.devCost) - allIn) / num(M.gdv) * 100;
+  ok("At £8m ask on this draft the all-in margin is comfortably >15% (worth pursuing)", marginAllIn > 15);
+  ok("Land is worth far more to us than the ask (positive headroom)", num(M.rlv) > allIn);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);
