@@ -20,8 +20,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.42";
+var CURRENT_VERSION = "10.43";
 var VERSION_HISTORY = [
+  {v:"10.43", date:"Jul 2026", headline:"Sale £/sqft is now FLAT across all house types — every home (2-bed semi to 4-bed detached) prices at the same base sale £/sqft, instead of bigger/detached homes getting an inflated £/sqft. GDV = total sqft × base £/sqft. This trims GDV on detached-heavy schemes to a more conservative, realistic figure. Build cost still varies by type (a real cost, not GDV); per-row £/sqft remains editable. The base £/sqft itself still includes the ~17% new-build premium over existing-home comparables"},
   {v:"10.42", date:"Jul 2026", headline:"Quick Appraisal now treats the build £/sqft as ALL-IN by default — roads, drainage and site infrastructure (SuDS) are assumed inside the build rate, not added as separate lines (no double-counting); marketing/disposal is a sale-side cost left at £0. A toggle switches it off for a deal whose build rate is construction-only. Persisted to the deal, so the detailed stages read the same assumption"},
   {v:"10.41", date:"Jul 2026", headline:"Quick Appraisal now generates the one-page A4 board proposal directly — a ‘📄 One-page board proposal (PDF)’ button on the Quick Appraisal page produces the same printable one-pager as the Board Proposal stage, straight from the figures on screen. The one-pager generator is now shared, so the two can never diverge."},
   {v:"10.40", date:"Jul 2026", headline:"NEW ‘⚡ Quick Appraisal’ front door — the whole rule-of-thumb on ONE interactive page: enter the acreage, pick a density (it builds the house mix), set the area sale £/sqft, and it shows homes → GDV → the cost stack → RLV (what the land is worth to us at 17.5% profit) → tested against the landowner's asking price with a plain-English verdict. Same engine as the detailed stages, so nothing can diverge; it sits at the top of the menu as the simple starting point"},
@@ -1647,59 +1648,63 @@ function sfhAhFactor(data){
 }
 
 
-// HOUSE_TYPES — each: beds, typical sqft (GIA), adj (sale £/sqft multiplier vs the
-// 3-bed-semi baseline), and build (BCIS-style 2026 UK new-build CONSTRUCTION cost
-// £/sqft GIA, standard spec, before regional index and Tier-1 main-contractor
-// uplift, and excluding land/fees/externals/contingency). Used to auto-cost each
-// house type at appraisal stage — a benchmark to validate with a QS/contractor.
+// HOUSE_TYPES — each: beds, typical sqft (GIA), adj (sale £/sqft multiplier vs the base
+// sale £/sqft), and build (BCIS-style 2026 UK new-build CONSTRUCTION cost £/sqft GIA,
+// standard spec, before regional index and Tier-1 main-contractor uplift, and excluding
+// land/fees/externals/contingency).
+// v10.43 — the SALE adjustment (adj) is now FLAT at 1.00 for every type: every house sells at
+// the same base £/sqft (Cassidy's chosen basis), so a bigger/detached home no longer gets an
+// inflated £/sqft. GDV = Σ(sqft × count) × base sale £/sqft. Per-row £/sqft is still fully
+// editable on the SFH House Mix stage for a deal where types genuinely differ. BUILD cost stays
+// per-type (a detached genuinely costs more to build than a terrace — that's a cost, not GDV).
 var HOUSE_TYPES = {
   // ── Apartments / flats (new-build) ──
-  "Studio apartment":{beds:0,sqft:330,adj:0.58,build:215},
-  "1-bed apartment":{beds:1,sqft:520,adj:0.72,build:210},
-  "2-bed apartment":{beds:2,sqft:680,adj:0.85,build:210},
-  "3-bed apartment":{beds:3,sqft:900,adj:1.02,build:215},
-  "2-bed penthouse":{beds:2,sqft:950,adj:1.20,build:245},
-  "3-bed penthouse":{beds:3,sqft:1300,adj:1.35,build:255},
+  "Studio apartment":{beds:0,sqft:330,adj:1.00,build:215},
+  "1-bed apartment":{beds:1,sqft:520,adj:1.00,build:210},
+  "2-bed apartment":{beds:2,sqft:680,adj:1.00,build:210},
+  "3-bed apartment":{beds:3,sqft:900,adj:1.00,build:215},
+  "2-bed penthouse":{beds:2,sqft:950,adj:1.00,build:245},
+  "3-bed penthouse":{beds:3,sqft:1300,adj:1.00,build:255},
   // ── Conversion flats (stately home / office / pub converted to flats) ──
-  "Conversion studio":{beds:0,sqft:380,adj:0.60,build:150},
-  "Conversion 1-bed flat":{beds:1,sqft:560,adj:0.78,build:150},
-  "Conversion 2-bed flat":{beds:2,sqft:800,adj:0.92,build:150},
-  "Conversion 3-bed flat":{beds:3,sqft:1100,adj:1.08,build:155},
-  "Conversion duplex":{beds:3,sqft:1300,adj:1.18,build:165},
+  "Conversion studio":{beds:0,sqft:380,adj:1.00,build:150},
+  "Conversion 1-bed flat":{beds:1,sqft:560,adj:1.00,build:150},
+  "Conversion 2-bed flat":{beds:2,sqft:800,adj:1.00,build:150},
+  "Conversion 3-bed flat":{beds:3,sqft:1100,adj:1.00,build:155},
+  "Conversion duplex":{beds:3,sqft:1300,adj:1.00,build:165},
   // ── Maisonettes / coach houses ──
-  "1-bed maisonette":{beds:1,sqft:600,adj:0.80,build:180},
-  "2-bed maisonette":{beds:2,sqft:820,adj:0.92,build:180},
-  "Coach house 2-bed":{beds:2,sqft:700,adj:0.88,build:185},
+  "1-bed maisonette":{beds:1,sqft:600,adj:1.00,build:180},
+  "2-bed maisonette":{beds:2,sqft:820,adj:1.00,build:180},
+  "Coach house 2-bed":{beds:2,sqft:700,adj:1.00,build:185},
   // ── Terraces ──
-  "1-bed terrace":{beds:1,sqft:550,adj:0.75,build:165},
-  "2-bed terrace":{beds:2,sqft:720,adj:0.88,build:165},
-  "3-bed terrace":{beds:3,sqft:920,adj:0.95,build:170},
-  "4-bed terrace":{beds:4,sqft:1180,adj:1.10,build:175},
+  "1-bed terrace":{beds:1,sqft:550,adj:1.00,build:165},
+  "2-bed terrace":{beds:2,sqft:720,adj:1.00,build:165},
+  "3-bed terrace":{beds:3,sqft:920,adj:1.00,build:170},
+  "4-bed terrace":{beds:4,sqft:1180,adj:1.00,build:175},
   // ── Mews / townhouses ──
-  "2-bed mews":{beds:2,sqft:900,adj:0.98,build:180},
-  "3-bed mews":{beds:3,sqft:1050,adj:1.05,build:185},
-  "3-bed townhouse":{beds:3,sqft:1300,adj:1.15,build:190},
-  "4-bed townhouse":{beds:4,sqft:1650,adj:1.26,build:200},
+  "2-bed mews":{beds:2,sqft:900,adj:1.00,build:180},
+  "3-bed mews":{beds:3,sqft:1050,adj:1.00,build:185},
+  "3-bed townhouse":{beds:3,sqft:1300,adj:1.00,build:190},
+  "4-bed townhouse":{beds:4,sqft:1650,adj:1.00,build:200},
   // ── Semi-detached ──
-  "2-bed semi":{beds:2,sqft:820,adj:0.90,build:165},
+  "2-bed semi":{beds:2,sqft:820,adj:1.00,build:165},
   "3-bed semi":{beds:3,sqft:1020,adj:1.00,build:170},
-  "4-bed semi":{beds:4,sqft:1300,adj:1.14,build:180},
+  "4-bed semi":{beds:4,sqft:1300,adj:1.00,build:180},
   // ── Link-detached ──
-  "3-bed link-detached":{beds:3,sqft:1100,adj:1.05,build:180},
-  "4-bed link-detached":{beds:4,sqft:1350,adj:1.16,build:188},
+  "3-bed link-detached":{beds:3,sqft:1100,adj:1.00,build:180},
+  "4-bed link-detached":{beds:4,sqft:1350,adj:1.00,build:188},
   // ── Detached ──
-  "3-bed detached":{beds:3,sqft:1150,adj:1.08,build:185},
-  "4-bed detached":{beds:4,sqft:1500,adj:1.18,build:195},
-  "4-bed executive":{beds:4,sqft:1900,adj:1.28,build:230},
-  "5-bed detached":{beds:5,sqft:2400,adj:1.40,build:215},
-  "5-bed executive":{beds:5,sqft:2900,adj:1.52,build:260},
-  "6-bed detached":{beds:6,sqft:3400,adj:1.65,build:245},
+  "3-bed detached":{beds:3,sqft:1150,adj:1.00,build:185},
+  "4-bed detached":{beds:4,sqft:1500,adj:1.00,build:195},
+  "4-bed executive":{beds:4,sqft:1900,adj:1.00,build:230},
+  "5-bed detached":{beds:5,sqft:2400,adj:1.00,build:215},
+  "5-bed executive":{beds:5,sqft:2900,adj:1.00,build:260},
+  "6-bed detached":{beds:6,sqft:3400,adj:1.00,build:245},
   // ── Bungalows ──
-  "Bungalow 2-bed":{beds:2,sqft:800,adj:1.05,build:190},
-  "Bungalow 3-bed":{beds:3,sqft:1050,adj:1.12,build:198},
+  "Bungalow 2-bed":{beds:2,sqft:800,adj:1.00,build:190},
+  "Bungalow 3-bed":{beds:3,sqft:1050,adj:1.00,build:198},
   // ── Prime / large country houses ──
-  "Manor house":{beds:6,sqft:4500,adj:1.90,build:320},
-  "Mansion":{beds:8,sqft:6500,adj:2.20,build:380},
+  "Manor house":{beds:6,sqft:4500,adj:1.00,build:320},
+  "Mansion":{beds:8,sqft:6500,adj:1.00,build:380},
 };
 
 // BCIS regional index (1.00 = UK average). Tweakable; covers the broad spread a
