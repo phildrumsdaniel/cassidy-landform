@@ -156,6 +156,42 @@ function renderKeystone(data, setData, up, navTo, user){
     else doBuild();
   }
 
+  // ── v10.45 — Complete the deal with AI: research the area's per-type new-build prices & rents,
+  // apply them to the mix (replacing the flat default), feed rents into capitalisation, and apply
+  // the profit-maximising mix. One click does what used to be manual pricing + optimising. The
+  // deal is only changed if the AI returns usable figures; any failure leaves it untouched.
+  async function completeWithAI(){
+    var sfh0 = data.sfh || {};
+    if(!(sfh0.mix && sfh0.mix.length)){ notify("Build the deal first, then complete it with AI."); return; }
+    setK({ enriching:true, enrichNote:"" });
+    var sfhCity = sfh0.city || (data.land && data.land.city) || "";
+    var pc = (data.land && data.land.postcode) || "";
+    var typeList = sfh0.mix.filter(function(r){ return num(r.count) > 0; }).map(function(r){ return r.type; })
+      .filter(function(v, i, a){ return v && a.indexOf(v) === i; });
+    var sys = "You are a UK new-build residential valuer. Output STRICT JSON only — no prose, no markdown fences. Figures are indicative and to be verified.";
+    var prompt = "For NEW-BUILD homes in " + ((typeof cityName === "function" ? cityName(sfhCity) : sfhCity) || "the area") + " (" + (pc || "postcode unknown") +
+      "), give typical achieved SALE PRICE and MONTHLY RENT for each of these house types: " + typeList.join(", ") +
+      ". Reflect the REAL local market — a larger/detached home often sells at a LOWER £/sqft than a smaller semi. " +
+      "Output JSON exactly in this shape: {\"types\":[{\"type\":\"<name as given>\",\"beds\":<number>,\"sqft\":<number>,\"salePrice\":<number £>,\"rentPcm\":<number £>}]}. Numbers only — no £ signs or commas.";
+    try{
+      var res = await callAI(user, "keystone", sys, prompt);
+      var a = res.indexOf("{"), b = res.lastIndexOf("}");
+      var obj = JSON.parse((a >= 0 && b > a) ? res.substring(a, b + 1) : res);
+      var aiTypes = obj.types || obj.prices || [];
+      if(!(aiTypes && aiTypes.length)) throw new Error("no per-type figures returned");
+      var out = applyMarketPricesAndOptimise(data, aiTypes, { optimise:true });
+      if(!out.applied) throw new Error("none of the AI types matched the mix");
+      setData(function(prev){ return Object.assign({}, prev, { sfh: out.data.sfh, capitalise: out.data.capitalise || prev.capitalise }); });
+      var note = "Applied real area prices to " + out.applied + " house type" + (out.applied === 1 ? "" : "s") +
+        (out.optimised ? (" and optimised the mix (+" + out.optimised.upliftPct + "% for land + profit)") : "") + ". Rents fed into capitalisation. Verify against live listings.";
+      setK({ enriching:false, enrichNote:note });
+      notify("✓ Completed with AI — " + note);
+    }catch(err){
+      setK({ enriching:false, enrichNote:"" });
+      notify("Couldn't complete with AI (" + ((err && err.message) || err) + "). The deal is unchanged — you can enter per-type prices on the SFH House Mix stage instead.");
+    }
+  }
+
   var detected = (function(){ try{ return detectJourney(JSON.parse(k.brief||"{}")); }catch(e2){ return ""; } })();
 
   // v9.87 — density control: size the scheme to the land before building. Reads acres
@@ -297,9 +333,17 @@ function renderKeystone(data, setData, up, navTo, user){
       ) : null,
       e("div",{style:{display:"flex",gap:10,flexWrap:"wrap"}},
         e("button",{onClick:buildDeal,disabled:!(k.brief||"").trim(),style:{padding:"9px 18px",background:(k.brief||"").trim()?"#2D7A65":"#9AA",border:"none",color:"#fff",borderRadius:6,fontSize:13,fontWeight:700,cursor:(k.brief||"").trim()?"pointer":"not-allowed",fontFamily:"DM Sans,sans-serif"}},"🏗 Build deal & load it"),
+        // v10.45 — one click: research area prices/rents by type, apply them, feed rents into
+        // capitalisation, and apply the profit-maximising mix. Replaces manual per-type pricing.
+        k.builtJourney && (data.sfh && data.sfh.mix && data.sfh.mix.length) && e("button",{onClick:completeWithAI,disabled:!!k.enriching,
+          title:"AI-researches the area's new-build sale prices and rents for each house type, applies them (a 4-bed detached often sells at a lower £/sqft than a 3-bed semi), and applies the profit-maximising mix. Indicative — verify against live listings.",
+          style:{padding:"9px 18px",background:k.enriching?"#9AA":"linear-gradient(135deg,#7A5CC0,#4A4BAE)",border:"none",color:"#fff",borderRadius:6,fontSize:13,fontWeight:800,cursor:k.enriching?"wait":"pointer",fontFamily:"DM Sans,sans-serif"}},
+          k.enriching?"⏳ Researching prices…":"🤖 Complete with AI — price & optimise the mix"),
         k.builtJourney && e("button",{onClick:function(){navTo("dashboard");},style:{padding:"9px 18px",background:"#fff",border:"1px solid #4A4BAE",color:"#4A4BAE",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Go to Deal Dashboard →"),
         k.builtJourney && e("button",{onClick:function(){navTo("land");},style:{padding:"9px 18px",background:"#fff",border:"1px solid #DDE0ED",color:"#3A3D6A",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Open Land Appraisal →")
-      )
+      ),
+      k.enrichNote && e("div",{style:{marginTop:10,padding:"9px 12px",background:"rgba(74,75,174,0.07)",border:"1px solid rgba(74,75,174,0.3)",borderRadius:6,fontSize:11.5,color:"#3A3D6A",lineHeight:1.5}},
+        e("strong",{style:{color:"#4A4BAE"}},"🤖 AI complete. "), k.enrichNote)
     )
   );
 }
