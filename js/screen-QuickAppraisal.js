@@ -121,6 +121,16 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
   }
   function setAcres(v){ up("land", "acres", v); }
   function densityTo(perAcre){ if(acres > 0) setHomes(acres * perAcre); }
+  // Generate the one-page A4 board proposal straight from this page's figures. Uses the shared
+  // buildLandOnePager (same generator as the Board Proposal stage), fed the EFFECTIVE deal so
+  // the PDF matches exactly what's on screen (including the draft mix and area defaults).
+  function openOnePager(){
+    if(typeof buildLandOnePager !== "function"){ if(typeof notify === "function") notify("One-pager generator still loading — try again in a moment."); return; }
+    if(typeof notify === "function") notify("Generating one-page board proposal…");
+    var w = window.open("", "_blank");
+    if(!w){ if(typeof notify === "function") notify("Allow pop-ups to open the one-page board proposal."); return; }
+    w.document.open(); w.document.write(buildLandOnePager(effData, cityKey)); w.document.close();
+  }
 
   var box = { background:"#fff", border:"1px solid #E0E2EC", borderRadius:8, padding:"10px 12px" };
   function kpi(label, value, color){
@@ -224,8 +234,11 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
       ),
 
       e("div", { style:{ display:"flex", gap:10, flexWrap:"wrap", marginTop:14 } },
+        // One-click one-page board proposal — the SAME A4 PDF as the Board Proposal stage,
+        // generated straight from this page's figures (buildLandOnePager is shared, so identical).
+        e("button", { onClick:openOnePager, style:{ padding:"9px 18px", background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)", border:"none", color:"#fff", borderRadius:6, fontSize:12.5, fontWeight:800, cursor:"pointer", fontFamily:"DM Sans,sans-serif", boxShadow:"0 2px 10px rgba(30,31,92,.25)" } }, "📄 One-page board proposal (PDF)"),
         e("button", { onClick:function(){ navTo("sfh"); }, style:{ padding:"9px 16px", background:"#fff", border:"1px solid #4A4BAE", color:"#4A4BAE", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "Refine the house mix →"),
-        e("button", { onClick:function(){ navTo("proposal"); }, style:{ padding:"9px 16px", background:"#2E2F8A", border:"none", color:"#fff", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "Board paper & one-pager →")
+        e("button", { onClick:function(){ navTo("proposal"); }, style:{ padding:"9px 16px", background:"#fff", border:"1px solid #DDE0ED", color:"#3A3D6A", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "Full board paper →")
       ),
 
       e("div", { style:{ fontSize:10, color:"#9298BC", marginTop:14, lineHeight:1.5, borderTop:"1px solid #EEF0F7", paddingTop:8 } },
