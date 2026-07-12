@@ -546,6 +546,76 @@ function applyMarketPricesAndOptimise(data, aiTypes, opts){
   return { data:data, applied:applied, optimised:optimised, rentByBeds:rentByBeds };
 }
 
+// ── v10.59 — KEYSTONE JOURNEY FILLERS ─────────────────────────────────────────
+// So Keystone can fill the WHOLE journey (not just prices/rents), each stage that needs
+// AI/benchmark judgement is a filler: { key, label, sys, prompt(data) → string, apply(data,obj) }.
+// The orchestrator (screen-Keystone) calls the AI with prompt(), parses the JSON, and runs
+// apply() to write it into the deal. Pure + testable; Due Diligence, Meetings, Data Room and the
+// Risk Register are deliberately NOT here — those are left to a human.
+function _kjContext(data){
+  data = data || {};
+  var l = data.land || {}, p = data.planning || {}, sfh = data.sfh || {};
+  var town = (typeof cityName === "function" && typeof dealCityKey === "function") ? cityName(dealCityKey(data)) : (l.city || "the area");
+  var units = num(l.units) || num(p.units) || (sfh.mix || []).reduce(function(a, r){ return a + num(r.count); }, 0) || 0;
+  var ahPct = num(p.ahPct) || num(p.afhPct) || num((data.tenure || {}).ahPct) || num(sfh.ahPct) || 0;
+  return { town:town, units:units, ahPct:ahPct, lpa:p.lpa || "", status:p.status || l.planningStatus || "",
+    address:l.address || "", postcode:(l.postcode || "").toUpperCase(), acres:num(l.acres) || 0 };
+}
+function _kjPick(v, allowed, fallback){ v = String(v == null ? "" : v).toLowerCase().trim(); return allowed.indexOf(v) >= 0 ? v : fallback; }
+
+var KEYSTONE_JOURNEY_FILLERS = [
+  { key:"planning", label:"Planning strategy & risk",
+    sys:"You are a UK residential planning consultant. Output STRICT JSON only — no prose, no markdown. Judgements are indicative and to be verified.",
+    prompt:function(data){ var c=_kjContext(data);
+      return "Assess planning for a "+c.units+"-home residential scheme in "+c.town+(c.lpa?" (LPA "+c.lpa+")":"")+", current planning status: "+(c.status||"unallocated/none")+
+        ". Output EXACTLY this JSON: {\"riskLevel\":\"low|medium|high\",\"bng\":\"on_site|off_site|exempt\",\"gateway\":\"na\",\"planningProb\":<0-100 probability of achieving consent>,\"timelineMonths\":<realistic months to consent>,\"summary\":\"2-3 sentence planning strategy incl. the route (allocation/outline/full) and key policy risks\"}. Houses under 11m tall ⇒ gateway \"na\"."; },
+    apply:function(data, o){ var p=data.planning||(data.planning={}); var ch=[];
+      var rl=_kjPick(o.riskLevel,["low","medium","high"],""); if(rl){ p.riskLevel=rl; ch.push("Planning risk"); }
+      var bng=_kjPick(o.bng,["on_site","off_site","exempt"],""); if(bng){ p.bng=bng; ch.push("Biodiversity Net Gain"); }
+      var gw=_kjPick(o.gateway,["na","g2","g2a","g3"],""); if(gw){ p.gateway=gw; }
+      if(num(o.planningProb)>0){ p.planningProb=Math.max(0,Math.min(100,Math.round(num(o.planningProb)))); ch.push("Planning probability"); }
+      if(num(o.timelineMonths)>0){ p.planningTimelineMonths=Math.round(num(o.timelineMonths)); ch.push("Planning timeline"); }
+      if(o.summary){ p.aiSummary=String(o.summary); ch.push("Planning summary"); }
+      return ch; } },
+
+  { key:"exit", label:"Exit strategy & target buyer",
+    sys:"You are a UK residential development & investment adviser. Output STRICT JSON only — no prose, no markdown.",
+    prompt:function(data){ var c=_kjContext(data);
+      return "Recommend the exit for a "+c.units+"-home single-family housing scheme in "+c.town+" with "+c.ahPct+"% affordable. Output EXACTLY this JSON: {\"strategy\":\"plot_sales|bulk_sale_ha|forward_fund|forward_sale|stabilised|retain|phased\",\"investorType\":\"pension_fund|sovereign_wealth|reit|private_equity|asset_manager|family_office\",\"agent\":\"a suitable UK selling/transaction agent, e.g. Savills, JLL, Knight Frank, Carter Jonas\",\"summary\":\"2-3 sentences: the primary exit (open-market plot sales for private homes; bulk sale of the affordable to a named local housing association), plus the institutional forward-fund alternative and who would buy\"}."; },
+    apply:function(data, o){ var ex=data.exit||(data.exit={}); var ch=[];
+      var st=_kjPick(o.strategy,["plot_sales","bulk_sale_ha","forward_fund","forward_sale","stabilised","retain","phased"],""); if(st){ ex.strategy=st; ch.push("Exit strategy"); }
+      var it=_kjPick(o.investorType,["pension_fund","sovereign_wealth","reit","private_equity","asset_manager","family_office"],""); if(it){ ex.investorType=it; ch.push("Target investor"); }
+      if(o.agent){ ex.agent=String(o.agent); ch.push("Transaction agent"); }
+      if(o.summary){ ex.aiSummary=String(o.summary); ch.push("Exit summary"); }
+      return ch; } },
+
+  { key:"grants", label:"Grant & funding strategy",
+    sys:"You are a UK affordable-housing grant & funding specialist (Homes England AHP, Brownfield/Infrastructure funds). Output STRICT JSON only — no prose, no markdown.",
+    prompt:function(data){ var c=_kjContext(data);
+      return "Draft a concise grant/funding strategy for a "+c.units+"-home scheme with "+c.ahPct+"% affordable in "+c.town+". Reference Homes England Affordable Homes Programme and any relevant Brownfield/Infrastructure funding. Output EXACTLY this JSON, each value 1-2 sentences: {\"gs_site\":\"\",\"gs_housing\":\"\",\"gs_viability\":\"\",\"gs_ask\":\"\",\"gs_strategy\":\"\"}."; },
+    apply:function(data, o){ var g=data.grants||(data.grants={}); var ch=[];
+      ["gs_site","gs_housing","gs_viability","gs_ask","gs_strategy"].forEach(function(k){ if(o[k]){ g[k]=String(o[k]); ch.push("Grants: "+k.replace("gs_","")); } });
+      return ch; } },
+
+  { key:"constraint", label:"Planning & GIS constraints",
+    sys:"You are a UK planning & GIS constraints analyst. Output STRICT JSON only — no prose, no markdown. Indicative desktop screen, to be verified.",
+    prompt:function(data){ var c=_kjContext(data);
+      return "Desktop planning & GIS constraint screen for a residential site"+(c.address?" at "+c.address:"")+" ("+(c.postcode||"postcode unknown")+") in "+c.town+", ~"+c.acres+" acres. Consider Green Belt, Flood Zones, AONB/National Landscape, Conservation Area, listed buildings, TPOs, access/highways, contamination, ecology. Output EXACTLY this JSON: {\"score\":<0-100 developability>,\"verdict\":\"a short verdict phrase\",\"summary\":\"3-4 sentence constraints assessment\",\"constraints\":[\"key constraint 1\",\"key constraint 2\"]}."; },
+    apply:function(data, o){ var ch=[];
+      if(num(o.score)>0 || o.verdict || o.summary){
+        var cons = Array.isArray(o.constraints) ? o.constraints.map(String) : [];
+        data.constraintCheck = Object.assign({}, data.constraintCheck||{}, { results: {
+          score: Math.max(0, Math.min(100, Math.round(num(o.score)||0))),
+          verdict: o.verdict ? String(o.verdict) : "",
+          site: _kjContext(data).address || _kjContext(data).postcode || "",
+          date: (function(){ try { return new Date().toLocaleDateString("en-GB"); } catch(e){ return ""; } })(),
+          report: [o.summary ? String(o.summary) : "", cons.length ? ("Key constraints: " + cons.join("; ")) : ""].filter(Boolean).join("\n\n")
+        } });
+        ch.push("Constraint Check assessment");
+      }
+      return ch; } }
+];
+
 // v10.38 — preserveManualOnRebuild: when Keystone REBUILDS a deal from the brief, carry the
 // user's manual downstream work into the freshly-built deal so a rebuild refreshes the scheme
 // WITHOUT silently wiping planning judgement, verified prices and exit strategy. Mutates
@@ -666,5 +736,5 @@ function rawImportBrief(deal){
 
 // Expose to the headless test harness (Node) without breaking the browser global scope.
 if(typeof module !== "undefined" && module.exports){
-  module.exports = { buildDealFromBrief: buildDealFromBrief, detectJourney: detectJourney, keystoneBriefFromPlaconaSite: keystoneBriefFromPlaconaSite, rawImportBrief: rawImportBrief, KEYSTONE_BRIEF_SCHEMA: KEYSTONE_BRIEF_SCHEMA };
+  module.exports = { buildDealFromBrief: buildDealFromBrief, detectJourney: detectJourney, keystoneBriefFromPlaconaSite: keystoneBriefFromPlaconaSite, rawImportBrief: rawImportBrief, KEYSTONE_BRIEF_SCHEMA: KEYSTONE_BRIEF_SCHEMA, KEYSTONE_JOURNEY_FILLERS: KEYSTONE_JOURNEY_FILLERS, applyMarketPricesAndOptimise: applyMarketPricesAndOptimise };
 }

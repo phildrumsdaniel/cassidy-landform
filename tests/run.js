@@ -199,6 +199,43 @@ console.log("Landform engine consistency tests\n");
   }
 })();
 
+// 4f — v10.59: Keystone journey fillers — each stage's apply() writes valid data, and only
+// whitelisted option values are accepted (bad AI output can't corrupt the deal).
+(function(){
+  var F = (typeof KEYSTONE_JOURNEY_FILLERS !== "undefined") ? KEYSTONE_JOURNEY_FILLERS : null;
+  if(F){
+    var byKey = {}; F.forEach(function(f){ byKey[f.key] = f; });
+    ok("journey covers planning, exit, grants, constraint", byKey.planning && byKey.exit && byKey.grants && byKey.constraint);
+    ok("does NOT auto-fill the human stages (dd/meetings/dataroom/risks)", !byKey.dd && !byKey.meetings && !byKey.dataroom && !byKey.risks);
+    // each filler builds a prompt string from a deal
+    var deal = sfhDeal({ land:{ city:"maldon", address:"North of Town", postcode:"CM9 4AA", acres:32, units:400 }, planning:{ lpa:"Maldon DC", units:400 } });
+    ok("planning prompt mentions the scheme", /home residential scheme/i.test(byKey.planning.prompt(deal)));
+
+    // planning apply — valid values written, junk rejected
+    var d1 = JSON.parse(JSON.stringify(deal));
+    byKey.planning.apply(d1, { riskLevel:"medium", bng:"on_site", gateway:"na", planningProb:65, timelineMonths:20, summary:"Allocated route." });
+    ok("planning apply writes risk/BNG/prob/timeline", d1.planning.riskLevel==="medium" && d1.planning.bng==="on_site" && num(d1.planning.planningProb)===65 && num(d1.planning.planningTimelineMonths)===20);
+    var d1b = JSON.parse(JSON.stringify(deal));
+    byKey.planning.apply(d1b, { riskLevel:"catastrophic", bng:"maybe" });
+    ok("planning apply rejects invalid option values", !d1b.planning.riskLevel && !d1b.planning.bng);
+
+    // exit apply
+    var d2 = JSON.parse(JSON.stringify(deal));
+    byKey.exit.apply(d2, { strategy:"plot_sales", investorType:"pension_fund", agent:"Savills", summary:"Plot sales + bulk HA." });
+    ok("exit apply writes strategy/investor/agent", d2.exit.strategy==="plot_sales" && d2.exit.investorType==="pension_fund" && d2.exit.agent==="Savills");
+
+    // grants apply
+    var d3 = JSON.parse(JSON.stringify(deal));
+    byKey.grants.apply(d3, { gs_site:"S.", gs_housing:"H.", gs_viability:"V.", gs_ask:"A.", gs_strategy:"St." });
+    ok("grants apply writes the gs_* sections", d3.grants.gs_site==="S." && d3.grants.gs_strategy==="St.");
+
+    // constraint apply
+    var d4 = JSON.parse(JSON.stringify(deal));
+    byKey.constraint.apply(d4, { score:72, verdict:"Developable", summary:"No Green Belt.", constraints:["Flood Zone 1","Access from B-road"] });
+    ok("constraint apply writes a results object with a score", num(d4.constraintCheck.results.score)===72 && /Flood Zone 1/.test(d4.constraintCheck.results.report));
+  }
+})();
+
 // 5 — net land bid = gross RLV − acquisition costs
 (function(){
   var d = sfhDeal({ rlv:{ includeAcqCosts:true } });

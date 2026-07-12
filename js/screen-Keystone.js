@@ -204,6 +204,37 @@ function renderKeystone(data, setData, up, navTo, user){
     }
   }
 
+  // ── v10.59 — Complete the WHOLE journey with AI ──────────────────────────────
+  // One action: research prices/rents (completeWithAI), THEN fill every stage that needs AI
+  // judgement — Planning, Exit, Grants, Constraints — from KEYSTONE_JOURNEY_FILLERS. Due
+  // Diligence, Meetings, Data Room and the Risk Register are deliberately left for a human.
+  async function completeJourneyWithAI(){
+    var deal = data;
+    if(!(deal.sfh && deal.sfh.mix && deal.sfh.mix.length)){ notify("Build the deal first, then complete the journey."); return; }
+    setK({ journeyBusy:true, journeyNote:"Researching prices & rents…" });
+    try { await completeWithAI(deal); }catch(e){}
+    var done = [], fillers = (typeof KEYSTONE_JOURNEY_FILLERS !== "undefined") ? KEYSTONE_JOURNEY_FILLERS : [];
+    for(var i=0;i<fillers.length;i++){
+      var f = fillers[i];
+      setK({ journeyBusy:true, journeyNote:"Filling "+f.label+"… ("+(i+1)+"/"+fillers.length+")" });
+      try {
+        var res = await callAI(user, "keystone", f.sys, f.prompt(deal));
+        var a=res.indexOf("{"), b=res.lastIndexOf("}");
+        var obj = JSON.parse((a>=0 && b>a) ? res.substring(a, b+1) : res);
+        (function(filler, parsed){
+          setData(function(prev){
+            var d2; try { d2 = JSON.parse(JSON.stringify(prev)); }catch(e){ d2 = prev; }
+            try { filler.apply(d2, parsed); }catch(e){}
+            return d2;
+          });
+        })(f, obj);
+        done.push(f.label);
+      }catch(e){ /* skip this stage, keep going */ }
+    }
+    setK({ journeyBusy:false, journeyNote: done.length ? ("Journey filled: "+done.join(", ")+". Review each stage.") : "Couldn't fill the journey stages — try again." });
+    notify(done.length ? ("✓ Keystone filled the journey — "+done.join(", ")+". Human stages (Due Diligence, Meetings, Data Room, Risk Register) are left for you.") : "Journey fill didn't return usable data — try again.");
+  }
+
   var detected = (function(){ try{ return detectJourney(JSON.parse(k.brief||"{}")); }catch(e2){ return ""; } })();
 
   // v9.87 — density control: size the scheme to the land before building. Reads acres
@@ -366,11 +397,19 @@ function renderKeystone(data, setData, up, navTo, user){
           title:"AI-researches the area's new-build sale prices and rents for each house type, applies them (a 4-bed detached often sells at a lower £/sqft than a 3-bed semi), and applies the profit-maximising mix. Indicative — verify against live listings.",
           style:{padding:"9px 18px",background:k.enriching?"#9AA":"linear-gradient(135deg,#7A5CC0,#4A4BAE)",border:"none",color:"#fff",borderRadius:6,fontSize:13,fontWeight:800,cursor:k.enriching?"wait":"pointer",fontFamily:"DM Sans,sans-serif"}},
           k.enriching?"⏳ Researching prices…":"🤖 Complete with AI — price & optimise the mix"),
+        // v10.59 — one click fills the WHOLE journey: prices/rents, then Planning, Exit, Grants &
+        // Constraints via AI. Human stages (Due Diligence, Meetings, Data Room, Risk Register) left alone.
+        k.builtJourney && (data.sfh && data.sfh.mix && data.sfh.mix.length) && e("button",{onClick:completeJourneyWithAI,disabled:!!(k.enriching||k.journeyBusy),
+          title:"Fills every stage that needs data: researches prices & rents, then Planning (risk, BNG, timeline), Exit strategy & target buyer, Grant/funding strategy and a planning & GIS constraints screen — using national-builder benchmarks. Due Diligence, Meetings, Data Room and the Risk Register are left for you. Indicative — review each stage.",
+          style:{padding:"9px 18px",background:(k.enriching||k.journeyBusy)?"#9AA":"linear-gradient(135deg,#1E7A5C,#2D7A65)",border:"none",color:"#fff",borderRadius:6,fontSize:13,fontWeight:800,cursor:(k.enriching||k.journeyBusy)?"wait":"pointer",fontFamily:"DM Sans,sans-serif"}},
+          k.journeyBusy?"⏳ Filling the journey…":"🚀 Complete the whole journey with AI"),
         k.builtJourney && e("button",{onClick:function(){navTo("dashboard");},style:{padding:"9px 18px",background:"#fff",border:"1px solid #4A4BAE",color:"#4A4BAE",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Go to Deal Dashboard →"),
         k.builtJourney && e("button",{onClick:function(){navTo("land");},style:{padding:"9px 18px",background:"#fff",border:"1px solid #DDE0ED",color:"#3A3D6A",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Open Land Appraisal →")
       ),
       k.enrichNote && e("div",{style:{marginTop:10,padding:"9px 12px",background:"rgba(74,75,174,0.07)",border:"1px solid rgba(74,75,174,0.3)",borderRadius:6,fontSize:11.5,color:"#3A3D6A",lineHeight:1.5}},
-        e("strong",{style:{color:"#4A4BAE"}},"🤖 AI complete. "), k.enrichNote)
+        e("strong",{style:{color:"#4A4BAE"}},"🤖 AI complete. "), k.enrichNote),
+      k.journeyNote && e("div",{style:{marginTop:10,padding:"9px 12px",background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.3)",borderRadius:6,fontSize:11.5,color:"#2D5A47",lineHeight:1.5}},
+        e("strong",{style:{color:"#1E7A5C"}},k.journeyBusy?"🚀 Filling the journey… ":"🚀 Journey. "), k.journeyNote)
     )
   );
 }
