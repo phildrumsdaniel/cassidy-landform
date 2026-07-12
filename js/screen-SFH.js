@@ -492,6 +492,60 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
           )
         )
       ),
+      // v10.44 — Mix optimiser: which house types make the most money (per sqft), and the mix
+      // that maximises the £ available for land + profit (or rental yield), within realistic bounds.
+      (function(){
+        var optMode = s.optMode==="rent" ? "rent" : "profit";
+        var opt = (typeof optimiseSfhMix==="function") ? optimiseSfhMix(data, optMode) : null;
+        if(!opt || !opt.types.length) return null;
+        var isRent = optMode==="rent";
+        var gcols = "1.5fr 58px 92px 100px 92px";
+        function tabBtn(m,label){ var on=optMode===m; return e("button",{key:m,onClick:function(){up("sfh","optMode",m);},style:{padding:"5px 12px",background:on?"#2E2F8A":"#fff",color:on?"#fff":"#3A3D6A",border:"1px solid "+(on?"#2E2F8A":"#DDE0ED"),borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},label); }
+        return e("div",{style:S.card},
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:8,marginBottom:4}},
+            e("div",{style:S.cardTitle},"🎯 Mix optimiser — which homes make the most money"),
+            e("div",{style:{display:"flex",gap:6}}, tabBtn("profit","💷 For sale"), tabBtn("rent","🏠 For rent"))
+          ),
+          e("div",{style:{fontSize:11,color:"#7278A0",lineHeight:1.6,marginBottom:10}},
+            isRent
+              ? "Ranked by rent per sqft — the income-efficient homes for a BTR/forward sale. Rents are area estimates by size; verify against live listings. The 3-bed is usually the sweet spot."
+              : "Ranked by profit per sqft — the land-efficient homes. A 4-bed detached often sells at a LOWER £/sqft than a 3-bed semi, so it makes less per acre. Enter the REAL local sale prices per type in the mix above (or research them below), then apply the optimised mix."),
+          e("div",{style:{overflowX:"auto"}},
+            e("div",{style:{display:"grid",gridTemplateColumns:gcols,gap:8,padding:"7px 10px",background:"#2E2F8A",borderRadius:"6px 6px 0 0",fontSize:9,color:"#fff",textTransform:"uppercase",letterSpacing:".05em",fontWeight:700,minWidth:420}},
+              e("span",null,"House type"),e("span",{style:{textAlign:"right"}},"Sqft"),
+              e("span",{style:{textAlign:"right"}},isRent?"Rent/mo":"Sale £/sqft"),
+              e("span",{style:{textAlign:"right"}},isRent?"Gross yield":"Margin/plot"),
+              e("span",{style:{textAlign:"right"}},isRent?"Rent/sqft·yr":"Margin/sqft")
+            ),
+            opt.types.map(function(t,i){ var top=i===0;
+              return e("div",{key:t.type+i,style:{display:"grid",gridTemplateColumns:gcols,gap:8,padding:"7px 10px",borderBottom:"1px solid #EEF",alignItems:"center",minWidth:420,fontSize:12,background:top?"rgba(45,122,101,0.06)":"#fff"}},
+                e("span",{style:{fontWeight:top?800:600,color:"#2E2F8A"}},(top?"⭐ ":"")+t.type),
+                e("span",{style:{textAlign:"right",color:"#7278A0"}},t.sqft.toLocaleString()),
+                e("span",{style:{textAlign:"right",color:"#3A3D6A"}},isRent?("£"+fmtN(t.rentPcm)):("£"+t.psf)),
+                e("span",{style:{textAlign:"right",fontWeight:700,color:"#4A4BAE"}},isRent?pct(t.grossYield):fmt(t.marginPerPlot)),
+                e("span",{style:{textAlign:"right",fontWeight:800,color:top?"#1B7A54":"#3A3D6A"}},isRent?("£"+t.rentPsfPa.toFixed(1)):("£"+Math.round(t.marginPsf)))
+              );
+            })
+          ),
+          !isRent && e("div",{style:{marginTop:12,padding:"11px 13px",background:"rgba(45,122,101,0.06)",border:"1px solid rgba(45,122,101,0.3)",borderRadius:7,display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:10,alignItems:"center"}},
+            e("div",{style:{fontSize:12,color:"#3A3D6A",lineHeight:1.6,flex:1,minWidth:240}},
+              e("strong",{style:{color:"#1B7A54"}},"Optimised mix (same land): "),
+              opt.optimised.units.toLocaleString()+" homes · GDV "+fmt(opt.optimised.gdv)+" · ",
+              e("strong",null,fmt(opt.optimised.surplus)+" for land + profit"),
+              " — ",
+              e("strong",{style:{color:opt.uplift>=0?"#1B7A54":"#B05A35"}},(opt.uplift>=0?"+":"−")+fmt(Math.abs(opt.uplift))+" ("+Math.round(opt.upliftPct)+"%)"),
+              " vs your current "+opt.current.units.toLocaleString()+" ("+fmt(opt.current.surplus)+")."
+            ),
+            opt.uplift>10000 && e("button",{onClick:function(){ up("sfh","mix",opt.optimised.mix); if(typeof notify==="function") notify("Applied the optimised mix — "+opt.optimised.units.toLocaleString()+" homes, "+fmt(opt.optimised.surplus)+" for land + profit."); },
+              style:{padding:"9px 15px",background:"#2D7A65",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"Apply optimised mix →")
+          ),
+          e("div",{style:{fontSize:10,color:"#9298BC",marginTop:8,lineHeight:1.5}},
+            "Indicative — leans toward the best-returning types within realistic bounds (no type above ~40% or below ~10%); a pure optimum ('all 3-beds') isn't deliverable on planning or sales absorption. "+(isRent?"":"Only bites when real per-type prices are entered — a flat £/sqft makes every type similar.")),
+          e(AIPanel,{user:user,up:up,stage:"sfh",data:data,persistKey:"sfh_mix_area_prices",label:"🤖 AI: research area new-build prices & rents by type",
+            system:"You are a UK new-build residential valuer. Be specific and numerate; use a compact markdown table. Always caveat as indicative, to verify against live listings.",
+            prompt:buildHonestPrompt(data,"For NEW-BUILD homes in "+cityName(sfhCity)+" ("+(sfhPc||"postcode TBC")+"), give a compact table of typical achieved SALE PRICE and MONTHLY RENT by house type/size: 2-bed terrace, 2-bed semi, 3-bed semi, 3-bed detached, 4-bed detached (and 1-bed if relevant). Columns: Type | Typical sqft | New-build sale price | Sale £/sqft | Monthly rent | Rent £/sqft·yr. Explicitly note where a bigger home sells at a LOWER £/sqft. End with which size gives the best profit-per-sqft and the best rental yield in THIS specific area, and a one-line caveat to verify against Rightmove/Zoopla and update the per-type prices in the mix.","sfh")})
+        );
+      })(),
       // v10.32 — Scheme-basis reconciliation. The mix prices a specific number of plots
       // (the modelled scheme), while the Land Appraisal / brief may carry a different
       // site-capacity figure (e.g. a strategic site's headline potential). GDV/RLV always
