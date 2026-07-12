@@ -132,7 +132,9 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
     setData(function(prev){
       var sp = prev.sfh || {}, bp = num(v);
       var mix = bp > 0 ? repriceMix(sp.mix || [], bp) : (sp.mix || []);
-      return Object.assign({}, prev, { sfh: Object.assign({}, sp, { basePsf: v, mix: mix }) });
+      // v10.60 — keep the shared sale-£/sqft sibling (rlv.salePsf) in step so the figure
+      // replicates to every page, the same way build £/sqft does via up().
+      return Object.assign({}, prev, { sfh: Object.assign({}, sp, { basePsf: v, mix: mix }), rlv: Object.assign({}, prev.rlv || {}, { salePsf: v }) });
     });
   }
   // Tuning the new-build premium sets the sale £/sqft = existing-home £/sqft × (1 + premium),
@@ -142,7 +144,7 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
     setData(function(prev){
       var sp = prev.sfh || {};
       var mix = nb > 0 ? repriceMix(sp.mix || [], nb) : (sp.mix || []);
-      return Object.assign({}, prev, { sfh: Object.assign({}, sp, { nbPremiumPct: v, basePsf: String(nb), mix: mix }) });
+      return Object.assign({}, prev, { sfh: Object.assign({}, sp, { nbPremiumPct: v, basePsf: String(nb), mix: mix }), rlv: Object.assign({}, prev.rlv || {}, { salePsf: String(nb) }) });
     });
   }
   function setAcres(v){ up("land", "acres", v); }
