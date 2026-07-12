@@ -205,7 +205,12 @@ var KEYSTONE_DEFAULTS = {
   feesPct: 10,
   profitPct: 17.5,
   financeRate: 12,   // conservative all-in finance cost so headroom is real, not flattered
-  marketingPct: 3    // disposal: agent + marketing + legal on the sale, % of GDV
+  marketingPct: 0,   // v10.50 — disposal/marketing is a SALE-side cost, left at £0 (matches the
+                     // Quick Appraisal) so it isn't added on top of Cassidy's all-in build rate
+  buildInclusive: true  // v10.50 — Cassidy's build £/sqft is a FULLY-LOADED all-in rate: it already
+                        // covers professional fees, contingency, roads/drainage & SuDS, so those are
+                        // NOT added again. Turn off on the SFH/Quick Appraisal stage for a
+                        // construction-only rate. (Finance & S106 are still charged — real costs.)
 };
 // What the £15k/unit S106/CIL is assumed to cover — itemised so it's visible (your
 // cycleways sit under Highways). £/unit; sums to KEYSTONE_DEFAULTS.s106PerUnit.
@@ -353,8 +358,8 @@ function buildDealFromBrief(brief){
     if(ahPctVal > 0) assumeNotes.push("Tenure mix auto-filled: " + Math.max(0,100-Math.round(ahPctVal*0.7)-Math.round(ahPctVal*0.3)) + "% open-market sale, " + Math.round(ahPctVal*0.7) + "% affordable rent, " + Math.round(ahPctVal*0.3) + "% shared ownership — refine on the Tenure Mix stage.");
     assumeNotes.push("S106 / CIL: £" + s106Val.toLocaleString() + "/unit" + (_has("s106PerUnit") ? " (from brief)" :
       " (assumed — Education £5k, Highways & cycleways £3k, Health £1.5k, Open space £2.5k, Sport/community £2k, Monitoring £1k)") + ".");
-    assumeNotes.push("Developer profit " + profitVal + "% of GDV; finance " + finRateVal + "%; contingency " + contVal +
-      "% of build; professional fees 10%; disposal/marketing " + mktgVal + "% of GDV; roads £12k/unit; site infrastructure £53k/acre." +
+    assumeNotes.push("Build £/sqft treated as ALL-IN — professional fees, contingency, roads, drainage & SuDS are inside the build rate, NOT added on top (finance is charged on the build cost alone). Turn off 'Build £/sqft is all-in' on the SFH House Mix / Quick Appraisal stage if your rate is construction-only.");
+    assumeNotes.push("Developer profit " + profitVal + "% of GDV; finance " + finRateVal + "% (real cost — cost of money, kept separate); S106/CIL as above. Marketing/disposal left at £0 (a sale-side cost — add it if you'll budget agent/legal fees on the sale)." +
       ((_has("profitPct")||_has("financeRate")||_has("contingencyPct")) ? " (some from brief)" : " (assumed)"));
     assumeNotes.push("EXIT: profit is shown BOTH ways — build-to-sell (affordable discount borne by Cassidy) and capitalise/forward-fund to an investor (affordable is a lower-rent effect borne by the end holder, not a capital haircut). Compare them on the Capitalisation screen.");
     assumeNotes.push("Still simplified: finance is a flat all-in rate, not a programme cashflow. Tweak every figure in Land Appraisal, SFH House Mix, Planning and Financials.");
@@ -401,7 +406,10 @@ function buildDealFromBrief(brief){
       marketingPct: mktgVal || "",
       ahPct: ahPctVal || "",
       ahTenure: brief.ahTenure || (isHousing && ahPctVal ? "ahp_affordable" : ""),
-      haSpecBuild: !!brief.haSpec
+      haSpecBuild: !!brief.haSpec,
+      // v10.50 — treat Cassidy's build £/sqft as a fully-loaded ALL-IN rate: professional fees,
+      // contingency, roads/drainage & SuDS are inside it, not added on top. (Finance & S106 remain.)
+      buildInclusive: isHousing ? true : false
     },
     rlv: {
       units: units || "",

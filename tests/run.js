@@ -818,7 +818,12 @@ console.log("Landform engine consistency tests\n");
   var deal = buildDealFromBrief({ town:"Rugby", postcode:"CV8 3", acres:88, askingPrice:12500000 });
   deal.land.price = 12500000;
   var d = calcDealMetrics(deal);
-  ok("disposal/marketing cost applied to built deal (>0)", num(d.marketing) > 0);
+  // v10.50 — Keystone builds ALL-IN: the build £/sqft covers professional fees, contingency,
+  // roads & SuDS (so those are £0), and marketing/disposal is a sale-side cost left at £0.
+  ok("Keystone build is all-in (buildInclusive on)", deal.sfh.buildInclusive === true);
+  var sfh0 = computeSFHMetrics(deal);
+  ok("all-in: professional fees + contingency folded into the build rate (=0)", num(sfh0.fees) === 0 && num(sfh0.contingency) === 0);
+  ok("all-in: marketing/disposal left at £0 on a Keystone build", num(sfh0.marketing) === 0);
   ok("capitalisation investment value computed (>0)", num(d.capInvestmentValue) > 0);
   ok("both exit profits reported", isFinite(d.sellProfit) && isFinite(d.capProfit));
   // Affordable is NOT a capital haircut in the capitalise value: with 30% affordable,
@@ -827,6 +832,9 @@ console.log("Landform engine consistency tests\n");
   near("capitalise reflects 30% affordable as rent, not a capital haircut", sfhM.ahPctResolved, 30, 0);
   ok("capitalise value ignores the build-to-sell blended haircut (uses market rent base)",
      sfhM.capInvestmentValue > sfhM.gdv * 0.5);   // sane: not collapsed by the affordable discount
+  // A marketing % that IS set still applies as a disposal cost.
+  var withMkt = JSON.parse(JSON.stringify(deal)); withMkt.sfh.marketingPct = 3;
+  ok("explicit marketingPct applies a disposal cost", computeSFHMetrics(withMkt).marketing > 0);
   // Hand-built deals with no marketingPct are unchanged (default 0)
   var plain = { assetType:"sfh", land:{city:"maldon", acres:32}, sfh:{ city:"maldon", buildPsf:220,
     mix:[{type:"3-bed semi",count:"100",sqft:"1000",unitPrice:"400000",tenure:"private"}] } };
@@ -837,8 +845,9 @@ console.log("Landform engine consistency tests\n");
 (function(){
   var deal = buildDealFromBrief({ town:"Rugby", postcode:"CV8 3", acres:88, askingPrice:12500000 });
   deal.land.price = 12500000;
+  deal.sfh.marketingPct = 3;   // explicitly budget disposal so the reconciliation still exercises marketing
   var sfh = computeSFHMetrics(deal), dm = calcDealMetrics(deal);
-  ok("disposal/marketing present on both engines", num(sfh.marketing) > 0 && num(dm.marketing) > 0);
+  ok("disposal/marketing present on both engines when set", num(sfh.marketing) > 0 && num(dm.marketing) > 0);
   near("computeSFHMetrics.rlv == calcDealMetrics.rlv (both include disposal)", sfh.rlv, dm.rlv, 1000);
   // the scorecard reads the engine residual, not the asking price
   ok("engine RLV is the residual, not the ask", Math.abs(dm.rlv - deal.land.price) > 1000000);
