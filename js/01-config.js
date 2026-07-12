@@ -20,8 +20,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.43";
+var CURRENT_VERSION = "10.44";
 var VERSION_HISTORY = [
+  {v:"10.44", date:"Jul 2026", headline:"NEW Mix Optimiser on the SFH House Mix stage — ranks every house type by profit PER SQFT (the land-efficient metric) and by rent per sqft for a BTR/forward sale, then proposes the mix that maximises the money available for land + profit (within realistic planning/market bounds). It bites when you enter the real per-type prices — a 4-bed detached that sells at a lower £/sqft than a 3-bed semi is correctly shown as less profitable per acre. Includes an AI helper to research area new-build prices & rents by type"},
   {v:"10.43", date:"Jul 2026", headline:"Sale £/sqft is now FLAT across all house types — every home (2-bed semi to 4-bed detached) prices at the same base sale £/sqft, instead of bigger/detached homes getting an inflated £/sqft. GDV = total sqft × base £/sqft. This trims GDV on detached-heavy schemes to a more conservative, realistic figure. Build cost still varies by type (a real cost, not GDV); per-row £/sqft remains editable. The base £/sqft itself still includes the ~17% new-build premium over existing-home comparables"},
   {v:"10.42", date:"Jul 2026", headline:"Quick Appraisal now treats the build £/sqft as ALL-IN by default — roads, drainage and site infrastructure (SuDS) are assumed inside the build rate, not added as separate lines (no double-counting); marketing/disposal is a sale-side cost left at £0. A toggle switches it off for a deal whose build rate is construction-only. Persisted to the deal, so the detailed stages read the same assumption"},
   {v:"10.41", date:"Jul 2026", headline:"Quick Appraisal now generates the one-page A4 board proposal directly — a ‘📄 One-page board proposal (PDF)’ button on the Quick Appraisal page produces the same printable one-pager as the Board Proposal stage, straight from the figures on screen. The one-pager generator is now shared, so the two can never diverge."},
@@ -2588,6 +2589,84 @@ function computeSFHMetrics(data){
   return {rows:rows,totalUnits:totalUnits,avgSqft:totalUnits>0?totalSqft/totalUnits:0,retailGdv:retailGdv,blendedGdv:effectiveBlended,gdv:effectiveBlended,ahFactor:ahFactor,buildCost:buildCost,hasNonPrivate:hasNonPrivate,basePsf:basePsf,buildPsf:buildPsf,
     acres:sfhAcres,buildInclusive:buildInclusive,fees:sfhFees,contingency:sfhContingency,finance:sfhFinance,s106:sfhS106,roads:sfhRoads,infra:sfhInfra,marketing:sfhMarketing,profit:sfhProfit,devCost:sfhDevCost,rlv:sfhGrossRlv,
     capMarketRentPerUnitPa:mktRentPerUnitPa,capGrossRentPa:capGrossRentPa,capNetRentPa:capNetRentPa,capYield:capYield,capInvestmentValue:capInvestmentValue,capProfit:capProfit,capRlv:capRlv,ahPctResolved:ahPctR};
+}
+
+// ── SFH MIX OPTIMISER (v10.44) ─────────────────────────────────────────────
+// "Which homes make the most money — and what mix maximises it." For each type in the scheme
+// it works out the gross margin PER PLOT and PER SQFT. £/sqft of margin is the key metric,
+// because land is used roughly in proportion to floor area — so the home that returns the most
+// margin per sqft returns the most per acre of land. It then proposes a mix that leans toward
+// the best types WITHIN realistic bounds (no single type above ~40% or below ~10%), because a
+// pure optimum would say "build only 3-beds", which planning and sales absorption won't allow.
+//   mode "profit" ranks by margin/sqft; mode "rent" ranks by rent/sqft (for a BTR/forward sale).
+// It bites when REAL per-type prices/rents are entered (a 4-bed detached often sells at a LOWER
+// £/sqft than a 3-bed semi — the exact effect Cassidy flagged). Returns null if there's no mix.
+function optimiseSfhMix(data, mode){
+  data = data || {}; mode = (mode === "rent") ? "rent" : "profit";
+  var sfh = data.sfh || {};
+  var cityKey = (typeof dealCityKey === "function") ? dealCityKey(data) : (sfh.city || "").toLowerCase();
+  var market = MKT[cityKey] || MKT.manchester;
+  var basePsf = num(sfh.basePsf) || (market && market.btr ? Math.max(150, Math.min(650, Math.round(estSalePsfFromRent(market.btr)))) : 260);
+  var schemeBuildPsf = num(sfh.buildPsf) || (market && market.build) || 195;
+  var feesPct = numOr(sfh.feesPct, 12) / 100, contPct = numOr(sfh.contingency, 5) / 100, finRate = numOr(sfh.finRate, 7.5) / 100;
+  var s106pu = numOr(sfh.s106pu, 8000), mktgPct = numOr(sfh.marketingPct, 0) / 100;
+  var roadsPu = (!!sfh.buildInclusive) ? 0 : numOr(sfh.roads, 12000);
+
+  var rows = (sfh.mix || []).filter(function(r){ return num(r.count) > 0; });
+  if(!rows.length) return null;
+
+  // Aggregate by type, then compute per-plot economics.
+  var byType = {};
+  rows.forEach(function(r){
+    var info = HOUSE_TYPES[r.type] || HOUSE_TYPES["3-bed semi"] || { sqft:900, adj:1, beds:3 };
+    var sqft = numOr(r.sqft, info.sqft);
+    var price = num(r.unitPrice || r.salePrice) || (num(r.psf) ? num(r.psf) * sqft : 0) || Math.round(sqft * basePsf * (info.adj || 1));
+    var key = r.type || ("~" + numOr(r.beds, info.beds || 3) + "-bed");
+    if(!byType[key]){ byType[key] = { type:key, beds:numOr(r.beds, info.beds || 3), sqft:sqft, price:price, buildPsf:(num(r.buildPsf) || schemeBuildPsf), count:0 }; }
+    byType[key].count += num(r.count);
+  });
+  var types = Object.keys(byType).map(function(k){
+    var t = byType[k];
+    var build = t.sqft * t.buildPsf;
+    var cost = build + build * feesPct + build * contPct + (build + build * feesPct) * finRate + s106pu + roadsPu + t.price * mktgPct;
+    var margin = t.price - cost;                                  // per plot, before land / infra / developer profit
+    var rentPcm = (typeof areaRentPcm === "function") ? areaRentPcm(data, t.beds) : 0;
+    return { type:t.type, beds:t.beds, sqft:t.sqft, count:t.count,
+      salePrice:Math.round(t.price), psf: t.sqft > 0 ? Math.round(t.price / t.sqft) : 0,
+      buildPsf:Math.round(t.buildPsf), costToDeliver:Math.round(cost),
+      marginPerPlot:Math.round(margin), marginPsf: t.sqft > 0 ? margin / t.sqft : 0,
+      rentPcm:Math.round(rentPcm), rentPsfPa: t.sqft > 0 ? (rentPcm * 12 / t.sqft) : 0,
+      grossYield: cost > 0 ? (rentPcm * 12 / cost) * 100 : 0 };
+  });
+  var rankKey = mode === "rent" ? "rentPsfPa" : "marginPsf";
+  types.sort(function(a, b){ return b[rankKey] - a[rankKey]; });
+
+  // Optimised mix — reallocate the SAME developable floor area toward the best-ranked types,
+  // within [minShare, maxShare] floor-area bounds (greedy: best gets max, worst gets min).
+  var T = types.reduce(function(a, t){ return a + t.sqft * t.count; }, 0);
+  var n = types.length;
+  var maxShare = Math.max(0.40, 1 / n);
+  var minShare = Math.min(0.10, 1 / (n + 1));
+  var shares = types.map(function(){ return minShare; });
+  var budget = 1 - minShare * n;
+  for(var i = 0; i < n && budget > 1e-9; i++){ var add = Math.min(maxShare - minShare, budget); shares[i] += add; budget -= add; }
+  var optMix = types.map(function(t, i){
+    var cnt = Math.max(0, Math.round((shares[i] * T) / (t.sqft || 1)));
+    return { type:t.type, beds:String(t.beds), count:String(cnt), sqft:String(t.sqft),
+      unitPrice:String(t.salePrice), psf:"", tenure:"private", buildPsf: t.buildPsf ? String(Math.round(t.buildPsf)) : "" };
+  });
+
+  function totals(mix){
+    var m = computeSFHMetrics(Object.assign({}, data, { sfh: Object.assign({}, sfh, { mix:mix }) }));
+    var acres = num(sfh.acres) || num(data.land && data.land.acres) || 0;
+    var surplus = num(m.gdv) - num(m.devCost);                    // £ available for LAND + developer PROFIT
+    return { units:num(m.totalUnits), gdv:num(m.gdv), rlv:num(m.rlv), surplus:surplus, surplusPerAcre: acres > 0 ? surplus / acres : 0 };
+  }
+  var current = totals(sfh.mix || []);
+  var optimised = totals(optMix); optimised.mix = optMix;
+  return { mode:mode, types:types, current:current, optimised:optimised,
+    uplift: optimised.surplus - current.surplus,
+    upliftPct: current.surplus > 0 ? ((optimised.surplus - current.surplus) / current.surplus * 100) : 0 };
 }
 
 // ──────────────────────────────────────────────────────────────────────────

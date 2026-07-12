@@ -1582,6 +1582,28 @@ console.log("Landform engine consistency tests\n");
   ok("GDV = total sqft × flat base £/sqft", computeSFHMetrics(d).gdv === (820+1500)*10*base);
 })();
 
+// 63 — SFH mix optimiser: ranks types by margin/sqft and improves the surplus (v10.44)
+// A 4-bed detached priced at a LOWER £/sqft than a 3-bed semi should rank below it, and the
+// optimiser should rebalance toward the more profitable type for more £ available to land+profit.
+(function(){
+  if(typeof optimiseSfhMix !== "function"){ ok("optimiseSfhMix available", false); return; }
+  var d={ assetType:"sfh", land:{city:"maidstone", acres:40}, planning:{},
+    sfh:{city:"maidstone", acres:40, ahPct:0, buildPsf:190, finRate:7.5, buildInclusive:true,
+      mix:[{type:"3-bed semi",count:"250",sqft:"1020",unitPrice:"350000"},   // £343/sqft
+           {type:"4-bed detached",count:"250",sqft:"1500",unitPrice:"400000"}]} }; // £267/sqft
+  var o=optimiseSfhMix(d,"profit");
+  ok("optimiser returns per-type economics + optimised mix", o && o.types.length===2 && o.optimised.mix.length===2);
+  ok("higher-£/sqft 3-bed semi ranks above the underpriced 4-bed detached", o.types[0].type==="3-bed semi");
+  ok("3-bed semi has a higher margin per sqft than the 4-bed detached", o.types[0].marginPsf > o.types[1].marginPsf);
+  ok("optimised mix leans toward the 3-bed semi (more of them)", num(o.optimised.mix.filter(function(r){return r.type==="3-bed semi";})[0].count) > 250);
+  ok("optimisation increases the £ available for land + profit", o.optimised.surplus > o.current.surplus);
+  // Rent mode ranks by rent per sqft and still returns totals.
+  var oR=optimiseSfhMix(d,"rent");
+  ok("rent mode returns per-type rent & yield", oR && oR.types.every(function(t){ return t.rentPcm >= 0 && t.grossYield >= 0; }));
+  // No mix ⇒ null (safe).
+  ok("no mix ⇒ null", optimiseSfhMix({assetType:"sfh", sfh:{}}, "profit") === null);
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);
