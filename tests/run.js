@@ -1604,6 +1604,32 @@ console.log("Landform engine consistency tests\n");
   ok("no mix ⇒ null", optimiseSfhMix({assetType:"sfh", sfh:{}}, "profit") === null);
 })();
 
+// 64 — Keystone auto-fill: tenure mix from affordable %, and AI market-price enrich (v10.45)
+(function(){
+  // Tenure mix auto-filled from the affordable %.
+  var d = buildDealFromBrief({ town:"maidstone", acres:40, units:480, affordablePct:35, assetType:"land" });
+  ok("Keystone auto-fills the tenure mix", d.tenure && d.tenure.mix && num(d.tenure.mix.oms) > 0);
+  ok("Tenure split = OMS + affordable-rent + shared-ownership summing to 100%",
+     num(d.tenure.mix.oms) + num(d.tenure.mix.ar) + num(d.tenure.mix.so) === 100 && num(d.tenure.mix.ar) === 25 && num(d.tenure.mix.so) === 11);
+  ok("Engine reads the tenure mix (blend factor < 1 for a 35% affordable scheme)", tenureMixBlendFactor(d, computeSFHMetrics(d).totalUnits) < 1);
+
+  // AI market-price enrich: applies real per-type prices, then optimises.
+  if(typeof applyMarketPricesAndOptimise === "function"){
+    var d2 = buildDealFromBrief({ town:"maidstone", acres:40, units:500, affordablePct:0, assetType:"land" });
+    var ai = [ {type:"2-bed semi",beds:2,salePrice:295000}, {type:"3-bed semi",beds:3,salePrice:350000},
+               {type:"3-bed detached",beds:3,salePrice:390000}, {type:"4-bed detached",beds:4,salePrice:400000} ];
+    var res = applyMarketPricesAndOptimise(d2, ai, {optimise:true});
+    ok("AI enrich applies real per-type prices to the mix", res.applied >= 2);
+    var psfs = res.data.sfh.mix.map(function(r){ return Math.round(num(r.unitPrice)/num(r.sqft)); });
+    ok("per-type £/sqft now differs (real market, not flat)", Math.max.apply(null,psfs) - Math.min.apply(null,psfs) > 20);
+    ok("4-bed detached correctly shows a LOWER £/sqft than the 3-bed semi", (function(){
+       function psf(t){ var r=res.data.sfh.mix.filter(function(x){return x.type===t;})[0]; return r?num(r.unitPrice)/num(r.sqft):0; }
+       return psf("4-bed detached") < psf("3-bed semi"); })());
+    ok("enrich returns an optimisation result when it materially helps", res.optimised && res.optimised.surplus > res.optimised.current);
+    ok("empty AI prices ⇒ no change (safe)", applyMarketPricesAndOptimise(d2, [], {}).applied === 0);
+  }
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);

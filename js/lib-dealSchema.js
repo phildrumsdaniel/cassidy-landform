@@ -322,6 +322,7 @@ function buildDealFromBrief(brief){
     assumeNotes.push("Planning: full consent assumed (forward-looking basis).");
     assumeNotes.push("Affordable housing: " + ahPctVal + "%" + (_has("affordablePct") ? " (from brief)" :
       " (assumed policy-typical — " + KEYSTONE_DEFAULTS.affordableSplit + ")") + ".");
+    if(ahPctVal > 0) assumeNotes.push("Tenure mix auto-filled: " + Math.max(0,100-Math.round(ahPctVal*0.7)-Math.round(ahPctVal*0.3)) + "% open-market sale, " + Math.round(ahPctVal*0.7) + "% affordable rent, " + Math.round(ahPctVal*0.3) + "% shared ownership — refine on the Tenure Mix stage.");
     assumeNotes.push("S106 / CIL: £" + s106Val.toLocaleString() + "/unit" + (_has("s106PerUnit") ? " (from brief)" :
       " (assumed — Education £5k, Highways & cycleways £3k, Health £1.5k, Open space £2.5k, Sport/community £2k, Monitoring £1k)") + ".");
     assumeNotes.push("Developer profit " + profitVal + "% of GDV; finance " + finRateVal + "%; contingency " + contVal +
@@ -392,6 +393,18 @@ function buildDealFromBrief(brief){
       netAnnualIncome: netPa || "",
       mgmtRate: (brief.mgmtPct != null && brief.mgmtPct !== "") ? num(brief.mgmtPct) : ""
     },
+    // v10.45 — auto-fill the TENURE MIX from the affordable %, so the Tenure Mix stage is complete
+    // on day one (no manual entry). Split follows KEYSTONE_DEFAULTS.affordableSplit — 70% of the
+    // affordable as Affordable Rent, 30% as Shared Ownership — the rest open-market sale. The
+    // engine reads this (it takes precedence over the flat ahPct haircut), so GDV reflects the
+    // per-tenure values, not a single blanket discount. A draft to refine on the Tenure Mix stage.
+    tenure: (function(){
+      if(!isHousing) return { inputMode:"percent", totalUnits: units || "", mix: { oms:100 } };
+      var ah = Math.max(0, Math.min(100, num(ahPctVal)));
+      if(ah <= 0) return { inputMode:"percent", totalUnits: units || "", mix: { oms:100 } };
+      var ar = Math.round(ah * 0.7), so = Math.round(ah * 0.3), oms = Math.max(0, 100 - ar - so);
+      return { inputMode:"percent", totalUnits: units || "", mix: { oms:oms, ar:ar, so:so } };
+    })(),
     // v10.12 — seed the standard risk register so the deal's stored risks match what the
     // Risk Register screen displays (it shows RISK_DEFAULTS but only persisted them on edit,
     // so the dashboard checklist read "empty" and never showed the stage complete).
@@ -412,6 +425,71 @@ function buildDealFromBrief(brief){
   // stage agrees — the same tested propagation the rest of the tool uses.
   if(typeof normalizeSharedFields === "function") deal = normalizeSharedFields(deal);
   return deal;
+}
+
+// v10.45 — applyMarketPricesAndOptimise: the DETERMINISTIC core of Keystone's "complete the
+// deal with AI" step. Given AI-researched per-type new-build prices/rents (a plain array), it
+// applies the real sale price to each matching mix row (so the flat default is replaced by the
+// area's actual per-type values — a 4-bed detached that fetches a lower £/sqft than a 3-bed
+// semi now shows that), records the per-type rents, and — when it helps — applies the profit-
+// maximising mix from optimiseSfhMix. Pure and testable; the AI call is a thin async wrapper.
+// aiTypes: [{ type?, beds?, sqft?, salePrice, rentPcm? }]. Returns {data, applied, optimised}.
+function applyMarketPricesAndOptimise(data, aiTypes, opts){
+  opts = opts || {};
+  try{ data = JSON.parse(JSON.stringify(data || {})); }catch(e){ data = data || {}; }
+  var sfh = data.sfh || (data.sfh = {});
+  var mix = sfh.mix || [];
+  if(!mix.length || !aiTypes || !aiTypes.length) return { data:data, applied:0, optimised:null };
+
+  function bedsOf(s){ var m = /([0-9])\s*-?\s*bed/.exec(String(s || "").toLowerCase()); return m ? num(m[1]) : 0; }
+  var byType = {}, byBeds = {};
+  aiTypes.forEach(function(a){
+    var t = String(a.type || "").toLowerCase().trim();
+    if(t) byType[t] = a;
+    var b = num(a.beds) || bedsOf(a.type);
+    if(b && !byBeds[b]) byBeds[b] = a;
+  });
+
+  var applied = 0, rentByBeds = {};
+  mix = mix.map(function(r){
+    var info = (typeof HOUSE_TYPES !== "undefined" && (HOUSE_TYPES[r.type] || HOUSE_TYPES["3-bed semi"])) || { sqft:900, beds:3 };
+    var beds = num(r.beds) || info.beds || 3;
+    var a = byType[String(r.type || "").toLowerCase().trim()] || byBeds[beds];
+    if(a && num(a.salePrice) > 0){
+      var c = Object.assign({}, r);
+      if(!num(r.sqft) && num(a.sqft)) c.sqft = String(Math.round(num(a.sqft)));
+      c.unitPrice = String(Math.round(num(a.salePrice)));
+      c.salePrice = c.unitPrice; c.psf = "";
+      if(num(a.rentPcm) > 0) rentByBeds[beds] = num(a.rentPcm);
+      applied++;
+      return c;
+    }
+    return r;
+  });
+  sfh.mix = mix;
+
+  // Feed the per-type rents into capitalisation (weighted average market rent per home) so a
+  // forward-sale / BTR valuation reflects the real local rents, not a single benchmark.
+  if(Object.keys(rentByBeds).length){
+    var wr = 0, wc = 0;
+    (sfh.mix || []).forEach(function(r){
+      var info2 = (typeof HOUSE_TYPES !== "undefined" && (HOUSE_TYPES[r.type] || HOUSE_TYPES["3-bed semi"])) || { beds:3 };
+      var b = num(r.beds) || info2.beds || 3, rp = rentByBeds[b];
+      if(rp > 0){ wr += rp * num(r.count); wc += num(r.count); }
+    });
+    if(wc > 0) data.capitalise = Object.assign({}, data.capitalise || {}, { marketRentPerUnitPa: Math.round(wr / wc * 12) });
+  }
+
+  // Optimise toward the profit-maximising mix once REAL prices are in (only if it materially helps).
+  var optimised = null;
+  if(opts.optimise !== false && typeof optimiseSfhMix === "function"){
+    var o = optimiseSfhMix(data, "profit");
+    if(o && o.optimised && o.optimised.mix && o.optimised.mix.length && o.uplift > 10000){
+      sfh.mix = o.optimised.mix;
+      optimised = { upliftPct: Math.round(o.upliftPct), surplus: o.optimised.surplus, current: o.current.surplus };
+    }
+  }
+  return { data:data, applied:applied, optimised:optimised, rentByBeds:rentByBeds };
 }
 
 // v10.38 — preserveManualOnRebuild: when Keystone REBUILDS a deal from the brief, carry the
