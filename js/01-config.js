@@ -6,6 +6,22 @@ var useEffect = React.useEffect;
 // (Swap this to a new data-URI when the official "Cassidy Group Ltd" artwork is supplied.)
 function cassidyLogoSrc(){ return "data:image/png;base64," + (typeof BRAND_LOGO_PNG!=="undefined"?BRAND_LOGO_PNG:""); }
 
+// v10.53 — a small Cassidy logo mark for the CORNER of any generated/printed report (one-pager,
+// teaser, IM, scorecard, exports). Returns a self-contained, absolutely-positioned white chip so
+// it can be dropped straight after a report's page container (which just needs position:relative)
+// — no per-report CSS. heightPx tunes the mark; pass {corner:"bottom-right"} etc. to move it.
+function cassidyReportLogo(opts){
+  opts = opts || {};
+  var src = (typeof cassidyLogoSrc === "function") ? cassidyLogoSrc() : "";
+  if(!src || (typeof BRAND_LOGO_PNG === "undefined") || !BRAND_LOGO_PNG) return "";
+  var h = num(opts.heightPx) > 0 ? num(opts.heightPx) : 26;
+  var pos = ({ "top-right":"top:8mm;right:8mm", "top-left":"top:8mm;left:8mm",
+    "bottom-right":"bottom:8mm;right:8mm", "bottom-left":"bottom:8mm;left:8mm" }[opts.corner]) || "top:8mm;right:8mm";
+  return '<div style="position:absolute;'+pos+';z-index:5;background:#fff;border-radius:6px;padding:4px 7px;'+
+    'box-shadow:0 1px 5px rgba(0,0,0,.15);-webkit-print-color-adjust:exact;print-color-adjust:exact">'+
+    '<img src="'+src+'" alt="Cassidy Group Ltd" style="height:'+h+'px;width:auto;max-width:'+(h*6)+'px;display:block"/></div>';
+}
+
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 var WEBHOOK = "https://script.google.com/macros/s/AKfycbwYCJ6G76EahvVAqgEGee6kjEIxzfbaFPCeWA2pLbNRy6-fXx2boVURdBmyHO2M3uE0/exec";
 // v9.71 — shared token sent with every backend request. The Apps Script rejects calls that
@@ -20,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.52";
+var CURRENT_VERSION = "10.53";
 var VERSION_HISTORY = [
+  {v:"10.53", date:"Jul 2026", headline:"The real Cassidy Group logo now appears on every generated/printed report — not just the Board Proposal. Added to the one-page land appraisal (top-right), the Investor Teaser and Investor Memorandum covers, the Grant Strategy Pack and the Land deal summary, using the same official brand artwork as the login and sidebar. So anything you print or save as PDF carries the Cassidy mark. (Reports keep a text fallback if the artwork ever fails to load.)"},
   {v:"10.52", date:"Jul 2026", headline:"Two board-proposal improvements: (1) the one-page appraisal and board paper now open IN-APP (an overlay with Close and Print / Save-as-PDF buttons) instead of a new browser tab — so on a phone you're no longer stranded on the PDF and can close straight back into Landform and regenerate any time; (2) when NO land guide price is entered, the board proposal and the printed one-pager now show an indicative MARKET land-value guide for the area by land type — agricultural / farmland, greenbelt/strategic hope value, allocated, outline and full-consent £/acre bands (× the site acreage) — so there's a reference for what the land would typically cost, with a note that brownfield ≈ consented value less remediation. Clearly flagged as market context; the residual land value remains the figure to trust for what to actually pay"},
   {v:"10.51", date:"Jul 2026", headline:"Auto-update: the app now picks up a new deploy on its own — whenever you return to it (put the phone down and reopen, or switch back to the tab) it quietly checks whether a newer version is live and, if so, reloads to it. It only reloads when there's genuinely a new build, so ordinary app-switching never interrupts you, and your deal is safe (it's saved continuously). No more manual cache-clearing to see the latest version"},
   {v:"10.50", date:"Jul 2026", headline:"Keystone now builds ALL-IN by default — a raw Keystone build treats the build £/sqft as fully-loaded, so professional fees and contingency are inside the rate (not added on top), roads/drainage/SuDS too, and finance is charged on the build cost alone. Marketing/disposal is left at £0 (a sale-side cost, matching the Quick Appraisal). Previously a fresh Keystone build left the ‘all-in’ toggle off, so it still stacked ~12% fees + ~5% contingency + ~3% marketing on top of the £250 — turning a viable scheme's residual land value negative. Finance and S106 remain (real costs). Turn off ‘Build £/sqft is all-in’ on the SFH / Quick Appraisal stage for a construction-only rate"},
