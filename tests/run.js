@@ -1729,10 +1729,13 @@ console.log("Landform engine consistency tests\n");
   // AI market-price enrich: applies real per-type prices, then optimises.
   if(typeof applyMarketPricesAndOptimise === "function"){
     var d2 = buildDealFromBrief({ town:"maidstone", acres:40, units:500, affordablePct:0, assetType:"land" });
-    var ai = [ {type:"2-bed semi",beds:2,salePrice:295000}, {type:"3-bed semi",beds:3,salePrice:350000},
-               {type:"3-bed detached",beds:3,salePrice:390000}, {type:"4-bed detached",beds:4,salePrice:400000} ];
+    var ai = [ {type:"2-bed semi",beds:2,salePrice:295000,rentPcm:1150}, {type:"3-bed semi",beds:3,salePrice:350000,rentPcm:1550},
+               {type:"3-bed detached",beds:3,salePrice:390000,rentPcm:1650}, {type:"4-bed detached",beds:4,salePrice:400000,rentPcm:2100} ];
     var res = applyMarketPricesAndOptimise(d2, ai, {optimise:true});
     ok("AI enrich applies real per-type prices to the mix", res.applied >= 2);
+    // v10.56 — per-type rents also fill the Capitalisation per-bed fields (Keystone auto-fill)
+    ok("AI enrich fills per-bed rents for the Capitalisation stage", num(res.data.capitalise.rent4) === 2100 && num(res.data.capitalise.rent2) === 1150);
+    ok("AI enrich sets the weighted market rent (forward-fund exit)", num(res.data.capitalise.marketRentPerUnitPa) > 0);
     var psfs = res.data.sfh.mix.map(function(r){ return Math.round(num(r.unitPrice)/num(r.sqft)); });
     ok("per-type £/sqft now differs (real market, not flat)", Math.max.apply(null,psfs) - Math.min.apply(null,psfs) > 20);
     ok("4-bed detached correctly shows a LOWER £/sqft than the 3-bed semi", (function(){

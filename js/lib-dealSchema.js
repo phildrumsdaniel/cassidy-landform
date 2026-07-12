@@ -512,8 +512,11 @@ function applyMarketPricesAndOptimise(data, aiTypes, opts){
   });
   sfh.mix = mix;
 
-  // Feed the per-type rents into capitalisation (weighted average market rent per home) so a
-  // forward-sale / BTR valuation reflects the real local rents, not a single benchmark.
+  // Feed the per-type rents into capitalisation so a forward-sale / BTR valuation reflects the
+  // real local rents, not a single benchmark. Two things are written:
+  //   • marketRentPerUnitPa — the weighted-average market rent (drives the forward-fund exit).
+  //   • rent1..rent4 — the per-bed rents the Capitalisation stage shows, so a Keystone build
+  //     auto-fills those fields too (no separate "AI: research & fill area rents" click needed).
   if(Object.keys(rentByBeds).length){
     var wr = 0, wc = 0;
     (sfh.mix || []).forEach(function(r){
@@ -521,7 +524,11 @@ function applyMarketPricesAndOptimise(data, aiTypes, opts){
       var b = num(r.beds) || info2.beds || 3, rp = rentByBeds[b];
       if(rp > 0){ wr += rp * num(r.count); wc += num(r.count); }
     });
-    if(wc > 0) data.capitalise = Object.assign({}, data.capitalise || {}, { marketRentPerUnitPa: Math.round(wr / wc * 12) });
+    var capPatch = {};
+    if(wc > 0) capPatch.marketRentPerUnitPa = Math.round(wr / wc * 12);
+    for(var bd = 1; bd <= 4; bd++){ if(num(rentByBeds[bd]) > 0) capPatch["rent" + bd] = String(Math.round(num(rentByBeds[bd]))); }
+    if(capPatch.rent1 || capPatch.rent2 || capPatch.rent3 || capPatch.rent4) capPatch.rentSource = "AI market research";
+    if(Object.keys(capPatch).length) data.capitalise = Object.assign({}, data.capitalise || {}, capPatch);
   }
 
   // Optimise toward the profit-maximising mix once REAL prices are in (only if it materially helps).
