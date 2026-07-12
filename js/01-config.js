@@ -20,8 +20,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.51";
+var CURRENT_VERSION = "10.52";
 var VERSION_HISTORY = [
+  {v:"10.52", date:"Jul 2026", headline:"Two board-proposal improvements: (1) the one-page appraisal and board paper now open IN-APP (an overlay with Close and Print / Save-as-PDF buttons) instead of a new browser tab — so on a phone you're no longer stranded on the PDF and can close straight back into Landform and regenerate any time; (2) when NO land guide price is entered, the board proposal and the printed one-pager now show an indicative MARKET land-value guide for the area by land type — agricultural / farmland, greenbelt/strategic hope value, allocated, outline and full-consent £/acre bands (× the site acreage) — so there's a reference for what the land would typically cost, with a note that brownfield ≈ consented value less remediation. Clearly flagged as market context; the residual land value remains the figure to trust for what to actually pay"},
   {v:"10.51", date:"Jul 2026", headline:"Auto-update: the app now picks up a new deploy on its own — whenever you return to it (put the phone down and reopen, or switch back to the tab) it quietly checks whether a newer version is live and, if so, reloads to it. It only reloads when there's genuinely a new build, so ordinary app-switching never interrupts you, and your deal is safe (it's saved continuously). No more manual cache-clearing to see the latest version"},
   {v:"10.50", date:"Jul 2026", headline:"Keystone now builds ALL-IN by default — a raw Keystone build treats the build £/sqft as fully-loaded, so professional fees and contingency are inside the rate (not added on top), roads/drainage/SuDS too, and finance is charged on the build cost alone. Marketing/disposal is left at £0 (a sale-side cost, matching the Quick Appraisal). Previously a fresh Keystone build left the ‘all-in’ toggle off, so it still stacked ~12% fees + ~5% contingency + ~3% marketing on top of the £250 — turning a viable scheme's residual land value negative. Finance and S106 remain (real costs). Turn off ‘Build £/sqft is all-in’ on the SFH / Quick Appraisal stage for a construction-only rate"},
   {v:"10.49", date:"Jul 2026", headline:"NEW forward-fund / capitalisation exit on the Quick Appraisal — see what a pension fund would pay for the WHOLE rented scheme at a net initial yield, with a slider across 3.8%–6% and a sensitivity table showing the investment value, developer profit and margin at each yield (a keener yield means the fund pays more). It compares the forward-fund exit to building-to-sell side by side, and the figure feeds the printable one-page board proposal — which now carries a ‘Forward-fund exit’ block so the report shows both exits. Rent is derived by the one engine from the scheme's own market values, so the page and the PDF can't diverge"},
@@ -1849,6 +1850,74 @@ function dealCityKey(data){
   // just Keystone-built deals.
   if(pc && typeof postcodeMarketKey === "function"){ var a = postcodeMarketKey(pc); if(a) return a; }
   return (pcd && pcd.city) ? pcd.city : c;
+}
+
+// v10.52 — landValueGuide: an indicative MARKET land-value guide for a site, by land TYPE /
+// planning status, so a board proposal with no asking price still shows what the land would
+// typically change hands for in that area. Mirrors the Land Appraisal stage's £/acre bands
+// (agricultural floor → strategic/hope value → allocated → outline → full consent), derived
+// from the area's consented land value (MKT[key].land, a typical total for a ~5-acre consented
+// SFH site). These are broad market ranges to sanity-check an entry price — NOT a substitute for
+// the scheme's residual land value (what the land is actually worth to us at target profit).
+function landValueGuide(data){
+  data = data || {};
+  var l = data.land || {};
+  var cityKey = (typeof dealCityKey === "function") ? dealCityKey(data) : ((l.city || "").toLowerCase());
+  var m = (typeof MKT !== "undefined" && (MKT[cityKey] || MKT.manchester)) || { land:3000000 };
+  var acres = num(l.acres) || 0;
+  var fullyConsentedPerAcre = (num(m.land) || 3000000) / 5;      // MKT.land ≈ typical 5-acre consented total
+  var agriPerAcre = numOr(l.agriValPerAcre, 15000);              // agricultural (current-use) floor £/acre
+  var bands = [
+    { key:"agricultural", label:"Agricultural / farmland (current use, no planning)", lo:agriPerAcre*0.7,           mid:agriPerAcre,               hi:agriPerAcre*1.3 },
+    { key:"strategic",    label:"Greenbelt / strategic — hope value, no consent",     lo:fullyConsentedPerAcre*0.10, mid:fullyConsentedPerAcre*0.18, hi:fullyConsentedPerAcre*0.30 },
+    { key:"allocated",    label:"Allocated in a Local Plan",                           lo:fullyConsentedPerAcre*0.35, mid:fullyConsentedPerAcre*0.50, hi:fullyConsentedPerAcre*0.70 },
+    { key:"outline",      label:"With outline consent",                               lo:fullyConsentedPerAcre*0.65, mid:fullyConsentedPerAcre*0.80, hi:fullyConsentedPerAcre*1.00 },
+    { key:"consented",    label:"With full consent / serviced residential",           lo:fullyConsentedPerAcre*0.85, mid:fullyConsentedPerAcre*1.00, hi:fullyConsentedPerAcre*1.20 }
+  ];
+  return { cityKey:cityKey, acres:acres, fullyConsentedPerAcre:fullyConsentedPerAcre, agriPerAcre:agriPerAcre, bands:bands };
+}
+
+// v10.52 — showReportOverlay: open a generated report (the one-pager or board paper HTML) in an
+// IN-APP overlay instead of a new browser tab. On mobile a new tab strands you — you have to
+// close it and find your way back to Landform. This shows the report over the app with Close and
+// Print buttons, so you stay in Landform and can regenerate any time. Falls back to a new tab if
+// the overlay can't be created. Returns true on success.
+function showReportOverlay(html, title){
+  try{
+    if(typeof document === "undefined" || !document.body) return false;
+    var old = document.getElementById("lf-report-overlay");
+    if(old && old.parentNode) old.parentNode.removeChild(old);
+    var ov = document.createElement("div");
+    ov.id = "lf-report-overlay";
+    ov.setAttribute("style", "position:fixed;inset:0;z-index:99999;background:rgba(20,21,45,0.6);display:flex;flex-direction:column;");
+    var bar = document.createElement("div");
+    bar.setAttribute("style", "display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:#1E1F5C;color:#fff;font-family:DM Sans,sans-serif;");
+    var ttl = document.createElement("div");
+    ttl.textContent = title || "Report";
+    ttl.setAttribute("style", "font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;");
+    var btns = document.createElement("div");
+    btns.setAttribute("style", "display:flex;gap:8px;flex:0 0 auto;");
+    var printBtn = document.createElement("button");
+    printBtn.textContent = "🖨 Print / Save PDF";
+    printBtn.setAttribute("style", "padding:8px 14px;background:#C9A227;color:#1E1F5C;border:none;border-radius:6px;font-weight:800;font-size:13px;cursor:pointer;font-family:DM Sans,sans-serif;");
+    var closeBtn = document.createElement("button");
+    closeBtn.textContent = "✕ Close";
+    closeBtn.setAttribute("style", "padding:8px 14px;background:rgba(255,255,255,0.18);color:#fff;border:none;border-radius:6px;font-weight:800;font-size:13px;cursor:pointer;font-family:DM Sans,sans-serif;");
+    btns.appendChild(printBtn); btns.appendChild(closeBtn);
+    bar.appendChild(ttl); bar.appendChild(btns);
+    var frame = document.createElement("iframe");
+    frame.setAttribute("title", title || "Report");
+    frame.setAttribute("style", "flex:1;width:100%;border:none;background:#fff;");
+    ov.appendChild(bar); ov.appendChild(frame);
+    document.body.appendChild(ov);
+    var doc = frame.contentWindow.document; doc.open(); doc.write(html); doc.close();
+    function close(){ if(ov.parentNode) ov.parentNode.removeChild(ov); document.removeEventListener("keydown", onKey); }
+    function onKey(ev){ if(ev.key === "Escape") close(); }
+    closeBtn.onclick = close;
+    printBtn.onclick = function(){ try{ frame.contentWindow.focus(); frame.contentWindow.print(); }catch(e){ try{ window.print(); }catch(e2){} } };
+    document.addEventListener("keydown", onKey);
+    return true;
+  }catch(e){ return false; }
 }
 // pcParts — split a UK postcode into its outcode / sector / full forms so rent (and other
 // hyper-local) lookups can key at the finest available level. Rents vary WITHIN an outcode

@@ -153,9 +153,12 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
   function openOnePager(){
     if(typeof buildLandOnePager !== "function"){ if(typeof notify === "function") notify("One-pager generator still loading — try again in a moment."); return; }
     if(typeof notify === "function") notify("Generating one-page board proposal…");
+    var html = buildLandOnePager(effData, cityKey);
+    // v10.52 — show in-app (overlay) so you stay in Landform and can close/regenerate.
+    if(typeof showReportOverlay === "function" && showReportOverlay(html, "One-page board proposal")) return;
     var w = window.open("", "_blank");
     if(!w){ if(typeof notify === "function") notify("Allow pop-ups to open the one-page board proposal."); return; }
-    w.document.open(); w.document.write(buildLandOnePager(effData, cityKey)); w.document.close();
+    w.document.open(); w.document.write(html); w.document.close();
   }
 
   var box = { background:"#fff", border:"1px solid #E0E2EC", borderRadius:8, padding:"10px 12px" };

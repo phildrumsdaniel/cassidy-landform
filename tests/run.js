@@ -140,6 +140,21 @@ console.log("Landform engine consistency tests\n");
   ok("cap: same net rent regardless of exit yield", Math.abs(at38.capNetRentPa - at60.capNetRentPa) < 1);
 })();
 
+// 4c — landValueGuide: indicative market land values by planning status (v10.52 — board
+// proposal / one-pager "no guide price" guide). Bands must rise with planning certainty and
+// scale to acreage; agricultural is the floor, full consent the ceiling.
+(function(){
+  var g = landValueGuide({ land:{ city:"maidstone", acres:100 } });
+  ok("guide returns the tier bands", g.bands && g.bands.length === 5);
+  var by = {}; g.bands.forEach(function(b){ by[b.key] = b; });
+  ok("agricultural is the cheapest band", by.agricultural.mid < by.strategic.mid);
+  ok("bands rise with planning certainty", by.strategic.mid < by.allocated.mid && by.allocated.mid < by.outline.mid && by.outline.mid < by.consented.mid);
+  ok("each band is a low<high range", g.bands.every(function(b){ return b.lo < b.hi; }));
+  ok("consented mid ties back to the area's consented £/acre", Math.abs(by.consented.mid - g.fullyConsentedPerAcre) < 1);
+  // acreage flows through so the caller can show a total
+  ok("acres carried through for totals", g.acres === 100);
+})();
+
 // 5 — net land bid = gross RLV − acquisition costs
 (function(){
   var d = sfhDeal({ rlv:{ includeAcqCosts:true } });
