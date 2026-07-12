@@ -64,13 +64,13 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
     // row absorbs the rounding remainder so the mix totals EXACTLY the target.
     function buildTypicalMix(target){
       var spec=[
-        {type:"1-bed terrace",beds:"1",sqft:550,adj:0.75,pc:0.08},
-        {type:"2-bed terrace",beds:"2",sqft:720,adj:0.88,pc:0.12},
-        {type:"2-bed semi",beds:"2",sqft:820,adj:0.90,pc:0.10},
+        {type:"1-bed terrace",beds:"1",sqft:550,adj:1.00,pc:0.08},
+        {type:"2-bed terrace",beds:"2",sqft:720,adj:1.00,pc:0.12},
+        {type:"2-bed semi",beds:"2",sqft:820,adj:1.00,pc:0.10},
         {type:"3-bed semi",beds:"3",sqft:1020,adj:1.00,pc:0.25},
-        {type:"3-bed detached",beds:"3",sqft:1150,adj:1.08,pc:0.18},
-        {type:"4-bed semi",beds:"4",sqft:1300,adj:1.14,pc:0.12},
-        {type:"4-bed detached",beds:"4",sqft:1500,adj:1.18,pc:0.15}
+        {type:"3-bed detached",beds:"3",sqft:1150,adj:1.00,pc:0.18},
+        {type:"4-bed semi",beds:"4",sqft:1300,adj:1.00,pc:0.12},
+        {type:"4-bed detached",beds:"4",sqft:1500,adj:1.00,pc:0.15}
       ];
       var used=0;
       return spec.map(function(r,i){

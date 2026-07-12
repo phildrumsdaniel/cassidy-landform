@@ -136,10 +136,10 @@ function keystoneGenerateMix(units, cityKey, postcode){
   units = num(units); if(units <= 0) return [];
   var basePsf = Math.max(180, Math.min(650, Math.round(keystoneSalePsf(cityKey, postcode))));
   var ratios = [
-    { type:"2-bed semi",     pct:0.10, sqft:820,  adj:0.90 },
+    { type:"2-bed semi",     pct:0.10, sqft:820,  adj:1.00 },
     { type:"3-bed semi",     pct:0.35, sqft:1020, adj:1.00 },
-    { type:"3-bed detached", pct:0.30, sqft:1150, adj:1.08 },
-    { type:"4-bed detached", pct:0.25, sqft:1500, adj:1.18 }
+    { type:"3-bed detached", pct:0.30, sqft:1150, adj:1.00 },
+    { type:"4-bed detached", pct:0.25, sqft:1500, adj:1.00 }
   ];
   var rows = ratios.map(function(r){ return { type:r.type, count:Math.round(units * r.pct), sqft:r.sqft, adj:r.adj }; });
   // reconcile rounding so the counts sum to the target

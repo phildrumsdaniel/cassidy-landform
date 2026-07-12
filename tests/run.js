@@ -674,9 +674,11 @@ console.log("Landform engine consistency tests\n");
   ok("rich data ⇒ high confidence", strong.confidence >= 70);
   var thin = scoreOpportunity({ town:"Maldon", asking_price:"£3m" });
   ok("thin data ⇒ low confidence", thin.confidence < thin.confidence + 1 && thin.confidence <= 60);
-  // A cheap, well-located site should out-score an overpriced one
-  var cheap = scoreOpportunity({ town:"Maldon", site_area_acres:"32", asking_price:"£2m", planning_status:"outline" });
-  var dear  = scoreOpportunity({ town:"Maldon", site_area_acres:"32", asking_price:"£40m", planning_status:"outline" });
+  // A cheap, well-located site should out-score an overpriced one. Uses a clearly-viable
+  // higher-value market (Oxford) so the viability pillar has positive headroom to distinguish
+  // the two asks (flat £/sqft trims GDV, so a marginal market can floor both at 0).
+  var cheap = scoreOpportunity({ town:"Oxford", site_area_acres:"32", asking_price:"£2m", planning_status:"outline" });
+  var dear  = scoreOpportunity({ town:"Oxford", site_area_acres:"32", asking_price:"£40m", planning_status:"outline" });
   ok("cheaper land scores higher (viability pillar works)", cheap.score > dear.score);
   // dealStatus carried through the builder
   ok("buildDealFromBrief defaults dealStatus to owned", buildDealFromBrief({town:"Maldon"}).dealStatus === "owned");
@@ -1222,7 +1224,7 @@ console.log("Landform engine consistency tests\n");
 
   // Fix: "Auto-price sale / type" reprices every row from the (corrected) Base £/sqft.
   var repriced=autoPriceMix(mix0,332);
-  var gExpect = 10*1650*Math.round(332*1.18) + 10*850*Math.round(332*0.88);  // adj: 4-bd det 1.18, 2-bd terr 0.88
+  var gExpect = 10*1650*332 + 10*850*332;  // v10.43 — sale £/sqft is now FLAT across types (adj = 1.00)
   ok("Auto-price propagates corrected Base £/sqft into GDV", computeSFHMetrics(deal(repriced,332)).gdv === gExpect);
   ok("Corrected base (£385→£332) lowers GDV as expected", gExpect < g0);
 
@@ -1559,6 +1561,25 @@ console.log("Landform engine consistency tests\n");
   var marginAllIn = (num(M.gdv) - num(M.devCost) - allIn) / num(M.gdv) * 100;
   ok("At £8m ask on this draft the all-in margin is comfortably >15% (worth pursuing)", marginAllIn > 15);
   ok("Land is worth far more to us than the ask (positive headroom)", num(M.rlv) > allIn);
+})();
+
+// 62 — Sale £/sqft is FLAT across all house types (v10.43)
+// Every type's sale adjustment is 1.00, so auto-pricing gives the same £/sqft regardless of
+// type/size — no inflated £/sqft for bigger/detached homes. (Build cost stays per-type.)
+(function(){
+  ok("every HOUSE_TYPES sale adj is flat (1.00)", Object.keys(HOUSE_TYPES).every(function(k){ return HOUSE_TYPES[k].adj === 1.00; }));
+  ok("build cost still varies by type (not flattened)", HOUSE_TYPES["4-bed detached"].build !== HOUSE_TYPES["2-bed terrace"].build);
+  // A mix priced off one base £/sqft values every type at that same £/sqft.
+  var base=400;
+  var mix=[
+    {type:"2-bed semi",     count:"10", sqft:"820",  unitPrice:String(Math.round(820*base*(HOUSE_TYPES["2-bed semi"].adj||1)))},
+    {type:"4-bed detached", count:"10", sqft:"1500", unitPrice:String(Math.round(1500*base*(HOUSE_TYPES["4-bed detached"].adj||1)))}
+  ];
+  var perSqft = mix.map(function(r){ return Math.round(num(r.unitPrice)/num(r.sqft)); });
+  ok("2-bed semi and 4-bed detached price at the SAME £/sqft", perSqft[0] === base && perSqft[1] === base);
+  // Engine GDV of a repriced-flat mix = total sqft × base £/sqft.
+  var d={ assetType:"sfh", land:{city:"maidstone"}, sfh:{city:"maidstone", acres:20, ahPct:0, basePsf:base, buildPsf:190, mix:mix} };
+  ok("GDV = total sqft × flat base £/sqft", computeSFHMetrics(d).gdv === (820+1500)*10*base);
 })();
 
 // ── Report ───────────────────────────────────────────────────────────────────
