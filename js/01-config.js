@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.60";
+var CURRENT_VERSION = "10.61";
 var VERSION_HISTORY = [
+  {v:"10.61", date:"Jul 2026", headline:"Fixed the ‘1,800 homes shows as 1,789’ drift. The Mix Optimiser (which runs inside ‘Complete with AI’) reallocates floor area between house types and rounded each type's count independently, so the totals no longer summed to the scheme's unit count — 1,800 came out as 1,789. The optimiser now reconciles the counts back to the exact original total (the small rounding difference goes on the largest type), so the headline homes figure stays put when the mix is optimised. Re-run ‘Complete with AI’ (or Keystone) on an existing deal to correct it."},
   {v:"10.60", date:"Jul 2026", headline:"One figure, everywhere: a manually-changed figure now replicates to every page that shows it. The shared-field propagation (edit build £/sqft on any stage → Financial Modelling and RLV update, and every derived £m recomputes via the one engine) was extended to more figures — the land asking/guide price (Quick Appraisal ↔ RLV ↔ Scorecard), average unit size, site address and the local planning authority — and the Quick Appraisal's sale-£/sqft edit now keeps its RLV sibling in step too. So change a number once and it's the same on every page."},
   {v:"10.59", date:"Jul 2026", headline:"NEW ‘🚀 Complete the whole journey with AI’ on Keystone — one click fills the WHOLE SFH journey, not just the pricing. On top of researching per-type sale prices & rents, it now also fills, via AI (using national-builder / market benchmarks): Planning (consent risk, Biodiversity Net Gain, probability & timeline, strategy note), Exit strategy & target buyer (open-market plot sales + bulk sale of affordable to a housing association, and the institutional forward-fund alternative), a Grant & funding strategy (Homes England AHP etc.), and a planning & GIS Constraints screen (Green Belt, flood, AONB, access…). Due Diligence, Meeting Transcripts, Data Room and the Risk Register are deliberately left for a human. Every field stays editable and is flagged indicative — review each stage."},
   {v:"10.58", date:"Jul 2026", headline:"NEW ‘Basis of figures — how each number was derived’ section on BOTH the one-page appraisal and the board proposal, so the substance behind the headline numbers is on the page. It states, per line and pulled from the actual deal: the sale value (AI market research of local new-build launches, or Land Registry £/sqft + new-build premium), the build cost (all-in vs construction-only, BCIS basis), the finance (the exact S-curve / peak-debt calculation), S106, developer profit (with the profit-on-cost note), rents & yield (AI-researched local rents, capitalised at the net initial yield) and that the land figure is the maximum supportable residual — not an agreed price. Same source for both reports so they can't diverge."},
@@ -2844,6 +2845,20 @@ function optimiseSfhMix(data, mode, opts){
     return { type:t.type, beds:String(t.beds), count:String(cnt), sqft:String(t.sqft),
       unitPrice:String(t.salePrice), psf:"", tenure:"private", buildPsf: t.buildPsf ? String(Math.round(t.buildPsf)) : "" };
   });
+  // v10.61 — reconcile the optimised counts back to the ORIGINAL unit total. Rounding each
+  // type's floor-area allocation to whole homes independently drifts the headline total
+  // (e.g. 1,800 → 1,789); the scheme's unit count must NOT change just because the mix was
+  // re-optimised. The difference goes on the largest-count row, preserving the distribution.
+  (function(){
+    var origUnits = types.reduce(function(a, t){ return a + num(t.count); }, 0);
+    var optSum = optMix.reduce(function(a, r){ return a + num(r.count); }, 0);
+    var drift = origUnits - optSum;
+    if(drift !== 0 && optMix.length){
+      var bigIdx = 0;
+      for(var _i = 1; _i < optMix.length; _i++){ if(num(optMix[_i].count) > num(optMix[bigIdx].count)) bigIdx = _i; }
+      optMix[bigIdx].count = String(Math.max(0, num(optMix[bigIdx].count) + drift));
+    }
+  })();
 
   function totals(mix){
     var m = computeSFHMetrics(Object.assign({}, data, { sfh: Object.assign({}, sfh, { mix:mix }) }));
