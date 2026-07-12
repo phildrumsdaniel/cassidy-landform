@@ -23,7 +23,8 @@ var KEYSTONE_BRIEF_SCHEMA = {
   askingPrice:  "number — landowner's asking price (£)",
   // ── Scheme (assetType auto-detected if omitted) ──
   assetType:    "optional 'sfh'|'btr'|'pbsa'|'land'|'property'|'recovery' — else auto-chosen",
-  units:        "number — total units (else summed from the mix/rents)",
+  units:        "number — the scheme's STATED unit figure from the source. A capacity/allocation phrase IS this figure: 'room for 1,800 houses', 'circa 1,800 units', 'allocated for ~1,000 homes', 'capacity for 1,800 dwellings' → units: 1800. Quote the source's exact wording in assumptions. Else summed from the mix/rents.",
+  density:      "number — stated or target density in HOMES PER ACRE. If the source quotes dwellings-per-hectare (dph), convert: homes/acre ≈ dph ÷ 2.471 (so 20 dph ≈ 8/acre; '20/acre' stays 20). Record the source's original figure and units (dph vs per-acre) in assumptions.",
   // ── Houses for sale / mixed-tenure (SFH) ──
   houseMix:     "array of { type, count, sqft, salePrice, tenure, buildPsf }",
   // ── Rents (BTR/PRS/forward-fund) ──
@@ -190,6 +191,12 @@ function keystoneMarketKey(town, postcode){
 // COMPLETE appraisal on day one: every input carries a sensible, flagged default you
 // then tweak. Forward-looking — assume consent, size to the land, price to new-build,
 // and load policy-typical affordable + full S106/CIL so the result is realistic, not rosy.
+// Reference density (homes/acre) for surfacing a site's fuller CAPACITY as upside next
+// to whatever the source states. When a brief quotes a low allocation ("room for 1,800
+// houses" on a 285-acre site ≈ 6.3/acre), Keystone develops from that stated figure but
+// FLAGS what the land could carry at a policy-typical higher density — so the board sees
+// the headroom without the appraisal silently inflating the scheme.
+var KEYSTONE_REF_DENSITY = 20;
 var KEYSTONE_DEFAULTS = {
   affordablePct: 30,   // policy-typical
   affordableSplit: "70% affordable/social rent, 30% shared ownership",
@@ -266,6 +273,27 @@ function buildDealFromBrief(brief){
       "Sized to " + densityUnits + " at " + d + " homes/acre so the appraisal reflects the land. " +
       "If the scheme really is low-density, set the unit count in Land Appraisal.";
     units = densityUnits;
+  }
+  // v10.47 — DEVELOP FROM THE SOURCE FIRST, then surface the land's fuller CAPACITY as upside.
+  // Keystone builds the appraisal from whatever the source states (honoured above); this ADD-ON
+  // computes what the acreage could carry at a policy-typical higher density and flags the
+  // headroom so the board sees it — e.g. a source quoting "room for 1,800 houses" on a ~285-acre
+  // site (~6.3/acre) when 20/acre would be ~5,700. It never silently inflates the scheme; the
+  // stated figure remains the basis. Stored on land.* so the density card & one-pager can show it.
+  var capacityAtRef = (acres > 0) ? Math.round(acres * KEYSTONE_REF_DENSITY) : 0;
+  var impliedDensity = (acres > 0 && units > 0) ? (Math.round((units / acres) * 10) / 10) : 0;
+  // Only genuine headroom (capacity materially above the developed scheme) counts as upside —
+  // a scheme already at/near the reference density has none, and nothing is stored/flagged.
+  var hasHeadroom = (capacityAtRef > 0 && units > 0 && (journey === "sfh" || journey === "land") && capacityAtRef >= units * 1.2);
+  var capacityNote = "";
+  if(hasHeadroom){
+    var sourceHonoured = (suppliedUnits > 0 && units === suppliedUnits);
+    var lead = sourceHonoured
+      ? "Source states room for " + suppliedUnits.toLocaleString() + " homes (~" + impliedDensity + "/acre on " + acres + " acres) — the appraisal is built from this."
+      : "Scheme drafted at " + units.toLocaleString() + " homes (~" + impliedDensity + "/acre on " + acres + " acres).";
+    capacityNote = lead + " Land capacity: at " + KEYSTONE_REF_DENSITY + "/acre the " + acres +
+      "-acre site could carry ~" + capacityAtRef.toLocaleString() + " homes — potential upside of ~" +
+      (capacityAtRef - units).toLocaleString() + ". Raise the density on the Keystone density card to model the fuller capacity.";
   }
   // v9.78 — if it's a housing scheme with a unit count but no house mix, auto-generate a
   // typical estate blend so the deal has a full scheme (GDV/RLV, and the rental
@@ -345,7 +373,12 @@ function buildDealFromBrief(brief){
       price: num(brief.askingPrice) || "",
       units: units || "",
       assumedUnits: (mix.length ? "" : (units || "")),                  // feeds the "What You Should Pay" panel
-      assumedDensity: (density > 0 ? density : (autoUnitNote ? d : "")),
+      assumedDensity: (density > 0 ? density : (impliedDensity > 0 ? impliedDensity : (autoUnitNote ? d : ""))),
+      // v10.47 — the land's fuller capacity at a higher reference density, so the density
+      // card and board one-pager can show the headroom beside the source's stated figure.
+      capacityAtRef: hasHeadroom ? capacityAtRef : "",
+      capacityRefDensity: hasHeadroom ? KEYSTONE_REF_DENSITY : "",
+      statedUnits: suppliedUnits || "",
       planningStatus: brief.planningStatus || ""
     },
     planning: {
@@ -413,7 +446,7 @@ function buildDealFromBrief(brief){
       builtAt: new Date().toISOString(),
       journey: journey,
       dealName: brief.dealName || brief.address || "Keystone deal",
-      assumptions: (brief.assumptions || []).slice().concat(locNote ? [locNote] : []).concat(autoUnitNote ? [autoUnitNote] : []).concat(genMixNote ? [genMixNote] : []).concat(assumeNotes),
+      assumptions: (brief.assumptions || []).slice().concat(capacityNote ? [capacityNote] : []).concat(locNote ? [locNote] : []).concat(autoUnitNote ? [autoUnitNote] : []).concat(genMixNote ? [genMixNote] : []).concat(assumeNotes),
       notes: brief.notes || "",
       // v10.7 — keep the raw brief so "Reset to raw import" can rebuild a clean deal
       // from source (a fresh Keystone run) after any amount of downstream work.

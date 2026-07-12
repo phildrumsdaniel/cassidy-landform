@@ -704,6 +704,32 @@ console.log("Landform engine consistency tests\n");
   ok("low-count upsize flagged", d4._keystone.assumptions.join(" ").toLowerCase().indexOf("homes/acre") >= 0);
 })();
 
+// 35a — v10.47: DEVELOP FROM THE SOURCE FIRST, surface land capacity as upside.
+// A source that quotes "room for 1,800 houses" on a big site is honoured as the scheme's
+// basis (not overridden), and the land's fuller capacity at a higher density is flagged.
+(function(){
+  // 1,800 on 285 acres ≈ 6.3/acre — plausible, so honoured (NOT upsized).
+  var d = buildDealFromBrief({ town:"Maidstone", postcode:"ME17 1AA", acres:285, units:1800 });
+  ok("source's stated 1,800 honoured, not overridden", num(d.land.units) === 1800);
+  near("land capacity computed at 20/acre (285×20≈5700)", num(d.land.capacityAtRef), 5700, 0);
+  ok("reference density recorded", num(d.land.capacityRefDensity) === 20);
+  ok("source's stated figure preserved on land", num(d.land.statedUnits) === 1800);
+  var notes = d._keystone.assumptions.join(" ");
+  ok("capacity note leads with the source's stated figure", /Source states room for 1,800 homes/.test(notes));
+  ok("capacity note flags the ~5,700 upside", /5,700/.test(notes) && /upside/.test(notes.toLowerCase()));
+  ok("capacity note comes first (source-led)", /^Source states room for 1,800/.test(d._keystone.assumptions[0]));
+  ok("implied density surfaced for the density card", num(d.land.assumedDensity) > 6 && num(d.land.assumedDensity) < 7);
+
+  // A scheme already near the reference density gets NO upside flag (no false 'headroom').
+  var dense = buildDealFromBrief({ town:"Maidstone", postcode:"ME17 1AA", acres:100, units:1800 });
+  ok("no capacity flag when scheme already ~ reference density", !/Land capacity/.test(dense._keystone.assumptions.join(" ")));
+  ok("no capacity number stored when there is no material headroom", !dense.land.capacityAtRef || num(dense.land.capacityAtRef) < num(dense.land.units)*1.2);
+
+  // An explicit stated density is captured (per-acre) and drives capacity/units.
+  var dd = buildDealFromBrief({ town:"Maidstone", postcode:"ME17 1AA", acres:100, density:20 });
+  near("explicit 20/acre on 100 acres → 2,000 homes", num(dd.land.units), 2000, 0);
+})();
+
 // 35b — Keystone flags an unrecognised location (Ryton/Wolston) and maps it to a market
 (function(){
   var ry = buildDealFromBrief({ town:"Ryton-on-Dunsmore", acres:88, askingPrice:12500000 });

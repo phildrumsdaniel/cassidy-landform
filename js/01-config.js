@@ -20,7 +20,7 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.46";
+var CURRENT_VERSION = "10.47";
 var VERSION_HISTORY = [
   {v:"10.46", date:"Jul 2026", headline:"Five refinements: (1) ‘Complete with AI’ now AUTO-RUNS on Keystone build — research prices/rents, apply & optimise, no button; (2) the new-build premium is now visible AND tunable on the Quick Appraisal (sale £/sqft shown as ‘£X local + Y% new-build’, with an editable premium %); (3) the Mix Optimiser bounds (min/max % per type) are now editable — tune to how Cassidy sells; (4) NEW Simple mode toggle collapses the menu to Find → Quick Appraisal → Report; (5) sale/build £/sqft labels spell out ‘incl. premium’ vs ‘construction cost, no premium’. Also fixed a duplicate ‘Process Navigator’ nav item"},
   {v:"10.45", date:"Jul 2026", headline:"Keystone fills more of the deal automatically: it now auto-builds the TENURE MIX from the affordable % (open-market / affordable-rent / shared-ownership), so the Tenure Mix stage is complete with no manual entry. And a one-click ‘🤖 Complete with AI’ on Keystone researches the area's new-build sale prices AND rents per house type, applies them to the mix (a 4-bed detached that fetches a lower £/sqft than a 3-bed semi now shows it), feeds the rents into capitalisation, and applies the profit-maximising mix from the optimiser — the whole scheme priced and value-engineered from one click"},
