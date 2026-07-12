@@ -127,6 +127,19 @@ console.log("Landform engine consistency tests\n");
     on.rlv - off.rlv, (off.fees + off.contingency + off.roads + off.infra) + (off.finance - on.finance));
 })();
 
+// 4b — SFH forward-fund / capitalisation exit (v10.49 — drives the Quick Appraisal yield card
+// and the one-pager). Investment value = net rent / yield, so a keener yield ⇒ higher value.
+(function(){
+  function withYield(y){ var d = sfhDeal(); d.capitalise = { targetYield:y }; return d; }
+  var at38 = computeSFHMetrics(withYield(3.8));
+  var at60 = computeSFHMetrics(withYield(6.0));
+  ok("cap: net rent p.a. derived from the scheme", at38.capNetRentPa > 0);
+  near("cap: investment value == net rent / yield (3.8%)", at38.capInvestmentValue, at38.capNetRentPa / 0.038, 1);
+  near("cap: investment value == net rent / yield (6.0%)", at60.capInvestmentValue, at60.capNetRentPa / 0.06, 1);
+  ok("cap: a keener yield pays more (3.8% > 6.0%)", at38.capInvestmentValue > at60.capInvestmentValue);
+  ok("cap: same net rent regardless of exit yield", Math.abs(at38.capNetRentPa - at60.capNetRentPa) < 1);
+})();
+
 // 5 — net land bid = gross RLV − acquisition costs
 (function(){
   var d = sfhDeal({ rlv:{ includeAcqCosts:true } });
