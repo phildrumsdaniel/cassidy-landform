@@ -8,8 +8,15 @@ function renderRLV(city, data, m, navTo, setData, up, user){
       up("rlv","postcode",data.land.postcode.toUpperCase());
     }
     var pcData=r.postcode?lookupPostcode(r.postcode):null;
-    // Resolve city: postcode lookup → data.land.city → null (NOT silent manchester fallback)
-    var rCity=(pcData&&pcData.city)||(data.land&&data.land.city)||null;
+    // v10.64 — resolve to a REAL market key (one MKT actually has data for), preferring the most
+    // specific and NEVER silently falling to Manchester when the location IS known. A town like
+    // "Paddock Wood" (TN12) isn't itself a market, but its postcode area resolves to Tunbridge
+    // Wells — so we use that anchor market instead of showing "no location / UK-average defaults".
+    var rCity=null;
+    [(pcData&&pcData.city),(data.land&&data.land.city)].forEach(function(c){ if(!rCity && c && MKT[c]) rCity=c; });
+    if(!rCity && typeof dealCityKey==="function"){ var _dk=dealCityKey(data); if(_dk && MKT[_dk]) rCity=_dk; }
+    if(!rCity && typeof postcodeMarketKey==="function"){ var _pc=r.postcode||(data.land&&data.land.postcode)||""; var _a=_pc?postcodeMarketKey(_pc):""; if(_a && MKT[_a]) rCity=_a; }
+    if(!rCity) rCity=(pcData&&pcData.city)||(data.land&&data.land.city)||null;  // display fallback (banner handles unknown)
     var rCityKnown=!!(rCity && MKT[rCity]);  // only true if we have real market data
     var rm=(rCity&&MKT[rCity])||MKT.manchester;  // fallback retained for calculations only
 
