@@ -1602,6 +1602,16 @@ console.log("Landform engine consistency tests\n");
   ok("rent mode returns per-type rent & yield", oR && oR.types.every(function(t){ return t.rentPcm >= 0 && t.grossYield >= 0; }));
   // No mix ⇒ null (safe).
   ok("no mix ⇒ null", optimiseSfhMix({assetType:"sfh", sfh:{}}, "profit") === null);
+
+  // v10.46 — tunable bounds: a higher max lets the best type dominate more (bigger uplift).
+  // Use real per-type prices so ranking differs.
+  var dp={ assetType:"sfh", land:{city:"maidstone", acres:40}, planning:{},
+    sfh:{city:"maidstone", acres:40, ahPct:0, buildPsf:190, finRate:7.5, buildInclusive:true,
+      mix:[{type:"3-bed semi",count:"250",sqft:"1020",unitPrice:"350000"},
+           {type:"4-bed detached",count:"250",sqft:"1500",unitPrice:"400000"}]} };
+  var tight=optimiseSfhMix(dp,"profit",{minPct:20,maxPct:35});
+  var loose=optimiseSfhMix(dp,"profit",{minPct:5,maxPct:60});
+  ok("looser bounds let the best type dominate more (>= surplus of tighter bounds)", loose.optimised.surplus >= tight.optimised.surplus);
 })();
 
 // 64 — Keystone auto-fill: tenure mix from affordable %, and AI market-price enrich (v10.45)

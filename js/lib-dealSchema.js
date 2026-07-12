@@ -483,7 +483,7 @@ function applyMarketPricesAndOptimise(data, aiTypes, opts){
   // Optimise toward the profit-maximising mix once REAL prices are in (only if it materially helps).
   var optimised = null;
   if(opts.optimise !== false && typeof optimiseSfhMix === "function"){
-    var o = optimiseSfhMix(data, "profit");
+    var o = optimiseSfhMix(data, "profit", { minPct: sfh.optMinPct, maxPct: sfh.optMaxPct });
     if(o && o.optimised && o.optimised.mix && o.optimised.mix.length && o.uplift > 10000){
       sfh.mix = o.optimised.mix;
       optimised = { upliftPct: Math.round(o.upliftPct), surplus: o.optimised.surplus, current: o.current.surplus };

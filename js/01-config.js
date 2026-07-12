@@ -20,8 +20,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.45";
+var CURRENT_VERSION = "10.46";
 var VERSION_HISTORY = [
+  {v:"10.46", date:"Jul 2026", headline:"Five refinements: (1) ‘Complete with AI’ now AUTO-RUNS on Keystone build — research prices/rents, apply & optimise, no button; (2) the new-build premium is now visible AND tunable on the Quick Appraisal (sale £/sqft shown as ‘£X local + Y% new-build’, with an editable premium %); (3) the Mix Optimiser bounds (min/max % per type) are now editable — tune to how Cassidy sells; (4) NEW Simple mode toggle collapses the menu to Find → Quick Appraisal → Report; (5) sale/build £/sqft labels spell out ‘incl. premium’ vs ‘construction cost, no premium’. Also fixed a duplicate ‘Process Navigator’ nav item"},
   {v:"10.45", date:"Jul 2026", headline:"Keystone fills more of the deal automatically: it now auto-builds the TENURE MIX from the affordable % (open-market / affordable-rent / shared-ownership), so the Tenure Mix stage is complete with no manual entry. And a one-click ‘🤖 Complete with AI’ on Keystone researches the area's new-build sale prices AND rents per house type, applies them to the mix (a 4-bed detached that fetches a lower £/sqft than a 3-bed semi now shows it), feeds the rents into capitalisation, and applies the profit-maximising mix from the optimiser — the whole scheme priced and value-engineered from one click"},
   {v:"10.44", date:"Jul 2026", headline:"NEW Mix Optimiser on the SFH House Mix stage — ranks every house type by profit PER SQFT (the land-efficient metric) and by rent per sqft for a BTR/forward sale, then proposes the mix that maximises the money available for land + profit (within realistic planning/market bounds). It bites when you enter the real per-type prices — a 4-bed detached that sells at a lower £/sqft than a 3-bed semi is correctly shown as less profitable per acre. Includes an AI helper to research area new-build prices & rents by type"},
   {v:"10.43", date:"Jul 2026", headline:"Sale £/sqft is now FLAT across all house types — every home (2-bed semi to 4-bed detached) prices at the same base sale £/sqft, instead of bigger/detached homes getting an inflated £/sqft. GDV = total sqft × base £/sqft. This trims GDV on detached-heavy schemes to a more conservative, realistic figure. Build cost still varies by type (a real cost, not GDV); per-row £/sqft remains editable. The base £/sqft itself still includes the ~17% new-build premium over existing-home comparables"},
@@ -2602,8 +2603,8 @@ function computeSFHMetrics(data){
 //   mode "profit" ranks by margin/sqft; mode "rent" ranks by rent/sqft (for a BTR/forward sale).
 // It bites when REAL per-type prices/rents are entered (a 4-bed detached often sells at a LOWER
 // £/sqft than a 3-bed semi — the exact effect Cassidy flagged). Returns null if there's no mix.
-function optimiseSfhMix(data, mode){
-  data = data || {}; mode = (mode === "rent") ? "rent" : "profit";
+function optimiseSfhMix(data, mode, opts){
+  data = data || {}; mode = (mode === "rent") ? "rent" : "profit"; opts = opts || {};
   var sfh = data.sfh || {};
   var cityKey = (typeof dealCityKey === "function") ? dealCityKey(data) : (sfh.city || "").toLowerCase();
   var market = MKT[cityKey] || MKT.manchester;
@@ -2646,8 +2647,12 @@ function optimiseSfhMix(data, mode){
   // within [minShare, maxShare] floor-area bounds (greedy: best gets max, worst gets min).
   var T = types.reduce(function(a, t){ return a + t.sqft * t.count; }, 0);
   var n = types.length;
-  var maxShare = Math.max(0.40, 1 / n);
-  var minShare = Math.min(0.10, 1 / (n + 1));
+  // v10.46 — tunable bounds (per-type floor-area share). Defaults ~10%–40%; the SFH Mix Optimiser
+  // exposes these so Cassidy can match how it actually sells (e.g. allow a 50% dominant type).
+  var maxShare = num(opts.maxPct) > 0 ? num(opts.maxPct) / 100 : Math.max(0.40, 1 / n);
+  var minShare = num(opts.minPct) >= 0 && opts.minPct !== "" && opts.minPct != null ? num(opts.minPct) / 100 : Math.min(0.10, 1 / (n + 1));
+  minShare = Math.max(0, Math.min(minShare, 1 / n));    // feasibility: every type can hold its min
+  maxShare = Math.max(maxShare, 1 / n);                 // feasibility: mix can still sum to 100%
   var shares = types.map(function(){ return minShare; });
   var budget = 1 - minShare * n;
   for(var i = 0; i < n && budget > 1e-9; i++){ var add = Math.min(maxShare - minShare, budget); shares[i] += add; budget -= add; }
