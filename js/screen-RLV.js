@@ -176,11 +176,15 @@ function renderRLV(city, data, m, navTo, setData, up, user){
     function fetchLR(){
       var pc=(r.postcode||"").toUpperCase().replace(/\s+/g,"");
       if(!pc)return;
-      // Extract area, district, sector from postcode
-      var match=pc.match(/^([A-Z]{1,2})(\d{1,2}[A-Z]?)(\d)([A-Z]{2})$/);
-      if(!match){up("rlv","lrError","Please enter a full postcode (e.g. CV6 2DL)");return;}
-      var area=match[1]; var district=match[1]+match[2]; var sector=district+" "+match[3];
-      var fullPc=district+" "+match[3]+match[4];
+      // v10.63 — accept a FULL postcode OR just the OUTCODE (e.g. "TN12"). The Land Registry
+      // search filters at district/outcode level (STRSTARTS on the outcode), so a full postcode
+      // is not required — the outcode gives the same area-level £/sqft.
+      var full=pc.match(/^([A-Z]{1,2}\d{1,2}[A-Z]?)(\d)([A-Z]{2})$/);
+      var out=pc.match(/^([A-Z]{1,2}\d{1,2}[A-Z]?)$/);
+      var district, sector;
+      if(full){ district=full[1]; sector=district+" "+full[2]; }
+      else if(out){ district=out[1]; sector=district; }
+      else { up("rlv","lrError","Enter a postcode outcode (e.g. TN12) or a full postcode (e.g. TN12 6AB)."); return; }
       up("rlv","lrLoading",true);up("rlv","lrError","");up("rlv","lrData",null);
       up("rlv","lrSectorUsed",sector);
 
@@ -324,7 +328,7 @@ function renderRLV(city, data, m, navTo, setData, up, user){
       !rCityKnown && e("div",{style:{padding:"10px 14px",background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.3)",borderRadius:6,fontSize:11,color:"#B05A35",lineHeight:1.6,marginBottom:14}},
         e("strong",null,"⚠ No location data set. "),
         "Landform doesn't yet know which city or postcode this site is in, so it's using UK-average defaults for build cost, sale PSF, and yield benchmarks. Any references to 'Manchester' or other northern markets below should be ignored — they're the technical fallback, not your actual market. ",
-        e("strong",null,"Fix: "),"enter the full postcode in the search box below, or set the city in Land Appraisal."
+        e("strong",null,"Fix: "),"enter the postcode in the search box below (the outcode like TN12 is enough), or set the city in Land Appraisal."
       ),
       rCityKnown && e("div",{style:{padding:"8px 14px",background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.3)",borderRadius:6,fontSize:11,color:"#1d5446",lineHeight:1.6,marginBottom:14}},
         "📍 Market data: ",e("strong",null,cityName(rCity)),
@@ -334,8 +338,8 @@ function renderRLV(city, data, m, navTo, setData, up, user){
         e("div",{style:S.cardTitle},"Land Registry Price Search"),
         e("div",{style:{display:"flex",gap:12,alignItems:"flex-end",marginBottom:12}},
           e("div",{style:{flex:1,display:"flex",flexDirection:"column",gap:4}},
-            e("label",{style:S.label},"Full Postcode"),
-            e("input",{value:r.postcode||"",onChange:function(ev){up("rlv","postcode",ev.target.value.toUpperCase());},onKeyDown:function(ev){if(ev.key==="Enter")fetchLR();},placeholder:"e.g. CV6 2DL",style:Object.assign({},S.input,{textTransform:"uppercase"})})
+            e("label",{style:S.label},"Postcode (outcode or full)"),
+            e("input",{value:r.postcode||"",onChange:function(ev){up("rlv","postcode",ev.target.value.toUpperCase());},onKeyDown:function(ev){if(ev.key==="Enter")fetchLR();},placeholder:"e.g. TN12 (or TN12 6AB)",style:Object.assign({},S.input,{textTransform:"uppercase"})})
           ),
           e("button",{id:"lr-search-btn",onClick:fetchLR,disabled:lrLoading||!r.postcode,style:Object.assign({},S.btn,{flexShrink:0,padding:"9px 18px",opacity:lrLoading?0.7:1})},lrLoading?"⏳ Searching LR...":"🔍 Search LR"),
           lrLoading&&e("div",{style:{fontSize:10,color:"#7278A0",marginTop:4,fontStyle:"italic"}},"Land Registry query can take 10-30 seconds. You can enter the sale price manually below while waiting.")
