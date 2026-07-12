@@ -366,7 +366,7 @@ function buildLandOnePager(data, cityHint){
                   return '<tr'+(sel?' style="background:rgba(27,122,84,.09);font-weight:800"':'')+'>'+
                     '<td>'+y.toFixed(1)+'%</td>'+
                     '<td class="n">'+fmt(iv)+'</td>'+
-                    '<td class="n" style="color:'+(askL>0?(pr>=0?'#1B7A54':'#B05A35'):'#3A3D6A')+'">'+(askL>0?((pr<0?'−':'')+fmt(Math.abs(pr))):fmt(oCapMaxLand(y)))+'</td>'+
+                    '<td class="n" style="color:'+(askL>0?(pr>=0?'#1B7A54':'#B05A35'):(oCapMaxLand(y)>=0?'#1B7A54':'#B05A35'))+'">'+(askL>0?((pr<0?'−':'')+fmt(Math.abs(pr))):((oCapMaxLand(y)<0?'−':'')+fmt(Math.abs(oCapMaxLand(y)))))+'</td>'+
                     '<td class="n" style="color:'+(askL>0?(mg>=15?'#1B7A54':mg>=12?'#9A7B3E':'#B05A35'):'#3A3D6A')+'">'+(askL>0?pct(mg):fmt(iv*(oProfitPct/100)))+'</td></tr>'; }).join('')+
               '</table>'+
             '</div>'
