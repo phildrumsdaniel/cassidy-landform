@@ -20,8 +20,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.41";
+var CURRENT_VERSION = "10.42";
 var VERSION_HISTORY = [
+  {v:"10.42", date:"Jul 2026", headline:"Quick Appraisal now treats the build £/sqft as ALL-IN by default — roads, drainage and site infrastructure (SuDS) are assumed inside the build rate, not added as separate lines (no double-counting); marketing/disposal is a sale-side cost left at £0. A toggle switches it off for a deal whose build rate is construction-only. Persisted to the deal, so the detailed stages read the same assumption"},
   {v:"10.41", date:"Jul 2026", headline:"Quick Appraisal now generates the one-page A4 board proposal directly — a ‘📄 One-page board proposal (PDF)’ button on the Quick Appraisal page produces the same printable one-pager as the Board Proposal stage, straight from the figures on screen. The one-pager generator is now shared, so the two can never diverge."},
   {v:"10.40", date:"Jul 2026", headline:"NEW ‘⚡ Quick Appraisal’ front door — the whole rule-of-thumb on ONE interactive page: enter the acreage, pick a density (it builds the house mix), set the area sale £/sqft, and it shows homes → GDV → the cost stack → RLV (what the land is worth to us at 17.5% profit) → tested against the landowner's asking price with a plain-English verdict. Same engine as the detailed stages, so nothing can diverge; it sits at the top of the menu as the simple starting point"},
   {v:"10.39", date:"Jul 2026", headline:"Resilience fix: the app's core libraries (React, ReactDOM, SheetJS, pdf.js, mammoth, Leaflet) are now SELF-HOSTED in the repo instead of loaded from the unpkg CDN at runtime. A CDN outage or a network/extension block used to leave React unloaded and the entire tool blank; served from the same origin as the app, they now load as reliably as the app itself. No functional change — pure availability."},
