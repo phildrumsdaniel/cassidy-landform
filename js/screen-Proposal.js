@@ -145,11 +145,11 @@ function buildLandOnePager(data, cityHint){
     // the printed report and the Quick Appraisal show the same figure. A keener yield ⇒ more value.
     var oCapNetRent=num(sf.capNetRentPa)||0;
     var oCapYieldPct=num((data.capitalise||{}).targetYield); if(oCapYieldPct>0&&oCapYieldPct<1) oCapYieldPct*=100;
-    if(!(oCapYieldPct>0)) oCapYieldPct=4.5; oCapYieldPct=Math.max(3.8,Math.min(6,oCapYieldPct));
+    if(!(oCapYieldPct>0)) oCapYieldPct=4.9; oCapYieldPct=Math.max(4.5,Math.min(6,oCapYieldPct));   // v10.55 — 4.5% institutional floor
     function oCapIV(y){ return y>0?oCapNetRent/(y/100):0; }
     function oCapProfitAllIn(y){ return oCapIV(y)-oDev-totalLandCost; }
     function oCapMaxLand(y){ var iv=oCapIV(y); return iv-oDev-iv*(oProfitPct/100); }
-    var oCapYields=[3.8,4.5,5.0,6.0];
+    var oCapYields=[4.5,5.0,5.5,6.0];
 
     // Verdict — decision-useful: uses the margin AFTER the full cost of acquiring the land.
     var verdict, vcol, vsub;
@@ -313,7 +313,7 @@ function buildLandOnePager(data, cityHint){
               cRow("Build ("+ (oAvgSqft&&oUnits?Math.round(oAvgSqft*oUnits).toLocaleString()+" sqft @ £"+oBuildPsf:"")+")",fmt(oBuild),true,false)+
               (oFees>0?cRow("Professional fees",fmt(oFees),true,false):'')+
               (oCont>0?cRow("Contingency",fmt(oCont),true,false):'')+
-              cRow("Finance",fmt(oFin),true,false)+
+              cRow("Finance ("+(num(sf.financeProgYears)||"?")+"yr · peak "+(num(sf.financePeakDebtPct)||"?")+"% · S-curve)",fmt(oFin),true,false)+
               cRow("S106 / CIL"+(oUnits>0?" (£"+fmtN(Math.round(oS106/oUnits))+"/plot)":""),fmt(oS106),true,false)+
               (oRoads>0?cRow("Roads &amp; sewers",fmt(oRoads),true,false):'')+
               (oInfra>0?cRow("Infrastructure &amp; SuDS",fmt(oInfra),true,false):'')+
@@ -353,6 +353,14 @@ function buildLandOnePager(data, cityHint){
           '</div>'+
         '</div>'+
         '<div class="verdict" style="background:'+vcol+'"><div class="vh">'+verdict+'</div><div class="vs">'+vsub+'</div></div>'+
+        (oGdv>0
+          ? '<div style="margin-top:9px;border:1px solid #C9CCE4;border-radius:7px;padding:9px 11px;background:#FBFAF5">'+
+              '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#4A4BAE;font-weight:800;margin-bottom:4px">Land value vs developer profit target</div>'+
+              '<div style="font-size:8px;color:#6A6F97;margin-bottom:5px">17.5% of GDV is the planning-viability benchmark; volume house-builders often target 20%+ (a &lsquo;30% margin&rsquo; is usually profit-on-cost, &asymp; 22&ndash;23% on GDV). Everything else held constant.</div>'+
+              '<table><tr>'+[17.5,20,25,30].map(function(p){ return '<td class="n" style="font-size:7.4px;color:#8A90B4;text-transform:uppercase;font-weight:700">'+p+'% profit</td>'; }).join('')+'</tr><tr>'+
+                [17.5,20,25,30].map(function(p){ var v=(oGdv-oDev)-oGdv*(p/100); return '<td class="n" style="font-weight:800;color:'+(v>=0?'#1B7A54':'#B05A35')+'">'+(v<0?'−':'')+fmt(Math.abs(v))+'</td>'; }).join('')+'</tr></table>'+
+            '</div>'
+          : '')+
         (oCapNetRent>0
           ? '<div style="margin-top:9px;border:1px solid #BFD9CF;border-radius:7px;padding:9px 11px;background:#F5FBF8">'+
               '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#1B7A54;font-weight:800;margin-bottom:4px">Forward-fund exit — whole scheme sold to a pension fund</div>'+

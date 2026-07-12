@@ -75,7 +75,12 @@ function sfhScreenRlv(data){
   var c = computeSFHMetrics(data);
   var totalBuild = c.buildCost, totalGdv = c.gdv, totalUnits = c.totalUnits;
   var inc = !!s.buildInclusive;
-  var fees = totalBuild*(numOr(s.feesPct,12)/100), cont = totalBuild*(numOr(s.contingency,5)/100), fin = (totalBuild+fees)*(numOr(s.finRate,7.5)/100);
+  var fees = inc?0:totalBuild*(numOr(s.feesPct,12)/100), cont = inc?0:totalBuild*(numOr(s.contingency,5)/100);
+  // v10.55 — S-curve/peak-debt finance, mirroring the engine + SFH screen.
+  var phases = num(s.phases)>0?num(s.phases):Math.max(1,Math.ceil(totalUnits/300));
+  var progYears = num(s.programmeYears)>0?num(s.programmeYears):Math.max(2,Math.min(10,Math.round((1+totalUnits/350)*10)/10));
+  var peakDebtPct = num(s.peakDebtPct)>0?num(s.peakDebtPct):Math.max(30,Math.min(100,Math.round(200/phases)));
+  var fin = (totalBuild+fees)*(peakDebtPct/100)*(numOr(s.finRate,7.5)/100)*progYears*0.6;
   var s106 = totalUnits*numOr(s.s106pu,8000), roads = inc?0:totalUnits*numOr(s.roads,12000), infra = inc?0:num(s.acres)*53000;
   var profit = totalGdv*(numOr(s.profitPct,17.5)/100);
   return totalGdv - (totalBuild+fees+cont+fin+s106+roads+infra) - profit;
@@ -153,6 +158,27 @@ console.log("Landform engine consistency tests\n");
   ok("consented mid ties back to the area's consented £/acre", Math.abs(by.consented.mid - g.fullyConsentedPerAcre) < 1);
   // acreage flows through so the caller can show a total
   ok("acres carried through for totals", g.acres === 100);
+})();
+
+// 4d — v10.55: S-curve / peak-debt finance. finance = (build+fees) × peakDebt% × rate × years × 0.6.
+// A bigger scheme runs longer with a lower peak (phasing/recycling); the drivers are editable.
+(function(){
+  var big = computeSFHMetrics(sfhDeal({ sfh:{ buildInclusive:true, finRate:12,
+    mix:[{type:"3-bed semi",count:"1800",sqft:"1000",unitPrice:"440000",tenure:"private"}] } }));
+  ok("big scheme derives a multi-year programme", big.financeProgYears >= 5);
+  ok("big scheme derives a sub-100% peak debt (phasing recycles capital)", big.financePeakDebtPct < 100 && big.financePeakDebtPct >= 30);
+  near("finance == (build) × peak% × rate × years × 0.6", big.finance,
+    big.buildCost * (big.financePeakDebtPct/100) * 0.12 * big.financeProgYears * 0.6, 5);
+  // explicit overrides win, and raising peak debt (slower sales) raises finance
+  var slow = computeSFHMetrics(sfhDeal({ sfh:{ buildInclusive:true, finRate:12, programmeYears:6, peakDebtPct:45,
+    mix:[{type:"3-bed semi",count:"1800",sqft:"1000",unitPrice:"440000",tenure:"private"}] } }));
+  ok("explicit programme years honoured", slow.financeProgYears === 6);
+  ok("explicit peak debt honoured", slow.financePeakDebtPct === 45);
+  ok("slower sales / higher peak debt ⇒ more finance", slow.finance > big.finance);
+  // a small single-phase scheme stays near the old flat basis (peak ~100%, ~2 yrs)
+  var small = computeSFHMetrics(sfhDeal({ sfh:{ buildInclusive:true,
+    mix:[{type:"3-bed semi",count:"80",sqft:"1000",unitPrice:"400000",tenure:"private"}] } }));
+  ok("small scheme: 100% peak debt (single phase)", small.financePeakDebtPct === 100);
 })();
 
 // 5 — net land bid = gross RLV − acquisition costs
