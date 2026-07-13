@@ -631,6 +631,28 @@ var KEYSTONE_JOURNEY_FILLERS = [
         } });
         ch.push("Constraint Check assessment");
       }
+      return ch; } },
+
+  // v10.69 — Land Appraisal scorecard. Fills the five qualitative dropdowns on the Land
+  // Appraisal screen (Proximity to Demand, Transport Connectivity, Ground Contamination,
+  // Land Tenure, Planning Constraints) so the 0/100 opportunity score is populated by AI
+  // rather than left at zero. v10.70 also estimates the existing-use (agricultural) value
+  // £/acre, which sets the land-value floor and the pre-consent hope value. Desktop
+  // judgement, to be verified on site.
+  { key:"site", label:"Site appraisal — location, ground, tenure, existing-use value",
+    sys:"You are a UK land & development site appraiser. Output STRICT JSON only — no prose, no markdown. Judgements are indicative desktop assessments, to be verified on site.",
+    prompt:function(data){ var c=_kjContext(data);
+      return "Desktop site appraisal for a "+c.units+"-home residential scheme"+(c.address?" at "+c.address:"")+" ("+(c.postcode||"postcode unknown")+") in "+c.town+", ~"+c.acres+" acres. Judge each factor from what a UK land buyer would infer from the location. Output EXACTLY this JSON: {\"proximity\":\"excellent|good|fair|poor\",\"transport\":\"excellent|good|fair|poor\",\"contamination\":\"clean|minor|unknown|major\",\"tenure\":\"freehold|long_leasehold|short_leasehold\",\"constraint\":\"none|minor|moderate|major\",\"existingUsePerAcre\":<£/acre existing-use value, 5000-40000>,\"summary\":\"1-2 sentences justifying the ratings\"}. proximity = walk/cycle access to shops, schools & employment. transport = train/bus/cycle connectivity. contamination = likely ground condition given prior use (greenfield ⇒ clean; unknown prior use ⇒ unknown). tenure = most likely land tenure (assume freehold unless clearly otherwise). constraint = planning-constraint severity (none/outline; TPO/listed adjacent; conservation/Flood Zone 2; Green Belt/Flood Zone 3). existingUsePerAcre = current use value BEFORE any planning uplift — bare agricultural/grazing ~£8k-£12k, better arable ~£12k-£18k, paddock/amenity ~£20k-£30k, serviced/brownfield higher; NOT the residential land value."; },
+    apply:function(data, o){ var l=data.land||(data.land={}); var ch=[];
+      var pr=_kjPick(o.proximity,["excellent","good","fair","poor"],""); if(pr){ l.proximity=pr; ch.push("Proximity to demand"); }
+      var tr=_kjPick(o.transport,["excellent","good","fair","poor"],""); if(tr){ l.transport=tr; ch.push("Transport connectivity"); }
+      var co=_kjPick(o.contamination,["clean","minor","unknown","major"],""); if(co){ l.contamination=co; ch.push("Ground contamination"); }
+      var te=_kjPick(o.tenure,["freehold","long_leasehold","short_leasehold"],""); if(te){ l.tenure=te; ch.push("Land tenure"); }
+      var cn=_kjPick(o.constraint,["none","minor","moderate","major"],""); if(cn){ l.constraint=cn; ch.push("Planning constraints"); }
+      // Existing-use value floor: clamp to a sane band so a stray AI figure can't set an
+      // absurd floor (e.g. quoting the residential land value by mistake).
+      var eu=num(o.existingUsePerAcre); if(eu>=3000 && eu<=100000){ l.agriValPerAcre=Math.round(eu); ch.push("Existing-use value"); }
+      if(o.summary){ l.appraisalAiSummary=String(o.summary); }
       return ch; } }
 ];
 
