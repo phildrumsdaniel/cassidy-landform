@@ -508,9 +508,16 @@ var JOURNEYS = {
       "Deal "+new Date().toLocaleDateString("en-GB");
     var name=window.prompt("Name this deal:",autoName)||autoName;
     var effectiveAssetType = schemes.length===1 ? schemes[0] : (data.assetType || "land");
-    var dataForSave = Object.assign({}, data, {assetType:effectiveAssetType});
+    // v10.73 — update-in-place. Every deal carries a stable local id (_localDealId). Saving an
+    // already-saved deal REPLACES its portfolio entry instead of adding a near-identical
+    // duplicate, so the portfolio holds ONE card per deal. "Save As" (saveDealAs) is the
+    // deliberate way to branch a copy — it strips this id so the copy gets its own entry.
+    var localId = data._localDealId || Date.now();
+    var cloudId = data._cloudDealId || "";
+    var dataForSave = Object.assign({}, data, {assetType:effectiveAssetType, _localDealId:localId});
     var snapshot={
-      id:Date.now(),name:name,
+      id:localId,name:name,
+      cloudId:cloudId,
       savedAt:new Date().toLocaleString("en-GB"),
       assetType:effectiveAssetType,
       city:(data.land&&data.land.city)||"—",
@@ -519,10 +526,20 @@ var JOURNEYS = {
       data:JSON.parse(JSON.stringify(dataForSave))
     };
     setHistory(function(h){
-      var next=[snapshot].concat(h.slice(0,19));
+      // Drop any prior entry for THIS deal (matched by local id, or cloud id for a deal first
+      // synced on another device), then put the fresh save at the top. One card per deal.
+      var filtered=h.filter(function(x){
+        // Match this deal's prior entry by local id, or by cloud id — checking both the entry's
+        // own cloudId and (for entries saved before this fix) the cloud id inside its data blob.
+        var xCloud=x.cloudId||(x.data&&x.data._cloudDealId)||"";
+        return !((x.id===localId)||(cloudId&&xCloud&&xCloud===cloudId));
+      });
+      var next=[snapshot].concat(filtered).slice(0,20);
       try{localStorage.setItem("cassidy_history",JSON.stringify(next));}catch(e){}
       return next;
     });
+    // Stamp the stable id onto the live deal so the NEXT save updates this same entry.
+    if(!data._localDealId){ setData(function(prev){return Object.assign({},prev,{_localDealId:localId});}); }
     // Silent log of deal save with full context
     logEvent(user,"DEAL_SAVED",{
       dealName:name,
@@ -611,6 +628,7 @@ var JOURNEYS = {
     var freshData = JSON.parse(JSON.stringify(data));
     freshData.assetType = schemes.length===1 ? schemes[0] : (freshData.assetType || "land");
     delete freshData._cloudDealId;       // critical — forces new row on save
+    delete freshData._localDealId;       // v10.73 — new local portfolio entry, not a replace of the original
     freshData.dealName = newName;
     freshData.savedAt = new Date().toLocaleString("en-GB");
     freshData._copiedFrom = data._cloudDealId || null;
