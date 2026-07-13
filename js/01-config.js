@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.84";
+var CURRENT_VERSION = "10.85";
 var VERSION_HISTORY = [
+  {v:"10.85", date:"Jul 2026", headline:"The Basis of Figures now states plainly that the key value-drivers err on the side of CAUTION — build cost set high (a national builder often builds cheaper), finance at a full 12% cost of money (senior debt is typically keener at ~8-9%), and the sale value carrying only a modest new-build premium. A new ‘Conservative basis’ line spells out that the residual land value is therefore a FLOOR, not an optimistic figure — so a reviewer reads the deal as downside-protected. Appears on the one-pager and the Investor Memorandum."},
   {v:"10.84", date:"Jul 2026", headline:"One-pager polish to pre-empt a technical reviewer: the planning status now prints a clean board-facing label (an unset status showed the raw word ‘none’ — now reads ‘Unallocated / promotion’), and the density line is labelled GROSS with a ‘net developable higher’ note when it looks low, so a ~17 dph gross figure isn't misread as under-using the site. Pairs with the new planning-timeline block so the briefing answers the ‘how long / what stage / why so few homes’ questions on the page."},
   {v:"10.83", date:"Jul 2026", headline:"Planning-timeline defaults are now grounded in research, not rules of thumb. Per MHCLG's official statistics only ~1 in 5 major applications is actually decided within the 13-week statutory target (the ~90% ‘on time’ headline is inflated by Extensions of Time), and Lichfields' ‘Start to Finish’ shows 1,000+ home sites average ~5 years to a detailed consent with a cold, unallocated start being a 6-10 year Local-Plan promotion. So an unconsented site now defaults to ~7 years to consent (was ~4), a strategic allocated site to ~2.5 years, outline ~1 year — with a large-site uplift and the reports citing the MHCLG / Lichfields basis. The AI planning step is also told to estimate to real-world practice, not statutory periods."},
   {v:"10.82", date:"Jul 2026", headline:"Reports now show the timeline as TWO separate clocks plus the total horizon — because a scheme's ‘programme’ isn't just the build. (1) Planning to consent — councils routinely exceed the 13-week statutory target on major/strategic applications, so an unconsented site is a multi-year promotion (defaults by planning status, or uses the assessed figure). (2) Build-out programme. (3) Total money-in-to-exit. e.g. an unconsented 1,800-home site reads ~4 yrs planning + ~6.1 yrs build = ~10.1 yrs total. Added to the one-pager, the blind teaser and the Investor Memorandum, with a note that a forward-fund only starts once the scheme is consented and fundable."},
@@ -1993,10 +1994,10 @@ function basisOfFigures(data){
   var buildPsf = Math.round(num(sfh.buildPsf) || num(M.buildPsf) || 0);
   lines.push({ k:"Build cost", v:"£" + buildPsf + "/sqft" + (M.buildInclusive
     ? " treated as ALL-IN — covers construction, professional fees, contingency, roads/drainage & SuDS; finance is charged on the build cost."
-    : " (construction only; professional fees, contingency, roads & SuDS are added as separate lines).") + " BCIS-range benchmark for the scheme type — confirm with a QS cost plan." });
+    : " (construction only; professional fees, contingency, roads & SuDS are added as separate lines).") + " BCIS-range benchmark for the scheme type — confirm with a QS cost plan. Set deliberately on the CAUTIOUS side: a national housebuilder often builds cheaper, so a keener build rate would INCREASE the residual land value — this is a floor, not a stretch." });
 
   // Finance
-  if(num(M.finance) > 0) lines.push({ k:"Finance", v:"S-curve / peak-debt basis: build × " + (num(M.financePeakDebtPct) || "?") + "% peak debt × " + (num(sfh.finRate) || 12) + "% pa × " + (num(M.financeProgYears) || "?") + " yrs × 0.6 average utilisation = " + fmt(num(M.finance)) + ". Reflects a phased programme where sales receipts recycle capital (peak debt « total build). Set ‘Programme (years)’ and ‘Peak debt %’ to your funding plan, or forward-fund." });
+  if(num(M.finance) > 0) lines.push({ k:"Finance", v:"S-curve / peak-debt basis: build × " + (num(M.financePeakDebtPct) || "?") + "% peak debt × " + (num(sfh.finRate) || 12) + "% pa × " + (num(M.financeProgYears) || "?") + " yrs × 0.6 average utilisation = " + fmt(num(M.finance)) + ". Reflects a phased programme where sales receipts recycle capital (peak debt « total build). The " + (num(sfh.finRate) || 12) + "% rate is deliberately conservative — senior development debt is typically ~8-9%, so a keener rate would raise the residual. Set ‘Programme (years)’ and ‘Peak debt %’ to your funding plan, or forward-fund." });
 
   // S106
   var s106pu = num(sfh.s106pu);
@@ -2017,6 +2018,10 @@ function basisOfFigures(data){
 
   // Land value
   lines.push({ k:"Land value", v:"The " + fmt(num(M.rlv)) + " is the RESIDUAL land value — the maximum supportable land price at target profit, not an agreed price. Raw / strategic land trades well below this; the gap is the promotion upside. See the market land-value guide for typical £/acre by planning status." });
+
+  // v10.85 — conservative-basis summary: state plainly that the key value-drivers err to caution,
+  // so a reviewer reads the residual as a FLOOR (downside-protected), not an optimistic figure.
+  lines.push({ k:"Conservative basis", v:"The key inputs deliberately err on the side of caution — build cost set on the high side (a national builder often builds cheaper), finance at a full cost of money (senior debt is typically keener), and the sale value carries only a modest new-build premium. So the residual land value is a floor: if the real figures beat these, the land value is higher, not lower." });
 
   return { town:town, pc:pc, lines:lines };
 }
