@@ -8,6 +8,18 @@ function renderPortfolio(data, logMigration, navTo, saveDeal, setData, user){
     var loading = pd.loading || false;
     var lastError = pd.error || "";
 
+    // v10.74 — order the portfolio most-recently-modified first. The backend returns deals in
+    // sheet-row order (roughly oldest first), so without this the list looked unordered and a
+    // deal you just saved could sit anywhere. Sort defensively on lastModified → savedAt →
+    // createdAt; anything unparseable sorts to the bottom.
+    function dealTime(d){
+      var v = d && (d.lastModified || d.savedAt || d.createdAt || d.updatedAt);
+      if(!v) return 0;
+      var t = new Date(v).getTime();
+      return isFinite(t) ? t : 0;
+    }
+    var sortedDeals = cloudDeals.slice().sort(function(a,b){ return dealTime(b) - dealTime(a); });
+
     // Auto-fetch on mount if not already loaded
     if(user && user.userId && !pd.loaded && !loading){
       // Mark loading immediately (synchronous) to prevent re-fire
@@ -171,7 +183,7 @@ function renderPortfolio(data, logMigration, navTo, saveDeal, setData, user){
 
       // Deals grid
       cloudDeals.length>0 && e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:14,marginTop:18}},
-        cloudDeals.map(function(deal){
+        sortedDeals.map(function(deal){
           var schemeIcon = {sfh:"🏡",btr:"🏢",pbsa:"🎓",land:"🔍",property:"🏠",recovery:"⚖"}[deal.scheme] || "◆";
           var schemeLabel = {sfh:"SFH",btr:"BTR",pbsa:"PBSA",land:"Land",property:"Property",recovery:"Recovery"}[deal.scheme] || (deal.scheme||"—").toUpperCase();
           // v9.24 — Per-deal access control: role comes from backend (owner/editor/viewer)

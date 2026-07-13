@@ -2180,7 +2180,7 @@ function loadSiteIntoDeal(site){
             return e("div",{key:snap.id,style:{background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:8,padding:"14px 16px",marginBottom:8}},
               e("div",{style:{fontSize:13,fontWeight:700,color:"#2E2F8A",marginBottom:4}},snap.name),
               e("div",{style:{display:"flex",gap:10,fontSize:10,color:"#7278A0",marginBottom:10,flexWrap:"wrap"}},
-                e("span",null,snap.assetType.toUpperCase()),
+                e("span",null,String(snap.assetType||"land").toUpperCase()),
                 snap.city&&snap.city!=="—"&&e("span",null,"· "+cityName(snap.city)),
                 snap.acres&&e("span",null,"· "+snap.acres+" acres"),
                 snap.price&&e("span",null,"· £"+Number(snap.price).toLocaleString()),
