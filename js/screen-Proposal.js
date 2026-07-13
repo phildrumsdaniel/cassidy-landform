@@ -416,6 +416,235 @@ function buildLandOnePager(data, cityHint){
       '</div></body></html>';
 }
 
+// ── v10.77 — BLIND INVESTMENT TEASER ──────────────────────────────────────────
+// A confidential, ANONYMISED investment pack: the full financial case (GDV, cost stack,
+// developer profit/margin, forward-fund value & yield, returns) with the SITE IDENTITY
+// withheld — no address, postcode, LPA name, agent or listing URL. Location is described only
+// by a coarse region + market tier. An investor can judge the opportunity and the returns, then
+// contact Cassidy under NDA to see the site — so competing developers can't identify and
+// piggyback the deal. Also carries an anticipated investor Q&A so the pack pre-empts the
+// questions an IC would ask. Shares the one-pager's engine + house style.
+var _BLIND_REGION_MAP = {
+  // London
+  E:"London",EC:"London",N:"London",NW:"London",SE:"London",SW:"London",W:"London",WC:"London",
+  BR:"Greater London",CR:"Greater London",DA:"Greater London",EN:"Greater London",HA:"Greater London",
+  IG:"Greater London",KT:"Greater London",RM:"Greater London",SM:"Greater London",TW:"Greater London",UB:"Greater London",WD:"Greater London",
+  // South East
+  BN:"the South East",CT:"the South East",GU:"the South East",ME:"the South East",OX:"the South East",
+  PO:"the South East",RG:"the South East",RH:"the South East",SL:"the South East",SO:"the South East",TN:"the South East",
+  // East of England
+  AL:"the East of England",CB:"the East of England",CM:"the East of England",CO:"the East of England",HP:"the East of England",
+  IP:"the East of England",LU:"the East of England",MK:"the East of England",NR:"the East of England",PE:"the East of England",SG:"the East of England",SS:"the East of England",
+  // South West
+  BA:"the South West",BH:"the South West",BS:"the South West",DT:"the South West",EX:"the South West",
+  GL:"the South West",PL:"the South West",SN:"the South West",SP:"the South West",TA:"the South West",TQ:"the South West",TR:"the South West",
+  // West Midlands
+  B:"the West Midlands",CV:"the West Midlands",DY:"the West Midlands",HR:"the West Midlands",ST:"the West Midlands",TF:"the West Midlands",WR:"the West Midlands",WS:"the West Midlands",WV:"the West Midlands",
+  // East Midlands
+  DE:"the East Midlands",LE:"the East Midlands",LN:"the East Midlands",NG:"the East Midlands",NN:"the East Midlands",
+  // Yorkshire & the Humber
+  BD:"Yorkshire",DN:"Yorkshire",HD:"Yorkshire",HG:"Yorkshire",HU:"Yorkshire",HX:"Yorkshire",LS:"Yorkshire",S:"Yorkshire",WF:"Yorkshire",YO:"Yorkshire",
+  // North West
+  BB:"the North West",BL:"the North West",CA:"the North West",CH:"the North West",CW:"the North West",FY:"the North West",
+  L:"the North West",LA:"the North West",M:"the North West",OL:"the North West",PR:"the North West",SK:"the North West",WA:"the North West",WN:"the North West",
+  // North East
+  DH:"the North East",DL:"the North East",NE:"the North East",SR:"the North East",TS:"the North East",
+  // Wales
+  CF:"Wales",LD:"Wales",LL:"Wales",NP:"Wales",SA:"Wales",SY:"Wales",
+  // Scotland
+  AB:"Scotland",DD:"Scotland",DG:"Scotland",EH:"Scotland",FK:"Scotland",G:"Scotland",IV:"Scotland",KA:"Scotland",KY:"Scotland",ML:"Scotland",PA:"Scotland",PH:"Scotland",TD:"Scotland"
+};
+function _blindRegion(data){
+  data = data || {};
+  var inv = data.investor || {};
+  if(inv.blindRegion) return String(inv.blindRegion);          // manual override
+  var pc = ((data.land&&data.land.postcode)||(data.rlv&&data.rlv.postcode)||"").toUpperCase().trim();
+  var m = pc.match(/^([A-Z]{1,2})/);
+  if(m && _BLIND_REGION_MAP[m[1]]) return _BLIND_REGION_MAP[m[1]];
+  return "the United Kingdom";
+}
+function _blindMarketTier(data){
+  // Coarse market descriptor from the achieved sale £/sqft (GDV ÷ floor area) — more reliable
+  // than a raw basePsf input, and never names the town.
+  var sf = (typeof computeSFHMetrics==="function") ? computeSFHMetrics(data) : {};
+  var retail = num(sf.retailGdv)||num(sf.gdv)||0;
+  var area = (num(sf.avgSqft)||0) * (num(sf.totalUnits)||0);
+  var psf = area>0 ? retail/area : (num(sf.basePsf)||0);
+  if(psf >= 500) return "a prime, high-value";
+  if(psf >= 400) return "a strong, established";
+  if(psf >= 320) return "a solid mid-market";
+  if(psf > 0)    return "an emerging value";
+  return "an established";
+}
+function _blindRef(data){
+  var inv = data.investor || {};
+  if(inv.blindRef) return String(inv.blindRef);
+  var seed = String((data._cloudDealId||"")+(data.land&&data.land.address||"")+(data.land&&data.land.postcode||""));
+  var h = 0; for(var i=0;i<seed.length;i++){ h = ((h<<5)-h + seed.charCodeAt(i))|0; }
+  return "CAS-" + (Math.abs(h)%100000).toString().padStart(5,"0");
+}
+function buildBlindTeaser(data){
+  data = data || {};
+  var p=data.planning||{}, ten=data.tenure||{}, ex=data.exit||{};
+  var SF=(typeof computeSFHMetrics==="function")?computeSFHMetrics(data):{};
+  var M=(typeof calcDealMetrics==="function")?calcDealMetrics(data):{};
+  function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  var region=_blindRegion(data), tier=_blindMarketTier(data), ref=_blindRef(data);
+  var units=num(SF.totalUnits)||num(M.units)||num(p.units)||0;
+  var gdv=num(SF.gdv)||num(M.gdv)||0;
+  var build=num(SF.buildCost), fees=num(SF.fees), cont=num(SF.contingency), fin=num(SF.finance);
+  var s106=num(SF.s106), roads=num(SF.roads), infra=num(SF.infra), mkt=num(SF.marketing);
+  var dev=num(SF.devCost)||(build+fees+cont+fin+s106+roads+infra+mkt);
+  var rlv=num(SF.rlv)||num(M.rlv)||0;
+  var profit=num(SF.profit)||0;
+  var profitPct=gdv>0?profit/gdv*100:0;
+  var profitOnCost=(dev+rlv)>0?profit/(dev+rlv)*100:0;
+  var avgSqft=Math.round(num(SF.avgSqft)||0), basePsf=Math.round(num(SF.basePsf)||0), buildPsf=Math.round(num(SF.buildPsf)||0);
+  var ahPct=num(SF.ahPctResolved)||num(p.ahPct||p.afhPct||ten.ahPct||0);
+  var acres=num((data.land||{}).acres||0);
+  var density=(acres>0&&units>0)?Math.round(units/acres):0;
+  var progYears=num(SF.financeProgYears)||0, peakDebt=num(SF.financePeakDebtPct)||0;
+  // Forward-fund economics
+  var netRent=num(SF.capNetRentPa)||0;
+  var yld=(typeof dealYield==="function")?dealYield(data):4.9; if(yld>0&&yld<1) yld*=100; yld=Math.max(4.5,Math.min(6,yld||4.9));
+  function ffVal(y){ return y>0?netRent/(y/100):0; }
+  var ffValue=ffVal(yld);
+  var yields=[4.5,5.0,5.5,6.0];
+  var yieldOnCost=(dev+rlv)>0?netRent/(dev+rlv)*100:0;
+  // Tenure summary (from the Tenure Mix stage if present)
+  var tenLine="";
+  (function(){
+    var mix=ten.mix||null; if(!mix) return;
+    var lbl={oms:"Open-market sale",sr:"Social rent",ar:"Affordable rent",so:"Shared ownership",first_homes:"First Homes",btr:"Build to Rent",dms:"Discounted sale",prs:"PRS"};
+    var parts=Object.keys(mix).filter(function(k){return num(mix[k])>0;}).map(function(k){return (lbl[k]||k)+" "+Math.round(num(mix[k]))+"%";});
+    tenLine=parts.join(" · ");
+  })();
+  var stratLbl={plot_sales:"open-market plot sales",bulk_sale_ha:"bulk sale to a housing association",forward_fund:"institutional forward-funding",forward_sale:"forward sale",stabilised:"build, stabilise and sell as an investment",retain:"build to rent and hold",phased:"phased delivery"}[ex.strategy]||"institutional forward-funding";
+
+  function money(x){ return (x<0?"−":"")+fmt(Math.abs(x)); }
+  function row(k,v,strong){ return '<tr'+(strong?' class="s"':'')+'><td>'+k+'</td><td class="n">'+v+'</td></tr>'; }
+
+  // ── Anticipated investor Q&A — answered from the deal's own figures ──
+  // Structured to pre-empt the questions a UK investment committee actually asks (deal type,
+  // returns, downside, planning, deliverability, regulatory compliance, exit evidence).
+  var qa=[
+    ["What is the opportunity and how big is it?", esc(units.toLocaleString())+" new homes in "+esc(tier)+" residential market in "+esc(region)+", with a gross development value of "+fmt(gdv)+". Structured for "+esc(stratLbl)+"."],
+    ["What is on offer — the deal structure?", (ex.strategy==="forward_fund"||ex.strategy==="forward_sale"||!ex.strategy)?("A forward-funding structure: the investor acquires the land, funds construction in stages against a QS-certified drawdown, earns a coupon during the build, and takes the completed scheme at an agreed net initial yield — with SDLT on the land value only. Forward-commit and JV/co-invest structures can also be accommodated; heads of terms are negotiable."):(ex.strategy==="retain"||ex.strategy==="stabilised")?("Build, stabilise and hold as a rented investment, or a JV / co-invest in the SPV with a governance and profit-share structure. Terms are negotiable."):("A JV / co-investment or bulk-sale structure with a negotiated waterfall and governance. Heads of terms are negotiable.")],
+    ["What return does the scheme carry?", "Developer profit of "+fmt(profit)+" — "+pct(profitPct)+" on GDV and "+pct(profitOnCost)+" on cost. Total development cost (excl. land) is "+fmt(dev)+". Project IRR, equity multiple and the geared position are in the data room."],
+    ["What would an institution pay for it as an investment?", netRent>0?("Let and sold as a rented investment, the scheme capitalises to "+fmt(ffValue)+" at a "+yld.toFixed(2)+"% net initial yield (net rent "+fmt(netRent)+"/yr after ~25% management). Yield-on-cost is "+pct(yieldOnCost)+" — a positive spread over the exit yield."):"A forward-fund valuation is available once the rental tenure is fixed — see the data room."],
+    ["Where is my downside protected?", "The residual land value at target profit is "+money(rlv)+" ("+(units>0?fmt(rlv/units)+"/plot":"—")+") — an investor's capital is underpinned by the land itself. Full break-even and dual-sensitivity analysis (GDV −10% with build cost +10% and exit yield +50bps) are in the data room."],
+    ["What is the planning position?", "Route: "+esc((p.status||"unallocated")==="full"?"full consent":(p.status==="outline"?"outline consent":p.status==="allocated"?"allocated in the local plan":"promotion through the local plan / outline"))+". "+(num(p.planningProb)>0?("Indicative probability of consent "+Math.round(num(p.planningProb))+"%. "):"")+"Assessed against the LPA's housing land supply position under the December 2024 NPPF. Full planning strategy, S106 and risk are in the data room."],
+    ["Is it regulation-ready (BNG, Future Homes, safety)?", "Designed to meet current requirements: mandatory 10% Biodiversity Net Gain, the Future Homes Standard (low-carbon heating, no new gas connections) and EPC A/B new-build. Building Safety Act gateways apply to any higher-risk block; the compliance strategy and costs are in the appraisal and data room."],
+    ["What is the tenure and affordable mix?", (tenLine?esc(tenLine)+". ":"")+(ahPct>0?(Math.round(ahPct)+"% affordable housing (S106); grant eligibility and any RP offtake are set out in the data room."):"Tenure mix confirmed under NDA.")],
+    ["How long to build and what is the funding profile?", (progYears>0?("A ~"+progYears+"-year programme"):"Programme")+(peakDebt>0?", peak debt ~"+peakDebt+"% of cost on an S-curve draw":"")+". Build cost is on a BCIS-referenced basis with a stated contingency; full cashflow, drawdown, peak-equity and the coupon/balancing mechanics are in the data room."],
+    ["Who buys it, and what backs the values?", "Sale and rental values are underpinned by recent local comparables (in the data room). The completed rented scheme suits institutional forward-funders and BTR/SFH operators active in "+esc(region)+" — a market that has seen record institutional bid volume. The developer's track record and references are provided under NDA."],
+    ["Why is the site not named?", "To protect a live, off-market opportunity. The exact location, title, planning references and vendor are released under NDA once mutual interest is established — so the numbers can be assessed without exposing the site to competing developers."]
+  ];
+
+  var css=''+
+    '@page{size:A4 portrait;margin:10mm}*{box-sizing:border-box}html,body{margin:0}'+
+    'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#26284F;font-size:9.9px;line-height:1.45;font-variant-numeric:tabular-nums;-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#eef0f7}'+
+    '.pg{width:190mm;min-height:277mm;margin:6mm auto;background:#fff;padding:10mm 10mm 8mm;box-shadow:0 2px 14px rgba(0,0,0,.12)}'+
+    '@media print{body{background:#fff}.pg{margin:0;box-shadow:none;width:auto;min-height:auto;padding:0}.noprint{display:none}}'+
+    '.top{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1B1D46;padding-bottom:6px;margin-bottom:4px}'+
+    '.brand{font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:#9A7B3E;font-weight:800}'+
+    'h1{font-family:Georgia,serif;font-size:17px;color:#1B1D46;margin:2px 0 0}'+
+    '.sub{color:#6A6F97;font-size:9.5px;margin-top:3px}'+
+    '.conf{display:inline-block;background:#8A1B2E;color:#fff;font-size:7.6px;letter-spacing:.12em;text-transform:uppercase;font-weight:800;padding:2px 7px;border-radius:3px;margin-bottom:5px}'+
+    '.meta{text-align:right;font-size:8.3px;color:#6A6F97;line-height:1.5}'+
+    '.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin:9px 0}'+
+    '.kpi{border:1px solid #E0E2EC;border-radius:5px;padding:7px 8px;background:#FafBff}'+
+    '.kpi .l{font-size:7.3px;letter-spacing:.07em;text-transform:uppercase;color:#8A90B4;font-weight:700}'+
+    '.kpi .v{font-size:14px;font-weight:800;color:#1B1D46;margin-top:2px;font-family:Georgia,serif}'+
+    '.cols{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:3px}'+
+    '.card{border:1px solid #E0E2EC;border-radius:6px;padding:9px 10px;margin-bottom:9px}'+
+    '.ct{font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#4A4BAE;font-weight:800;margin-bottom:5px}'+
+    'table{width:100%;border-collapse:collapse}td{padding:2.6px 0;border-bottom:1px solid #F1F2F8;vertical-align:top}'+
+    'td.n{text-align:right;font-weight:600}tr.s td{border-top:1.4px solid #C9CCE4;border-bottom:none;font-weight:800;color:#1B1D46;padding-top:4px;font-size:10.6px}'+
+    '.hl{margin:0;padding-left:15px}.hl li{margin-bottom:3px;color:#33365F}'+
+    '.rr{display:flex;justify-content:space-between;color:#6A6F97;font-size:8.8px;padding:2px 0}.rr b{color:#33365F}'+
+    '.qa{border:1px solid #C9CCE4;border-radius:6px;padding:9px 10px;background:#FBFAF5;margin-bottom:9px}'+
+    '.qa .q{font-weight:800;color:#1B1D46;font-size:9.3px;margin-top:6px}.qa .q:first-child{margin-top:0}.qa .a{color:#43476E;font-size:9px;margin:1px 0 0;line-height:1.45}'+
+    '.cta{border:1.5px solid #1B7A54;border-radius:7px;padding:11px 13px;background:#F1FBF6;margin-top:2px}'+
+    '.cta .h{font-size:11px;font-weight:800;color:#1B7A54}.cta .b{font-size:9px;color:#33365F;margin-top:3px;line-height:1.5}'+
+    '.foot{margin-top:9px;font-size:7.5px;color:#9298BC;line-height:1.55;border-top:1px solid #EEF0F7;padding-top:6px}'+
+    '.btn{position:fixed;top:9px;right:9px;background:#1E1F5C;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25)}';
+
+  var logo=((typeof BRAND_LOGO_PNG!=="undefined"&&BRAND_LOGO_PNG&&typeof cassidyLogoSrc==="function")?'<img src="'+cassidyLogoSrc()+'" alt="Cassidy Group Ltd" style="height:30px;width:auto;max-width:170px;display:block;margin:0 0 5px auto"/>':'');
+
+  return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>'+
+    '<title>Confidential Investment Opportunity — '+esc(ref)+'</title><style>'+css+'</style></head><body>'+
+    '<button class="btn noprint" onclick="window.print()">Print / Save as PDF</button>'+
+    '<div class="pg">'+
+      '<div class="top"><div><div class="brand">Cassidy Group · Confidential Investment Opportunity</div>'+
+        '<h1>Residential development — '+esc(region)+'</h1>'+
+        '<div class="sub">'+esc(units.toLocaleString())+' homes · '+esc(tier)+' residential market · for '+esc(stratLbl)+'</div></div>'+
+        '<div class="meta">'+logo+'<span class="conf">Strictly private &amp; confidential</span><br/>Ref '+esc(ref)+'<br/>Indicative · v'+esc(typeof CURRENT_VERSION!=="undefined"?CURRENT_VERSION:"")+'</div></div>'+
+      '<div class="kpis">'+
+        '<div class="kpi"><div class="l">Homes</div><div class="v">'+(units?units.toLocaleString():"—")+'</div></div>'+
+        '<div class="kpi"><div class="l">GDV</div><div class="v">'+(gdv>0?fmt(gdv):"—")+'</div></div>'+
+        '<div class="kpi"><div class="l">Developer profit</div><div class="v" style="color:#1B7A54">'+(profit>0?fmt(profit):"—")+'</div></div>'+
+        '<div class="kpi"><div class="l">Profit on GDV</div><div class="v">'+(gdv>0?pct(profitPct):"—")+'</div></div>'+
+        '<div class="kpi"><div class="l">Fwd-fund value</div><div class="v" style="color:#1B7A54">'+(ffValue>0?fmt(ffValue):"—")+'</div></div>'+
+      '</div>'+
+      '<div class="cols">'+
+        '<div>'+
+          '<div class="card"><div class="ct">The opportunity</div>'+
+            '<p style="margin:0 0 5px;font-size:9.4px;color:#33365F;line-height:1.5">A '+esc(units.toLocaleString())+'-home residential development in '+esc(tier)+' market in '+esc(region)+', carrying a '+fmt(gdv)+' GDV and '+fmt(profit)+' developer profit ('+pct(profitPct)+' on GDV, '+pct(profitOnCost)+' on cost). The scheme is structured for '+esc(stratLbl)+'.</p>'+
+            '<div class="ct" style="margin-top:6px">Investment highlights</div>'+
+            '<ul class="hl" style="font-size:9px">'+
+              '<li><b>Scale &amp; value:</b> '+esc(units.toLocaleString())+' homes, '+fmt(gdv)+' GDV.</li>'+
+              (netRent>0?'<li><b>Institutional exit:</b> capitalises to '+fmt(ffValue)+' at '+yld.toFixed(2)+'% net yield — forward-fundable.</li>':'')+
+              '<li><b>Return:</b> '+pct(profitPct)+' profit on GDV ('+fmt(profit)+'), '+pct(profitOnCost)+' on cost.</li>'+
+              (ahPct>0?'<li><b>Policy-compliant:</b> '+Math.round(ahPct)+'% affordable housing.</li>':'')+
+              '<li><b>Location:</b> '+esc(tier)+' residential market in '+esc(region)+'.</li>'+
+              '<li><b>Off-market:</b> not openly marketed — full details under NDA.</li>'+
+            '</ul>'+
+          '</div>'+
+          '<div class="card"><div class="ct">Scheme &amp; delivery</div>'+
+            '<div class="rr"><span>Homes (modelled)</span><b>'+(units?units.toLocaleString():"—")+'</b></div>'+
+            '<div class="rr"><span>Average home size</span><b>'+(avgSqft?avgSqft.toLocaleString()+" sqft":"—")+'</b></div>'+
+            (density>0?'<div class="rr"><span>Density</span><b>'+density+' homes/acre · ≈'+Math.round(density*2.471)+' dph</b></div>':'')+
+            (tenLine?'<div class="rr"><span>Tenure mix</span><b style="max-width:60%;text-align:right">'+esc(tenLine)+'</b></div>':'')+
+            (ahPct>0?'<div class="rr"><span>Affordable (S106)</span><b>'+Math.round(ahPct)+'%</b></div>':'')+
+            (progYears>0?'<div class="rr"><span>Programme</span><b>~'+progYears+' years</b></div>':'')+
+            (peakDebt>0?'<div class="rr"><span>Peak debt (S-curve)</span><b>~'+peakDebt+'% of cost</b></div>':'')+
+            '<div class="rr"><span>Planning route</span><b>'+esc((p.status==="full")?"Full consent":(p.status==="outline")?"Outline":(p.status==="allocated")?"Allocated":"Promotion / outline")+'</b></div>'+
+          '</div>'+
+        '</div>'+
+        '<div>'+
+          '<div class="card"><div class="ct">Financial summary</div>'+
+            '<table>'+
+              row("Gross development value",fmt(gdv),false)+
+              row("Build"+(avgSqft&&units?" ("+Math.round(avgSqft*units).toLocaleString()+" sqft @ £"+buildPsf+")":""),"−"+fmt(build),false)+
+              (fees>0?row("Professional fees","−"+fmt(fees),false):'')+
+              (cont>0?row("Contingency","−"+fmt(cont),false):'')+
+              row("Finance"+(progYears?" ("+progYears+"yr · peak "+peakDebt+"%)":""),"−"+fmt(fin),false)+
+              row("S106 / CIL","−"+fmt(s106),false)+
+              ((roads+infra)>0?row("Infrastructure / roads","−"+fmt(roads+infra),false):'')+
+              row("Developer profit ("+Math.round(profitPct)+"%)","−"+fmt(profit),false)+
+              row("Residual land budget",money(rlv),true)+
+            '</table>'+
+            '<div class="rr" style="margin-top:5px"><span>Profit on cost</span><b>'+pct(profitOnCost)+'</b></div>'+
+            (units>0?'<div class="rr"><span>Land budget per plot</span><b>'+fmt(rlv/units)+'</b></div>':'')+
+          '</div>'+
+          (netRent>0?'<div class="card"><div class="ct">Forward-fund returns — investor view</div>'+
+            '<div style="font-size:8.6px;color:#6A6F97;margin-bottom:5px;line-height:1.45">Completed scheme let &amp; sold as a rented investment at a net initial yield (net rent '+fmt(netRent)+'/yr after ~25% management). A keener yield ⇒ the fund pays more.</div>'+
+            '<table><tr><td style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Net yield</td><td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Investment value</td><td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Yield on cost</td></tr>'+
+              yields.map(function(y){ var iv=ffVal(y), yoc=(dev+rlv)>0?netRent/(dev+rlv)*100:0, sel=Math.abs(y-yld)<0.05;
+                return '<tr'+(sel?' style="background:rgba(27,122,84,.09);font-weight:800"':'')+'><td>'+y.toFixed(1)+'%</td><td class="n">'+fmt(iv)+'</td><td class="n">'+pct(yoc)+'</td></tr>'; }).join('')+
+            '</table></div>':'')+
+        '</div>'+
+      '</div>'+
+      '<div class="qa"><div class="ct">Anticipated questions — answered</div>'+
+        qa.map(function(x){ return '<div class="q">'+x[0]+'</div><div class="a">'+x[1]+'</div>'; }).join('')+
+      '</div>'+
+      '<div class="cta"><div class="h">▸ Interested? The next step is an NDA.</div>'+
+        '<div class="b">The <b>site location, title, planning references, vendor and the full data room</b> (appraisal model, cashflow, planning strategy, comparables, surveys) are released under a mutual non-disclosure agreement once initial interest is confirmed. This protects a live, off-market opportunity. Contact <b>Cassidy Group</b> quoting reference <b>'+esc(ref)+'</b> to receive the NDA and full pack.</div></div>'+
+      '<div class="foot"><b>Strictly private &amp; confidential — indicative, not a RICS Red Book valuation or a financial promotion.</b> Figures are computed on Landform\'s appraisal engine from the scheme inputs and assume residential consent can be achieved; they are indicative and subject to verification against local comparables, a QS cost plan and formal valuation. Nothing here constitutes an offer, invitation or inducement to invest. The site is deliberately un-named to protect a live opportunity; identifying details are released only under NDA. © Cassidy Group Ltd.</div>'+
+    '</div></body></html>';
+}
+
 function renderProposal(city, data, gdv, lc, up, user){
   var l=data.land||{}; var p=data.planning||{}; var ten=data.tenure||{}; var ex=data.exit||{};
   var M=(typeof calcDealMetrics==="function")?calcDealMetrics(data):{};
