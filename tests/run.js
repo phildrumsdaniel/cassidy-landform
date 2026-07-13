@@ -233,6 +233,15 @@ console.log("Landform engine consistency tests\n");
     var d4 = JSON.parse(JSON.stringify(deal));
     byKey.constraint.apply(d4, { score:72, verdict:"Developable", summary:"No Green Belt.", constraints:["Flood Zone 1","Access from B-road"] });
     ok("constraint apply writes a results object with a score", num(d4.constraintCheck.results.score)===72 && /Flood Zone 1/.test(d4.constraintCheck.results.report));
+
+    // v10.69 — site appraisal filler fills the Land Appraisal scorecard dropdowns
+    ok("journey now covers the site appraisal scorecard", !!byKey.site);
+    var d5 = JSON.parse(JSON.stringify(deal));
+    byKey.site.apply(d5, { proximity:"good", transport:"fair", contamination:"clean", tenure:"freehold", constraint:"none", summary:"Edge-of-town greenfield." });
+    ok("site apply writes the 5 land dropdowns", d5.land.proximity==="good" && d5.land.transport==="fair" && d5.land.contamination==="clean" && d5.land.tenure==="freehold" && d5.land.constraint==="none");
+    var d5b = JSON.parse(JSON.stringify(deal));
+    byKey.site.apply(d5b, { proximity:"amazing", contamination:"toxic", tenure:"commonhold" });
+    ok("site apply rejects invalid dropdown values", !d5b.land.proximity && !d5b.land.contamination && !d5b.land.tenure);
   }
 })();
 
