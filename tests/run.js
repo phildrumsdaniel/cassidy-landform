@@ -537,9 +537,15 @@ console.log("Landform engine consistency tests\n");
   ok("units forward-fill Planning → RLV & Fin", num(loaded.rlv.units) === 200 && num(loaded.fin.units) === 200);
   // does NOT cross house build cost into the apartment (HRA) rate
   ok("house build £ does NOT leak into HRA bcp", !(loaded.hra && loaded.hra.bcp));
-  // does not overwrite an existing different value
+  // does not overwrite an existing different DESCRIPTIVE value (city)
   var keep = normalizeSharedFields({ land:{city:"maldon"}, sfh:{city:"bristol"} });
-  ok("a value already set downstream is preserved (not overwritten)", keep.sfh.city === "bristol");
+  ok("a descriptive value already set downstream is preserved (not overwritten)", keep.sfh.city === "bristol");
+  // v10.79 — but a divergent FIGURE-DRIVING field is reconciled to the authoritative value,
+  // so Financial Modelling can never show a different profit/finance rate than the SFH engine.
+  var rec = normalizeSharedFields({ sfh:{profitPct:25, finRate:9, buildPsf:220}, fin:{profitPct:17.5, finRate:7.5, buildPsf:200}, rlv:{} });
+  ok("divergent profit reconciles Fin → SFH", num(rec.fin.profitPct) === 25 && num(rec.rlv.profitPct) === 25);
+  ok("divergent finance rate reconciles Fin → SFH", num(rec.fin.finRate) === 9);
+  ok("divergent build £/sqft reconciles Fin → SFH", num(rec.fin.buildPsf) === 220 && num(rec.rlv.buildPsf) === 220);
 })();
 
 // 16 — EPE engine mirrors the Property Evaluator screen formula (condition modifier)
