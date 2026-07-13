@@ -268,6 +268,38 @@ console.log("Landform engine consistency tests\n");
   }
 })();
 
+// 4g — v10.72: deterministic populates for Financial Modelling & Viability
+(function(){
+  if(typeof keystonePopulateFin === "function"){
+    var d = sfhDeal({ sfh:{ buildPsf:225 } });
+    keystonePopulateFin(d);
+    ok("fin populate fills units from the mix", num(d.fin.units) === 200);
+    ok("fin populate fills buildPsf from SFH", num(d.fin.buildPsf) === 225);
+    ok("fin populate fills finRate & contingency", d.fin.finRate === "7.5" && d.fin.contingency === "5");
+    // carries the AI-refined exit yield through from cap.targetYield
+    var dy = sfhDeal(); dy.capitalise = { targetYield:"4.25" };
+    keystonePopulateFin(dy);
+    ok("fin populate carries cap.targetYield into exitYield", dy.fin.exitYield === "4.25");
+    // never clobbers a user's own field
+    var du = sfhDeal(); du.fin = { buildPsf:"999" };
+    keystonePopulateFin(du);
+    ok("fin populate never overwrites a user's field", du.fin.buildPsf === "999");
+  }
+  if(typeof keystonePopulateViability === "function"){
+    var v1 = sfhDeal({ sfh:{ ahPct:30, profitPct:25 }, planning:{} });
+    v1.planning = { units:200, ahPct:30 };
+    keystonePopulateViability(v1);
+    var ap = v1.viability.appraisal;
+    ok("viability populate creates an appraisal", !!(ap && ap.siteName));
+    ok("viability populate splits private/affordable units", num(ap.privateUnits) > 0 && num(ap.affordableUnits) > 0);
+    ok("viability target margin follows the deal profit target", Math.abs(num(ap.targetPrivateMargin) - 0.25) < 1e-9);
+    // no-op when an appraisal already exists
+    var v2 = sfhDeal(); v2.viability = { appraisal:{ siteName:"Mine", privateUnits:5 } };
+    keystonePopulateViability(v2);
+    ok("viability populate never clobbers an existing appraisal", v2.viability.appraisal.siteName === "Mine" && num(v2.viability.appraisal.privateUnits) === 5);
+  }
+})();
+
 // 5 — net land bid = gross RLV − acquisition costs
 (function(){
   var d = sfhDeal({ rlv:{ includeAcqCosts:true } });
