@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.82";
+var CURRENT_VERSION = "10.83";
 var VERSION_HISTORY = [
+  {v:"10.83", date:"Jul 2026", headline:"Planning-timeline defaults are now grounded in research, not rules of thumb. Per MHCLG's official statistics only ~1 in 5 major applications is actually decided within the 13-week statutory target (the ~90% ‘on time’ headline is inflated by Extensions of Time), and Lichfields' ‘Start to Finish’ shows 1,000+ home sites average ~5 years to a detailed consent with a cold, unallocated start being a 6-10 year Local-Plan promotion. So an unconsented site now defaults to ~7 years to consent (was ~4), a strategic allocated site to ~2.5 years, outline ~1 year — with a large-site uplift and the reports citing the MHCLG / Lichfields basis. The AI planning step is also told to estimate to real-world practice, not statutory periods."},
   {v:"10.82", date:"Jul 2026", headline:"Reports now show the timeline as TWO separate clocks plus the total horizon — because a scheme's ‘programme’ isn't just the build. (1) Planning to consent — councils routinely exceed the 13-week statutory target on major/strategic applications, so an unconsented site is a multi-year promotion (defaults by planning status, or uses the assessed figure). (2) Build-out programme. (3) Total money-in-to-exit. e.g. an unconsented 1,800-home site reads ~4 yrs planning + ~6.1 yrs build = ~10.1 yrs total. Added to the one-pager, the blind teaser and the Investor Memorandum, with a note that a forward-fund only starts once the scheme is consented and fundable."},
   {v:"10.81", date:"Jul 2026", headline:"The Quick Appraisal ‘Verify before committing’ panel now has quick-entry boxes right beside the research links — Sale £/sqft, Build £/sqft and S106 £/plot. Check a figure against the linked new-build launches / Land Registry, and if it's different, type the real number straight in: GDV, residual land value and profit recompute instantly and propagate across every stage and report. (The links themselves are read-only research and never change anything — this is how a corrected figure flows through.)"},
   {v:"10.80", date:"Jul 2026", headline:"Building a deal with Keystone now auto-completes the WHOLE journey, not just prices. Previously a fresh build only researched area prices/rents automatically, and the rest — planning, exit, tenure split, grants, constraints, the Land Appraisal scorecard (the 0/100 you saw) and Financial Modelling & Viability — waited for a separate ‘Complete the whole journey with AI’ click. Now a fresh build fills all of it automatically (non-blocking; stages populate as it goes). A REBUILD still only re-prices, so your manual downstream work is preserved. The manual button remains for re-running the journey on demand."},
@@ -2284,8 +2285,16 @@ function projectTimeline(data){
   var status = String(p.status || l.planningStatus || "").toLowerCase();
   var planningMonths = num(p.planningTimelineMonths);
   if(!(planningMonths > 0)){
-    var byStatus = { full:4, outline:15, allocated:24, preapp:36, "pre-app":36, likely:42 };
-    planningMonths = (byStatus[status] !== undefined) ? byStatus[status] : 48;   // unallocated / hope value
+    // v10.83 — defaults grounded in research. MHCLG "Planning applications in England" (2024-25):
+    // only ~1 in 5 MAJOR applications is actually decided within the 13-week statutory target —
+    // the ~90% "on time" headline is inflated by Extensions of Time. Lichfields "Start to Finish"
+    // (3rd ed., 2024): 1,000+ home sites average ~5 years to a detailed consent, and a cold,
+    // unallocated start is a 6-10 year Local-Plan promotion. So do NOT default to statutory periods.
+    var byStatus = { full:4, outline:12, allocated:12, preapp:30, "pre-app":30, likely:42 };
+    planningMonths = (byStatus[status] !== undefined) ? byStatus[status] : 84;   // unallocated / hope value (cold start)
+    // Strategic-site uplift: a large ALLOCATED site still needs a full determination + S106
+    // (routinely 24-36 months, per the research), not the ~12 a smaller allocated site takes.
+    if(status === "allocated" && units >= 500) planningMonths += (units >= 1000 ? 18 : 12);
   }
   planningMonths = Math.round(planningMonths);
   var planningYears = Math.round(planningMonths / 12 * 10) / 10;

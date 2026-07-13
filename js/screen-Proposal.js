@@ -407,7 +407,7 @@ function buildLandOnePager(data, cityHint){
           var t=projectTimeline(data);
           return '<div style="margin-top:9px;border:1px solid #C9CCE4;border-radius:7px;padding:9px 11px;background:#fff">'+
             '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#2E2F8A;font-weight:800;margin-bottom:4px">Programme &amp; timeline</div>'+
-            '<div style="font-size:8px;color:#6A6F97;margin-bottom:5px">Two separate clocks: winning planning consent (councils routinely exceed the 13-week statutory target on major/strategic applications) and building out. Current position: <b>'+esc(t.statusLabel)+'</b>. Planning figure — '+(num((data.planning||{}).planningTimelineMonths)>0?'as assessed':'by status, indicative')+'; refine with the LPA / a PPA.</div>'+
+            '<div style="font-size:8px;color:#6A6F97;margin-bottom:5px">Two separate clocks: winning planning consent and building out. Only ~1 in 5 major applications is actually decided within the 13-week statutory target (MHCLG 2024-25 — the rest run on Extensions of Time); large sites average ~5+ years to a detailed consent (Lichfields). Current position: <b>'+esc(t.statusLabel)+'</b>. Planning figure — '+(num((data.planning||{}).planningTimelineMonths)>0?'as assessed':'by status, indicative')+'; refine with the LPA / a PPA.</div>'+
             '<table>'+
               '<tr><td>Planning to consent</td><td class="n">~'+t.planningYears+' yr'+(t.planningYears===1?'':'s')+' ('+t.planningMonths+' months)</td></tr>'+
               '<tr><td>Build-out programme (incl. sales runoff)</td><td class="n">~'+t.buildYears+' yrs</td></tr>'+
