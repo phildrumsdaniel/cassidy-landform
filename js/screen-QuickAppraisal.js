@@ -301,19 +301,20 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
           e("div", { style:S.cardTitle }, "Target profit → what you can pay for the land"),
           e("div", { style:{ fontSize:11, color:"#7278A0", lineHeight:1.5, marginBottom:10 } },
             "Pick a developer profit target and read the land price per plot. ", e("b", null, "The more profit you target, the LESS you can pay for the land"), " (higher profit is taken out of the same GDV, leaving less for land). 17.5% of GDV is the planning-viability benchmark; volume house-builders often target 20%+ (a ‘30% margin’ is usually profit-on-cost, ≈ 22–23% on GDV)."),
-          // v10.66 — editable "try any target" — type a profit % and read the plot price live (a
-          // what-if; doesn't change the deal's own profit target).
+          // v10.67 — editable target profit that DRIVES the deal (writes sfh.profitPct, the same
+          // field as the ‘Developer profit %’ input above), so setting 25% flows through the whole
+          // appraisal, the RLV and the one-pager. Was a non-committing what-if — that confused
+          // (change it → nothing else moved). Type the target and everything reflects it.
           (function(){
-            var wi = num(s.targetProfitWhatIf) > 0 ? num(s.targetProfitWhatIf) : profitPct;
-            var v = rlvAtProfit(wi), pp = v / homes;
+            var v = rlvAtProfit(profitPct), pp = v / homes;
             return e("div", { style:{ display:"flex", alignItems:"center", gap:14, flexWrap:"wrap", marginBottom:12, padding:"11px 13px", background:"rgba(74,75,174,0.06)", border:"1px solid rgba(74,75,174,0.3)", borderRadius:8 } },
               e("div", { style:{ display:"flex", flexDirection:"column", gap:3 } },
-                e("label", { style:{ fontSize:10, color:"#3A3D6A", textTransform:"uppercase", letterSpacing:".05em", fontWeight:700 } }, "Try any target profit %"),
-                e("input", { type:"number", step:"0.5", value:(s.targetProfitWhatIf !== undefined && s.targetProfitWhatIf !== "") ? s.targetProfitWhatIf : "", placeholder:String(profitPct),
-                  onChange:function(ev){ up("sfh","targetProfitWhatIf", ev.target.value); },
+                e("label", { style:{ fontSize:10, color:"#3A3D6A", textTransform:"uppercase", letterSpacing:".05em", fontWeight:700 } }, "Your target profit % — drives the whole appraisal"),
+                e("input", { type:"number", step:"0.5", value:(s.profitPct !== undefined && s.profitPct !== "") ? s.profitPct : "", placeholder:"17.5",
+                  onChange:function(ev){ up("sfh","profitPct", ev.target.value); },
                   style:{ width:110, padding:"8px 10px", border:"1px solid #4A4BAE", borderRadius:6, fontSize:16, fontWeight:800, color:"#2E2F8A", fontFamily:"DM Sans,sans-serif", background:"#fff" } })),
               e("div", { style:{ fontSize:26, fontWeight:800, color:pp >= 0 ? "#1B7A54" : "#B05A35" } }, (pp < 0 ? "−£" : "£") + Math.abs(Math.round(pp/1000)).toLocaleString() + "k/plot"),
-              e("div", { style:{ fontSize:11, color:"#7278A0", lineHeight:1.5 } }, "at ", e("b", null, (Math.round(wi*10)/10)+"% profit"), " · land worth ", e("b", { style:{ color:pp>=0?"#1B7A54":"#B05A35" } }, (v<0?"−":"")+fmt(Math.abs(v))), acres > 0 ? " · "+fmt(v/acres)+"/acre" : ""));
+              e("div", { style:{ fontSize:11, color:"#7278A0", lineHeight:1.5 } }, "at ", e("b", null, (Math.round(profitPct*10)/10)+"% profit"), " · land worth ", e("b", { style:{ color:pp>=0?"#1B7A54":"#B05A35" } }, (v<0?"−":"")+fmt(Math.abs(v))), acres > 0 ? " · "+fmt(v/acres)+"/acre" : "", ". Changing it updates every figure and the one-pager."));
           })(),
           e("div", { style:{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:10 } },
             profitRow.map(function(p){
