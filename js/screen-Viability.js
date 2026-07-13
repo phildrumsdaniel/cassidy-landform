@@ -24,7 +24,10 @@ function renderViability(city, data, gdv, lc, up, user){
       var ahU=Math.round(totalUnitsV*ahPctV*0.9);
       var fhU=Math.round(totalUnitsV*ahPctV*0.1);
       var totalGdvV=gdv>0?gdv:0;
-      var bpsf=num(f2.buildPsf||m2.build||188);
+      // v10.87 — use the DEAL's build £/sqft (sfh.buildPsf — the same all-in rate the engine and
+      // one-pager use) so this appraisal ties to them, rather than the Financial-Modelling rate
+      // which can differ.
+      var bpsf=num(s2.buildPsf||f2.buildPsf||m2.build||188);
       var privSqft=Math.round(gia2*0.65);var ahSqft=Math.round(gia2*0.25);var fhSqft=Math.round(gia2*0.10);
       var privBuild=Math.round(privSqft*bpsf);var ahBuild=Math.round(ahSqft*bpsf*0.95);var fhBuild=Math.round(fhSqft*bpsf*0.95);
       var acresV=num(l2.acres||0);
@@ -34,7 +37,10 @@ function renderViability(city, data, gdv, lc, up, user){
       // Capitalisation / Tenure Mix / Exit / Dashboard), then passed land cost, then asking
       // price. Auto-Populate used to leave this BLANK, silently dropping a ~£77m land cost
       // and overstating profit/margin by ~15 points.
-      var engRlvV=(typeof calcDealMetrics==="function")?num(calcDealMetrics(data).rlv):0;
+      // v10.87 — use computeSFHMetrics' residual (the SAME RLV the one-pager shows) so the land
+      // cost here matches the briefing; fall back to calcDealMetrics, then passed/asking price.
+      var engRlvV=(typeof computeSFHMetrics==="function")?num(computeSFHMetrics(data).rlv):0;
+      if(!(engRlvV>0)) engRlvV=(typeof calcDealMetrics==="function")?num(calcDealMetrics(data).rlv):0;
       var landCostV=engRlvV>0?Math.round(engRlvV):(lc>0?Math.round(lc):num(l2.price||0));
       var newAp={
         siteName:l2.address||"Development Site",
@@ -64,6 +70,16 @@ function renderViability(city, data, gdv, lc, up, user){
         meanMonth:num(f2.programmeMths||36)/2,stdDev:num(f2.programmeMths||36)/4,
         autoPopulated:true
       };
+      // v10.87 — if the deal's build £/sqft is ALL-IN (covers professional fees, contingency,
+      // roads/drainage/SuDS), those lines are ALREADY inside privateBuild etc. Adding them again
+      // here double-counted the cost stack (~£230m) and flipped the profit NEGATIVE — the Detailed
+      // Appraisal then contradicted the one-pager. When all-in, zero the covered lines (and CIL,
+      // which the deal folds into the £/plot S106) so this screen reconciles with the engine.
+      if(s2.buildInclusive){
+        ["enablingWorks","s278","onSiteHighways","footpaths","swDrainage","fwDrainage","utilities","landscape","overheads","professionalFees","plotAbnormals","contingency","cil"].forEach(function(k){ newAp[k]=0; });
+        newAp.salesMktgRate=0;   // marketing is a sale-side cost held at £0 in the deal
+        newAp._buildInclusive=true;
+      }
       up("viability","appraisal",newAp);
       // v9.99 — no blocking alert(): a native alert freezes the whole renderer in an
       // automated/embedded browser (it can't be dismissed programmatically). The on-screen
