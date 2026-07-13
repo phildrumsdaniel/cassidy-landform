@@ -300,6 +300,20 @@ console.log("Landform engine consistency tests\n");
   }
 })();
 
+// 4h — v10.82: projectTimeline — planning + build + total-horizon (two separate clocks)
+(function(){
+  if(typeof projectTimeline !== "function") return;
+  var big = sfhDeal({ sfh:{ mix:[{type:"3-bed semi",count:"1000",sqft:"950",unitPrice:String(950*444),tenure:"private"},{type:"4-bed detached",count:"800",sqft:"1250",unitPrice:String(1250*470),tenure:"private"}] } });
+  var t = projectTimeline(big);
+  ok("timeline: build-out reflects scale (~6yrs for 1800)", t.buildYears >= 5 && t.buildYears <= 8);
+  ok("timeline: unconsented site defaults to a multi-year promotion", t.planningMonths >= 36);
+  ok("timeline: total = planning + build", Math.abs(t.totalYears - (t.planningYears + t.buildYears)) < 0.15);
+  var withOutline = JSON.parse(JSON.stringify(big)); withOutline.planning = { status:"outline" };
+  ok("timeline: outline consent shortens the planning clock", projectTimeline(withOutline).planningMonths < t.planningMonths);
+  var explicit = JSON.parse(JSON.stringify(big)); explicit.planning = { planningTimelineMonths:30 };
+  ok("timeline: an explicit planning figure is used over the default", projectTimeline(explicit).planningMonths === 30);
+})();
+
 // 5 — net land bid = gross RLV − acquisition costs
 (function(){
   var d = sfhDeal({ rlv:{ includeAcqCosts:true } });
