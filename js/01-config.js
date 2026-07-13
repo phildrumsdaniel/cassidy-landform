@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.78";
+var CURRENT_VERSION = "10.79";
 var VERSION_HISTORY = [
+  {v:"10.79", date:"Jul 2026", headline:"Consistency fix: the figure-driving fields shared across stages — developer profit %, finance rate, build £/sqft, units, affordable %, yield, sale £/sqft, guide price — can no longer show two different values on two screens. Editing any of them already propagated everywhere; now, if a deal is ever loaded with a conflict (e.g. an older saved deal with Financial Modelling on 17.5% while the SFH engine is on 25%), it is reconciled to the authoritative value on load, so every screen agrees. Descriptive labels like city keep the gentler behaviour and are never overwritten."},
   {v:"10.78", date:"Jul 2026", headline:"The Investor Memorandum is rebuilt to the standard a UK institutional investment committee actually interrogates. It now runs off the canonical appraisal engine (matching the rest of the tool) and covers 13 sections in reading order — exec summary & investment case, business plan, site, planning (with 2024 NPPF, mandatory 10% BNG and Building Safety Act gateways), financial appraisal, deal structure & economics (forward-fund coupon/valuation/profit-share), deliverability & security, market evidence, tenure & grant (AHP→SAHP), ESG (Future Homes / EPC C by 2030), legal structure/SPV, risk register, and team. The printed IM also carries a deterministic financial summary, a downside sensitivity grid (margin under GDV × build-cost stress), a forward-fund value-by-yield table and a data-room index — so the pack pre-empts the questions an IC would ask."},
   {v:"10.77", date:"Jul 2026", headline:"New ‘Blind investment teaser’ in the Investor Marketing Suite (Outreach Kit tab). It presents the full financial case — GDV, cost stack, developer profit & margin, forward-fund value and yield table, returns — with the SITE IDENTITY WITHHELD: no address, postcode, planning authority, agent or listing URL. Location shows only as a broad region and market tier. So an investor can judge the numbers and returns, then contact you under NDA to see the site — protecting a live, off-market deal from competing developers. Carries an ‘anticipated questions — answered’ section built to the standard a UK investment committee actually interrogates (deal structure, returns, downside protection, planning under the 2024 NPPF, BNG / Future Homes / Building Safety compliance, exit evidence), so the pack pre-empts their questions. Region and reference code are editable."},
   {v:"10.76", date:"Jul 2026", headline:"New ‘📣 Outreach Kit’ tab in the Investor Marketing Suite. Pick your target audience (pension fund, sovereign wealth, family office, JV partner, REIT, trade, HNW) and Landform generates a full capital-raising campaign from the deal's REAL figures — a targeting plan, a cold email + follow-up, and two LinkedIn posts including a dedicated forward-funding / JV partner call, plus a teaser blurb. Everything's editable and one-click copyable, tuned to attract forward-funding and co-investment. Pair each send with a tracked share link to see who engages."},
@@ -3074,6 +3075,13 @@ function applySharedInput(d, section, key, val, currentStage, isStageId){
 // Fill blank shared fields from the first value present in each group (used on
 // load/import so anything entered upstream appears in the matching downstream
 // field, including deals saved before this propagation existed).
+// v10.79 — figure-driving numeric fields must be CONSISTENT across the stages that show them.
+// A Financial Modelling profit of 17.5% beside an SFH profit of 25% (possible on a legacy/
+// imported deal saved before profit propagation existed) is exactly the confusion we can't
+// have. For these keys we RECONCILE a conflict to the authoritative (first-in-group) value, not
+// just fill blanks. Descriptive fields (city, address, lpa…) keep the gentler blank-fill-only
+// behaviour, so a deliberately different label on a sibling stage is never clobbered.
+var _RECONCILE_SHARED_KEYS = {profitPct:1,finRate:1,buildPsf:1,feesPct:1,contingency:1,units:1,ahPct:1,afhPct:1,s106pu:1,avgSqft:1,salePsf:1,basePsf:1,targetYield:1,exitYield:1,price:1,askingPrice:1};
 function normalizeSharedFields(data){
   if(!data || typeof data !== "object") return data;
   var next = Object.assign({}, data);
@@ -3083,7 +3091,11 @@ function normalizeSharedFields(data){
     for(var i = 0; i < group.length; i++){ var v = getv(group[i][0], group[i][1]); if(v !== undefined){ canon = v; break; } }
     if(canon === undefined) return;
     group.forEach(function(t){
-      if(getv(t[0], t[1]) === undefined){ var o = Object.assign({}, next[t[0]] || {}); o[t[1]] = canon; next[t[0]] = o; }
+      var cur = getv(t[0], t[1]);
+      var reconcile = !!_RECONCILE_SHARED_KEYS[t[1]];
+      if(cur === undefined || (reconcile && String(cur) !== String(canon))){
+        var o = Object.assign({}, next[t[0]] || {}); o[t[1]] = canon; next[t[0]] = o;
+      }
     });
   });
   return next;
