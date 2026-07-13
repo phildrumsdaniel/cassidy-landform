@@ -355,10 +355,11 @@ function buildLandOnePager(data, cityHint){
         '<div class="verdict" style="background:'+vcol+'"><div class="vh">'+verdict+'</div><div class="vs">'+vsub+'</div></div>'+
         (oGdv>0
           ? '<div style="margin-top:9px;border:1px solid #C9CCE4;border-radius:7px;padding:9px 11px;background:#FBFAF5">'+
-              '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#4A4BAE;font-weight:800;margin-bottom:4px">Land value vs developer profit target</div>'+
-              '<div style="font-size:8px;color:#6A6F97;margin-bottom:5px">17.5% of GDV is the planning-viability benchmark; volume house-builders often target 20%+ (a &lsquo;30% margin&rsquo; is usually profit-on-cost, &asymp; 22&ndash;23% on GDV). Everything else held constant.</div>'+
-              '<table><tr>'+[17.5,20,25,30].map(function(p){ return '<td class="n" style="font-size:7.4px;color:#8A90B4;text-transform:uppercase;font-weight:700">'+p+'% profit</td>'; }).join('')+'</tr><tr>'+
-                [17.5,20,25,30].map(function(p){ var v=(oGdv-oDev)-oGdv*(p/100); return '<td class="n" style="font-weight:800;color:'+(v>=0?'#1B7A54':'#B05A35')+'">'+(v<0?'−':'')+fmt(Math.abs(v))+'</td>'; }).join('')+'</tr></table>'+
+              '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#4A4BAE;font-weight:800;margin-bottom:4px">Target profit &rarr; what you can pay for the land</div>'+
+              '<div style="font-size:8px;color:#6A6F97;margin-bottom:5px"><b>The more profit you target, the less you can pay for the land.</b> 17.5% of GDV is the planning-viability benchmark; volume house-builders often target 20%+ (a &lsquo;30% margin&rsquo; is usually profit-on-cost, &asymp; 22&ndash;23% on GDV).</div>'+
+              '<table><tr>'+[17.5,20,25,30].map(function(p){ return '<td class="n" style="font-size:7.4px;color:#8A90B4;text-transform:uppercase;font-weight:700">'+p+'% profit</td>'; }).join('')+'</tr>'+
+                '<tr>'+[17.5,20,25,30].map(function(p){ var v=(oGdv-oDev)-oGdv*(p/100); var pp=oUnits>0?v/oUnits:0; return '<td class="n" style="font-weight:800;color:'+(pp>=0?'#1B7A54':'#B05A35')+'">'+(pp<0?'−£':'£')+Math.abs(Math.round(pp/1000)).toLocaleString()+'k/plot</td>'; }).join('')+'</tr>'+
+                '<tr>'+[17.5,20,25,30].map(function(p){ var v=(oGdv-oDev)-oGdv*(p/100); return '<td class="n" style="font-size:7.4px;color:#6A6F97">'+(v<0?'−':'')+fmt(Math.abs(v))+'</td>'; }).join('')+'</tr></table>'+
             '</div>'
           : '')+
         (oCapNetRent>0
