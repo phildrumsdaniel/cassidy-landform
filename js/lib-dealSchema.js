@@ -418,6 +418,9 @@ function buildDealFromBrief(brief){
       buildPsf: num(brief.buildPsf) || "",
       basePsf: num(brief.salePsf) || autoSalePsf || "",
       profitPct: profitVal || "",
+      // v10.68 — record the profit target Keystone used, so a report can show BOTH the Keystone
+      // baseline scenario and any later user override (e.g. a 25% target) side by side.
+      keystoneProfitPct: profitVal || "",
       finRate: finRateVal || "",
       contingency: contVal || "",
       s106pu: s106Val || "",
