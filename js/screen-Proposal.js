@@ -403,6 +403,19 @@ function buildLandOnePager(data, cityHint){
             '</div>'
           : '')+
         pathBlock+
+        (typeof projectTimeline==="function" ? (function(){
+          var t=projectTimeline(data);
+          return '<div style="margin-top:9px;border:1px solid #C9CCE4;border-radius:7px;padding:9px 11px;background:#fff">'+
+            '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#2E2F8A;font-weight:800;margin-bottom:4px">Programme &amp; timeline</div>'+
+            '<div style="font-size:8px;color:#6A6F97;margin-bottom:5px">Two separate clocks: winning planning consent (councils routinely exceed the 13-week statutory target on major/strategic applications) and building out. Current position: <b>'+esc(t.statusLabel)+'</b>. Planning figure — '+(num((data.planning||{}).planningTimelineMonths)>0?'as assessed':'by status, indicative')+'; refine with the LPA / a PPA.</div>'+
+            '<table>'+
+              '<tr><td>Planning to consent</td><td class="n">~'+t.planningYears+' yr'+(t.planningYears===1?'':'s')+' ('+t.planningMonths+' months)</td></tr>'+
+              '<tr><td>Build-out programme (incl. sales runoff)</td><td class="n">~'+t.buildYears+' yrs</td></tr>'+
+              '<tr class="s"><td>Total to exit</td><td class="n">~'+t.totalYears+' yrs</td></tr>'+
+            '</table>'+
+            '<div style="font-size:7.5px;color:#9298BC;margin-top:3px;font-style:italic">A forward-fund only starts once the scheme is consented and fundable — the total money-in-to-exit horizon stacks planning on top of the build.</div>'+
+          '</div>';
+        })() : '')+
         (typeof basisOfFigures==="function" ? (function(){
           var bo=basisOfFigures(data);
           return '<div style="margin-top:9px;border:1px solid #C9CCE4;border-radius:7px;padding:9px 11px;background:#fff">'+
@@ -504,6 +517,7 @@ function buildBlindTeaser(data){
   var acres=num((data.land||{}).acres||0);
   var density=(acres>0&&units>0)?Math.round(units/acres):0;
   var progYears=num(SF.financeProgYears)||0, peakDebt=num(SF.financePeakDebtPct)||0;
+  var tl=(typeof projectTimeline==="function")?projectTimeline(data):null;
   // Forward-fund economics
   var netRent=num(SF.capNetRentPa)||0;
   var yld=(typeof dealYield==="function")?dealYield(data):4.9; if(yld>0&&yld<1) yld*=100; yld=Math.max(4.5,Math.min(6,yld||4.9));
@@ -536,7 +550,7 @@ function buildBlindTeaser(data){
     ["What is the planning position?", "Route: "+esc((p.status||"unallocated")==="full"?"full consent":(p.status==="outline"?"outline consent":p.status==="allocated"?"allocated in the local plan":"promotion through the local plan / outline"))+". "+(num(p.planningProb)>0?("Indicative probability of consent "+Math.round(num(p.planningProb))+"%. "):"")+"Assessed against the LPA's housing land supply position under the December 2024 NPPF. Full planning strategy, S106 and risk are in the data room."],
     ["Is it regulation-ready (BNG, Future Homes, safety)?", "Designed to meet current requirements: mandatory 10% Biodiversity Net Gain, the Future Homes Standard (low-carbon heating, no new gas connections) and EPC A/B new-build. Building Safety Act gateways apply to any higher-risk block; the compliance strategy and costs are in the appraisal and data room."],
     ["What is the tenure and affordable mix?", (tenLine?esc(tenLine)+". ":"")+(ahPct>0?(Math.round(ahPct)+"% affordable housing (S106); grant eligibility and any RP offtake are set out in the data room."):"Tenure mix confirmed under NDA.")],
-    ["How long to build and what is the funding profile?", (progYears>0?("A ~"+progYears+"-year programme"):"Programme")+(peakDebt>0?", peak debt ~"+peakDebt+"% of cost on an S-curve draw":"")+". Build cost is on a BCIS-referenced basis with a stated contingency; full cashflow, drawdown, peak-equity and the coupon/balancing mechanics are in the data room."],
+    ["What is the timeline and funding profile?", (tl?("Two clocks: ~"+tl.planningYears+" years to win planning consent (councils routinely exceed the 13-week statutory target on major schemes) and a ~"+tl.buildYears+"-year build-out — a total money-in-to-exit horizon of ~"+tl.totalYears+" years. "):"")+(peakDebt>0?"Peak debt ~"+peakDebt+"% of cost on an S-curve draw. ":"")+"Build cost is on a BCIS-referenced basis with a stated contingency; the full cashflow, drawdown, peak-equity and coupon/balancing mechanics are in the data room."],
     ["Who buys it, and what backs the values?", "Sale and rental values are underpinned by recent local comparables (in the data room). The completed rented scheme suits institutional forward-funders and BTR/SFH operators active in "+esc(region)+" — a market that has seen record institutional bid volume. The developer's track record and references are provided under NDA."],
     ["Why is the site not named?", "To protect a live, off-market opportunity. The exact location, title, planning references and vendor are released under NDA once mutual interest is established — so the numbers can be assessed without exposing the site to competing developers."]
   ];
@@ -607,7 +621,10 @@ function buildBlindTeaser(data){
             (density>0?'<div class="rr"><span>Density</span><b>'+density+' homes/acre · ≈'+Math.round(density*2.471)+' dph</b></div>':'')+
             (tenLine?'<div class="rr"><span>Tenure mix</span><b style="max-width:60%;text-align:right">'+esc(tenLine)+'</b></div>':'')+
             (ahPct>0?'<div class="rr"><span>Affordable (S106)</span><b>'+Math.round(ahPct)+'%</b></div>':'')+
-            (progYears>0?'<div class="rr"><span>Programme</span><b>~'+progYears+' years</b></div>':'')+
+            (tl?'<div class="rr"><span>Planning to consent</span><b>~'+tl.planningYears+' yrs ('+tl.planningMonths+'mo)</b></div>'+
+                '<div class="rr"><span>Build-out programme</span><b>~'+tl.buildYears+' yrs</b></div>'+
+                '<div class="rr"><span>Total to exit</span><b>~'+tl.totalYears+' yrs</b></div>'
+              :(progYears>0?'<div class="rr"><span>Programme</span><b>~'+progYears+' years</b></div>':''))+
             (peakDebt>0?'<div class="rr"><span>Peak debt (S-curve)</span><b>~'+peakDebt+'% of cost</b></div>':'')+
             '<div class="rr"><span>Planning route</span><b>'+esc((p.status==="full")?"Full consent":(p.status==="outline")?"Outline":(p.status==="allocated")?"Allocated":"Promotion / outline")+'</b></div>'+
           '</div>'+

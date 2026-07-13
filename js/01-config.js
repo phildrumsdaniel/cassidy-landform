@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.81";
+var CURRENT_VERSION = "10.82";
 var VERSION_HISTORY = [
+  {v:"10.82", date:"Jul 2026", headline:"Reports now show the timeline as TWO separate clocks plus the total horizon — because a scheme's ‘programme’ isn't just the build. (1) Planning to consent — councils routinely exceed the 13-week statutory target on major/strategic applications, so an unconsented site is a multi-year promotion (defaults by planning status, or uses the assessed figure). (2) Build-out programme. (3) Total money-in-to-exit. e.g. an unconsented 1,800-home site reads ~4 yrs planning + ~6.1 yrs build = ~10.1 yrs total. Added to the one-pager, the blind teaser and the Investor Memorandum, with a note that a forward-fund only starts once the scheme is consented and fundable."},
   {v:"10.81", date:"Jul 2026", headline:"The Quick Appraisal ‘Verify before committing’ panel now has quick-entry boxes right beside the research links — Sale £/sqft, Build £/sqft and S106 £/plot. Check a figure against the linked new-build launches / Land Registry, and if it's different, type the real number straight in: GDV, residual land value and profit recompute instantly and propagate across every stage and report. (The links themselves are read-only research and never change anything — this is how a corrected figure flows through.)"},
   {v:"10.80", date:"Jul 2026", headline:"Building a deal with Keystone now auto-completes the WHOLE journey, not just prices. Previously a fresh build only researched area prices/rents automatically, and the rest — planning, exit, tenure split, grants, constraints, the Land Appraisal scorecard (the 0/100 you saw) and Financial Modelling & Viability — waited for a separate ‘Complete the whole journey with AI’ click. Now a fresh build fills all of it automatically (non-blocking; stages populate as it goes). A REBUILD still only re-prices, so your manual downstream work is preserved. The manual button remains for re-running the journey on demand."},
   {v:"10.79", date:"Jul 2026", headline:"Consistency fix: the figure-driving fields shared across stages — developer profit %, finance rate, build £/sqft, units, affordable %, yield, sale £/sqft, guide price — can no longer show two different values on two screens. Editing any of them already propagated everywhere; now, if a deal is ever loaded with a conflict (e.g. an older saved deal with Financial Modelling on 17.5% while the SFH engine is on 25%), it is reconciled to the authoritative value on load, so every screen agrees. Descriptive labels like city keep the gentler behaviour and are never overwritten."},
@@ -2265,6 +2266,34 @@ function dealYield(data){
   var t = num((data.capitalise && data.capitalise.targetYield));
   if(t > 0) return t > 1 ? t : t * 100;   // stored as percent normally; tolerate fraction
   return areaYield(data);
+}
+
+// v10.82 — projectTimeline: a scheme runs on TWO separate clocks, and lumping them into one
+// "programme" understates the horizon. (1) Time to WIN planning consent — councils routinely
+// exceed the 13-week statutory target on major/strategic applications, so an unconsented site
+// is a multi-year promotion, not a quick decision. (2) The build-out PROGRAMME. Plus the total
+// money-in-to-exit horizon. Planning months come from an explicit figure (the AI planning
+// filler / user) when set, else a sensible default by planning status. Used by the one-pager,
+// the blind teaser and the IM so the timeline reads honestly.
+function projectTimeline(data){
+  data = data || {};
+  var p = data.planning || {}, l = data.land || {};
+  var SF = (typeof computeSFHMetrics === "function") ? computeSFHMetrics(data) : {};
+  var units = num(SF.totalUnits) || num(p.units) || num(l.units) || 0;
+  var buildYears = num(SF.financeProgYears) || Math.max(2, Math.min(10, 1 + units / 350));
+  var status = String(p.status || l.planningStatus || "").toLowerCase();
+  var planningMonths = num(p.planningTimelineMonths);
+  if(!(planningMonths > 0)){
+    var byStatus = { full:4, outline:15, allocated:24, preapp:36, "pre-app":36, likely:42 };
+    planningMonths = (byStatus[status] !== undefined) ? byStatus[status] : 48;   // unallocated / hope value
+  }
+  planningMonths = Math.round(planningMonths);
+  var planningYears = Math.round(planningMonths / 12 * 10) / 10;
+  buildYears = Math.round(buildYears * 10) / 10;
+  var statusLabel = ({ full:"Full consent", outline:"Outline consent", allocated:"Allocated in local plan",
+    preapp:"Pre-application", "pre-app":"Pre-application", likely:"Likely allocation" })[status] || "Unallocated / promotion";
+  return { units:units, planningMonths:planningMonths, planningYears:planningYears, buildYears:buildYears,
+    totalYears:Math.round((planningYears + buildYears) * 10) / 10, status:status, statusLabel:statusLabel };
 }
 
 // ── Multi-year DCF hold model (v10.29) ───────────────────────────────────────
