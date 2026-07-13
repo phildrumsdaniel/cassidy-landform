@@ -104,6 +104,15 @@ function renderInvestorSuite(data, navTo, saveDeal, up, user){
       try{ navigator.clipboard.writeText(txt); if(typeof notify==="function") notify("✓ Copied to clipboard"); }
       catch(e){ window.prompt("Copy this:",txt); }
     }
+    // v10.77 — open the anonymised blind investment teaser (site identity withheld).
+    function openBlindTeaser(){
+      if(typeof buildBlindTeaser!=="function"){ if(typeof notify==="function") notify("Teaser generator still loading — try again in a moment."); return; }
+      var html=buildBlindTeaser(data);
+      if(typeof showReportOverlay==="function" && showReportOverlay(html,"Blind investment teaser (anonymised)")) return;
+      var w=window.open("","_blank");
+      if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the teaser."); return; }
+      w.document.open(); w.document.write(html); w.document.close();
+    }
 
     // ── Tab styles ──
     function tabBtn(key,label){
@@ -303,6 +312,26 @@ function renderInvestorSuite(data, navTo, saveDeal, up, user){
                   )
                 ),
                 e("button",{onClick:generateOutreach,disabled:busy,style:{padding:"11px 22px",background:busy?"rgba(237,232,74,0.5)":"#EDE84A",border:"none",borderRadius:6,color:"#1E1F5C",fontSize:12.5,fontWeight:800,cursor:busy?"wait":"pointer",fontFamily:"DM Sans,sans-serif"}},busy?"Writing…":(ok?"↻ Regenerate":"✨ Generate outreach kit"))
+              )
+            ),
+            // Blind (anonymised) teaser — the attach-to-email / broadcast document
+            e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderLeft:"5px solid #8A1B2E",borderRadius:10,padding:"14px 16px",marginBottom:16}},
+              e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}},
+                e("div",{style:{flex:"1 1 260px"}},
+                  e("div",{style:{fontSize:13,fontWeight:800,color:"#1E1F5C",marginBottom:3}},"📄 Blind investment teaser (anonymised)"),
+                  e("div",{style:{fontSize:11,color:"#7278A0",lineHeight:1.55}},"The full financial case — GDV, profit, forward-fund value & yield, returns and an anticipated-questions Q&A — with the ",e("strong",null,"site identity withheld")," (no address, postcode, LPA, agent). Investors judge the numbers, then contact you under NDA. Location shows only as a region.")
+                ),
+                e("button",{onClick:openBlindTeaser,style:{padding:"10px 18px",background:"#8A1B2E",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"Open teaser →")
+              ),
+              e("div",{style:{display:"flex",gap:10,marginTop:12,flexWrap:"wrap"}},
+                e("div",{style:{flex:"1 1 200px"}},
+                  e("label",{style:lbl},"Region shown (override — leave blank to auto-detect)"),
+                  e("input",{value:inv.blindRegion||"",onChange:function(ev){upi("blindRegion",ev.target.value);},placeholder:"e.g. the South East",style:ipt})
+                ),
+                e("div",{style:{flex:"1 1 160px"}},
+                  e("label",{style:lbl},"Reference code (override)"),
+                  e("input",{value:inv.blindRef||"",onChange:function(ev){upi("blindRef",ev.target.value);},placeholder:"auto (e.g. CAS-04217)",style:ipt})
+                )
               )
             ),
             // Empty state
