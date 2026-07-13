@@ -297,6 +297,21 @@ function buildLandOnePager(data, cityHint){
           '<div class="kpi"><div class="l">Residual land value</div><div class="v" style="color:'+(oRlv>0?"#1B7A54":"#B05A35")+'">'+(oRlv?((oRlv<0?"−":"")+fmt(Math.abs(oRlv))):"—")+'</div></div>'+
           '<div class="kpi"><div class="l">'+(askL>0?"Margin (all-in)":"Target profit")+'</div><div class="v" style="color:'+(askL>0?(marginAllIn>=15?"#1B7A54":marginAllIn>=12?"#9A7B3E":"#B05A35"):"#1B1D46")+'">'+(askL>0?pct(marginAllIn):Math.round(oProfitPct)+"%")+'</div></div>'+
         '</div>'+
+        // v10.86 — hope-value / planning-risk banner near the top when the site is NOT consented,
+        // so a reviewer reads the RLV as the value AT consent (years away, at risk), not today's
+        // value. Pre-empts the single biggest question on a promotion play.
+        (function(){
+          var consented=/full|outline/.test(String(planStatus).toLowerCase());
+          if(consented || !(oRlv>0)) return '';
+          var t2=(typeof projectTimeline==="function")?projectTimeline(data):null;
+          var g2=(typeof landValueGuide==="function")?landValueGuide(data):null;
+          var hopeLo=0,hopeHi=0;
+          if(g2 && g2.bands){ var hb=g2.bands.filter(function(b){return /hope|strategic|greenbelt/i.test(b.label);})[0]; if(hb){ var a2=g2.acres||acres; hopeLo=hb.lo*a2; hopeHi=hb.hi*a2; } }
+          return '<div style="margin:2px 0 9px;border:1px solid #C8A24A;border-left:5px solid #C8A24A;border-radius:7px;padding:9px 12px;background:#FDF9EF">'+
+            '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#8A6A2E;font-weight:800;margin-bottom:3px">⚑ Planning risk — a promotion play, not a consented site</div>'+
+            '<div style="font-size:9.3px;color:#5A4A2E;line-height:1.5">The <b>'+fmt(oRlv)+'</b> residual is the land value <b>at consent</b> — not today. Current position: <b>'+esc(planStatusLabel)+'</b>'+(hopeHi>0?"; today's strategic / hope value is <b>"+fmt(hopeLo)+'–'+fmt(hopeHi)+'</b>':'')+'. The gap is the <b>promotion upside</b>, earned over '+(t2?('~'+t2.planningYears+' years to consent'):'the planning period')+' at cost and risk. Buy at hope value; the consented residual is the exit, not the entry.</div>'+
+          '</div>';
+        })()+
         '<div class="cols">'+
           '<div class="card"><div class="ct">Scheme &amp; house mix</div>'+
             '<div class="rr"><span>Site area</span><b>'+(acres>0?acres+" acres · "+(acres*0.404686).toFixed(1)+" ha":"—")+'</b></div>'+
@@ -403,6 +418,16 @@ function buildLandOnePager(data, cityHint){
                     '<td class="n" style="color:'+(askL>0?(pr>=0?'#1B7A54':'#B05A35'):(oCapMaxLand(y)>=0?'#1B7A54':'#B05A35'))+'">'+(askL>0?((pr<0?'−':'')+fmt(Math.abs(pr))):((oCapMaxLand(y)<0?'−':'')+fmt(Math.abs(oCapMaxLand(y)))))+'</td>'+
                     '<td class="n" style="color:'+(askL>0?(mg>=15?'#1B7A54':mg>=12?'#9A7B3E':'#B05A35'):'#3A3D6A')+'">'+(askL>0?pct(mg):fmt(iv*(oProfitPct/100)))+'</td></tr>'; }).join('')+
               '</table>'+
+              // v10.86 — reframe the (often negative) forward-fund figures so they read as a
+              // conclusion, not a loss: for houses-for-sale, forward-funding supports LESS land
+              // than build-to-sell, which simply confirms plot sales as the exit.
+              (function(){
+                var ffBest=oCapMaxLand(4.5);           // keenest yield = best case for the fund route
+                if(!(oRlv>0) || ffBest>=oRlv) return '';
+                return '<div style="font-size:8px;color:#3D5A4C;margin-top:5px;line-height:1.5;border-top:1px dashed #BFD9CF;padding-top:5px">'+
+                  '<b>Read-across (not a loss):</b> even at the keenest 4.5% yield, forward-funding the rented scheme supports '+(ffBest<0?'−':'')+fmt(Math.abs(ffBest))+' of land — about <b>'+fmt(Math.abs(oRlv-ffBest))+' below</b> the '+fmt(oRlv)+' build-to-sell residual. That confirms <b>open-market plot sales as the exit</b> for houses built for sale; forward-funding suits rental blocks (flats / BTR), not houses. Shown for completeness.'+
+                '</div>';
+              })()+
             '</div>'
           : '')+
         pathBlock+
