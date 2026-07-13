@@ -105,6 +105,9 @@ function buildLandOnePager(data, cityHint){
   var ask=num(l.price||0);
   var ahPct=num(p.ahPct||p.afhPct||ten.ahPct||0);
   var planStatus=p.status||l.planningStatus||"Unallocated";
+  // v10.84 — a clean, board-facing status label so an unset / "none" status doesn't print the
+  // raw word "none" on the briefing.
+  var planStatusLabel=({full:"Full consent",outline:"Outline consent",allocated:"Allocated in Local Plan",preapp:"Pre-application",likely:"Likely allocation",none:"Unallocated / promotion",unallocated:"Unallocated / promotion"})[String(planStatus).toLowerCase()]||planStatus;
   var lpa=p.lpa||l.localAuthority||"";
   var density=(acres>0&&units>0)?Math.round(units/acres):0;
   function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
@@ -286,7 +289,7 @@ function buildLandOnePager(data, cityHint){
       '<div class="pg">'+
         '<div class="top"><div><div class="brand">Cassidy Group · Land appraisal — one-page briefing</div>'+
           '<h1>'+esc(addr)+'</h1><div class="sub">'+esc(siteSub||"—")+(acres>0?' · <b>'+esc(acres)+' acres</b>':'')+'</div></div>'+
-          '<div class="meta">'+((typeof BRAND_LOGO_PNG!=="undefined"&&BRAND_LOGO_PNG&&typeof cassidyLogoSrc==="function")?'<img src="'+cassidyLogoSrc()+'" alt="Cassidy Group Ltd" style="height:30px;width:auto;max-width:170px;display:block;margin:0 0 5px auto"/>':'')+(lpa?esc(lpa)+'<br/>':'')+esc(planStatus||"Unallocated")+'<br/>Indicative · v'+esc(typeof CURRENT_VERSION!=="undefined"?CURRENT_VERSION:"")+'</div></div>'+
+          '<div class="meta">'+((typeof BRAND_LOGO_PNG!=="undefined"&&BRAND_LOGO_PNG&&typeof cassidyLogoSrc==="function")?'<img src="'+cassidyLogoSrc()+'" alt="Cassidy Group Ltd" style="height:30px;width:auto;max-width:170px;display:block;margin:0 0 5px auto"/>':'')+(lpa?esc(lpa)+'<br/>':'')+esc(planStatusLabel||"Unallocated / promotion")+'<br/>Indicative · v'+esc(typeof CURRENT_VERSION!=="undefined"?CURRENT_VERSION:"")+'</div></div>'+
         '<div class="kpis">'+
           '<div class="kpi"><div class="l">Homes</div><div class="v">'+(oUnits?oUnits.toLocaleString():"—")+'</div></div>'+
           '<div class="kpi"><div class="l">GDV</div><div class="v">'+(oGdv>0?fmt(oGdv):"—")+'</div></div>'+
@@ -294,10 +297,25 @@ function buildLandOnePager(data, cityHint){
           '<div class="kpi"><div class="l">Residual land value</div><div class="v" style="color:'+(oRlv>0?"#1B7A54":"#B05A35")+'">'+(oRlv?((oRlv<0?"−":"")+fmt(Math.abs(oRlv))):"—")+'</div></div>'+
           '<div class="kpi"><div class="l">'+(askL>0?"Margin (all-in)":"Target profit")+'</div><div class="v" style="color:'+(askL>0?(marginAllIn>=15?"#1B7A54":marginAllIn>=12?"#9A7B3E":"#B05A35"):"#1B1D46")+'">'+(askL>0?pct(marginAllIn):Math.round(oProfitPct)+"%")+'</div></div>'+
         '</div>'+
+        // v10.86 — hope-value / planning-risk banner near the top when the site is NOT consented,
+        // so a reviewer reads the RLV as the value AT consent (years away, at risk), not today's
+        // value. Pre-empts the single biggest question on a promotion play.
+        (function(){
+          var consented=/full|outline/.test(String(planStatus).toLowerCase());
+          if(consented || !(oRlv>0)) return '';
+          var t2=(typeof projectTimeline==="function")?projectTimeline(data):null;
+          var g2=(typeof landValueGuide==="function")?landValueGuide(data):null;
+          var hopeLo=0,hopeHi=0;
+          if(g2 && g2.bands){ var hb=g2.bands.filter(function(b){return /hope|strategic|greenbelt/i.test(b.label);})[0]; if(hb){ var a2=g2.acres||acres; hopeLo=hb.lo*a2; hopeHi=hb.hi*a2; } }
+          return '<div style="margin:2px 0 9px;border:1px solid #C8A24A;border-left:5px solid #C8A24A;border-radius:7px;padding:9px 12px;background:#FDF9EF">'+
+            '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#8A6A2E;font-weight:800;margin-bottom:3px">⚑ Planning risk — a promotion play, not a consented site</div>'+
+            '<div style="font-size:9.3px;color:#5A4A2E;line-height:1.5">The <b>'+fmt(oRlv)+'</b> residual is the land value <b>at consent</b> — not today. Current position: <b>'+esc(planStatusLabel)+'</b>'+(hopeHi>0?"; today's strategic / hope value is <b>"+fmt(hopeLo)+'–'+fmt(hopeHi)+'</b>':'')+'. The gap is the <b>promotion upside</b>, earned over '+(t2?('~'+t2.planningYears+' years to consent'):'the planning period')+' at cost and risk. Buy at hope value; the consented residual is the exit, not the entry.</div>'+
+          '</div>';
+        })()+
         '<div class="cols">'+
           '<div class="card"><div class="ct">Scheme &amp; house mix</div>'+
             '<div class="rr"><span>Site area</span><b>'+(acres>0?acres+" acres · "+(acres*0.404686).toFixed(1)+" ha":"—")+'</b></div>'+
-            '<div class="rr"><span>Density</span><b>'+(oDensity>0?oDensity+" homes/acre · ≈"+Math.round(oDensity*2.471)+" dph":"—")+'</b></div>'+
+            '<div class="rr"><span>Density (gross)</span><b>'+(oDensity>0?oDensity+" homes/acre · ≈"+Math.round(oDensity*2.471)+" dph":"—")+(oDensity>0&&(oDensity*2.471)<25?' <span style="color:#9298BC">· net developable higher</span>':'')+'</b></div>'+
             '<div class="rr"><span>Homes (modelled mix)</span><b>'+(oUnits?oUnits.toLocaleString():"—")+(sitePotential>0?' <span style="color:#9298BC">of ~'+sitePotential.toLocaleString()+' site potential</span>':'')+'</b></div>'+
             '<div class="rr"><span>Affordable (S106)</span><b>'+(ahPct?ahPct+"% · ~"+ahU.toLocaleString()+" homes":"—")+'</b></div>'+
             '<div class="rr"><span>Avg home · sale £/sqft</span><b>'+(oAvgSqft?oAvgSqft.toLocaleString()+" sqft · £"+oBasePsf:"—")+'</b></div>'+
@@ -400,6 +418,16 @@ function buildLandOnePager(data, cityHint){
                     '<td class="n" style="color:'+(askL>0?(pr>=0?'#1B7A54':'#B05A35'):(oCapMaxLand(y)>=0?'#1B7A54':'#B05A35'))+'">'+(askL>0?((pr<0?'−':'')+fmt(Math.abs(pr))):((oCapMaxLand(y)<0?'−':'')+fmt(Math.abs(oCapMaxLand(y)))))+'</td>'+
                     '<td class="n" style="color:'+(askL>0?(mg>=15?'#1B7A54':mg>=12?'#9A7B3E':'#B05A35'):'#3A3D6A')+'">'+(askL>0?pct(mg):fmt(iv*(oProfitPct/100)))+'</td></tr>'; }).join('')+
               '</table>'+
+              // v10.86 — reframe the (often negative) forward-fund figures so they read as a
+              // conclusion, not a loss: for houses-for-sale, forward-funding supports LESS land
+              // than build-to-sell, which simply confirms plot sales as the exit.
+              (function(){
+                var ffBest=oCapMaxLand(4.5);           // keenest yield = best case for the fund route
+                if(!(oRlv>0) || ffBest>=oRlv) return '';
+                return '<div style="font-size:8px;color:#3D5A4C;margin-top:5px;line-height:1.5;border-top:1px dashed #BFD9CF;padding-top:5px">'+
+                  '<b>Read-across (not a loss):</b> even at the keenest 4.5% yield, forward-funding the rented scheme supports '+(ffBest<0?'−':'')+fmt(Math.abs(ffBest))+' of land — about <b>'+fmt(Math.abs(oRlv-ffBest))+' below</b> the '+fmt(oRlv)+' build-to-sell residual. That confirms <b>open-market plot sales as the exit</b> for houses built for sale; forward-funding suits rental blocks (flats / BTR), not houses. Shown for completeness.'+
+                '</div>';
+              })()+
             '</div>'
           : '')+
         pathBlock+
@@ -407,7 +435,7 @@ function buildLandOnePager(data, cityHint){
           var t=projectTimeline(data);
           return '<div style="margin-top:9px;border:1px solid #C9CCE4;border-radius:7px;padding:9px 11px;background:#fff">'+
             '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#2E2F8A;font-weight:800;margin-bottom:4px">Programme &amp; timeline</div>'+
-            '<div style="font-size:8px;color:#6A6F97;margin-bottom:5px">Two separate clocks: winning planning consent (councils routinely exceed the 13-week statutory target on major/strategic applications) and building out. Current position: <b>'+esc(t.statusLabel)+'</b>. Planning figure — '+(num((data.planning||{}).planningTimelineMonths)>0?'as assessed':'by status, indicative')+'; refine with the LPA / a PPA.</div>'+
+            '<div style="font-size:8px;color:#6A6F97;margin-bottom:5px">Two separate clocks: winning planning consent and building out. Only ~1 in 5 major applications is actually decided within the 13-week statutory target (MHCLG 2024-25 — the rest run on Extensions of Time); large sites average ~5+ years to a detailed consent (Lichfields). Current position: <b>'+esc(t.statusLabel)+'</b>. Planning figure — '+(num((data.planning||{}).planningTimelineMonths)>0?'as assessed':'by status, indicative')+'; refine with the LPA / a PPA.</div>'+
             '<table>'+
               '<tr><td>Planning to consent</td><td class="n">~'+t.planningYears+' yr'+(t.planningYears===1?'':'s')+' ('+t.planningMonths+' months)</td></tr>'+
               '<tr><td>Build-out programme (incl. sales runoff)</td><td class="n">~'+t.buildYears+' yrs</td></tr>'+

@@ -306,10 +306,16 @@ console.log("Landform engine consistency tests\n");
   var big = sfhDeal({ sfh:{ mix:[{type:"3-bed semi",count:"1000",sqft:"950",unitPrice:String(950*444),tenure:"private"},{type:"4-bed detached",count:"800",sqft:"1250",unitPrice:String(1250*470),tenure:"private"}] } });
   var t = projectTimeline(big);
   ok("timeline: build-out reflects scale (~6yrs for 1800)", t.buildYears >= 5 && t.buildYears <= 8);
-  ok("timeline: unconsented site defaults to a multi-year promotion", t.planningMonths >= 36);
+  // v10.83 — unconsented cold-start default is a ~7-year promotion (research-grounded), not months
+  ok("timeline: unconsented site defaults to a ~7-year promotion", t.planningMonths >= 72);
   ok("timeline: total = planning + build", Math.abs(t.totalYears - (t.planningYears + t.buildYears)) < 0.15);
   var withOutline = JSON.parse(JSON.stringify(big)); withOutline.planning = { status:"outline" };
   ok("timeline: outline consent shortens the planning clock", projectTimeline(withOutline).planningMonths < t.planningMonths);
+  // strategic-site uplift: a large ALLOCATED site takes longer than a small one (S106 + full determination)
+  var allocStrategic = JSON.parse(JSON.stringify(big)); allocStrategic.planning = { status:"allocated" };
+  var allocSmall = sfhDeal({ sfh:{ mix:[{type:"3-bed semi",count:"40",sqft:"950",unitPrice:String(950*444),tenure:"private"}] } });
+  allocSmall.planning = { status:"allocated" };
+  ok("timeline: strategic allocated site carries a longer determination than a small one", projectTimeline(allocStrategic).planningMonths > projectTimeline(allocSmall).planningMonths);
   var explicit = JSON.parse(JSON.stringify(big)); explicit.planning = { planningTimelineMonths:30 };
   ok("timeline: an explicit planning figure is used over the default", projectTimeline(explicit).planningMonths === 30);
 })();
