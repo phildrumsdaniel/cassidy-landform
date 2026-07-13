@@ -407,6 +407,28 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
               return e("a", { key:lk[0], href:lk[1], target:"_blank", rel:"noopener",
                 style:{ padding:"7px 12px", background:"#fff", border:"1px solid "+(lk[2]||"#DDE0ED"), borderRadius:6, fontSize:11, fontWeight:700, color:lk[2]||"#3A3D6A", textDecoration:"none" } }, lk[0]+" ↗");
             })),
+          // v10.81 — punch the verified figures straight in here: the same handlers as the main
+          // inputs (setBasePsf reprices the mix + keeps rlv.salePsf in step; build/S106 propagate
+          // via the shared-field groups), so the whole appraisal recomputes instantly.
+          (function(){
+            var miniLbl = { fontSize:9, color:"#8A6A2E", textTransform:"uppercase", letterSpacing:".05em", fontWeight:700, marginBottom:3, display:"block" };
+            var miniIpt = { width:"100%", padding:"7px 9px", border:"1px solid #E0D3B0", borderRadius:5, fontSize:12, fontFamily:"DM Sans,sans-serif", color:"#2E2F8A", background:"#fff" };
+            function field(lbl, val, ph, onCh){
+              return e("div", { key:lbl, style:{ flex:"1 1 120px", minWidth:108 } },
+                e("label", { style:miniLbl }, lbl),
+                e("input", { type:"number", value:val, placeholder:ph,
+                  onChange:function(ev){ onCh(ev.target.value); },
+                  onFocus:function(ev){ try{ ev.target.select(); }catch(x){} }, style:miniIpt }));
+            }
+            return e("div", { style:{ background:"#FBFAF5", border:"1px solid #E6D9B8", borderRadius:6, padding:"10px 12px", marginBottom:10 } },
+              e("div", { style:{ fontSize:10.5, fontWeight:700, color:"#7A5A2E", marginBottom:8, lineHeight:1.5 } }, "✎ Found the real figures? Enter them here — GDV, residual land value and profit update instantly across every stage and report."),
+              e("div", { style:{ display:"flex", gap:10, flexWrap:"wrap" } },
+                field("Sale £/sqft", s.basePsf || "", "£"+effBasePsf, setBasePsf),
+                field("Build £/sqft", s.buildPsf || "", "£"+effBuildPsf, function(v){ up("sfh","buildPsf",v); }),
+                field("S106 £/plot", s.s106pu || "", fmtN(Math.round(s106pu)), function(v){ up("sfh","s106pu",v); })
+              )
+            );
+          })(),
           e("ul", { style:{ margin:0, paddingLeft:16, fontSize:10.5, color:"#7278A0", lineHeight:1.6 } },
             e("li", null, e("b", null, "Sale £/sqft"), ": the £"+effBasePsf+" here is a Land-Registry-derived figure + "+premiumPct+"% new-build premium — check it against actual local new-build launches (links above)."),
             e("li", null, e("b", null, "Floor area basis"), ": houses are priced on GIA (whole internal area) — there is no GIA→NIA deduction (the ~10–15% efficiency loss applies only to flats with communal areas)."),
