@@ -294,19 +294,20 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
       // ── PROFIT SENSITIVITY ─────────────────────────────────────────────────────
       // Residual land value at a range of developer profit targets — house-builders often want
       // 20%+ on GDV (or profit-on-cost), so show the swing rather than a single 17.5% figure.
-      gdv > 0 && (function(){
+      gdv > 0 && homes > 0 && (function(){
         var profitRow = [17.5, 20, 25, 30];
         function rlvAtProfit(p){ return (gdv - devCost) - gdv*(p/100); }
         return e("div", { style:Object.assign({}, S.card, { borderLeft:"4px solid #4A4BAE", marginTop:14 }) },
-          e("div", { style:S.cardTitle }, "Land value vs developer profit target"),
+          e("div", { style:S.cardTitle }, "Target profit → what you can pay for the land"),
           e("div", { style:{ fontSize:11, color:"#7278A0", lineHeight:1.5, marginBottom:10 } },
-            "The residual land value at different profit targets. 17.5% of GDV is the planning-viability benchmark; volume house-builders often target 20%+ (a ‘30% margin’ is usually profit-on-cost, ≈ 22–23% on GDV). Everything else held constant."),
-          e("div", { style:{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))", gap:10 } },
+            "Pick a developer profit target and read the land price per plot. ", e("b", null, "The more profit you target, the LESS you can pay for the land"), " (higher profit is taken out of the same GDV, leaving less for land). 17.5% of GDV is the planning-viability benchmark; volume house-builders often target 20%+ (a ‘30% margin’ is usually profit-on-cost, ≈ 22–23% on GDV)."),
+          e("div", { style:{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:10 } },
             profitRow.map(function(p){
-              var v = rlvAtProfit(p), on = Math.abs(p - profitPct) < 0.25;
+              var v = rlvAtProfit(p), pp = v / homes, on = Math.abs(p - profitPct) < 0.25;
               return e("div", { key:p, style:{ border:"1px solid "+(on?"#4A4BAE":"#E0E2EC"), background:on?"rgba(74,75,174,0.06)":"#FAFBFF", borderRadius:8, padding:"9px 11px" } },
                 e("div", { style:{ fontSize:10, color:"#8A90B4", fontWeight:700, textTransform:"uppercase", letterSpacing:".05em" } }, p+"% profit"+(on?" · current":"")),
-                e("div", { style:{ fontSize:18, fontWeight:800, marginTop:3, color:v >= 0 ? "#1B7A54" : "#B05A35" } }, (v < 0 ? "−" : "") + fmt(Math.abs(v))));
+                e("div", { style:{ fontSize:19, fontWeight:800, marginTop:3, color:pp >= 0 ? "#1B7A54" : "#B05A35" } }, (pp < 0 ? "−£" : "£") + Math.abs(Math.round(pp/1000)).toLocaleString() + "k/plot"),
+                e("div", { style:{ fontSize:10.5, color:"#7278A0", marginTop:1 } }, "total " + (v < 0 ? "−" : "") + fmt(Math.abs(v)) + (acres > 0 ? " · " + fmt(v/acres) + "/acre" : "")));
             }))
         );
       })(),
