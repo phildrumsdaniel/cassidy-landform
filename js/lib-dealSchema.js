@@ -564,6 +564,89 @@ function applyMarketPricesAndOptimise(data, aiTypes, opts){
   return { data:data, applied:applied, optimised:optimised, rentByBeds:rentByBeds };
 }
 
+// ── v10.72 — deterministic stage populates ────────────────────────────────────
+// The Financial Modelling and Viability screens each carry a one-click "Populate from the
+// deal" button. Keystone's "Complete the whole journey with AI" never pressed them, so those
+// two stages stayed blank after a full run. These pure functions mirror those buttons — they
+// derive from the ONE engine + the deal and mutate `data` — so the journey can leave both
+// stages filled with exact engine figures (no AI guesswork). Only fill EMPTY fields, so a
+// user's own inputs are never clobbered.
+function keystonePopulateFin(data){
+  data = data || {}; var f = data.fin || (data.fin = {}); var ch = [];
+  var sfh = data.sfh || {}, rlv = data.rlv || {}, cap = data.capitalise || {}, l = data.land || {}, p = data.planning || {};
+  var ck = (typeof dealCityKey === "function") ? dealCityKey(data) : (l.city || "manchester");
+  var mk = (typeof MKT !== "undefined" && (MKT[ck] || MKT.manchester)) || { build:188, yield:0.047, btr:1000 };
+  var units = num(l.units) || num(p.units) || (sfh.mix || []).reduce(function(a, r){ return a + num(r.count); }, 0) || 0;
+  function set(k, v){ if(f[k] === undefined || f[k] === "" || f[k] === null){ f[k] = String(v); ch.push(k); } }
+  if(units > 0) set("units", units);
+  set("buildPsf", num(sfh.buildPsf) || Math.round(mk.build));
+  set("salePsf", num(rlv.salePsf) || num(sfh.basePsf) || (typeof estSalePsfFromRent === "function" && mk.btr ? Math.round(estSalePsfFromRent(mk.btr)) : 260));
+  // Carry the AI-refined net initial yield (exit filler → cap.targetYield) through to Fin.
+  set("exitYield", num(cap.targetYield) || Math.round(mk.yield * 1000) / 10);
+  set("finRate", 7.5);
+  set("contingency", 5);
+  set("s106pu", num(sfh.s106pu) || 20000);
+  return ch;
+}
+function keystonePopulateViability(data){
+  data = data || {}; var v = data.viability || (data.viability = {});
+  var ap = v.appraisal || {};
+  if(ap.siteName) return [];   // already populated — never clobber the user's appraisal
+  var s2 = data.sfh || {}, p2 = data.planning || {}, l2 = data.land || {}, f2 = data.fin || {};
+  var ck = (typeof dealCityKey === "function") ? dealCityKey(data) : (l2.city || "manchester");
+  var m2 = (typeof MKT !== "undefined" && (MKT[ck] || MKT.manchester)) || { build:188 };
+  var eng = (typeof computeSFHMetrics === "function") ? computeSFHMetrics(data) : {};
+  var gdv = num(eng.gdv) || 0;
+  var sfhMix = s2.mix || [];
+  var totalSqftMix = 0; sfhMix.forEach(function(row){ totalSqftMix += num(row.sqft || 900) * num(row.count || 0); });
+  var gia2 = totalSqftMix > 0 ? totalSqftMix : (num(l2.acres || 0) * 43560 * 0.65);
+  var totalUnitsV = num(p2.units || 0) || sfhMix.reduce(function(t, r){ return t + num(r.count || 0); }, 0) || 1;
+  var ahPctV = num(p2.ahPct || p2.afhPct || 0) / 100;
+  var privU = Math.round(totalUnitsV * (1 - ahPctV));
+  var ahU = Math.round(totalUnitsV * ahPctV * 0.9);
+  var fhU = Math.round(totalUnitsV * ahPctV * 0.1);
+  var bpsf = num(f2.buildPsf || m2.build || 188);
+  var privSqft = Math.round(gia2 * 0.65), ahSqft = Math.round(gia2 * 0.25), fhSqft = Math.round(gia2 * 0.10);
+  var privBuild = Math.round(privSqft * bpsf), ahBuild = Math.round(ahSqft * bpsf * 0.95), fhBuild = Math.round(fhSqft * bpsf * 0.95);
+  var acresV = num(l2.acres || 0);
+  var infraBase = Math.max(acresV * 150000, totalUnitsV * 8000);
+  var s106V = num(f2.s106pu || 0) * totalUnitsV || num(p2.s106 || 0);
+  var engRlvV = (typeof calcDealMetrics === "function") ? num(calcDealMetrics(data).rlv) : 0;
+  var landCostV = engRlvV > 0 ? Math.round(engRlvV) : num(l2.price || 0);
+  // Private target margin follows the deal's profit target (so Viability agrees with the deal),
+  // not a hardcoded 17.5%.
+  var privMargin = num(s2.profitPct) > 0 ? num(s2.profitPct) / 100 : 0.175;
+  var dateStr = ""; try { dateStr = new Date().toISOString().substring(0, 10); } catch(e){ dateStr = ""; }
+  v.appraisal = {
+    siteName: l2.address || "Development Site", date: dateStr,
+    grossSiteArea: acresV, netSiteArea: Math.round(acresV * 0.55 * 100) / 100,
+    privateUnits: privU, affordableUnits: ahU, firstHomesUnits: fhU,
+    privateRevenueSqft: privSqft, privateRevenueTotal: Math.round(gdv * 0.72),
+    affordableRevenueSqft: ahSqft, affordableRevenueTotal: Math.round(gdv * 0.20),
+    firstHomesRevenueSqft: fhSqft, firstHomesRevenueTotal: Math.round(gdv * 0.08),
+    residualLandPrice: landCostV,
+    agentFeeRate: 0.01, legalFeesRate: 0.01, landDiscount: 0.35,
+    rawLandValuePerAcre: acresV > 0 ? Math.round((landCostV || 1) / (acresV * 1.5)) : 75000,
+    privateBuild: privBuild, affordableBuild: ahBuild, firstHomesBuild: fhBuild,
+    enablingWorks: Math.round(infraBase * 0.10),
+    s278: Math.round(infraBase * 0.12), onSiteHighways: Math.round(infraBase * 0.18),
+    footpaths: Math.round(infraBase * 0.03), swDrainage: Math.round(infraBase * 0.09),
+    fwDrainage: Math.round(infraBase * 0.06), utilities: Math.round(infraBase * 0.14),
+    landscape: Math.round(infraBase * 0.08), overheads: Math.round((privBuild + ahBuild + fhBuild) * 0.03),
+    professionalFees: Math.round((privBuild + ahBuild + fhBuild) * 0.09),
+    plotAbnormals: Math.round((privBuild + ahBuild + fhBuild) * 0.12),
+    contingency: Math.round((privBuild + ahBuild + fhBuild) * 0.05),
+    cil: Math.round(gdv * 0.04), s106: Math.round(s106V),
+    salesMktgRate: 0.03, affordableDisposal: 100000,
+    developmentFinanceRate: num(f2.finRate || f2.finRatePa || 8) / 100,
+    targetPrivateMargin: privMargin, targetAffordableMargin: 0.06,
+    durationMonths: num(f2.programmeMths || 36),
+    meanMonth: num(f2.programmeMths || 36) / 2, stdDev: num(f2.programmeMths || 36) / 4,
+    autoPopulated: true
+  };
+  return ["Viability appraisal"];
+}
+
 // ── v10.59 — KEYSTONE JOURNEY FILLERS ─────────────────────────────────────────
 // So Keystone can fill the WHOLE journey (not just prices/rents), each stage that needs
 // AI/benchmark judgement is a filler: { key, label, sys, prompt(data) → string, apply(data,obj) }.
@@ -804,5 +887,5 @@ function rawImportBrief(deal){
 
 // Expose to the headless test harness (Node) without breaking the browser global scope.
 if(typeof module !== "undefined" && module.exports){
-  module.exports = { buildDealFromBrief: buildDealFromBrief, detectJourney: detectJourney, keystoneBriefFromPlaconaSite: keystoneBriefFromPlaconaSite, rawImportBrief: rawImportBrief, KEYSTONE_BRIEF_SCHEMA: KEYSTONE_BRIEF_SCHEMA, KEYSTONE_JOURNEY_FILLERS: KEYSTONE_JOURNEY_FILLERS, applyMarketPricesAndOptimise: applyMarketPricesAndOptimise, scaleMixToUnits: scaleMixToUnits };
+  module.exports = { buildDealFromBrief: buildDealFromBrief, detectJourney: detectJourney, keystoneBriefFromPlaconaSite: keystoneBriefFromPlaconaSite, rawImportBrief: rawImportBrief, KEYSTONE_BRIEF_SCHEMA: KEYSTONE_BRIEF_SCHEMA, KEYSTONE_JOURNEY_FILLERS: KEYSTONE_JOURNEY_FILLERS, applyMarketPricesAndOptimise: applyMarketPricesAndOptimise, scaleMixToUnits: scaleMixToUnits, keystonePopulateFin: keystonePopulateFin, keystonePopulateViability: keystonePopulateViability };
 }

@@ -231,6 +231,17 @@ function renderKeystone(data, setData, up, navTo, user){
         done.push(f.label);
       }catch(e){ /* skip this stage, keep going */ }
     }
+    // v10.72 — deterministic populates for the detail stages that carry a "populate from the
+    // deal" button (Financial Modelling, Viability). No AI call — exact engine figures, filling
+    // only empty fields so the user's own inputs are never clobbered.
+    setK({ journeyBusy:true, journeyNote:"Populating Financial Modelling & Viability from the deal…" });
+    setData(function(prev){
+      var d2; try { d2 = JSON.parse(JSON.stringify(prev)); }catch(e){ d2 = prev; }
+      try { if(typeof keystonePopulateFin==="function") keystonePopulateFin(d2); }catch(e){}
+      try { if(typeof keystonePopulateViability==="function") keystonePopulateViability(d2); }catch(e){}
+      return d2;
+    });
+    done.push("Financial Modelling", "Viability appraisal");
     setK({ journeyBusy:false, journeyNote: done.length ? ("Journey filled: "+done.join(", ")+". Review each stage.") : "Couldn't fill the journey stages — try again." });
     notify(done.length ? ("✓ Keystone filled the journey — "+done.join(", ")+". Human stages (Due Diligence, Meetings, Data Room, Risk Register) are left for you.") : "Journey fill didn't return usable data — try again.");
   }
