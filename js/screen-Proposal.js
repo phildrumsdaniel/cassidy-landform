@@ -362,6 +362,28 @@ function buildLandOnePager(data, cityHint){
                 '<tr>'+[17.5,20,25,30].map(function(p){ var v=(oGdv-oDev)-oGdv*(p/100); return '<td class="n" style="font-size:7.4px;color:#6A6F97">'+(v<0?'−':'')+fmt(Math.abs(v))+'</td>'; }).join('')+'</tr></table>'+
             '</div>'
           : '')+
+        // v10.68 — two named scenarios side by side: the profit Keystone built at, and the user's
+        // override — shown only when they differ, so the board sees both bases explicitly.
+        (function(){
+          var ksP=num((data.sfh||{}).keystoneProfitPct)||17.5, ourP=oProfitPct;
+          if(!(oGdv>0) || Math.abs(ksP-ourP)<0.25) return '';
+          function rlvAtP(p){ return (oGdv-oDev)-oGdv*(p/100); }
+          var Av=rlvAtP(ksP), Bv=rlvAtP(ourP), acq2=askL>0?landAcqCosts(askL).total:0;
+          function money(x){ return (x<0?'−':'')+fmt(Math.abs(x)); }
+          function plot(v){ var pp=oUnits>0?v/oUnits:0; return '<span style="color:'+(pp>=0?'#1B7A54':'#B05A35')+';font-weight:800">'+(pp<0?'−£':'£')+Math.abs(Math.round(pp/1000)).toLocaleString()+'k</span>'; }
+          function hr(v){ var h=v-(askL+acq2); return '<span style="color:'+(h>=0?'#1B7A54':'#B05A35')+'">'+(h<0?'−':'+')+fmt(Math.abs(h))+'</span>'; }
+          return '<div style="margin-top:9px;border:1px solid #B9C6DE;border-radius:7px;padding:9px 11px;background:#F2F6FC">'+
+            '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#2E2F8A;font-weight:800;margin-bottom:4px">Two scenarios &mdash; Keystone baseline vs your target profit</div>'+
+            '<table>'+
+              '<tr><td></td><td class="n" style="font-size:7.4px;color:#8A90B4;text-transform:uppercase;font-weight:700">Keystone &middot; '+(Math.round(ksP*10)/10)+'%</td><td class="n" style="font-size:7.4px;color:#8A90B4;text-transform:uppercase;font-weight:700">Your target &middot; '+(Math.round(ourP*10)/10)+'%</td></tr>'+
+              '<tr><td>Residual land value</td><td class="n" style="font-weight:800;color:'+(Av>=0?'#1B7A54':'#B05A35')+'">'+money(Av)+'</td><td class="n" style="font-weight:800;color:'+(Bv>=0?'#1B7A54':'#B05A35')+'">'+money(Bv)+'</td></tr>'+
+              '<tr><td>Per plot</td><td class="n">'+plot(Av)+'</td><td class="n">'+plot(Bv)+'</td></tr>'+
+              (acres>0?'<tr><td>Per acre</td><td class="n">'+money(Av/acres)+'</td><td class="n">'+money(Bv/acres)+'</td></tr>':'')+
+              (askL>0?'<tr><td>Headroom vs '+fmt(askL)+' guide</td><td class="n">'+hr(Av)+'</td><td class="n">'+hr(Bv)+'</td></tr>':'')+
+            '</table>'+
+            '<div style="font-size:7.5px;color:#6A6F97;margin-top:3px">Same scheme, sale values and costs &mdash; only the developer profit target differs (Keystone built at '+(Math.round(ksP*10)/10)+'%; your override '+(Math.round(ourP*10)/10)+'%).</div>'+
+          '</div>';
+        })()+
         (oCapNetRent>0
           ? '<div style="margin-top:9px;border:1px solid #BFD9CF;border-radius:7px;padding:9px 11px;background:#F5FBF8">'+
               '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#1B7A54;font-weight:800;margin-bottom:4px">Forward-fund exit — whole scheme sold to a pension fund</div>'+
