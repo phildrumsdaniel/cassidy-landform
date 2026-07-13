@@ -599,13 +599,41 @@ var KEYSTONE_JOURNEY_FILLERS = [
   { key:"exit", label:"Exit strategy & target buyer",
     sys:"You are a UK residential development & investment adviser. Output STRICT JSON only — no prose, no markdown.",
     prompt:function(data){ var c=_kjContext(data);
-      return "Recommend the exit for a "+c.units+"-home single-family housing scheme in "+c.town+" with "+c.ahPct+"% affordable. Output EXACTLY this JSON: {\"strategy\":\"plot_sales|bulk_sale_ha|forward_fund|forward_sale|stabilised|retain|phased\",\"investorType\":\"pension_fund|sovereign_wealth|reit|private_equity|asset_manager|family_office\",\"agent\":\"a suitable UK selling/transaction agent, e.g. Savills, JLL, Knight Frank, Carter Jonas\",\"summary\":\"2-3 sentences: the primary exit (open-market plot sales for private homes; bulk sale of the affordable to a named local housing association), plus the institutional forward-fund alternative and who would buy\"}."; },
+      return "Recommend the exit for a "+c.units+"-home single-family housing scheme in "+c.town+" with "+c.ahPct+"% affordable. Output EXACTLY this JSON: {\"strategy\":\"plot_sales|bulk_sale_ha|forward_fund|forward_sale|stabilised|retain|phased\",\"investorType\":\"pension_fund|sovereign_wealth|reit|private_equity|asset_manager|family_office\",\"agent\":\"a suitable UK selling/transaction agent, e.g. Savills, JLL, Knight Frank, Carter Jonas\",\"netInitialYield\":<net initial yield % an institutional forward-fund/stabilised buyer would apply to this location, 3.75-5.5 — prime commuter towns price tighter (lower), secondary markets wider (higher)>,\"summary\":\"2-3 sentences: the primary exit (open-market plot sales for private homes; bulk sale of the affordable to a named local housing association), plus the institutional forward-fund alternative and who would buy\"}."; },
     apply:function(data, o){ var ex=data.exit||(data.exit={}); var ch=[];
       var st=_kjPick(o.strategy,["plot_sales","bulk_sale_ha","forward_fund","forward_sale","stabilised","retain","phased"],""); if(st){ ex.strategy=st; ch.push("Exit strategy"); }
       var it=_kjPick(o.investorType,["pension_fund","sovereign_wealth","reit","private_equity","asset_manager","family_office"],""); if(it){ ex.investorType=it; ch.push("Target investor"); }
       if(o.agent){ ex.agent=String(o.agent); ch.push("Transaction agent"); }
+      // v10.71 — write the AI-refined net initial yield to Capitalisation (dealYield reads
+      // cap.targetYield). Clamped to a realistic institutional band so a stray figure can't
+      // distort the forward-fund value. Was: regional benchmark table only.
+      var y=num(o.netInitialYield);
+      if(y>=3 && y<=7){ data.capitalise=Object.assign({}, data.capitalise||{}, { targetYield:String(Math.round(y*100)/100) }); ch.push("Exit yield"); }
       if(o.summary){ ex.aiSummary=String(o.summary); ch.push("Exit summary"); }
       return ch; } },
+
+  // v10.71 — Affordable tenure split. buildDealFromBrief drafts a generic 70/30 rent/shared-
+  // ownership split of the affordable homes; this refines it to the local plan / NPPF policy
+  // (social rent, affordable rent, shared ownership, First Homes) and writes data.tenure.mix so
+  // the Tenure Mix stage's blended GDV reflects a policy-accurate split. Indicative — verify
+  // against the adopted plan / S106.
+  { key:"tenure", label:"Affordable tenure split (local plan policy)",
+    sys:"You are a UK affordable-housing planning specialist. Output STRICT JSON only — no prose, no markdown. Indicative of typical local plan / NPPF policy, to be verified against the adopted plan and S106.",
+    prompt:function(data){ var c=_kjContext(data);
+      return "For a "+c.units+"-home scheme in "+c.town+(c.lpa?" (LPA "+c.lpa+")":"")+" providing "+c.ahPct+"% affordable housing, split the AFFORDABLE portion across tenures per typical English local-plan / NPPF policy. Output EXACTLY this JSON — the four values as % OF THE AFFORDABLE HOMES, summing to 100: {\"socialRent\":<%>,\"affordableRent\":<%>,\"sharedOwnership\":<%>,\"firstHomes\":<%>,\"summary\":\"1 sentence citing the policy basis\"}. Typical policy leans to rented tenures (social/affordable rent) as the majority, with shared ownership and a First Homes element (often ~25% of affordable) making up the rest; reflect the specific area where known."; },
+    apply:function(data, o){ var c=_kjContext(data); var ah=num(c.ahPct); if(ah<=0) return [];
+      var sr=Math.max(0,num(o.socialRent)), ar=Math.max(0,num(o.affordableRent)), so=Math.max(0,num(o.sharedOwnership)), fh=Math.max(0,num(o.firstHomes));
+      var sum=sr+ar+so+fh; if(sum<=0) return [];
+      // Scale each sub-tenure (a % of the affordable homes) to a % of the WHOLE scheme.
+      function ofScheme(x){ return Math.round(ah * (x/sum)); }
+      var mix={ sr:ofScheme(sr), ar:ofScheme(ar), so:ofScheme(so), first_homes:ofScheme(fh) };
+      Object.keys(mix).forEach(function(k){ if(!mix[k]) delete mix[k]; });
+      var affTotal=Object.keys(mix).reduce(function(a,k){ return a+mix[k]; },0);
+      mix.oms=Math.max(0,100-affTotal);   // rounding is absorbed by open-market
+      var t=data.tenure||{};
+      data.tenure=Object.assign({}, t, { inputMode:"percent", totalUnits:(t.totalUnits||c.units||""), mix:mix });
+      if(o.summary){ data.tenure.aiSummary=String(o.summary); }
+      return ["Affordable tenure split"]; } },
 
   { key:"grants", label:"Grant & funding strategy",
     sys:"You are a UK affordable-housing grant & funding specialist (Homes England AHP, Brownfield/Infrastructure funds). Output STRICT JSON only — no prose, no markdown.",

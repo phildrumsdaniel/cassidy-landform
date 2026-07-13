@@ -244,6 +244,27 @@ console.log("Landform engine consistency tests\n");
     byKey.site.apply(d5b, { proximity:"amazing", contamination:"toxic", tenure:"commonhold", existingUsePerAcre:2500000 });
     ok("site apply rejects invalid dropdown values", !d5b.land.proximity && !d5b.land.contamination && !d5b.land.tenure);
     ok("site apply rejects an absurd existing-use value", d5b.land.agriValPerAcre===undefined);
+
+    // v10.71 — exit filler also writes an AI-refined net initial yield to Capitalisation
+    var d6 = JSON.parse(JSON.stringify(deal));
+    byKey.exit.apply(d6, { strategy:"forward_fund", investorType:"pension_fund", netInitialYield:4.25 });
+    ok("exit apply writes a valid exit yield to cap.targetYield", num(d6.capitalise.targetYield)===4.25);
+    var d6b = JSON.parse(JSON.stringify(deal));
+    byKey.exit.apply(d6b, { strategy:"forward_fund", netInitialYield:19 });
+    ok("exit apply rejects an out-of-band yield", !(d6b.capitalise && d6b.capitalise.targetYield));
+
+    // v10.71 — tenure filler refines the affordable split into a policy-accurate mix
+    ok("journey now covers the affordable tenure split", !!byKey.tenure);
+    var d7 = JSON.parse(JSON.stringify(sfhDeal({ sfh:{ ahPct:30 } })));   // 30% affordable
+    byKey.tenure.apply(d7, { socialRent:40, affordableRent:20, sharedOwnership:25, firstHomes:15 });
+    var tm = d7.tenure.mix;
+    var tmSum = num(tm.oms)+num(tm.sr)+num(tm.ar)+num(tm.so)+num(tm.first_homes);
+    ok("tenure split writes a scheme mix summing to 100%", tmSum===100);
+    ok("tenure split OMS ≈ non-affordable share", Math.abs(num(tm.oms)-70) <= 2);
+    var d7b = JSON.parse(JSON.stringify(sfhDeal()));   // ahPct 0 → no affordable requirement
+    var beforeMix = JSON.stringify(d7b.tenure||null);
+    byKey.tenure.apply(d7b, { socialRent:50, affordableRent:50 });
+    ok("tenure split is a no-op when there is no affordable requirement", JSON.stringify(d7b.tenure||null)===beforeMix);
   }
 })();
 
