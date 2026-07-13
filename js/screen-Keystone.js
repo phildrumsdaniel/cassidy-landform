@@ -155,11 +155,18 @@ function renderKeystone(data, setData, up, navTo, user){
         built._keystone = Object.assign({}, built._keystone || {}, {preservedOnRebuild: kept, wasRebuild: !!hasExisting});
         return built;
       });
-      // v10.46 — auto-run "Complete with AI" on build: research area prices/rents, apply them,
-      // optimise the mix. Non-blocking (the deal loads immediately); any failure leaves it as
-      // built. Only for a housing scheme that actually has a mix.
-      if((deal.assetType === "sfh" || deal.assetType === "land") && deal.sfh && deal.sfh.mix && deal.sfh.mix.length && typeof completeWithAI === "function"){
-        setTimeout(function(){ completeWithAI(deal); }, 60);
+      // v10.80 — a FRESH build now auto-completes the WHOLE journey (prices/rents, planning,
+      // exit, tenure split, grants, constraints, the Land scorecard, and Financial Modelling &
+      // Viability) so the deal comes out FILLED, not just priced — no separate button needed.
+      // A REBUILD only re-prices (completeWithAI), preserving the manual journey work that
+      // preserveManualOnRebuild carried over. Non-blocking; the deal loads immediately and the
+      // stages populate progressively. Any failure leaves the deal as built.
+      if((deal.assetType === "sfh" || deal.assetType === "land") && deal.sfh && deal.sfh.mix && deal.sfh.mix.length){
+        if(!hasExisting && typeof completeJourneyWithAI === "function"){
+          setTimeout(function(){ completeJourneyWithAI(deal); }, 60);
+        } else if(typeof completeWithAI === "function"){
+          setTimeout(function(){ completeWithAI(deal); }, 60);
+        }
       }
     }
     // v10.14 — non-blocking confirm (was native confirm(), which froze the browser).
@@ -208,9 +215,9 @@ function renderKeystone(data, setData, up, navTo, user){
   // One action: research prices/rents (completeWithAI), THEN fill every stage that needs AI
   // judgement — Planning, Exit, Grants, Constraints — from KEYSTONE_JOURNEY_FILLERS. Due
   // Diligence, Meetings, Data Room and the Risk Register are deliberately left for a human.
-  async function completeJourneyWithAI(){
-    var deal = data;
-    if(!(deal.sfh && deal.sfh.mix && deal.sfh.mix.length)){ notify("Build the deal first, then complete the journey."); return; }
+  async function completeJourneyWithAI(dealArg){
+    var deal = dealArg || data;
+    if(!(deal.sfh && deal.sfh.mix && deal.sfh.mix.length)){ if(!dealArg) notify("Build the deal first, then complete the journey."); return; }
     setK({ journeyBusy:true, journeyNote:"Researching prices & rents…" });
     try { await completeWithAI(deal); }catch(e){}
     var done = [], fillers = (typeof KEYSTONE_JOURNEY_FILLERS !== "undefined") ? KEYSTONE_JOURNEY_FILLERS : [];
