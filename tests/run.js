@@ -237,11 +237,13 @@ console.log("Landform engine consistency tests\n");
     // v10.69 — site appraisal filler fills the Land Appraisal scorecard dropdowns
     ok("journey now covers the site appraisal scorecard", !!byKey.site);
     var d5 = JSON.parse(JSON.stringify(deal));
-    byKey.site.apply(d5, { proximity:"good", transport:"fair", contamination:"clean", tenure:"freehold", constraint:"none", summary:"Edge-of-town greenfield." });
+    byKey.site.apply(d5, { proximity:"good", transport:"fair", contamination:"clean", tenure:"freehold", constraint:"none", existingUsePerAcre:11000, summary:"Edge-of-town greenfield." });
     ok("site apply writes the 5 land dropdowns", d5.land.proximity==="good" && d5.land.transport==="fair" && d5.land.contamination==="clean" && d5.land.tenure==="freehold" && d5.land.constraint==="none");
+    ok("site apply writes existing-use £/acre in band", num(d5.land.agriValPerAcre)===11000);
     var d5b = JSON.parse(JSON.stringify(deal));
-    byKey.site.apply(d5b, { proximity:"amazing", contamination:"toxic", tenure:"commonhold" });
+    byKey.site.apply(d5b, { proximity:"amazing", contamination:"toxic", tenure:"commonhold", existingUsePerAcre:2500000 });
     ok("site apply rejects invalid dropdown values", !d5b.land.proximity && !d5b.land.contamination && !d5b.land.tenure);
+    ok("site apply rejects an absurd existing-use value", d5b.land.agriValPerAcre===undefined);
   }
 })();
 
