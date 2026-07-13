@@ -105,6 +105,9 @@ function buildLandOnePager(data, cityHint){
   var ask=num(l.price||0);
   var ahPct=num(p.ahPct||p.afhPct||ten.ahPct||0);
   var planStatus=p.status||l.planningStatus||"Unallocated";
+  // v10.84 — a clean, board-facing status label so an unset / "none" status doesn't print the
+  // raw word "none" on the briefing.
+  var planStatusLabel=({full:"Full consent",outline:"Outline consent",allocated:"Allocated in Local Plan",preapp:"Pre-application",likely:"Likely allocation",none:"Unallocated / promotion",unallocated:"Unallocated / promotion"})[String(planStatus).toLowerCase()]||planStatus;
   var lpa=p.lpa||l.localAuthority||"";
   var density=(acres>0&&units>0)?Math.round(units/acres):0;
   function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
@@ -286,7 +289,7 @@ function buildLandOnePager(data, cityHint){
       '<div class="pg">'+
         '<div class="top"><div><div class="brand">Cassidy Group · Land appraisal — one-page briefing</div>'+
           '<h1>'+esc(addr)+'</h1><div class="sub">'+esc(siteSub||"—")+(acres>0?' · <b>'+esc(acres)+' acres</b>':'')+'</div></div>'+
-          '<div class="meta">'+((typeof BRAND_LOGO_PNG!=="undefined"&&BRAND_LOGO_PNG&&typeof cassidyLogoSrc==="function")?'<img src="'+cassidyLogoSrc()+'" alt="Cassidy Group Ltd" style="height:30px;width:auto;max-width:170px;display:block;margin:0 0 5px auto"/>':'')+(lpa?esc(lpa)+'<br/>':'')+esc(planStatus||"Unallocated")+'<br/>Indicative · v'+esc(typeof CURRENT_VERSION!=="undefined"?CURRENT_VERSION:"")+'</div></div>'+
+          '<div class="meta">'+((typeof BRAND_LOGO_PNG!=="undefined"&&BRAND_LOGO_PNG&&typeof cassidyLogoSrc==="function")?'<img src="'+cassidyLogoSrc()+'" alt="Cassidy Group Ltd" style="height:30px;width:auto;max-width:170px;display:block;margin:0 0 5px auto"/>':'')+(lpa?esc(lpa)+'<br/>':'')+esc(planStatusLabel||"Unallocated / promotion")+'<br/>Indicative · v'+esc(typeof CURRENT_VERSION!=="undefined"?CURRENT_VERSION:"")+'</div></div>'+
         '<div class="kpis">'+
           '<div class="kpi"><div class="l">Homes</div><div class="v">'+(oUnits?oUnits.toLocaleString():"—")+'</div></div>'+
           '<div class="kpi"><div class="l">GDV</div><div class="v">'+(oGdv>0?fmt(oGdv):"—")+'</div></div>'+
@@ -297,7 +300,7 @@ function buildLandOnePager(data, cityHint){
         '<div class="cols">'+
           '<div class="card"><div class="ct">Scheme &amp; house mix</div>'+
             '<div class="rr"><span>Site area</span><b>'+(acres>0?acres+" acres · "+(acres*0.404686).toFixed(1)+" ha":"—")+'</b></div>'+
-            '<div class="rr"><span>Density</span><b>'+(oDensity>0?oDensity+" homes/acre · ≈"+Math.round(oDensity*2.471)+" dph":"—")+'</b></div>'+
+            '<div class="rr"><span>Density (gross)</span><b>'+(oDensity>0?oDensity+" homes/acre · ≈"+Math.round(oDensity*2.471)+" dph":"—")+(oDensity>0&&(oDensity*2.471)<25?' <span style="color:#9298BC">· net developable higher</span>':'')+'</b></div>'+
             '<div class="rr"><span>Homes (modelled mix)</span><b>'+(oUnits?oUnits.toLocaleString():"—")+(sitePotential>0?' <span style="color:#9298BC">of ~'+sitePotential.toLocaleString()+' site potential</span>':'')+'</b></div>'+
             '<div class="rr"><span>Affordable (S106)</span><b>'+(ahPct?ahPct+"% · ~"+ahU.toLocaleString()+" homes":"—")+'</b></div>'+
             '<div class="rr"><span>Avg home · sale £/sqft</span><b>'+(oAvgSqft?oAvgSqft.toLocaleString()+" sqft · £"+oBasePsf:"—")+'</b></div>'+
