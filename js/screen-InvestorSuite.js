@@ -140,6 +140,24 @@ function renderInvestorSuite(data, navTo, saveDeal, up, user){
       if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the pack."); return; }
       w.document.open(); w.document.write(html); w.document.close();
     }
+    // v10.96 — open the landowner proposal (unlock-the-value pitch to secure the land).
+    function openLandownerPack(){
+      if(typeof buildLandownerPack!=="function"){ if(typeof notify==="function") notify("Landowner pack generator still loading — try again in a moment."); return; }
+      var html=buildLandownerPack(data);
+      if(typeof showReportOverlay==="function" && showReportOverlay(html,"Landowner proposal")) return;
+      var w=window.open("","_blank");
+      if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the pack."); return; }
+      w.document.open(); w.document.write(html); w.document.close();
+    }
+    // v10.95 — open ALL stakeholder packs in one document (one click, whole set).
+    function openAllPacks(){
+      if(typeof buildAllStakeholderPacks!=="function"){ if(typeof notify==="function") notify("Pack generator still loading — try again in a moment."); return; }
+      var html=buildAllStakeholderPacks(data);
+      if(typeof showReportOverlay==="function" && showReportOverlay(html,"All stakeholder packs")) return;
+      var w=window.open("","_blank");
+      if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the packs."); return; }
+      w.document.open(); w.document.write(html); w.document.close();
+    }
 
     // ── Tab styles ──
     function tabBtn(key,label){
@@ -162,14 +180,14 @@ function renderInvestorSuite(data, navTo, saveDeal, up, user){
     return e("div",null,
       // ── Header ──
       e("div",{style:{marginBottom:18}},
-        e("div",{style:{fontSize:9,letterSpacing:".25em",textTransform:"uppercase",color:"#9A7B3E",marginBottom:6,fontWeight:700}},"Investor Marketing Suite"),
-        e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:6}},"Package, market, and track your deal"),
-        e("p",{style:{fontSize:12,color:"#7278A0",maxWidth:680,lineHeight:1.6}},"Generate institutional-grade Teaser, IM and Data Room. Upload photos and embed videos. Create shareable links per investor with view analytics so you can gauge interest in real-time.")
+        e("div",{style:{fontSize:9,letterSpacing:".25em",textTransform:"uppercase",color:"#9A7B3E",marginBottom:6,fontWeight:700}},"Stakeholder Suite"),
+        e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:6}},"Package, market and track your deal — for every stakeholder"),
+        e("p",{style:{fontSize:12,color:"#7278A0",maxWidth:680,lineHeight:1.6}},"Generate a tailored pack for every party in the deal — landowner, investor, housing association, lender and local authority — plus the Teaser, IM and Data Room. Add media, create shareable links and track engagement in real time.")
       ),
 
       // ── Save-deal prompt if no cloud ID ──
       !hasDeal && e("div",{style:{padding:"14px 18px",background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.3)",borderRadius:8,fontSize:12,color:"#B05A35",marginBottom:18,lineHeight:1.6}},
-        e("strong",null,"⚠ Save your deal first. "),"The Investor Marketing Suite needs a cloud-saved deal to generate shareable links. Click ",
+        e("strong",null,"⚠ Save your deal first. "),"The Stakeholder Suite needs a cloud-saved deal to generate shareable links. Click ",
         e("strong",null,"💾 Save Deal")," in the topbar, then come back.",
         e("div",{style:{marginTop:10}},
           e("button",{onClick:saveDeal,style:{padding:"8px 16px",background:"#B05A35",border:"none",color:"#fff",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"💾 Save Now →")
@@ -349,10 +367,12 @@ function renderInvestorSuite(data, navTo, saveDeal, up, user){
                   e("div",{style:{fontSize:11,color:"#7278A0",lineHeight:1.55}},"The full financial case — GDV, profit, forward-fund value & yield, returns and an anticipated-questions Q&A — with the ",e("strong",null,"site identity withheld")," (no address, postcode, LPA, agent). Investors judge the numbers, then contact you under NDA. Location shows only as a region.")
                 ),
                 e("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+                  e("button",{onClick:openLandownerPack,title:"Proposal to the landowner — the value uplift + a de-risked option/promotion structure",style:{padding:"10px 18px",background:"#7A5A2E",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"🌳 Landowner pack →"),
                   e("button",{onClick:openBlindTeaser,style:{padding:"10px 18px",background:"#8A1B2E",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"Open teaser →"),
                   e("button",{onClick:openRPPack,title:"Affordable-homes turnkey + grant offer for a housing association",style:{padding:"10px 18px",background:"#1B7A54",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"🏛 RP / HA pack →"),
                   e("button",{onClick:openLenderPack,title:"Development-finance request for a lender (LTGDV, LTC, cover, exit, security)",style:{padding:"10px 18px",background:"#2E2F8A",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"🏦 Lender pack →"),
-                  e("button",{onClick:openCouncilPack,title:"Planning benefits statement for the local authority (housing, affordable, S106, BNG, economic benefits)",style:{padding:"10px 18px",background:"#9A7B3E",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"🏛️ Council pack →")
+                  e("button",{onClick:openCouncilPack,title:"Planning benefits statement for the local authority (housing, affordable, S106, BNG, economic benefits)",style:{padding:"10px 18px",background:"#9A7B3E",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"🏛️ Council pack →"),
+                  e("button",{onClick:openAllPacks,title:"Investor teaser + RP/HA + lender + council, in one printable document",style:{padding:"10px 18px",background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",border:"1px solid #EDE84A",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"📚 Generate ALL packs →")
                 )
               ),
               e("div",{style:{display:"flex",gap:10,marginTop:12,flexWrap:"wrap"}},

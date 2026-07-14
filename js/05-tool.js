@@ -93,7 +93,7 @@ var ALL_STAGES = [
   {id:"teaser",      label:"Teaser PDF",           icon:"📬", group:"5. Report",   journeys:["land","sfh","btr","pbsa","all"]},
   {id:"im",          label:"Investor Memorandum",  icon:"📑", group:"5. Report",   journeys:["land","sfh","btr","pbsa","all"]},
   {id:"dataroom",    label:"Data Room",            icon:"📁", group:"5. Report",   journeys:["sfh","btr","pbsa","land","property","all"]},
-  {id:"investor",    label:"Investor Marketing Suite", icon:"🎯", group:"5. Report",journeys:["land","sfh","btr","pbsa","property","asset","all"]},
+  {id:"investor",    label:"Stakeholder Suite", icon:"🤝", group:"5. Report",journeys:["land","sfh","btr","pbsa","property","asset","all"]},
   {id:"summary",     label:"Executive Summary",    icon:"📄", group:"5. Report",   journeys:["land","sfh","btr","pbsa","property","recovery","all"]},
   {id:"proposal",    label:"Board Proposal",       icon:"📋", group:"5. Report",   journeys:["land","sfh","btr","pbsa","property","recovery","all"]},
   // ── 6. RECORDS ───────────────────────────────────────────────────────────
