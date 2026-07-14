@@ -1022,6 +1022,116 @@ function buildCouncilPack(data){
     '</div></body></html>';
 }
 
+// ── v10.96 — LANDOWNER PROPOSAL ───────────────────────────────────────────────
+// The pack that wins the LAND. A landowner takes a developer seriously when the approach leads
+// with THEIR upside (the value uplift), offers a fair, de-risked structure (Cassidy funds and
+// carries the planning at its own risk; the owner pays nothing and keeps the land until consent),
+// and reads as credible and professional. Built from the deal + the Land stage's deal-structure
+// inputs so Cassidy turns up with a numbers-backed proposal, not a vague enquiry.
+function buildLandownerPack(data){
+  data = data || {};
+  var l=data.land||{};
+  var SF=(typeof computeSFHMetrics==="function")?computeSFHMetrics(data):{};
+  function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  var region=(typeof _blindRegion==="function")?_blindRegion(data):"the area";
+  var ref=(typeof _blindRef==="function")?_blindRef(data):"CAS";
+  var units=num(SF.totalUnits)||0;
+  var acres=num(l.acres)||num(SF.acres)||0;
+  var consented=Math.max(0,num(SF.rlv));                       // max supportable land value at consent
+  var g=(typeof landValueGuide==="function")?landValueGuide(data):null;
+  var agriPerAcre=g?num(g.agriPerAcre):15000;
+  var agriValue=agriPerAcre*acres;
+  var uplift=Math.max(0,consented-agriValue);
+  var tl=(typeof projectTimeline==="function")?projectTimeline(data):null;
+  // Two structures a landowner can choose between.
+  var optionFeePerAcre=numOr(l.optionFeePerAcre,2000), optionFee=acres*optionFeePerAcre;
+  var discPct=numOr(l.optionDiscPct,15);
+  var optPayOnConsent=consented*(1-discPct/100), optTotal=optionFee+optPayOnConsent;
+  var promoFeePct=numOr(l.promoterFeePct,numOr(l.promotionFeePct,15));
+  var promoTotal=consented*(1-promoFeePct/100);
+  function pAcre(x){ return acres>0?fmt(x/acres):"—"; }
+  var logo=((typeof BRAND_LOGO_PNG!=="undefined"&&BRAND_LOGO_PNG&&typeof cassidyLogoSrc==="function")?'<img src="'+cassidyLogoSrc()+'" alt="Cassidy Group Ltd" style="height:30px;width:auto;max-width:170px;display:block;margin:0 0 5px auto"/>':'');
+  var css=''+
+    '@page{size:A4 portrait;margin:10mm}*{box-sizing:border-box}html,body{margin:0}'+
+    'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#26284F;font-size:9.9px;line-height:1.45;font-variant-numeric:tabular-nums;-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#eef0f7}'+
+    '.pg{width:190mm;min-height:277mm;margin:6mm auto;background:#fff;padding:10mm 10mm 8mm;box-shadow:0 2px 14px rgba(0,0,0,.12)}'+
+    '@media print{body{background:#fff}.pg{margin:0;box-shadow:none;width:auto;min-height:auto;padding:0}.noprint{display:none}}'+
+    '.top{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #7A5A2E;padding-bottom:6px;margin-bottom:6px}'+
+    '.brand{font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:#7A5A2E;font-weight:800}'+
+    'h1{font-family:Georgia,serif;font-size:17px;color:#1B1D46;margin:2px 0 0}.sub{color:#6A6F97;font-size:9.5px;margin-top:3px}'+
+    '.meta{text-align:right;font-size:8.3px;color:#6A6F97;line-height:1.5}'+
+    '.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin:9px 0}'+
+    '.kpi{border:1px solid #E0E2EC;border-radius:5px;padding:7px 8px;background:#FBF8F3}'+
+    '.kpi .l{font-size:7.3px;letter-spacing:.07em;text-transform:uppercase;color:#8A7250;font-weight:700}.kpi .v{font-size:14px;font-weight:800;color:#1B1D46;margin-top:2px;font-family:Georgia,serif}'+
+    '.cols{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:3px}'+
+    '.card{border:1px solid #E0E2EC;border-radius:6px;padding:9px 10px;margin-bottom:9px}'+
+    '.ct{font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#7A5A2E;font-weight:800;margin-bottom:5px}'+
+    'table{width:100%;border-collapse:collapse}td{padding:2.6px 0;border-bottom:1px solid #F1F2F8}td.n{text-align:right;font-weight:600}tr.s td{border-top:1.4px solid #C9CCE4;border-bottom:none;font-weight:800;color:#1B1D46;padding-top:4px;font-size:10.6px}'+
+    '.rr{display:flex;justify-content:space-between;color:#6A6F97;font-size:8.8px;padding:2px 0}.rr b{color:#33365F}'+
+    '.hl{margin:0;padding-left:15px}.hl li{margin-bottom:3px;color:#33365F}'+
+    '.cta{border:1.5px solid #7A5A2E;border-radius:7px;padding:11px 13px;background:#FBF7EF;margin-top:2px}.cta .h{font-size:11px;font-weight:800;color:#7A5A2E}.cta .b{font-size:9px;color:#33365F;margin-top:3px;line-height:1.5}'+
+    '.foot{margin-top:9px;font-size:7.5px;color:#9298BC;line-height:1.55;border-top:1px solid #EEF0F7;padding-top:6px}'+
+    '.btn{position:fixed;top:9px;right:9px;background:#1E1F5C;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25)}';
+  return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>'+
+    '<title>Land Opportunity — Proposal — '+esc(ref)+'</title><style>'+css+'</style></head><body>'+
+    '<button class="btn noprint" onclick="window.print()">Print / Save as PDF</button>'+
+    '<div class="pg">'+
+      '<div class="top"><div><div class="brand">Cassidy Group · A Proposal for the Landowner</div>'+
+        '<h1>Unlocking the value of your land — '+esc(region)+'</h1>'+
+        '<div class="sub">'+(acres>0?esc(acres)+' acres · ':'')+'potential for ~'+esc(units.toLocaleString())+' new homes · we fund and carry the planning</div></div>'+
+        '<div class="meta">'+logo+'Ref '+esc(ref)+'<br/>Private &amp; without prejudice<br/>Indicative · v'+esc(typeof CURRENT_VERSION!=="undefined"?CURRENT_VERSION:"")+'</div></div>'+
+      '<div class="kpis">'+
+        '<div class="kpi"><div class="l">Value today (current use)</div><div class="v">'+(agriValue>0?fmt(agriValue):"—")+'</div></div>'+
+        '<div class="kpi"><div class="l">Value with consent</div><div class="v" style="color:#1B7A54">'+(consented>0?fmt(consented):"—")+'</div></div>'+
+        '<div class="kpi"><div class="l">The uplift</div><div class="v" style="color:#1B7A54">'+(uplift>0?fmt(uplift):"—")+'</div></div>'+
+        '<div class="kpi"><div class="l">Your cost / risk</div><div class="v">£0</div></div>'+
+      '</div>'+
+      '<div class="card"><div class="ct">The opportunity for you</div>'+
+        '<p style="margin:0;font-size:9.4px;color:#33365F;line-height:1.55">Your '+(acres>0?esc(acres)+' acres':"land")+' in '+esc(region)+' could support around <b>'+esc(units.toLocaleString())+' new homes</b>. As agricultural / current-use land it is worth about <b>'+fmt(agriValue)+'</b> ('+fmt(agriPerAcre)+'/acre). With residential planning consent, the same land is worth up to <b>'+fmt(consented)+'</b> ('+pAcre(consented)+'/acre) — an uplift of <b>'+fmt(uplift)+'</b>. <b>Cassidy Group funds and carries the planning promotion entirely at our own cost and risk</b> to unlock that value — you pay nothing and keep the land until consent.</p>'+
+      '</div>'+
+      '<div class="cols">'+
+        '<div class="card"><div class="ct">Option 1 — Option agreement</div>'+
+          '<table>'+
+            '<tr><td>Option fee now ('+acres.toFixed(1)+' ac × £'+fmtN(optionFeePerAcre)+'/ac)</td><td class="n">'+fmt(optionFee)+'</td></tr>'+
+            '<tr><td>On consent — purchase ('+(100-discPct)+'% of consented value)</td><td class="n">'+fmt(optPayOnConsent)+'</td></tr>'+
+            '<tr class="s"><td>Total to you</td><td class="n">'+fmt(optTotal)+'</td></tr>'+
+          '</table>'+
+          '<div style="font-size:8px;color:#6A6F97;margin-top:4px;line-height:1.5">A fee now for the right to buy on consent, at a '+discPct+'% discount to the consented value — the discount is our reward for funding and de-risking the planning.</div>'+
+        '</div>'+
+        '<div class="card"><div class="ct">Option 2 — Promotion agreement</div>'+
+          '<table>'+
+            '<tr><td>You pay</td><td class="n">£0</td></tr>'+
+            '<tr><td>Cassidy promoter fee ('+promoFeePct+'% of value at sale)</td><td class="n">'+fmt(consented*promoFeePct/100)+'</td></tr>'+
+            '<tr class="s"><td>You keep (net of the fee)</td><td class="n">'+fmt(promoTotal)+'</td></tr>'+
+          '</table>'+
+          '<div style="font-size:8px;color:#6A6F97;margin-top:4px;line-height:1.5">We promote the land through planning at our cost; it is sold on the open market with consent; you keep the proceeds net of a '+promoFeePct+'% promoter fee. Full alignment — we only earn when you do.</div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="cols">'+
+        '<div class="card"><div class="ct">Why Cassidy Group</div>'+
+          '<ul class="hl" style="font-size:8.8px">'+
+            '<li>We <b>fund the planning promotion at our own risk</b> — surveys, consultants, the application.</li>'+
+            '<li>Backed by <b>investor and development-finance relationships</b> ready to fund delivery.</li>'+
+            '<li>A <b>credible, deliverable scheme</b> — full appraisal, standards-led, policy-compliant affordable housing.</li>'+
+            '<li>Local, transparent and <b>straight to deal with</b> — references on request.</li>'+
+          '</ul>'+
+        '</div>'+
+        '<div class="card"><div class="ct">Your protections</div>'+
+          '<ul class="hl" style="font-size:8.8px">'+
+            '<li>You <b>keep the land until consent</b> — no obligation to sell if planning isn\'t achieved.</li>'+
+            '<li><b>Overage / clawback</b> can be built in so you share in any further uplift.</li>'+
+            '<li>Clear <b>longstop dates</b> — the land returns to you unencumbered if we don\'t deliver.</li>'+
+            '<li><b>Tax:</b> structured with your advisers in mind (CGT / rollover) — take independent advice.</li>'+
+          '</ul>'+
+        '</div>'+
+      '</div>'+
+      (tl?'<div class="rr" style="margin:2px 2px 8px"><span>Indicative timeline</span><b>~'+tl.planningYears+' years to consent (we carry the cost &amp; risk), then a ~'+tl.buildYears+'-year build</b></div>':'')+
+      '<div class="cta"><div class="h">▸ Let\'s talk — no obligation</div>'+
+        '<div class="b">We would welcome a no-obligation conversation about unlocking the value of your land. We come prepared: a scheme, the funding, and a fair structure that costs you nothing to promote. Contact <b>Cassidy Group</b> quoting <b>'+esc(ref)+'</b> to arrange a meeting and heads of terms.</div></div>'+
+      '<div class="foot"><b>Private &amp; without prejudice — indicative, not a formal offer or a valuation.</b> Values are computed on Landform\'s engine from the scheme inputs and assume residential consent can be achieved; the value with consent is the maximum supportable land price at target developer profit, subject to planning, a QS cost plan and formal valuation. Deal terms (option fee, discount, promoter fee, overage) are illustrative and agreed in heads of terms. Take independent legal, valuation and tax advice. © Cassidy Group Ltd.</div>'+
+    '</div></body></html>';
+}
+
 // ── v10.95 — ALL STAKEHOLDER PACKS in one document ────────────────────────────
 // Concatenates the deterministic packs — blind investor teaser, RP / housing-association,
 // lender and local-authority — into a single printable document (each on its own page), so the
@@ -1031,6 +1141,7 @@ function buildCouncilPack(data){
 function buildAllStakeholderPacks(data){
   data = data || {};
   var packs = [];
+  if(typeof buildLandownerPack === "function") packs.push({t:"Landowner proposal", h:buildLandownerPack(data)});
   if(typeof buildBlindTeaser === "function") packs.push({t:"Investor teaser", h:buildBlindTeaser(data)});
   if(typeof buildRPPack === "function")      packs.push({t:"Housing association / RP", h:buildRPPack(data)});
   if(typeof buildLenderPack === "function")  packs.push({t:"Lender / development finance", h:buildLenderPack(data)});
