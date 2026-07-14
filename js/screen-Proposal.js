@@ -131,8 +131,14 @@ function buildLandOnePager(data, cityHint){
     var marginAtAsk=oGdv>0?(profitAtAsk/oGdv*100):0;
     var headroom=oRlv-askL;                                   // +ve ⇒ RLV covers the asking with room to spare
     var oDensity=(acres>0&&oUnits>0)?Math.round(oUnits/acres):density;
+    // v10.102 — developed area vs whole title: value the homes at their real net density; the
+    // balance is surplus/open space (never valued as housing).
+    var oNetDensity=Math.round(num(sf.netDensity)||0);
+    var oNetDevAcres=num(sf.netDevelopableAcres)||0;
+    var oSurplusAcres=num(sf.surplusAcres)||0;
     var rlvPerPlot=oUnits>0?oRlv/oUnits:0;
     var rlvPerAcre=acres>0?oRlv/acres:0;
+    var rlvPerDevAcre=oNetDevAcres>0?oRlv/oNetDevAcres:rlvPerAcre;   // £/developable acre — comparable to consented-land market bands
     var landPctGdv=oGdv>0&&askL>0?(askL/oGdv*100):0;
     // Land purchase costs on the guide price, and the ALL-IN position (price + SDLT + legals +
     // acquisition). The all-in margin/headroom is the honest test — it's what actually leaves
@@ -315,8 +321,9 @@ function buildLandOnePager(data, cityHint){
         })()+
         '<div class="cols">'+
           '<div class="card"><div class="ct">Scheme &amp; house mix</div>'+
-            '<div class="rr"><span>Site area</span><b>'+(acres>0?acres+" acres · "+(acres*0.404686).toFixed(1)+" ha":"—")+'</b></div>'+
-            '<div class="rr"><span>Density (gross)</span><b>'+(oDensity>0?oDensity+" homes/acre · ≈"+Math.round(oDensity*2.471)+" dph":"—")+(oDensity>0&&(oDensity*2.471)<25?' <span style="color:#9298BC">· net developable higher</span>':'')+'</b></div>'+
+            '<div class="rr"><span>Site area (whole title)</span><b>'+(acres>0?acres+" acres · "+(acres*0.404686).toFixed(1)+" ha":"—")+'</b></div>'+
+            (oNetDevAcres>0&&oSurplusAcres>0.5?'<div class="rr"><span>Developable · surplus / open space</span><b>~'+oNetDevAcres.toFixed(1)+' ac developed · ~'+oSurplusAcres.toFixed(1)+' ac retained</b></div>':'')+
+            '<div class="rr"><span>Density</span><b>'+(oNetDensity>0?oNetDensity+" homes/developable acre":(oDensity>0?oDensity+" homes/acre":"—"))+(oDensity>0&&oSurplusAcres>0.5?' <span style="color:#9298BC">· ≈'+oDensity+'/ac across the whole '+acres+'-ac site</span>':(oDensity>0?" · ≈"+Math.round((oNetDensity||oDensity)*2.471)+" dph":""))+'</b></div>'+
             '<div class="rr"><span>Homes (modelled mix)</span><b>'+(oUnits?oUnits.toLocaleString():"—")+(sitePotential>0?' <span style="color:#9298BC">of ~'+sitePotential.toLocaleString()+' site potential</span>':'')+'</b></div>'+
             '<div class="rr"><span>Affordable (S106)</span><b>'+(ahPct?ahPct+"% · ~"+ahU.toLocaleString()+" homes":"—")+'</b></div>'+
             '<div class="rr"><span>Avg home · sale £/sqft</span><b>'+(oAvgSqft?oAvgSqft.toLocaleString()+" sqft · £"+oBasePsf:"—")+'</b></div>'+
@@ -345,7 +352,7 @@ function buildLandOnePager(data, cityHint){
               '<div class="box"><div class="l">Max land @ target profit</div><div class="v">'+(oRlv?((oRlv<0?"−":"")+fmt(Math.abs(oRlv))):"—")+'</div></div>'+
               '<div class="box"><div class="l">'+(askL>0?"Headroom vs asking":"Per plot")+'</div><div class="v" style="color:'+(askL>0?(headroom>=0?"#1B7A54":"#B05A35"):"#1B1D46")+'">'+(askL>0?((headroom<0?"−":"+")+fmt(Math.abs(headroom))):fmt(rlvPerPlot))+'</div></div>'+
             '</div>'+
-            '<div class="rr" style="margin-top:5px"><span>Per plot / per acre</span><b>'+fmt(rlvPerPlot)+' · '+(acres>0?fmt(rlvPerAcre):"—")+'</b></div>'+
+            '<div class="rr" style="margin-top:5px"><span>Per plot'+(oNetDevAcres>0&&oSurplusAcres>0.5?' / per developable acre':' / per acre')+'</span><b>'+fmt(rlvPerPlot)+' · '+(oNetDevAcres>0&&oSurplusAcres>0.5?fmt(rlvPerDevAcre)+'/dev ac':(acres>0?fmt(rlvPerAcre):"—"))+'</b></div>'+
             (askL>0
               ? '<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #D7D9EC">'+
                   '<div class="ct" style="margin-bottom:3px">Land — value vs cost to buy</div>'+
@@ -367,7 +374,9 @@ function buildLandOnePager(data, cityHint){
                     '<table>'+
                       g.bands.map(function(b){ return '<tr><td>'+esc(b.label)+'</td><td class="n">£'+fmtN(Math.round(b.lo))+'–'+fmtN(Math.round(b.hi))+'/ac'+(a>0?' · '+fmt(b.lo*a)+'–'+fmt(b.hi*a):'')+'</td></tr>'; }).join('')+
                     '</table>'+
-                    (density>0?'<div style="font-size:7.5px;color:#7A5A2E;margin-top:4px;line-height:1.4"><b>Compare on £/plot, not £/acre.</b> These market bands assume a typical serviced density (~25–40 homes/acre). This is a <b>lower-density scheme (~'+density+' homes/acre)</b>, so its residual works out to '+(acres>0?fmt(rlvPerAcre)+'/acre':'—')+' — a lower £/acre for the SAME '+fmt(rlvPerPlot)+'/plot. A like-for-like read is per plot, or per acre adjusted for density.</div>':'')+
+                    (oNetDevAcres>0&&oSurplusAcres>0.5
+                      ? '<div style="font-size:7.5px;color:#7A5A2E;margin-top:4px;line-height:1.4"><b>Only ~'+oNetDevAcres.toFixed(1)+' of the '+acres+' acres are developed</b> ('+esc(oUnits.toLocaleString())+' homes at ~'+(oNetDensity||20)+'/acre); the other ~'+oSurplusAcres.toFixed(1)+' acres are surplus / open space, NOT valued as housing. So compare the residual on the <b>developable acre ('+fmt(rlvPerDevAcre)+'/dev ac)</b> or per <b>plot ('+fmt(rlvPerPlot)+')</b> against these consented-land bands — not on the whole-title £/acre, which is diluted by the retained land.</div>'
+                      : (density>0?'<div style="font-size:7.5px;color:#7A5A2E;margin-top:4px;line-height:1.4"><b>Compare on £/plot, not £/acre.</b> These market bands assume a typical serviced density (~25–40 homes/acre). At ~'+density+' homes/acre the residual works out to '+(acres>0?fmt(rlvPerAcre)+'/acre':'—')+' for the SAME '+fmt(rlvPerPlot)+'/plot — so read it per plot, or per acre adjusted for density.</div>':''))+
                     '<div style="font-size:7.5px;color:#9298BC;margin-top:3px;font-style:italic">Brownfield / previously-developed land ≈ consented value less demolition &amp; remediation. Indicative — verify with local agents.</div>'+
                   '</div>';
                 })() : '<div class="rr" style="margin-top:6px;color:#9A7B3E"><span>Guide price</span><b>Enter one to test purchase costs vs RLV</b></div>'))+

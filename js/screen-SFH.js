@@ -317,8 +317,9 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
         e("div",{style:S.cardTitle},"Site Details"),
         e("div",{style:S.grid2},
           e(CitySelect,{value:s.city||sfhLand.city||"",onChange:function(v){up("sfh","city",v);}}),
-          e(Inp,{label:"Site Area (acres)",type:"number",value:(s.acres!==undefined&&s.acres!=="")?s.acres:(sfhLand.acres||""),onChange:function(v){up("sfh","acres",v);},placeholder:String(num(sfhLand.acres)||"e.g. 5.0")}),
-          e(Inp,{label:"Density (dph)",type:"number",value:s.dph,onChange:function(v){up("sfh","dph",v);},placeholder:"30"}),
+          e(Inp,{label:"Site Area (acres) — whole title",type:"number",value:(s.acres!==undefined&&s.acres!=="")?s.acres:(sfhLand.acres||""),onChange:function(v){up("sfh","acres",v);},placeholder:String(num(sfhLand.acres)||"e.g. 5.0")}),
+          e(Inp,{label:"Net density (homes / developable acre)",type:"number",value:s.netDensity,onChange:function(v){up("sfh","netDensity",v);},placeholder:"20"}),
+          e(Inp,{label:"Site capacity check (dph)",type:"number",value:s.dph,onChange:function(v){up("sfh","dph",v);},placeholder:"30"}),
           e(Inp,{label:"Affordable Housing %",type:"number",value:(s.ahPct!==undefined&&s.ahPct!=="")?s.ahPct:((sfhPlan.ahPct||sfhPlan.afhPct)||""),onChange:function(v){up("sfh","ahPct",v);},placeholder:String(num(sfhPlan.ahPct)||num(sfhPlan.afhPct)||"e.g. 25")}),
           num(s.ahPct)>0 && e(Sel,{label:"AH tenure (sets the GDV haircut)",value:s.ahTenure||"ahp_affordable",onChange:function(v){up("sfh","ahTenure",v);},options:[
             {value:"ahp_social",label:"Social Rent (55% MV)"},

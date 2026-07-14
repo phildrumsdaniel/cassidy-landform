@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.101";
+var CURRENT_VERSION = "10.102";
 var VERSION_HISTORY = [
+  {v:"10.102", date:"Jul 2026", headline:"DEVELOPED AREA, not the whole site. Landform no longer assumes a whole site is built out — the brief's home count is the truth, and the DEVELOPED area is derived from it at a realistic net density. New ‘Net density (homes / developable acre)’ input on the SFH House Mix stage (default 20/acre, editable): net developable acres = homes ÷ density, capped at the site (a dense/urban site simply uses the whole title). The balance is SURPLUS / open space — never valued as housing and never used to inflate the home count. Effects: (1) infrastructure cost is charged on the DEVELOPED acres, not the whole title (a 200-home brief on an 88-acre site services ~10 acres, not 88 — removing a large over-charge on part-developed sites); unchanged when no site area is known. (2) The Board Proposal now shows the developable/surplus acre split, leads density on homes-per-developable-acre, and reports the residual per DEVELOPABLE acre (comparable to consented-land market bands) — so a low-density strategic site is no longer misread as under-valued because its value was spread across land that isn't being built on. No change to schemes that develop their whole site."},
   {v:"10.101", date:"Jul 2026", headline:"Two clarity fixes from a full UI walk-through of the appraisal (Patric's review). (1) The Capitalisation page's ‘Forward Funding Stack’ could show a NEGATIVE residual land value (a bulk institutional-RENT exit) right next to the POSITIVE for-sale headline RLV — two contradictory land values on one screen. It now carries a banner whenever that happens, explaining this is the institutional-RENT exit test (a for-sale housing scheme usually comes out negative because houses don't rent at institutional yields) and restating the real for-sale RLV; the waterfall's final line is relabelled ‘Land value under an institutional RENT exit (this exit does not stack)’ so it can't be mistaken for the headline. (2) The Board Proposal's market land-value guide showed typical £/acre bands that can sit well above a low-density scheme's own modelled £/acre — because those bands assume a higher serviced density. It now adds a ‘compare on £/plot, not £/acre’ note showing the scheme's density and its £/plot, so a lower-density strategic site isn't misread as under-valued. No calculations changed — both are labelling/reconciliation fixes."},
   {v:"10.100", date:"Jul 2026", headline:"Appraisal review (Patric's feedback). (1) PEAK DEBT — the finance model let peak debt fall too far on a very large multi-phase scheme (a 1,800-home scheme dropped to ~33%). Raised the floor from 30% to 45% so a large phased scheme now sits around 45–50% of build+fees at peak — a more realistic funding assumption — and it remains an editable input on the deal. (2) AREAS (GIA/NIA) — added an explicit line to the Basis of Figures confirming the sale £/sqft and build £/sqft are both on GROSS INTERNAL AREA (GIA) throughout, which is the correct like-for-like basis for houses; apartment schemes move sales/rents to NIA (≈80–85% of GIA) while build stays on GIA. (3) LAND VALUE vs YIELD — the Basis of Figures now states plainly that the residual land value is a FOR-SALE residual off the sale values and is independent of the investment/exit yield; yield only affects the alternative build-to-rent / forward-fund value (net rent ÷ yield, where a wider yield gives a lower value). Verified the engine behaves this way. (4) Profit is confirmed as % of GDV (a ~30% housebuilder margin is profit-on-cost ≈ 22–23% on GDV); a 5-point profit change moves the land value by ~5% of GDV pound-for-pound — the residual method working correctly, now clearly labelled."},
   {v:"10.99", date:"Jul 2026", headline:"Nav tidy-up. Removed the standalone ‘Teaser PDF’ tab — the teaser now lives inside the Stakeholder Suite (Edit content + Create shareable link) alongside the new blind investor teaser, so it no longer needs its own top-level entry (it stays fully reachable, and its share links are unchanged). Fixed three duplicate sidebar icons so every stage has its own glyph: Tenure Mix is now 🏘 (was 🤝, which now belongs solely to the Stakeholder Suite), Exit Strategy is 🚪 (was ◆, shared with Land Valuation) and Deal Dashboard is 📈 (was ◈, shared with Due Diligence). Investor exit-unlock hints now point at the Stakeholder Suite rather than the old teaser tab. No calculations or saved deals affected."},
@@ -2809,6 +2810,18 @@ function computeSFHMetrics(data){
   // covers roads/drainage/site infrastructure, so those lines are zeroed to
   // avoid double-counting (the optional-cost behaviour the user asked for).
   var sfhAcres = num(sfh.acres) || num(l.acres);   // inherit site area from Land Appraisal when not set on SFH
+  // v10.102 — NET DEVELOPABLE AREA. Landform must NOT assume the whole site is built out. The
+  // brief's home count is the truth; the DEVELOPED area is derived from it at a realistic net
+  // density (homes per developable acre), and any balance is surplus / open space — not housing.
+  // So a 200-home brief at 20/acre develops ~10 acres even on an 88-acre title; the other ~78
+  // acres are surplus. netDevelopableAcres = min(gross site, homes ÷ density) — a dense/urban site
+  // where homes÷density exceeds the title simply uses the whole title. Area-scaling costs (infra)
+  // are charged on the DEVELOPED area, and £/acre / density displays read the developed area, so a
+  // part-developed site is neither over-costed nor shown at a misleadingly low density / £-per-acre.
+  var netDensity = num(sfh.netDensity) > 0 ? num(sfh.netDensity) : 20;   // homes per developable acre
+  var impliedDevAcres = (netDensity > 0 && totalUnits > 0) ? totalUnits / netDensity : 0;
+  var netDevelopableAcres = sfhAcres > 0 ? Math.min(sfhAcres, impliedDevAcres || sfhAcres) : impliedDevAcres;
+  var surplusAcres = sfhAcres > 0 ? Math.max(0, sfhAcres - netDevelopableAcres) : 0;
   var buildInclusive = !!sfh.buildInclusive;
   // v10.9 — read the professional-fees % from the input (shared with fin.feesPct /
   // rlv.feesPct) instead of hard-coding 10%. Previously typing 12% in Financial
@@ -2844,7 +2857,7 @@ function computeSFHMetrics(data){
   var sfhFinance = (buildCost + sfhFees) * (finPeakDebtPct / 100) * (numOr(sfh.finRate, 7.5) / 100) * finProgYears * FIN_SCURVE;
   var sfhS106 = totalUnits * numOr(sfh.s106pu, 8000);
   var sfhRoads = buildInclusive ? 0 : totalUnits * numOr(sfh.roads, 12000);
-  var sfhInfra = buildInclusive ? 0 : sfhAcres * 53000;
+  var sfhInfra = buildInclusive ? 0 : (sfhAcres > 0 ? netDevelopableAcres * 53000 : 0);   // v10.102 — service the DEVELOPED area, not the whole title (unchanged when no site area is known)
   // v9.89 — disposal / marketing costs (agent + marketing + legal on the sale). Defaults
   // to 0 so hand-built deals are unchanged; Keystone-built deals set ~3% of GDV.
   var sfhMarketing = effectiveBlended * (numOr(sfh.marketingPct, 0) / 100);
@@ -2894,7 +2907,7 @@ function computeSFHMetrics(data){
   var capRlv = capInvestmentValue > 0 ? capInvestmentValue - sfhDevCost - capProfit : 0;
 
   return {rows:rows,totalUnits:totalUnits,avgSqft:totalUnits>0?totalSqft/totalUnits:0,retailGdv:retailGdv,blendedGdv:effectiveBlended,gdv:effectiveBlended,ahFactor:ahFactor,buildCost:buildCost,hasNonPrivate:hasNonPrivate,basePsf:basePsf,buildPsf:buildPsf,
-    acres:sfhAcres,buildInclusive:buildInclusive,fees:sfhFees,contingency:sfhContingency,finance:sfhFinance,s106:sfhS106,roads:sfhRoads,infra:sfhInfra,marketing:sfhMarketing,profit:sfhProfit,devCost:sfhDevCost,rlv:sfhGrossRlv,
+    acres:sfhAcres,netDensity:netDensity,netDevelopableAcres:netDevelopableAcres,surplusAcres:surplusAcres,buildInclusive:buildInclusive,fees:sfhFees,contingency:sfhContingency,finance:sfhFinance,s106:sfhS106,roads:sfhRoads,infra:sfhInfra,marketing:sfhMarketing,profit:sfhProfit,devCost:sfhDevCost,rlv:sfhGrossRlv,
     financeProgYears:finProgYears,financePeakDebtPct:finPeakDebtPct,financePhases:finPhases,financeSCurve:FIN_SCURVE,
     capMarketRentPerUnitPa:mktRentPerUnitPa,capGrossRentPa:capGrossRentPa,capNetRentPa:capNetRentPa,capYield:capYield,capInvestmentValue:capInvestmentValue,capProfit:capProfit,capRlv:capRlv,ahPctResolved:ahPctR,
     affordableHomes:affordableHomes,grantEligibleHomes:grantEligibleHomes,grantPerAffHome:grantPerAffHome,grantIncome:grantIncome,rlvBeforeGrant:sfhGrossRlv-grantIncome};

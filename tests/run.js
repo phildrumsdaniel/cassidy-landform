@@ -81,7 +81,11 @@ function sfhScreenRlv(data){
   var progYears = num(s.programmeYears)>0?num(s.programmeYears):Math.max(2,Math.min(10,Math.round((1+totalUnits/350)*10)/10));
   var peakDebtPct = num(s.peakDebtPct)>0?num(s.peakDebtPct):Math.max(45,Math.min(100,Math.round(200/phases)));
   var fin = (totalBuild+fees)*(peakDebtPct/100)*(numOr(s.finRate,7.5)/100)*progYears*0.6;
-  var s106 = totalUnits*numOr(s.s106pu,8000), roads = inc?0:totalUnits*numOr(s.roads,12000), infra = inc?0:num(s.acres)*53000;
+  // v10.102 — infra charged on the DEVELOPED area (homes ÷ net density, capped at the site), not the whole title
+  var netDens = num(s.netDensity)>0?num(s.netDensity):20;
+  var grossAc = num(s.acres);
+  var netDevAc = grossAc>0 ? Math.min(grossAc, (netDens>0&&totalUnits>0?totalUnits/netDens:grossAc)) : 0;
+  var s106 = totalUnits*numOr(s.s106pu,8000), roads = inc?0:totalUnits*numOr(s.roads,12000), infra = inc?0:netDevAc*53000;
   var profit = totalGdv*(numOr(s.profitPct,17.5)/100);
   return totalGdv - (totalBuild+fees+cont+fin+s106+roads+infra) - profit;
 }
@@ -695,8 +699,12 @@ console.log("Landform engine consistency tests\n");
   var d = { assetType:"sfh", land:{city:"maldon", acres:32}, sfh:{ city:"maldon", buildPsf:220,
     mix:[{type:"3-bed semi",count:"100",sqft:"1000",unitPrice:"400000",tenure:"private"}] } };  // no sfh.acres
   var c = computeSFHMetrics(d);
-  near("SFH infra inherits Land acres (32 × £53k)", c.infra, 32*53000, 1);
-  // and overall RLV is finite / computed with the inherited acreage
+  // v10.102 — the 32-acre title is inherited, but only the DEVELOPED area is serviced/costed:
+  // 100 homes ÷ 20/acre = 5 developable acres, leaving 27 acres surplus. Infra is 5 × £53k.
+  near("SFH infra on developed area (5 of 32 acres × £53k)", c.infra, 5*53000, 1);
+  near("net developable acres = homes ÷ density (100 ÷ 20)", c.netDevelopableAcres, 5, 0.01);
+  near("surplus acres = gross − developed (32 − 5)", c.surplusAcres, 27, 0.01);
+  ok("gross site acreage still inherited from Land (32)", c.acres === 32);
   ok("SFH RLV computes with inherited acres", isFinite(c.rlv));
 })();
 
