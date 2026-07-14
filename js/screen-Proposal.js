@@ -593,12 +593,15 @@ function buildBlindTeaser(data){
   var density=(acres>0&&units>0)?Math.round(units/acres):0;
   var progYears=num(SF.financeProgYears)||0, peakDebt=num(SF.financePeakDebtPct)||0;
   var tl=(typeof projectTimeline==="function")?projectTimeline(data):null;
-  // Forward-fund economics
+  // Forward-fund economics — v10.109: use the yield set on the Capitalisation page (no 4.5% floor)
+  // so the teaser reconciles with the one-pager / Capitalisation screen; sanity-clamp to [3.5%, 7%].
   var netRent=num(SF.capNetRentPa)||0;
-  var yld=(typeof dealYield==="function")?dealYield(data):4.9; if(yld>0&&yld<1) yld*=100; yld=Math.max(4.5,Math.min(6,yld||4.9));
+  var yld=num((data.capitalise||{}).targetYield); if(yld>0&&yld<1) yld*=100;
+  if(!(yld>0)) yld=(typeof dealYield==="function")?dealYield(data):4.75; if(yld>0&&yld<1) yld*=100;
+  yld=Math.max(3.5,Math.min(7,yld||4.75));
   function ffVal(y){ return y>0?netRent/(y/100):0; }
   var ffValue=ffVal(yld);
-  var yields=[4.5,5.0,5.5,6.0];
+  var yields=[yld, yld+0.5, yld+1.0, yld+1.5].map(function(x){return Math.round(x*100)/100;});
   var yieldOnCost=(dev+rlv)>0?netRent/(dev+rlv)*100:0;
   // Tenure summary (from the Tenure Mix stage if present)
   var tenLine="";
@@ -725,7 +728,7 @@ function buildBlindTeaser(data){
             '<div style="font-size:8.6px;color:#6A6F97;margin-bottom:5px;line-height:1.45">Completed scheme let &amp; sold as a rented investment at a net initial yield (net rent '+fmt(netRent)+'/yr after ~25% management). A keener yield ⇒ the fund pays more.</div>'+
             '<table><tr><td style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Net yield</td><td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Investment value</td><td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Yield on cost</td></tr>'+
               yields.map(function(y){ var iv=ffVal(y), yoc=(dev+rlv)>0?netRent/(dev+rlv)*100:0, sel=Math.abs(y-yld)<0.05;
-                return '<tr'+(sel?' style="background:rgba(27,122,84,.09);font-weight:800"':'')+'><td>'+y.toFixed(1)+'%</td><td class="n">'+fmt(iv)+'</td><td class="n">'+pct(yoc)+'</td></tr>'; }).join('')+
+                return '<tr'+(sel?' style="background:rgba(27,122,84,.09);font-weight:800"':'')+'><td>'+y.toFixed(2)+'%</td><td class="n">'+fmt(iv)+'</td><td class="n">'+pct(yoc)+'</td></tr>'; }).join('')+
             '</table></div>':'')+
         '</div>'+
       '</div>'+
