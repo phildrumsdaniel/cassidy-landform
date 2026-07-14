@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.89";
+var CURRENT_VERSION = "10.90";
 var VERSION_HISTORY = [
+  {v:"10.90", date:"Jul 2026", headline:"Grants can now make a scheme STACK. Affordable-housing grant (Homes England AHP / SAHP) per affordable home now flows into the land-valuation engine — it goes straight to the residual land value (not developer profit), so it can turn an otherwise-negative RLV positive. The Grants page has a new ‘Make it stack’ card: type a grant £/affordable home (with £40k/£80k/£120k quick-picks) and see the RLV before → after; and when the scheme doesn't stack it advises the grant per home needed to reach a positive residual (or to cover the guide price), with a broad AHP/SAHP band and the reminder that an RP partner is required."},
   {v:"10.89", date:"Jul 2026", headline:"Fix: Keystone now HONOURS the unit count you set. A low count on a large greenfield (below ~5 homes/acre on 15+ acres) was being silently inflated to acres × 12 — so a deliberate 200 homes on 88 acres was overridden to 1,056, contradicting the density card which said it develops from 200. The stated figure is now always kept; the land's fuller capacity is surfaced as UPSIDE (the density card's ‘Model N at 20/acre’ button) rather than changing your number. A brief with NO unit count still estimates from density as before."},
   {v:"10.88", date:"Jul 2026", headline:"Two fixes so a NEW project starts clean. (1) Building a deal for a genuinely different site (postcode / address / town changed) no longer drags the previous project's downstream work across — Exit, Constraints, Due Diligence, Grants, Data Room, Risk Register etc. are only carried when it's a RE-RUN of the SAME site (reported: a Ryton & Wolston build inherited a Staplehurst deal's work). (2) The Tenure page's unit total now follows the deal — changing the number of units updates it (it previously stored its own total and lagged behind, showing a stale figure)."},
   {v:"10.87", date:"Jul 2026", headline:"Fix: the Detailed Appraisal (Viability) no longer double-counts costs and flip the profit negative. When the deal's build £/sqft is ALL-IN (covers professional fees, contingency, roads/drainage/SuDS), ‘Auto-Populate from Deal’ was ADDING those lines again on top — inflating the cost stack by ~£230m and showing a false negative developer profit that contradicted the one-pager. It now zeroes the lines the all-in rate already covers (and CIL, folded into the £/plot S106), sources the build rate and the land cost (residual) from the same engine the one-pager uses, so the Detailed Appraisal reconciles with the briefing."},
@@ -2315,6 +2316,33 @@ function projectTimeline(data){
     totalYears:Math.round((planningYears + buildYears) * 10) / 10, status:status, statusLabel:statusLabel };
 }
 
+// v10.90 — grantToStack: how much Homes England grant PER AFFORDABLE HOME would make a marginal
+// scheme stack. Grant flows to the residual (computeSFHMetrics adds grantIncome to the RLV), so
+// the gap to a target ÷ the number of affordable homes is the grant/home needed. Two targets: a
+// POSITIVE residual, and — if a land guide price is entered — COVERING that price. Indicative;
+// eligibility & rate are area/tenure-specific (Homes England AHP 2021-26 → SAHP 2026-36).
+function grantToStack(data){
+  data = data || {};
+  var SF = (typeof computeSFHMetrics === "function") ? computeSFHMetrics(data) : {};
+  var affHomes = num(SF.affordableHomes) || 0;
+  var rlvNoGrant = num(SF.rlvBeforeGrant);
+  var price = num((data.land || {}).price);
+  function perHome(gap){ return affHomes > 0 ? Math.max(0, gap) / affHomes : 0; }
+  var gapToPositive = rlvNoGrant < 0 ? -rlvNoGrant : 0;                         // reach RLV ≥ 0
+  var gapToPrice = (price > 0 && rlvNoGrant < price) ? (price - rlvNoGrant) : 0; // reach RLV ≥ guide price
+  return {
+    affordableHomes: affHomes,
+    rlvBeforeGrant: rlvNoGrant,
+    grantAppliedPerHome: num(SF.grantPerAffHome),
+    grantApplied: num(SF.grantIncome),
+    landPrice: price,
+    stacksNow: rlvNoGrant >= (price > 0 ? price : 0),
+    perHomeToPositive: perHome(gapToPositive),
+    perHomeToCoverPrice: perHome(gapToPrice),
+    typicalGrantLo: 40000, typicalGrantHi: 130000   // broad indicative AHP/SAHP band (£/home)
+  };
+}
+
 // ── Multi-year DCF hold model (v10.29) ───────────────────────────────────────
 // A term-and-reversion DCF for a long income hold (pension/SWF, retain & refinance).
 // Rent grows each year at a CPI-linked rate, collared between a floor and a cap;
@@ -2800,7 +2828,15 @@ function computeSFHMetrics(data){
   var sfhMarketing = effectiveBlended * (numOr(sfh.marketingPct, 0) / 100);
   var sfhProfit = effectiveBlended * (numOr(sfh.profitPct, 17.5) / 100);
   var sfhDevCost = buildCost + sfhFees + sfhContingency + sfhFinance + sfhS106 + sfhRoads + sfhInfra + sfhMarketing;
-  var sfhGrossRlv = effectiveBlended - sfhDevCost - sfhProfit;
+  // v10.90 — AFFORDABLE-HOUSING GRANT (Homes England AHP / SAHP). Grant per affordable home is
+  // public subsidy that closes a viability gap on the affordable units. It flows straight to the
+  // RESIDUAL (what you can pay for the land) — not to developer profit or marketing — so it can
+  // make an otherwise-negative RLV stack. Set grants.grantPerAffHome (£/affordable home) to use it.
+  var _ahForGrant = num(sfh.ahPct) || num((data.planning || {}).ahPct) || num((data.planning || {}).afhPct) || num((data.tenure || {}).ahPct) || 0;
+  var affordableHomes = Math.round(totalUnits * _ahForGrant / 100);
+  var grantPerAffHome = num((data.grants || {}).grantPerAffHome);
+  var grantIncome = (grantPerAffHome > 0 && affordableHomes > 0) ? grantPerAffHome * affordableHomes : 0;
+  var sfhGrossRlv = effectiveBlended - sfhDevCost - sfhProfit + grantIncome;
 
   // ── v9.89 — CAPITALISATION / FORWARD-FUND EXIT ─────────────────────────────
   // Value the finished scheme as a rented investment sold to an institution (e.g. a
@@ -2832,7 +2868,8 @@ function computeSFHMetrics(data){
   return {rows:rows,totalUnits:totalUnits,avgSqft:totalUnits>0?totalSqft/totalUnits:0,retailGdv:retailGdv,blendedGdv:effectiveBlended,gdv:effectiveBlended,ahFactor:ahFactor,buildCost:buildCost,hasNonPrivate:hasNonPrivate,basePsf:basePsf,buildPsf:buildPsf,
     acres:sfhAcres,buildInclusive:buildInclusive,fees:sfhFees,contingency:sfhContingency,finance:sfhFinance,s106:sfhS106,roads:sfhRoads,infra:sfhInfra,marketing:sfhMarketing,profit:sfhProfit,devCost:sfhDevCost,rlv:sfhGrossRlv,
     financeProgYears:finProgYears,financePeakDebtPct:finPeakDebtPct,financePhases:finPhases,financeSCurve:FIN_SCURVE,
-    capMarketRentPerUnitPa:mktRentPerUnitPa,capGrossRentPa:capGrossRentPa,capNetRentPa:capNetRentPa,capYield:capYield,capInvestmentValue:capInvestmentValue,capProfit:capProfit,capRlv:capRlv,ahPctResolved:ahPctR};
+    capMarketRentPerUnitPa:mktRentPerUnitPa,capGrossRentPa:capGrossRentPa,capNetRentPa:capNetRentPa,capYield:capYield,capInvestmentValue:capInvestmentValue,capProfit:capProfit,capRlv:capRlv,ahPctResolved:ahPctR,
+    affordableHomes:affordableHomes,grantPerAffHome:grantPerAffHome,grantIncome:grantIncome,rlvBeforeGrant:sfhGrossRlv-grantIncome};
 }
 
 // ── SFH MIX OPTIMISER (v10.44) ─────────────────────────────────────────────
