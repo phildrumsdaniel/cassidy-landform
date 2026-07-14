@@ -1182,6 +1182,22 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
             return null;
           })(),
 
+          // v10.101 — reconcile the institutional-RENT residual with the for-sale headline RLV.
+          // A for-sale SFH scheme usually shows a NEGATIVE residual here (houses don't rent at
+          // institutional yields — build cost exceeds the capitalised rent), which collides on the
+          // same page with the POSITIVE headline for-sale RLV. Make the distinction explicit so a
+          // reviewer isn't faced with two unlabelled, contradictory land values.
+          (function(){
+            var forSaleRlv = (typeof computeSFHMetrics==="function") ? num(computeSFHMetrics(data).rlv) : 0;
+            if(!(bestStack && bestStack.residual < 0 && forSaleRlv > 0)) return null;
+            return e("div",{style:{padding:"11px 14px",background:"rgba(154,123,62,0.08)",borderLeft:"3px solid #9A7B3E",borderRadius:4,fontSize:11,color:"#3A3D6A",lineHeight:1.6,marginBottom:14}},
+              e("strong",{style:{color:"#9A7B3E"}},"ℹ This is the INSTITUTIONAL-RENT exit test — not your headline land value. "),
+              "A for-sale housing scheme usually comes out negative here because houses don't rent at institutional yields (build cost exceeds the capitalised rent). Your headline ",
+              e("strong",null,"for-sale Residual Land Value is "+fmt(forSaleRlv)),
+              " — off the SALE values, shown on the Board Proposal / SFH Appraisal. The waterfall below only tests whether a bulk institutional RENT buyer would ALSO stack; here it doesn't, which is expected for spread-out housing."
+            );
+          })(),
+
           // Header with verdict
           e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16,flexWrap:"wrap",gap:12}},
             e("div",null,
@@ -1243,7 +1259,7 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
               {l:"− S106 / planning obligations (£"+fmtN(ffS106pu)+"/unit)",v:-pension.s106,col:"#B05A35"},
               {l:"− Finance cost ("+ffFinPct+"% of build+fees)",v:-pension.financeCost,col:"#B05A35"},
               {l:"− Developer profit ("+ffProfitPct+"% on cost)",v:-pension.profit,col:"#B05A35"},
-              {l:"= Residual Land Value (farmer can be paid)",v:pension.residual,col:pension.residual>0?"#2D7A65":"#B05A35",bold:true,sign:"="}
+              {l:"= Land value under an institutional RENT exit"+(pension.residual<0?" (this exit does not stack)":""),v:pension.residual,col:pension.residual>0?"#2D7A65":"#B05A35",bold:true,sign:"="}
             ];
             return e("div",{style:{background:"#fff",borderRadius:8,padding:"16px 18px",marginBottom:14,border:"1px solid #DDE0ED"}},
               e("div",{style:{fontSize:11,fontWeight:700,color:"#2E2F8A",marginBottom:10}},"Waterfall — Pension Fund buyer (most favourable case)"),

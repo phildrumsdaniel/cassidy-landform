@@ -367,6 +367,7 @@ function buildLandOnePager(data, cityHint){
                     '<table>'+
                       g.bands.map(function(b){ return '<tr><td>'+esc(b.label)+'</td><td class="n">£'+fmtN(Math.round(b.lo))+'–'+fmtN(Math.round(b.hi))+'/ac'+(a>0?' · '+fmt(b.lo*a)+'–'+fmt(b.hi*a):'')+'</td></tr>'; }).join('')+
                     '</table>'+
+                    (density>0?'<div style="font-size:7.5px;color:#7A5A2E;margin-top:4px;line-height:1.4"><b>Compare on £/plot, not £/acre.</b> These market bands assume a typical serviced density (~25–40 homes/acre). This is a <b>lower-density scheme (~'+density+' homes/acre)</b>, so its residual works out to '+(acres>0?fmt(rlvPerAcre)+'/acre':'—')+' — a lower £/acre for the SAME '+fmt(rlvPerPlot)+'/plot. A like-for-like read is per plot, or per acre adjusted for density.</div>':'')+
                     '<div style="font-size:7.5px;color:#9298BC;margin-top:3px;font-style:italic">Brownfield / previously-developed land ≈ consented value less demolition &amp; remediation. Indicative — verify with local agents.</div>'+
                   '</div>';
                 })() : '<div class="rr" style="margin-top:6px;color:#9A7B3E"><span>Guide price</span><b>Enter one to test purchase costs vs RLV</b></div>'))+
