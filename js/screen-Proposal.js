@@ -795,6 +795,120 @@ function buildRPPack(data){
     '</div></body></html>';
 }
 
+// ── v10.93 — DEVELOPMENT FINANCE / LENDER PACK ────────────────────────────────
+// What a senior development-finance lender underwrites: the facility ask, leverage (loan-to-GDV,
+// loan-to-cost, day-1 land LTV), the equity cushion, peak debt on the S-curve, interest cover /
+// margin buffer, the exit that repays the loan, a downside stress on GDV, and the security
+// package. Built from the deal so Cassidy can put a credible funding request to a lender.
+function buildLenderPack(data){
+  data = data || {};
+  var l=data.land||{}, ex=data.exit||{};
+  var SF=(typeof computeSFHMetrics==="function")?computeSFHMetrics(data):{};
+  function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  var region=(typeof _blindRegion==="function")?_blindRegion(data):"the United Kingdom";
+  var ref=(typeof _blindRef==="function")?_blindRef(data):"CAS";
+  var units=num(SF.totalUnits)||0;
+  var gdv=num(SF.gdv)||0, dev=num(SF.devCost)||0, build=num(SF.buildCost)||0, fees=num(SF.fees)||0, finGBP=num(SF.finance)||0, profit=num(SF.profit)||0;
+  var land=num(l.price)||num(SF.rlv)||0;
+  var totalCost=dev+land;
+  var LTGDV_CAP=0.60, LTC_CAP=0.90, LAND_LTV=0.55;   // typical UK senior-debt caps
+  var facByGdv=gdv*LTGDV_CAP, facByCost=totalCost*LTC_CAP;
+  var facility=Math.max(0,Math.min(facByGdv,facByCost));
+  var bindBy=facByGdv<=facByCost?"loan-to-GDV (60%)":"loan-to-cost (90%)";
+  var equity=Math.max(0,totalCost-facility);
+  var ltgdv=gdv>0?facility/gdv*100:0, ltc=totalCost>0?facility/totalCost*100:0;
+  var margin=gdv>0?profit/gdv*100:0, profitOnCost=totalCost>0?profit/totalCost*100:0;
+  var peakDebt=(build+fees)*(num(SF.financePeakDebtPct)||0)/100;
+  var landDay1=land*LAND_LTV;
+  var gdvCover=facility>0?gdv/facility:0;
+  var finRate=num((data.sfh||{}).finRate)||num((data.fin||{}).finRate)||7.5;
+  var tl=(typeof projectTimeline==="function")?projectTimeline(data):null;
+  function ltgdvAt(mult){ return (gdv*mult)>0?facility/(gdv*mult)*100:0; }
+  var stratLbl={plot_sales:"open-market plot sales",bulk_sale_ha:"bulk sale to a housing association",forward_fund:"institutional forward-funding",forward_sale:"forward sale",stabilised:"stabilised investment sale",retain:"build to rent and hold",phased:"phased delivery"}[ex.strategy]||"open-market plot sales";
+  function pctS(x){ return (Math.round(x*10)/10)+"%"; }
+  var logo=((typeof BRAND_LOGO_PNG!=="undefined"&&BRAND_LOGO_PNG&&typeof cassidyLogoSrc==="function")?'<img src="'+cassidyLogoSrc()+'" alt="Cassidy Group Ltd" style="height:30px;width:auto;max-width:170px;display:block;margin:0 0 5px auto"/>':'');
+  var css=''+
+    '@page{size:A4 portrait;margin:10mm}*{box-sizing:border-box}html,body{margin:0}'+
+    'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#26284F;font-size:9.9px;line-height:1.45;font-variant-numeric:tabular-nums;-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#eef0f7}'+
+    '.pg{width:190mm;min-height:277mm;margin:6mm auto;background:#fff;padding:10mm 10mm 8mm;box-shadow:0 2px 14px rgba(0,0,0,.12)}'+
+    '@media print{body{background:#fff}.pg{margin:0;box-shadow:none;width:auto;min-height:auto;padding:0}.noprint{display:none}}'+
+    '.top{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #2E2F8A;padding-bottom:6px;margin-bottom:6px}'+
+    '.brand{font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:#2E2F8A;font-weight:800}'+
+    'h1{font-family:Georgia,serif;font-size:17px;color:#1B1D46;margin:2px 0 0}.sub{color:#6A6F97;font-size:9.5px;margin-top:3px}'+
+    '.meta{text-align:right;font-size:8.3px;color:#6A6F97;line-height:1.5}'+
+    '.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin:9px 0}'+
+    '.kpi{border:1px solid #E0E2EC;border-radius:5px;padding:7px 8px;background:#F5F6FE}'+
+    '.kpi .l{font-size:7.3px;letter-spacing:.07em;text-transform:uppercase;color:#7278A0;font-weight:700}.kpi .v{font-size:14px;font-weight:800;color:#1B1D46;margin-top:2px;font-family:Georgia,serif}'+
+    '.cols{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:3px}'+
+    '.card{border:1px solid #E0E2EC;border-radius:6px;padding:9px 10px;margin-bottom:9px}'+
+    '.ct{font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#2E2F8A;font-weight:800;margin-bottom:5px}'+
+    'table{width:100%;border-collapse:collapse}td{padding:2.6px 0;border-bottom:1px solid #F1F2F8}td.n{text-align:right;font-weight:600}tr.s td{border-top:1.4px solid #C9CCE4;border-bottom:none;font-weight:800;color:#1B1D46;padding-top:4px;font-size:10.6px}'+
+    '.rr{display:flex;justify-content:space-between;color:#6A6F97;font-size:8.8px;padding:2px 0}.rr b{color:#33365F}'+
+    '.hl{margin:0;padding-left:15px}.hl li{margin-bottom:3px;color:#33365F}'+
+    '.cta{border:1.5px solid #2E2F8A;border-radius:7px;padding:11px 13px;background:#F2F4FC;margin-top:2px}.cta .h{font-size:11px;font-weight:800;color:#2E2F8A}.cta .b{font-size:9px;color:#33365F;margin-top:3px;line-height:1.5}'+
+    '.foot{margin-top:9px;font-size:7.5px;color:#9298BC;line-height:1.55;border-top:1px solid #EEF0F7;padding-top:6px}'+
+    '.btn{position:fixed;top:9px;right:9px;background:#1E1F5C;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25)}';
+  return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>'+
+    '<title>Development Finance Request — '+esc(ref)+'</title><style>'+css+'</style></head><body>'+
+    '<button class="btn noprint" onclick="window.print()">Print / Save as PDF</button>'+
+    '<div class="pg">'+
+      '<div class="top"><div><div class="brand">Cassidy Group · Development Finance Request</div>'+
+        '<h1>'+esc(units.toLocaleString())+'-home residential development — '+esc(region)+'</h1>'+
+        '<div class="sub">Senior development facility · GDV '+fmt(gdv)+' · exit: '+esc(stratLbl)+'</div></div>'+
+        '<div class="meta">'+logo+'Ref '+esc(ref)+'<br/>Indicative · v'+esc(typeof CURRENT_VERSION!=="undefined"?CURRENT_VERSION:"")+'</div></div>'+
+      '<div class="kpis">'+
+        '<div class="kpi"><div class="l">Indicative facility</div><div class="v">'+(facility>0?fmt(facility):"—")+'</div></div>'+
+        '<div class="kpi"><div class="l">Loan-to-GDV</div><div class="v">'+(gdv>0?pctS(ltgdv):"—")+'</div></div>'+
+        '<div class="kpi"><div class="l">Loan-to-cost</div><div class="v">'+(totalCost>0?pctS(ltc):"—")+'</div></div>'+
+        '<div class="kpi"><div class="l">Developer margin</div><div class="v" style="color:'+(margin>=15?"#1B7A54":"#9A7B3E")+'">'+(gdv>0?pctS(margin):"—")+'</div></div>'+
+      '</div>'+
+      '<div class="cols">'+
+        '<div>'+
+          '<div class="card"><div class="ct">Facility &amp; structure</div>'+
+            '<table>'+
+              '<tr><td>Gross development value</td><td class="n">'+fmt(gdv)+'</td></tr>'+
+              '<tr><td>Total cost (build + all costs + land)</td><td class="n">'+fmt(totalCost)+'</td></tr>'+
+              '<tr><td>Indicative senior facility</td><td class="n">'+fmt(facility)+'</td></tr>'+
+              '<tr><td>— constrained by</td><td class="n" style="font-weight:600;color:#7278A0">'+esc(bindBy)+'</td></tr>'+
+              '<tr><td>Peak debt (S-curve)</td><td class="n">'+fmt(peakDebt)+'</td></tr>'+
+              '<tr class="s"><td>Developer equity required</td><td class="n">'+fmt(equity)+'</td></tr>'+
+            '</table>'+
+            (land>0?'<div class="rr" style="margin-top:4px"><span>Day-1 land advance (~'+Math.round(LAND_LTV*100)+'% LTV)</span><b>'+fmt(landDay1)+' on '+fmt(land)+' land</b></div>':'')+
+          '</div>'+
+          '<div class="card"><div class="ct">Cover &amp; leverage</div>'+
+            '<div class="rr"><span>Loan-to-GDV</span><b>'+pctS(ltgdv)+' (cap ~60%)</b></div>'+
+            '<div class="rr"><span>Loan-to-cost</span><b>'+pctS(ltc)+' (cap ~90%)</b></div>'+
+            '<div class="rr"><span>GDV cover on the facility</span><b>'+(gdvCover>0?gdvCover.toFixed(2)+"×":"—")+'</b></div>'+
+            '<div class="rr"><span>Developer margin (buffer)</span><b>'+pctS(margin)+' · '+pctS(profitOnCost)+' on cost</b></div>'+
+            '<div class="rr"><span>Interest (rolled up @ '+finRate+'%)</span><b>'+fmt(finGBP)+'</b></div>'+
+          '</div>'+
+        '</div>'+
+        '<div>'+
+          '<div class="card"><div class="ct">Repayment &amp; exit</div>'+
+            '<div style="font-size:9px;color:#33365F;line-height:1.55">The facility is repaid from <b>'+esc(stratLbl)+'</b>. GDV of '+fmt(gdv)+' covers the '+fmt(facility)+' facility <b>'+(gdvCover>0?gdvCover.toFixed(2)+"×":"—")+'</b>. '+(tl?'Build-to-completion programme ~'+tl.buildYears+' years'+(tl.planningYears>0?' (after ~'+tl.planningYears+' years to consent)':'')+'.':'')+' Sales receipts recycle capital through the build, so peak debt ('+fmt(peakDebt)+') sits well below the facility limit.</div>'+
+          '</div>'+
+          '<div class="card"><div class="ct">Downside — loan-to-GDV under stress</div>'+
+            '<div style="font-size:8.4px;color:#6A6F97;margin-bottom:4px">Even a GDV fall leaves headroom while the facility stays under a ~70% LTGDV covenant.</div>'+
+            '<table><tr><td style="font-size:7.4px;color:#8A90B4;text-transform:uppercase;font-weight:700">GDV move</td><td class="n" style="font-size:7.4px;color:#8A90B4;text-transform:uppercase;font-weight:700">GDV</td><td class="n" style="font-size:7.4px;color:#8A90B4;text-transform:uppercase;font-weight:700">Loan-to-GDV</td></tr>'+
+              [["Base",1.0],["−10%",0.9],["−15%",0.85],["−20%",0.8]].map(function(s){ var v=ltgdvAt(s[1]); return '<tr><td>'+s[0]+'</td><td class="n">'+fmt(gdv*s[1])+'</td><td class="n" style="color:'+(v<=70?"#1B7A54":"#B05A35")+'">'+pctS(v)+'</td></tr>'; }).join('')+
+            '</table>'+
+          '</div>'+
+          '<div class="card"><div class="ct">Security &amp; controls</div>'+
+            '<ul class="hl" style="font-size:8.8px">'+
+              '<li>First legal charge over the site + debenture</li>'+
+              '<li>Cost overruns funded by the developer; fixed-price D&amp;B contract</li>'+
+              '<li>Monitoring surveyor certifies each drawdown; cost-to-complete tested</li>'+
+              '<li>Personal / corporate guarantee as required; step-in rights</li>'+
+            '</ul>'+
+          '</div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="cta"><div class="h">▸ Funding request</div>'+
+        '<div class="b">Cassidy Group is seeking a senior development facility of ~<b>'+fmt(facility)+'</b> ('+pctS(ltgdv)+' LTGDV, '+pctS(ltc)+' LTC) against a '+fmt(gdv)+' GDV, with '+fmt(equity)+' of developer equity and a '+pctS(margin)+' margin buffer. Full appraisal, cashflow, QS cost plan, planning position and security package available under NDA. Contact us quoting <b>'+esc(ref)+'</b>.</div></div>'+
+      '<div class="foot"><b>Indicative — not an offer of finance or a financial promotion.</b> Figures are computed on Landform\'s engine from the scheme inputs and assume residential consent can be achieved; facility sizing uses typical senior-debt caps (≤60% loan-to-GDV, ≤90% loan-to-cost, ~55% day-1 land LTV) and is subject to the lender\'s own valuation, QS monitoring, credit approval and terms. © Cassidy Group Ltd.</div>'+
+    '</div></body></html>';
+}
+
 function renderProposal(city, data, gdv, lc, up, user){
   var l=data.land||{}; var p=data.planning||{}; var ten=data.tenure||{}; var ex=data.exit||{};
   var M=(typeof calcDealMetrics==="function")?calcDealMetrics(data):{};
