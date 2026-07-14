@@ -173,6 +173,7 @@ function buildLandOnePager(data, cityHint){
     var oCapMgmtPct=Math.round(num(sf.capNetDeductionPct)||25);   // real gross-to-net deduction % from the engine (voids+mgmt+maint+ins)
     var oCapRentEntered=num(_capD2.marketRentPerUnitPa)>0;                  // an explicit per-home rent was set
     var oCapRentResearched=!!sf.capRentFromResearch;                        // per-bed rents from the Capitalisation stage drove it
+    var oCapTenureBlind=!!sf.capTenureBlind;                                // whole scheme sold to a HA/fund — no affordable rent discount
     var oCapRentAI=(_capD2.rentSource==="AI market research");
     var oCapGrossYld=numOr(_capD2.grossRentYield,4.5);
     // Honest provenance, in priority order: explicit per-home rent → researched per-bed rents from the
@@ -445,6 +446,7 @@ function buildLandOnePager(data, cityHint){
                 '<b>Rents used ('+esc(oCapRentProv)+'):</b> '+
                 (oCapRentPerUnitPa>0?'~'+fmt(oCapRentPerUnitPa)+'/home/yr (≈£'+fmtN(Math.round(oCapRentPerUnitPa/12))+' pcm)':'—')+
                 ' × '+esc(oUnits.toLocaleString())+' homes = gross '+fmt(oCapGrossRentPa)+'/yr → <b>net '+fmt(oCapNetRent)+'/yr</b> after '+oCapMgmtPct+'% management &amp; voids. This net rent is capitalised at each net-initial yield below to give the fund\'s capital value.'+
+                (oCapTenureBlind?' <b>Tenure-blind sale:</b> the whole scheme is sold to a HA / fund at full market rent — the affordable obligation is the buyer\'s (grant-bridged), so it does not discount the developer\'s proceeds.':'')+
               '</div>'+
               '<div style="font-size:9px;color:#6A6F97;margin-bottom:5px">A keener (lower) yield ⇒ the fund pays more ⇒ more profit; a wider yield ⇒ less. Profit is the fund\'s capital value less the '+fmt(oDev)+' development cost less the land ('+(askL>0?'the '+fmt(totalLandCost)+' all-in cost of the '+fmt(askL)+' guide price':'the '+fmt(oCapLandBasis)+' build-to-sell residual land value')+'). '+
                 '<b>Note:</b> the headline residual land value ('+fmt(oRlv)+') is the PLOT-SALES exit and does not change with yield — this table is the separate rented-investment exit.</div>'+

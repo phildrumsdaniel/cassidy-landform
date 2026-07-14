@@ -133,8 +133,11 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
     // is pulled from the deal (Tenure Mix → Planning → SFH) so the mix flows in here
     // automatically; default discount is 0% (market) until a button is chosen.
     var ahFracCap=Math.min(1,(num(data.tenure&&data.tenure.ahPct)||num(data.planning&&data.planning.ahPct)||num(data.planning&&data.planning.afhPct)||num(data.sfh&&data.sfh.ahPct)||num(cap.ahPct)||0)/100);
-    var ahRentDisc=(cap.ahRentDisc!==undefined && cap.ahRentDisc!=="")?num(cap.ahRentDisc)/100:(ahFracCap>0?0.20:0);  // default Affordable Rent (−20%) when the scheme has affordable units
-    var rentBlendFactor=(1-ahFracCap)+ahFracCap*(1-ahRentDisc);
+    // v10.108 — tenure-blind capitalisation: whole scheme sold to a HA / fund; affordable is the
+    // buyer's concern (grant-bridged), so no affordable RENT discount on the developer's proceeds.
+    var capTenureBlind=!!cap.capTenureBlind;
+    var ahRentDisc=capTenureBlind?0:((cap.ahRentDisc!==undefined && cap.ahRentDisc!=="")?num(cap.ahRentDisc)/100:(ahFracCap>0?0.20:0));  // default Affordable Rent (−20%) when the scheme has affordable units
+    var rentBlendFactor=capTenureBlind?1:((1-ahFracCap)+ahFracCap*(1-ahRentDisc));
     var grossAnnual=grossMonthly*12*rentBlendFactor;
 
     // ── NOI calculation ────────────────────────────────────────────────────
@@ -802,16 +805,27 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
             e("div",{style:{fontSize:11,color:"#3A3D6A",marginBottom:8,lineHeight:1.5}},
               e("strong",null,"This is a "+typeLabel+" scheme.")," It's valued by capitalising the net rent at the net initial yield ("+yieldPct+"%"+(num(cap.targetYield)>0?", your override":", "+cityName(city||"")+" benchmark")+"). Market homes rent at 100% of the local area rent above."
             ),
-            e("div",{style:{fontSize:11,fontWeight:800,color:"#2E2F8A",marginBottom:6}},
-              "🏷 Affordable rent discount"+(ahFracCap>0?" — applied to "+Math.round(ahFracCap*100)+"% of units (from the Tenure Mix)":" — set the affordable % in Tenure Mix or Planning to use this")
+            // v10.108 — tenure-blind toggle: whole scheme sold to a HA / fund, affordable is the buyer's concern.
+            ahFracCap>0 && e("div",{style:{margin:"0 0 10px",padding:"9px 11px",background:capTenureBlind?"rgba(45,122,101,0.10)":"#fff",border:"1px solid "+(capTenureBlind?"#2D7A65":"#DDE0ED"),borderRadius:7}},
+              e("label",{style:{display:"flex",alignItems:"flex-start",gap:9,cursor:"pointer"}},
+                e("input",{type:"checkbox",checked:capTenureBlind,onChange:function(ev){up("capitalise","capTenureBlind",ev.target.checked);},style:{marginTop:2,width:16,height:16,cursor:"pointer",flexShrink:0}}),
+                e("div",null,
+                  e("div",{style:{fontSize:11.5,fontWeight:800,color:capTenureBlind?"#1B7A54":"#2E2F8A"}},"Whole scheme sold to a HA / fund — tenure-blind"),
+                  e("div",{style:{fontSize:10,color:"#7278A0",marginTop:2,lineHeight:1.5}},"The buyer takes on the affordable obligation (grant + their cost of capital bridge it), so the affordable RENT discount is NOT applied to the developer's proceeds — the scheme capitalises at full market rent. Turn off to value on the actual blended (discounted) rent.")
+                )
+              )
             ),
-            e("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+            e("div",{style:{fontSize:11,fontWeight:800,color:"#2E2F8A",marginBottom:6,opacity:capTenureBlind?0.4:1}},
+              "🏷 Affordable rent discount"+(capTenureBlind?" — not applied (tenure-blind sale)":(ahFracCap>0?" — applied to "+Math.round(ahFracCap*100)+"% of units (from the Tenure Mix)":" — set the affordable % in Tenure Mix or Planning to use this"))
+            ),
+            e("div",{style:{display:"flex",gap:8,flexWrap:"wrap",opacity:capTenureBlind?0.4:1,pointerEvents:capTenureBlind?"none":"auto"}},
               [{l:"Market (0%)",v:0},{l:"−20% Affordable Rent",v:20},{l:"−30%",v:30},{l:"−40%",v:40},{l:"−50% Social Rent",v:50}].map(function(o){
                 var sel=Math.round(ahRentDisc*100)===o.v;
                 return e("button",{key:o.v,onClick:function(){up("capitalise","ahRentDisc",o.v);},style:{padding:"5px 12px",background:sel?"#4A4BAE":"#fff",color:sel?"#fff":"#3A3D6A",border:"1px solid "+(sel?"#4A4BAE":"#DDE0ED"),borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},o.l);
               })
             ),
-            (ahFracCap>0 && ahRentDisc>0) && e("div",{style:{fontSize:10,color:"#2D7A65",marginTop:8,lineHeight:1.5}},"→ Blended rent = "+Math.round(rentBlendFactor*100)+"% of market ("+Math.round((1-ahFracCap)*100)+"% market + "+Math.round(ahFracCap*100)+"% affordable at "+Math.round(ahRentDisc*100)+"% off). NOI "+fmt(netAnnualIncome)+" pa → capitalised value "+fmt(capValue)+".")
+            (ahFracCap>0 && capTenureBlind) && e("div",{style:{fontSize:10,color:"#1B7A54",marginTop:8,lineHeight:1.5}},"→ Tenure-blind: rent = 100% of market across all "+totalUnitsCalc.toLocaleString()+" homes (affordable borne by the HA / fund). NOI "+fmt(netAnnualIncome)+" pa → capitalised value "+fmt(capValue)+"."),
+            (ahFracCap>0 && !capTenureBlind && ahRentDisc>0) && e("div",{style:{fontSize:10,color:"#2D7A65",marginTop:8,lineHeight:1.5}},"→ Blended rent = "+Math.round(rentBlendFactor*100)+"% of market ("+Math.round((1-ahFracCap)*100)+"% market + "+Math.round(ahFracCap*100)+"% affordable at "+Math.round(ahRentDisc*100)+"% off). NOI "+fmt(netAnnualIncome)+" pa → capitalised value "+fmt(capValue)+".")
           );
         })(),
         e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}},
