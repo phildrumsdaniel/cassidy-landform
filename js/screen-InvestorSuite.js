@@ -180,14 +180,14 @@ function renderInvestorSuite(data, navTo, saveDeal, up, user){
     return e("div",null,
       // ── Header ──
       e("div",{style:{marginBottom:18}},
-        e("div",{style:{fontSize:9,letterSpacing:".25em",textTransform:"uppercase",color:"#9A7B3E",marginBottom:6,fontWeight:700}},"Investor Marketing Suite"),
-        e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:6}},"Package, market, and track your deal"),
-        e("p",{style:{fontSize:12,color:"#7278A0",maxWidth:680,lineHeight:1.6}},"Generate institutional-grade Teaser, IM and Data Room. Upload photos and embed videos. Create shareable links per investor with view analytics so you can gauge interest in real-time.")
+        e("div",{style:{fontSize:9,letterSpacing:".25em",textTransform:"uppercase",color:"#9A7B3E",marginBottom:6,fontWeight:700}},"Stakeholder Suite"),
+        e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:6}},"Package, market and track your deal — for every stakeholder"),
+        e("p",{style:{fontSize:12,color:"#7278A0",maxWidth:680,lineHeight:1.6}},"Generate a tailored pack for every party in the deal — landowner, investor, housing association, lender and local authority — plus the Teaser, IM and Data Room. Add media, create shareable links and track engagement in real time.")
       ),
 
       // ── Save-deal prompt if no cloud ID ──
       !hasDeal && e("div",{style:{padding:"14px 18px",background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.3)",borderRadius:8,fontSize:12,color:"#B05A35",marginBottom:18,lineHeight:1.6}},
-        e("strong",null,"⚠ Save your deal first. "),"The Investor Marketing Suite needs a cloud-saved deal to generate shareable links. Click ",
+        e("strong",null,"⚠ Save your deal first. "),"The Stakeholder Suite needs a cloud-saved deal to generate shareable links. Click ",
         e("strong",null,"💾 Save Deal")," in the topbar, then come back.",
         e("div",{style:{marginTop:10}},
           e("button",{onClick:saveDeal,style:{padding:"8px 16px",background:"#B05A35",border:"none",color:"#fff",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"💾 Save Now →")
