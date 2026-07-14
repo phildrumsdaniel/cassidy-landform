@@ -417,7 +417,7 @@ function buildLandOnePager(data, cityHint){
         (oCapNetRent>0
           ? '<div style="margin-top:9px;border:1px solid #BFD9CF;border-radius:7px;padding:9px 11px;background:#F5FBF8">'+
               '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#1B7A54;font-weight:800;margin-bottom:4px">Forward-fund exit — whole scheme sold to a pension fund</div>'+
-              '<div style="font-size:9px;color:#6A6F97;margin-bottom:5px">The completed scheme let and sold as a rented investment at a net initial yield (net rent '+fmt(oCapNetRent)+'/yr, after 25% management). A keener (lower) yield means the fund pays more. '+(askL>0?'Profit is after the '+fmt(totalLandCost)+' all-in land cost.':'Max land value is at '+Math.round(oProfitPct)+'% target profit.')+'</div>'+
+              '<div style="font-size:9px;color:#6A6F97;margin-bottom:5px">The completed scheme let and sold as a rented investment at a net initial yield (net rent '+fmt(oCapNetRent)+'/yr, after 25% management). A keener (lower) yield means the fund pays more; a wider yield means less. <b>The headline residual land value above ('+fmt(oRlv)+') is from PLOT SALES and does NOT change with yield</b> — yield only moves the forward-fund figures in this table (both fall as the yield widens). '+(askL>0?'Profit is after the '+fmt(totalLandCost)+' all-in land cost.':'Max land value is at '+Math.round(oProfitPct)+'% target profit.')+'</div>'+
               '<table><tr>'+
                 '<td style="color:#8A90B4;font-size:7.4px;letter-spacing:.05em;text-transform:uppercase;font-weight:700">Net yield</td>'+
                 '<td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Fund pays</td>'+
