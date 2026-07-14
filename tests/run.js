@@ -1782,6 +1782,19 @@ console.log("Landform engine consistency tests\n");
 
   // A fresh build with no prior deal preserves nothing (empty list, no crash).
   ok("No prior deal ⇒ nothing preserved", preserveManualOnRebuild({}, buildDealFromBrief({town:"Maidstone",acres:50,units:600})).length === 0);
+
+  // v10.88 — a DIFFERENT site must NOT drag the old project's work across.
+  var built2 = buildDealFromBrief({ town:"Ryton and Wolston", city:"coventry", acres:120, units:520, affordablePct:30 });
+  var keptDiff = preserveManualOnRebuild(prev, built2);   // prev = the Maidstone/Staplehurst deal above
+  ok("Different site ⇒ nothing carried over (clean new project)", keptDiff.length === 0 && built2.exit == null && built2.dd == null && built2.constraintCheck == null);
+})();
+
+// 59b — v10.88: changing the unit count updates the Tenure page (tenure.totalUnits is shared)
+(function(){
+  if(typeof applySharedInput !== "function") return;
+  var d = { land:{ units:1056 }, planning:{ units:1056 }, tenure:{ totalUnits:1056, mix:{ oms:70 } } };
+  var d2 = applySharedInput(d, "land", "units", 520, "land", function(){ return true; });
+  ok("changing units propagates to tenure.totalUnits", num(d2.tenure.totalUnits) === 520 && num(d2.planning.units) === 520);
 })();
 
 // 60 — Financial Modelling IRR/cashflow reads the CANONICAL unit count (v10.38)

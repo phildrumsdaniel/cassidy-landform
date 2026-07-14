@@ -791,6 +791,19 @@ function _keystoneStageLabel(k){
 function preserveManualOnRebuild(prev, built){
   prev = prev || {}; built = built || {};
   var kept = [];
+  // v10.88 — only carry work forward when this is a RE-RUN of the SAME site. If the new brief is
+  // a genuinely DIFFERENT site (postcode / address / town changed), preserving the old exit,
+  // constraints, grants, data room, risk register etc. would pollute a brand-new project with the
+  // previous one's work — so start clean. (Reported: building "Ryton & Wolston" over a Staplehurst
+  // deal dragged the Staplehurst downstream work across.)
+  var _diffSite = (function(){
+    var pl=prev.land||{}, bl=built.land||{};
+    function n(s){ return String(s||"").toLowerCase().replace(/[^a-z0-9]/g,""); }
+    var shared=0, matched=0;
+    ["postcode","address","city"].forEach(function(f){ var a=n(pl[f]), b=n(bl[f]); if(a&&b){ shared++; if(a===b) matched++; } });
+    return shared>0 && matched===0;   // both sides name the site, and NOTHING matches → different site
+  })();
+  if(_diffSite) return [];   // different site → carry nothing (a new project starts clean)
   // 1) Whole stages Keystone never regenerates → keep the user's entirely.
   ["exit","constraintCheck","dd","tenure","hra","grants","meetings","assetOptimiser","recovery","epe","scraper","market","riskRegister","dataRoom"].forEach(function(k){
     var pv = prev[k];

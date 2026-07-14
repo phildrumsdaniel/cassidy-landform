@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.87";
+var CURRENT_VERSION = "10.88";
 var VERSION_HISTORY = [
+  {v:"10.88", date:"Jul 2026", headline:"Two fixes so a NEW project starts clean. (1) Building a deal for a genuinely different site (postcode / address / town changed) no longer drags the previous project's downstream work across — Exit, Constraints, Due Diligence, Grants, Data Room, Risk Register etc. are only carried when it's a RE-RUN of the SAME site (reported: a Ryton & Wolston build inherited a Staplehurst deal's work). (2) The Tenure page's unit total now follows the deal — changing the number of units updates it (it previously stored its own total and lagged behind, showing a stale figure)."},
   {v:"10.87", date:"Jul 2026", headline:"Fix: the Detailed Appraisal (Viability) no longer double-counts costs and flip the profit negative. When the deal's build £/sqft is ALL-IN (covers professional fees, contingency, roads/drainage/SuDS), ‘Auto-Populate from Deal’ was ADDING those lines again on top — inflating the cost stack by ~£230m and showing a false negative developer profit that contradicted the one-pager. It now zeroes the lines the all-in rate already covers (and CIL, folded into the £/plot S106), sources the build rate and the land cost (residual) from the same engine the one-pager uses, so the Detailed Appraisal reconciles with the briefing."},
   {v:"10.86", date:"Jul 2026", headline:"Two more reviewer-proofing touches on the one-pager. (1) A prominent planning-risk banner near the top on an unconsented site: the residual is the land value AT consent, not today — today's strategic / hope value is shown, and the gap is the promotion upside earned over the ~years to consent (buy at hope value; the consented residual is the exit, not the entry). (2) The forward-fund figures are reframed with a ‘read-across (not a loss)’ line — for houses built for sale, forward-funding supports less land than build-to-sell, which simply confirms open-market plot sales as the exit (forward-funding suits flats/BTR). Turns scary red numbers into a clear conclusion."},
   {v:"10.85", date:"Jul 2026", headline:"The Basis of Figures now states plainly that the key value-drivers err on the side of CAUTION — build cost set high (a national builder often builds cheaper), finance at a full 12% cost of money (senior debt is typically keener at ~8-9%), and the sale value carrying only a modest new-build premium. A new ‘Conservative basis’ line spells out that the residual land value is therefore a FLOOR, not an optimistic figure — so a reviewer reads the deal as downside-protected. Appears on the one-pager and the Investor Memorandum."},
@@ -3072,7 +3073,9 @@ var SHARED_FIELD_GROUPS = [
   [["land","postcode"],["rlv","postcode"],["epe","postcode"]],
   [["land","acres"],["sfh","acres"]],
   // ── Scheme quantum ──
-  [["planning","units"],["land","units"],["rlv","units"],["fin","units"]],
+  // v10.88 — tenure.totalUnits joins the group so changing the unit count updates the Tenure
+  // page too (it stored its own total and lagged behind a units change).
+  [["planning","units"],["land","units"],["rlv","units"],["fin","units"],["tenure","totalUnits"]],
   // ── Affordable housing % ──
   [["planning","ahPct"],["sfh","ahPct"],["tenure","ahPct"]],
   // ── Sale £/sqft (houses path; different key name per stage) ──
@@ -3129,7 +3132,7 @@ function applySharedInput(d, section, key, val, currentStage, isStageId){
 // have. For these keys we RECONCILE a conflict to the authoritative (first-in-group) value, not
 // just fill blanks. Descriptive fields (city, address, lpa…) keep the gentler blank-fill-only
 // behaviour, so a deliberately different label on a sibling stage is never clobbered.
-var _RECONCILE_SHARED_KEYS = {profitPct:1,finRate:1,buildPsf:1,feesPct:1,contingency:1,units:1,ahPct:1,afhPct:1,s106pu:1,avgSqft:1,salePsf:1,basePsf:1,targetYield:1,exitYield:1,price:1,askingPrice:1};
+var _RECONCILE_SHARED_KEYS = {profitPct:1,finRate:1,buildPsf:1,feesPct:1,contingency:1,units:1,totalUnits:1,ahPct:1,afhPct:1,s106pu:1,avgSqft:1,salePsf:1,basePsf:1,targetYield:1,exitYield:1,price:1,askingPrice:1};
 function normalizeSharedFields(data){
   if(!data || typeof data !== "object") return data;
   var next = Object.assign({}, data);
