@@ -1022,6 +1022,30 @@ function buildCouncilPack(data){
     '</div></body></html>';
 }
 
+// ── v10.95 — ALL STAKEHOLDER PACKS in one document ────────────────────────────
+// Concatenates the deterministic packs — blind investor teaser, RP / housing-association,
+// lender and local-authority — into a single printable document (each on its own page), so the
+// whole set is produced in one click. Every page share of a class is defined because all packs'
+// <style> blocks are merged; each pack's own accent falls back to the last-defined, so the
+// bundle reads as one consistent document.
+function buildAllStakeholderPacks(data){
+  data = data || {};
+  var packs = [];
+  if(typeof buildBlindTeaser === "function") packs.push({t:"Investor teaser", h:buildBlindTeaser(data)});
+  if(typeof buildRPPack === "function")      packs.push({t:"Housing association / RP", h:buildRPPack(data)});
+  if(typeof buildLenderPack === "function")  packs.push({t:"Lender / development finance", h:buildLenderPack(data)});
+  if(typeof buildCouncilPack === "function") packs.push({t:"Local authority / planning", h:buildCouncilPack(data)});
+  if(!packs.length) return '<!DOCTYPE html><html><body>No packs available — build a scheme first.</body></html>';
+  var style = packs.map(function(p){ var m = p.h.match(/<style>([\s\S]*?)<\/style>/); return m ? m[1] : ""; }).join("\n");
+  function pg(html){ var s = html.indexOf('<div class="pg">'); var e = html.indexOf("</body>"); return (s >= 0 && e > s) ? html.substring(s, e) : ""; }
+  var body = packs.map(function(p){ return pg(p.h); }).join("");
+  return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>'+
+    '<title>Cassidy Group — stakeholder packs</title><style>'+style+' @media print{.pg{page-break-after:always}} .pg:last-of-type{page-break-after:auto}</style></head><body>'+
+    '<button class="btn noprint" onclick="window.print()">Print / Save ALL as PDF</button>'+
+    body+
+    '</body></html>';
+}
+
 function renderProposal(city, data, gdv, lc, up, user){
   var l=data.land||{}; var p=data.planning||{}; var ten=data.tenure||{}; var ex=data.exit||{};
   var M=(typeof calcDealMetrics==="function")?calcDealMetrics(data):{};
