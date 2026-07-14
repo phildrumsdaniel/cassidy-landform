@@ -120,6 +120,7 @@ function buildLandOnePager(data, cityHint){
     var oBuild=num(sf.buildCost), oFees=num(sf.fees), oCont=num(sf.contingency), oFin=num(sf.finance);
     var oS106=num(sf.s106), oRoads=num(sf.roads), oInfra=num(sf.infra), oMkt=num(sf.marketing), oProfit=num(sf.profit);
     var oDev=num(sf.devCost)||(oBuild+oFees+oCont+oFin+oS106+oRoads+oInfra+oMkt);
+    var oGrantIncome=num(sf.grantIncome)||0;   // v10.91 — AHP grant already in sf.rlv; shown explicitly & added to the RLV sensitivities
     var oRlv=num(sf.rlv);
     var oAvgSqft=Math.round(num(sf.avgSqft)||0);
     var oBuildPsf=Math.round(num(sf.buildPsf)||0);
@@ -337,7 +338,8 @@ function buildLandOnePager(data, cityHint){
               (oInfra>0?cRow("Infrastructure &amp; SuDS",fmt(oInfra),true,false):'')+
               (oMkt>0?cRow("Marketing / disposal",fmt(oMkt),true,false):'')+
               cRow("Developer profit ("+Math.round(oProfitPct)+"%)",fmt(oProfit),true,false)+
-              cRow("Residual land value",(oRlv<0?"−":"")+fmt(Math.abs(oRlv)),false,true)+
+              (oGrantIncome>0?'<tr><td style="color:#1B7A54">+ Affordable-housing grant (AHP)</td><td class="n" style="color:#1B7A54">+'+fmt(oGrantIncome)+'</td></tr>':'')+
+              cRow("Residual land value"+(oGrantIncome>0?" (incl. grant)":""),(oRlv<0?"−":"")+fmt(Math.abs(oRlv)),false,true)+
             '</table>'+
             '<div class="two">'+
               '<div class="box"><div class="l">Max land @ target profit</div><div class="v">'+(oRlv?((oRlv<0?"−":"")+fmt(Math.abs(oRlv))):"—")+'</div></div>'+
@@ -376,8 +378,8 @@ function buildLandOnePager(data, cityHint){
               '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#4A4BAE;font-weight:800;margin-bottom:4px">Target profit &rarr; what you can pay for the land</div>'+
               '<div style="font-size:8px;color:#6A6F97;margin-bottom:5px"><b>The more profit you target, the less you can pay for the land.</b> 17.5% of GDV is the planning-viability benchmark; volume house-builders often target 20%+ (a &lsquo;30% margin&rsquo; is usually profit-on-cost, &asymp; 22&ndash;23% on GDV).</div>'+
               '<table><tr>'+[17.5,20,25,30].map(function(p){ return '<td class="n" style="font-size:7.4px;color:#8A90B4;text-transform:uppercase;font-weight:700">'+p+'% profit</td>'; }).join('')+'</tr>'+
-                '<tr>'+[17.5,20,25,30].map(function(p){ var v=(oGdv-oDev)-oGdv*(p/100); var pp=oUnits>0?v/oUnits:0; return '<td class="n" style="font-weight:800;color:'+(pp>=0?'#1B7A54':'#B05A35')+'">'+(pp<0?'−£':'£')+Math.abs(Math.round(pp/1000)).toLocaleString()+'k/plot</td>'; }).join('')+'</tr>'+
-                '<tr>'+[17.5,20,25,30].map(function(p){ var v=(oGdv-oDev)-oGdv*(p/100); return '<td class="n" style="font-size:7.4px;color:#6A6F97">'+(v<0?'−':'')+fmt(Math.abs(v))+'</td>'; }).join('')+'</tr></table>'+
+                '<tr>'+[17.5,20,25,30].map(function(p){ var v=(oGdv-oDev)-oGdv*(p/100)+oGrantIncome;var pp=oUnits>0?v/oUnits:0; return '<td class="n" style="font-weight:800;color:'+(pp>=0?'#1B7A54':'#B05A35')+'">'+(pp<0?'−£':'£')+Math.abs(Math.round(pp/1000)).toLocaleString()+'k/plot</td>'; }).join('')+'</tr>'+
+                '<tr>'+[17.5,20,25,30].map(function(p){ var v=(oGdv-oDev)-oGdv*(p/100)+oGrantIncome;return '<td class="n" style="font-size:7.4px;color:#6A6F97">'+(v<0?'−':'')+fmt(Math.abs(v))+'</td>'; }).join('')+'</tr></table>'+
             '</div>'
           : '')+
         // v10.68 — two named scenarios side by side: the profit Keystone built at, and the user's
@@ -385,7 +387,7 @@ function buildLandOnePager(data, cityHint){
         (function(){
           var ksP=num((data.sfh||{}).keystoneProfitPct)||17.5, ourP=oProfitPct;
           if(!(oGdv>0) || Math.abs(ksP-ourP)<0.25) return '';
-          function rlvAtP(p){ return (oGdv-oDev)-oGdv*(p/100); }
+          function rlvAtP(p){ return (oGdv-oDev)-oGdv*(p/100)+oGrantIncome; }
           var Av=rlvAtP(ksP), Bv=rlvAtP(ourP), acq2=askL>0?landAcqCosts(askL).total:0;
           function money(x){ return (x<0?'−':'')+fmt(Math.abs(x)); }
           function plot(v){ var pp=oUnits>0?v/oUnits:0; return '<span style="color:'+(pp>=0?'#1B7A54':'#B05A35')+';font-weight:800">'+(pp<0?'−£':'£')+Math.abs(Math.round(pp/1000)).toLocaleString()+'k</span>'; }
@@ -537,6 +539,7 @@ function buildBlindTeaser(data){
   var s106=num(SF.s106), roads=num(SF.roads), infra=num(SF.infra), mkt=num(SF.marketing);
   var dev=num(SF.devCost)||(build+fees+cont+fin+s106+roads+infra+mkt);
   var rlv=num(SF.rlv)||num(M.rlv)||0;
+  var grantIncome=num(SF.grantIncome)||0;   // v10.91 — AHP grant, already in SF.rlv
   var profit=num(SF.profit)||0;
   var profitPct=gdv>0?profit/gdv*100:0;
   var profitOnCost=(dev+rlv)>0?profit/(dev+rlv)*100:0;
@@ -668,7 +671,8 @@ function buildBlindTeaser(data){
               row("S106 / CIL","−"+fmt(s106),false)+
               ((roads+infra)>0?row("Infrastructure / roads","−"+fmt(roads+infra),false):'')+
               row("Developer profit ("+Math.round(profitPct)+"%)","−"+fmt(profit),false)+
-              row("Residual land budget",money(rlv),true)+
+              (grantIncome>0?'<tr><td style="color:#1B7A54">+ Affordable-housing grant (AHP)</td><td class="n" style="color:#1B7A54">+'+fmt(grantIncome)+'</td></tr>':'')+
+              row("Residual land budget"+(grantIncome>0?" (incl. grant)":""),money(rlv),true)+
             '</table>'+
             '<div class="rr" style="margin-top:5px"><span>Profit on cost</span><b>'+pct(profitOnCost)+'</b></div>'+
             (units>0?'<div class="rr"><span>Land budget per plot</span><b>'+fmt(rlv/units)+'</b></div>':'')+
