@@ -909,6 +909,119 @@ function buildLenderPack(data){
     '</div></body></html>';
 }
 
+// ── v10.94 — LOCAL AUTHORITY / PLANNING BENEFITS PACK ─────────────────────────
+// The positive case a council / planning committee weighs in support of consent: housing
+// delivery (incl. affordable) against local need, S106 / CIL contributions, biodiversity net
+// gain, design & sustainability standards, and the economic benefits (construction jobs &
+// investment, ongoing council-tax revenue). Built from the deal so Cassidy can put a credible,
+// benefits-led case to the LPA at pre-app / application. Economic figures are indicative.
+function buildCouncilPack(data){
+  data = data || {};
+  var p=data.planning||{}, ten=data.tenure||{}, l=data.land||{};
+  var SF=(typeof computeSFHMetrics==="function")?computeSFHMetrics(data):{};
+  function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  var region=(typeof _blindRegion==="function")?_blindRegion(data):"the area";
+  var ref=(typeof _blindRef==="function")?_blindRef(data):"CAS";
+  var lpa=p.lpa||l.localAuthority||"";
+  var units=num(SF.totalUnits)||0;
+  var ahPct=Math.round(num(SF.ahPctResolved)||num(p.ahPct||p.afhPct||ten.ahPct||0));
+  var affHomes=num(SF.affordableHomes)||Math.round(units*ahPct/100);
+  var marketHomes=Math.max(0,units-affHomes);
+  var acres=num(l.acres)||num(SF.acres)||0;
+  var density=(acres>0&&units>0)?Math.round(units/acres):0;
+  var s106=num(SF.s106)||0;
+  var tl=(typeof projectTimeline==="function")?projectTimeline(data):null;
+  // Economic benefits — indicative, standard planning-application metrics.
+  var jobs=Math.round(units*1.5);                       // direct + indirect construction jobs (indicative)
+  var constructionInvest=num(SF.buildCost)||0;          // build spend, largely local supply chain & labour
+  var councilTaxPa=units*2000;                          // ~£2,000/home/yr ongoing (indicative average band)
+  // Tenure split for the affordable.
+  var TEN={sr:"Social Rent",ar:"Affordable Rent",so:"Shared Ownership",first_homes:"First Homes"};
+  var tenParts=[]; var mix=ten.mix||null;
+  if(mix){ ["sr","ar","so","first_homes"].forEach(function(k){ var pc=num(mix[k]); if(pc>0) tenParts.push(TEN[k]+" "+Math.round(units*pc/100)); }); }
+  var logo=((typeof BRAND_LOGO_PNG!=="undefined"&&BRAND_LOGO_PNG&&typeof cassidyLogoSrc==="function")?'<img src="'+cassidyLogoSrc()+'" alt="Cassidy Group Ltd" style="height:30px;width:auto;max-width:170px;display:block;margin:0 0 5px auto"/>':'');
+  var css=''+
+    '@page{size:A4 portrait;margin:10mm}*{box-sizing:border-box}html,body{margin:0}'+
+    'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#26284F;font-size:9.9px;line-height:1.45;font-variant-numeric:tabular-nums;-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#eef0f7}'+
+    '.pg{width:190mm;min-height:277mm;margin:6mm auto;background:#fff;padding:10mm 10mm 8mm;box-shadow:0 2px 14px rgba(0,0,0,.12)}'+
+    '@media print{body{background:#fff}.pg{margin:0;box-shadow:none;width:auto;min-height:auto;padding:0}.noprint{display:none}}'+
+    '.top{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #9A7B3E;padding-bottom:6px;margin-bottom:6px}'+
+    '.brand{font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:#9A7B3E;font-weight:800}'+
+    'h1{font-family:Georgia,serif;font-size:17px;color:#1B1D46;margin:2px 0 0}.sub{color:#6A6F97;font-size:9.5px;margin-top:3px}'+
+    '.meta{text-align:right;font-size:8.3px;color:#6A6F97;line-height:1.5}'+
+    '.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin:9px 0}'+
+    '.kpi{border:1px solid #E0E2EC;border-radius:5px;padding:7px 8px;background:#FBF9F3}'+
+    '.kpi .l{font-size:7.3px;letter-spacing:.07em;text-transform:uppercase;color:#8A7A52;font-weight:700}.kpi .v{font-size:14px;font-weight:800;color:#1B1D46;margin-top:2px;font-family:Georgia,serif}'+
+    '.cols{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:3px}'+
+    '.card{border:1px solid #E0E2EC;border-radius:6px;padding:9px 10px;margin-bottom:9px}'+
+    '.ct{font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#9A7B3E;font-weight:800;margin-bottom:5px}'+
+    'table{width:100%;border-collapse:collapse}td{padding:2.6px 0;border-bottom:1px solid #F1F2F8}td.n{text-align:right;font-weight:600}tr.s td{border-top:1.4px solid #C9CCE4;border-bottom:none;font-weight:800;color:#1B1D46;padding-top:4px;font-size:10.6px}'+
+    '.rr{display:flex;justify-content:space-between;color:#6A6F97;font-size:8.8px;padding:2px 0}.rr b{color:#33365F}'+
+    '.hl{margin:0;padding-left:15px}.hl li{margin-bottom:3px;color:#33365F}'+
+    '.cta{border:1.5px solid #9A7B3E;border-radius:7px;padding:11px 13px;background:#FBF7EE;margin-top:2px}.cta .h{font-size:11px;font-weight:800;color:#8A6A2E}.cta .b{font-size:9px;color:#33365F;margin-top:3px;line-height:1.5}'+
+    '.foot{margin-top:9px;font-size:7.5px;color:#9298BC;line-height:1.55;border-top:1px solid #EEF0F7;padding-top:6px}'+
+    '.btn{position:fixed;top:9px;right:9px;background:#1E1F5C;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25)}';
+  return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>'+
+    '<title>Planning Benefits Statement — '+esc(ref)+'</title><style>'+css+'</style></head><body>'+
+    '<button class="btn noprint" onclick="window.print()">Print / Save as PDF</button>'+
+    '<div class="pg">'+
+      '<div class="top"><div><div class="brand">Cassidy Group · Planning Benefits Statement</div>'+
+        '<h1>'+esc(units.toLocaleString())+' new homes — '+esc(region)+'</h1>'+
+        '<div class="sub">'+(lpa?esc(lpa)+' · ':'')+esc(affHomes.toLocaleString())+' affordable ('+ahPct+'%) · benefits in support of consent</div></div>'+
+        '<div class="meta">'+logo+'Ref '+esc(ref)+'<br/>Indicative · v'+esc(typeof CURRENT_VERSION!=="undefined"?CURRENT_VERSION:"")+'</div></div>'+
+      '<div class="kpis">'+
+        '<div class="kpi"><div class="l">New homes</div><div class="v">'+(units?units.toLocaleString():"—")+'</div></div>'+
+        '<div class="kpi"><div class="l">Affordable homes</div><div class="v" style="color:#1B7A54">'+(affHomes?affHomes.toLocaleString():"—")+'</div></div>'+
+        '<div class="kpi"><div class="l">S106 / CIL</div><div class="v">'+(s106>0?fmt(s106):"—")+'</div></div>'+
+        '<div class="kpi"><div class="l">Jobs supported</div><div class="v">'+(jobs?"~"+jobs.toLocaleString():"—")+'</div></div>'+
+      '</div>'+
+      '<div class="cols">'+
+        '<div>'+
+          '<div class="card"><div class="ct">Housing delivery</div>'+
+            '<div class="rr"><span>Total new homes</span><b>'+units.toLocaleString()+'</b></div>'+
+            '<div class="rr"><span>Market homes</span><b>'+marketHomes.toLocaleString()+'</b></div>'+
+            '<div class="rr"><span>Affordable homes</span><b>'+affHomes.toLocaleString()+' ('+ahPct+'%)</b></div>'+
+            (tenParts.length?'<div class="rr"><span>Affordable tenure</span><b style="max-width:60%;text-align:right">'+esc(tenParts.join(" · "))+'</b></div>':'')+
+            (density>0?'<div class="rr"><span>Density</span><b>'+density+' homes/acre · ≈'+Math.round(density*2.471)+' dph</b></div>':'')+
+            '<div style="font-size:8px;color:#6A6F97;margin-top:4px;line-height:1.5">Contributes '+units.toLocaleString()+' homes toward the authority\'s housing requirement and five-year land supply, including '+affHomes.toLocaleString()+' policy-compliant affordable homes.</div>'+
+          '</div>'+
+          '<div class="card"><div class="ct">Planning obligations (S106 / CIL)</div>'+
+            '<div style="font-size:8.6px;color:#6A6F97;margin-bottom:4px">Indicative contributions of '+fmt(s106)+' ('+(units>0?fmt(Math.round(s106/units))+'/home':"—")+') toward:</div>'+
+            '<ul class="hl" style="font-size:8.8px"><li>Education (primary / secondary places)</li><li>Highways &amp; sustainable transport</li><li>Health &amp; primary care</li><li>Open space, play &amp; sport</li><li>Community facilities &amp; monitoring</li></ul>'+
+            '<div style="font-size:7.5px;color:#9298BC;margin-top:3px;font-style:italic">Final heads of terms agreed with the authority.</div>'+
+          '</div>'+
+        '</div>'+
+        '<div>'+
+          '<div class="card"><div class="ct">Economic benefits (indicative)</div>'+
+            '<table>'+
+              '<tr><td>Jobs supported in construction</td><td class="n">~'+jobs.toLocaleString()+'</td></tr>'+
+              '<tr><td>Construction investment (local supply chain &amp; labour)</td><td class="n">'+fmt(constructionInvest)+'</td></tr>'+
+              '<tr><td>Ongoing council-tax revenue</td><td class="n">~'+fmt(councilTaxPa)+'/yr</td></tr>'+
+              (affHomes>0?'<tr><td>Affordable homes for local need</td><td class="n">'+affHomes.toLocaleString()+'</td></tr>':'')+
+            '</table>'+
+            '<div style="font-size:7.5px;color:#9298BC;margin-top:3px;font-style:italic">Jobs ≈1.5/home (direct &amp; indirect); council tax at an indicative ~£2,000/home/yr — confirm against the authority\'s bands.</div>'+
+          '</div>'+
+          '<div class="card"><div class="ct">Environment, design &amp; sustainability</div>'+
+            '<ul class="hl" style="font-size:8.8px">'+
+              '<li><b>Biodiversity Net Gain:</b> 10% net gain secured (30-year maintenance).</li>'+
+              '<li><b>Energy:</b> EPC B minimum, Future Homes Standard — low-carbon heating, no new gas.</li>'+
+              '<li><b>Homes:</b> Nationally Described Space Standard; accessible &amp; adaptable homes.</li>'+
+              '<li><b>Drainage &amp; green space:</b> sustainable drainage (SuDS), on-site open space &amp; landscaping.</li>'+
+            '</ul>'+
+          '</div>'+
+          '<div class="card"><div class="ct">Deliverability</div>'+
+            '<div class="rr"><span>Planning position</span><b>'+esc((p.status==="full")?"Full consent":(p.status==="outline")?"Outline":(p.status==="allocated")?"Allocated":"Promotion / outline")+'</b></div>'+
+            (tl?'<div class="rr"><span>Build programme</span><b>~'+tl.buildYears+' years</b></div>':'')+
+            '<div class="rr"><span>Developer</span><b>Cassidy Group — track record on request</b></div>'+
+          '</div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="cta"><div class="h">▸ Working with the authority</div>'+
+        '<div class="b">Cassidy Group welcomes pre-application engagement to shape a policy-compliant, benefits-led scheme — housing and affordable delivery, biodiversity and design quality, with S106 heads of terms agreed collaboratively. Contact us quoting <b>'+esc(ref)+'</b>.</div></div>'+
+      '<div class="foot"><b>Indicative — a summary of benefits, not a formal planning statement or viability appraisal.</b> Homes, affordable numbers, S106/CIL and economic figures are computed on Landform\'s engine from the scheme inputs; economic benefits use standard indicative multipliers (jobs ≈1.5/home; council tax ~£2,000/home/yr) and must be confirmed. Obligations and standards are subject to the adopted local plan, the authority\'s assessment and agreed heads of terms. © Cassidy Group Ltd.</div>'+
+    '</div></body></html>';
+}
+
 function renderProposal(city, data, gdv, lc, up, user){
   var l=data.land||{}; var p=data.planning||{}; var ten=data.tenure||{}; var ex=data.exit||{};
   var M=(typeof calcDealMetrics==="function")?calcDealMetrics(data):{};

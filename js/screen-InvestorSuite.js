@@ -131,6 +131,15 @@ function renderInvestorSuite(data, navTo, saveDeal, up, user){
       if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the pack."); return; }
       w.document.open(); w.document.write(html); w.document.close();
     }
+    // v10.94 — open the local-authority / planning benefits pack.
+    function openCouncilPack(){
+      if(typeof buildCouncilPack!=="function"){ if(typeof notify==="function") notify("Planning pack generator still loading — try again in a moment."); return; }
+      var html=buildCouncilPack(data);
+      if(typeof showReportOverlay==="function" && showReportOverlay(html,"Local authority / planning benefits pack")) return;
+      var w=window.open("","_blank");
+      if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the pack."); return; }
+      w.document.open(); w.document.write(html); w.document.close();
+    }
 
     // ── Tab styles ──
     function tabBtn(key,label){
@@ -342,7 +351,8 @@ function renderInvestorSuite(data, navTo, saveDeal, up, user){
                 e("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
                   e("button",{onClick:openBlindTeaser,style:{padding:"10px 18px",background:"#8A1B2E",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"Open teaser →"),
                   e("button",{onClick:openRPPack,title:"Affordable-homes turnkey + grant offer for a housing association",style:{padding:"10px 18px",background:"#1B7A54",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"🏛 RP / HA pack →"),
-                  e("button",{onClick:openLenderPack,title:"Development-finance request for a lender (LTGDV, LTC, cover, exit, security)",style:{padding:"10px 18px",background:"#2E2F8A",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"🏦 Lender pack →")
+                  e("button",{onClick:openLenderPack,title:"Development-finance request for a lender (LTGDV, LTC, cover, exit, security)",style:{padding:"10px 18px",background:"#2E2F8A",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"🏦 Lender pack →"),
+                  e("button",{onClick:openCouncilPack,title:"Planning benefits statement for the local authority (housing, affordable, S106, BNG, economic benefits)",style:{padding:"10px 18px",background:"#9A7B3E",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"🏛️ Council pack →")
                 )
               ),
               e("div",{style:{display:"flex",gap:10,marginTop:12,flexWrap:"wrap"}},
