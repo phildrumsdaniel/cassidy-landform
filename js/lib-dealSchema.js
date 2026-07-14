@@ -289,14 +289,13 @@ function buildDealFromBrief(brief){
   if(!units && densityUnits > 0){
     units = densityUnits;
     autoUnitNote = "Units estimated from density: " + acres + " acres × " + d + " homes/acre ≈ " + units + " (no unit count supplied — verify).";
-  } else if(units && !mix.length && densityUnits > 0 && acres >= 15 &&
-            (journey === "sfh" || journey === "land") && (units / acres) < 5){
-    autoUnitNote = "Supplied unit count " + units + " on " + acres + " acres is only ~" +
-      (Math.round((units / acres) * 10) / 10) + " homes/acre — well below a typical scheme. " +
-      "Sized to " + densityUnits + " at " + d + " homes/acre so the appraisal reflects the land. " +
-      "If the scheme really is low-density, set the unit count in Land Appraisal.";
-    units = densityUnits;
   }
+  // v10.89 — HONOUR a supplied unit count. Previously a low count on a large greenfield
+  // (<5/acre on ≥15 acres) was silently inflated to acres×density — which overrode a figure the
+  // user had DELIBERATELY set on the density card (e.g. "200 homes" on 88 acres → 1,056). The
+  // land's fuller CAPACITY is surfaced as upside below (and on the density card's "Model N at
+  // X/acre" button), so the stated figure is never changed — the user raises the density
+  // themselves to model the bigger scheme.
   // v10.47 — DEVELOP FROM THE SOURCE FIRST, then surface the land's fuller CAPACITY as upside.
   // Keystone builds the appraisal from whatever the source states (honoured above); this ADD-ON
   // computes what the acreage could carry at a policy-typical higher density and flags the
