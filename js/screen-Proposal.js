@@ -154,12 +154,36 @@ function buildLandOnePager(data, cityHint){
     // yield, and the profit at that scale. Net rent comes from the engine (computeSFHMetrics), so
     // the printed report and the Quick Appraisal show the same figure. A keener yield ⇒ more value.
     var oCapNetRent=num(sf.capNetRentPa)||0;
+    // v10.107 — respect the yield set on the Capitalisation page (the same net-initial yield it
+    // capitalises at) so the one-pager reads off that page; sanity-clamp only to [3.5%, 7%].
     var oCapYieldPct=num((data.capitalise||{}).targetYield); if(oCapYieldPct>0&&oCapYieldPct<1) oCapYieldPct*=100;
-    if(!(oCapYieldPct>0)) oCapYieldPct=4.9; oCapYieldPct=Math.max(4.5,Math.min(6,oCapYieldPct));   // v10.55 — 4.5% institutional floor
+    if(!(oCapYieldPct>0)) oCapYieldPct=4.75; oCapYieldPct=Math.max(3.5,Math.min(7,oCapYieldPct));
     function oCapIV(y){ return y>0?oCapNetRent/(y/100):0; }
     function oCapProfitAllIn(y){ return oCapIV(y)-oDev-totalLandCost; }
     function oCapMaxLand(y){ var iv=oCapIV(y); return iv-oDev-iv*(oProfitPct/100); }
-    var oCapYields=[4.5,5.0,5.5,6.0];
+    // Sensitivity ladder anchored on the deal's actual yield, widening in +0.5% steps.
+    var oCapYields=[oCapYieldPct, oCapYieldPct+0.5, oCapYieldPct+1.0, oCapYieldPct+1.5].map(function(x){return Math.round(x*100)/100;});
+    // v10.105 — rent evidence + the profit RETURN the yields derive. Rent per home comes from the
+    // engine (area comparables / research); the developer profit at each yield is the fund's capital
+    // value less total dev cost less the land you actually pay for (the guide price if entered, else
+    // the plot-sales residual), and the return is that profit on total cost.
+    var oCapRentPerUnitPa=num(sf.capMarketRentPerUnitPa)||0;
+    var oCapGrossRentPa=num(sf.capGrossRentPa)||0;
+    var _capD2=data.capitalise||{};
+    var oCapMgmtPct=Math.round(num(sf.capNetDeductionPct)||25);   // real gross-to-net deduction % from the engine (voids+mgmt+maint+ins)
+    var oCapRentEntered=num(_capD2.marketRentPerUnitPa)>0;                  // an explicit per-home rent was set
+    var oCapRentResearched=!!sf.capRentFromResearch;                        // per-bed rents from the Capitalisation stage drove it
+    var oCapTenureBlind=!!sf.capTenureBlind;                                // whole scheme sold to a HA/fund — no affordable rent discount
+    var oCapRentAI=(_capD2.rentSource==="AI market research");
+    var oCapGrossYld=numOr(_capD2.grossRentYield,4.5);
+    // Honest provenance, in priority order: explicit per-home rent → researched per-bed rents from the
+    // Capitalisation stage → (fallback) rent implied from the sale value at a gross yield.
+    var oCapRentProv=oCapRentEntered?"entered market rent"
+      :(oCapRentResearched?(oCapRentAI?"AI-researched per-bed rents from the Capitalisation stage":"per-bed rents from the Capitalisation stage")
+      :"implied from the sale value at a ~"+oCapGrossYld+"% gross rental yield — research the rents on the Capitalisation stage to firm up");
+    var oCapLandBasis=askL>0?totalLandCost:Math.max(0,oRlv);       // the land cost profit is measured against
+    function oCapDevProfit(y){ return oCapIV(y)-oDev-oCapLandBasis; }
+    function oCapReturnOnCost(y){ var c=oDev+oCapLandBasis; return c>0?oCapDevProfit(y)/c*100:0; }
 
     // Verdict — decision-useful: uses the margin AFTER the full cost of acquiring the land.
     var verdict, vcol, vsub;
@@ -416,28 +440,38 @@ function buildLandOnePager(data, cityHint){
         })()+
         (oCapNetRent>0
           ? '<div style="margin-top:9px;border:1px solid #BFD9CF;border-radius:7px;padding:9px 11px;background:#F5FBF8">'+
-              '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#1B7A54;font-weight:800;margin-bottom:4px">Forward-fund exit — whole scheme sold to a pension fund</div>'+
-              '<div style="font-size:9px;color:#6A6F97;margin-bottom:5px">The completed scheme let and sold as a rented investment at a net initial yield (net rent '+fmt(oCapNetRent)+'/yr, after 25% management). A keener (lower) yield means the fund pays more. '+(askL>0?'Profit is after the '+fmt(totalLandCost)+' all-in land cost.':'Max land value is at '+Math.round(oProfitPct)+'% target profit.')+'</div>'+
+              '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#1B7A54;font-weight:800;margin-bottom:4px">Forward-fund exit — rents, yields &amp; the profit they derive</div>'+
+              // Rent evidence — the comparable rents feeding the capitalisation, shown explicitly.
+              '<div style="font-size:9px;color:#3D5A4C;margin-bottom:5px;line-height:1.5;background:#EBF6F1;border-radius:5px;padding:6px 8px">'+
+                '<b>Rents used ('+esc(oCapRentProv)+'):</b> '+
+                (oCapRentPerUnitPa>0?'~'+fmt(oCapRentPerUnitPa)+'/home/yr (≈£'+fmtN(Math.round(oCapRentPerUnitPa/12))+' pcm)':'—')+
+                ' × '+esc(oUnits.toLocaleString())+' homes = gross '+fmt(oCapGrossRentPa)+'/yr → <b>net '+fmt(oCapNetRent)+'/yr</b> after '+oCapMgmtPct+'% management &amp; voids. This net rent is capitalised at each net-initial yield below to give the fund\'s capital value.'+
+                (oCapTenureBlind?' <b>Tenure-blind sale:</b> the whole scheme is sold to a HA / fund at full market rent — the affordable obligation is the buyer\'s (grant-bridged), so it does not discount the developer\'s proceeds.':'')+
+              '</div>'+
+              '<div style="font-size:9px;color:#6A6F97;margin-bottom:5px">A keener (lower) yield ⇒ the fund pays more ⇒ more profit; a wider yield ⇒ less. Profit is the fund\'s capital value less the '+fmt(oDev)+' development cost less the land ('+(askL>0?'the '+fmt(totalLandCost)+' all-in cost of the '+fmt(askL)+' guide price':'the '+fmt(oCapLandBasis)+' build-to-sell residual land value')+'). '+
+                '<b>Note:</b> the headline residual land value ('+fmt(oRlv)+') is the PLOT-SALES exit and does not change with yield — this table is the separate rented-investment exit.</div>'+
               '<table><tr>'+
                 '<td style="color:#8A90B4;font-size:7.4px;letter-spacing:.05em;text-transform:uppercase;font-weight:700">Net yield</td>'+
                 '<td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Fund pays</td>'+
-                '<td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">'+(askL>0?'Profit (all-in)':'Max land')+'</td>'+
-                '<td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">'+(askL>0?'Margin':'Profit @ target')+'</td></tr>'+
-                oCapYields.map(function(y){ var iv=oCapIV(y), pr=oCapProfitAllIn(y), mg=iv>0?pr/iv*100:0, sel=Math.abs(y-oCapYieldPct)<0.05;
+                '<td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Developer profit</td>'+
+                '<td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Return on cost</td>'+
+                '<td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Max land</td></tr>'+
+                oCapYields.map(function(y){ var iv=oCapIV(y), pr=oCapDevProfit(y), roc=oCapReturnOnCost(y), ml=oCapMaxLand(y), sel=Math.abs(y-oCapYieldPct)<0.05;
                   return '<tr'+(sel?' style="background:rgba(27,122,84,.09);font-weight:800"':'')+'>'+
-                    '<td>'+y.toFixed(1)+'%</td>'+
+                    '<td>'+y.toFixed(2)+'%</td>'+
                     '<td class="n">'+fmt(iv)+'</td>'+
-                    '<td class="n" style="color:'+(askL>0?(pr>=0?'#1B7A54':'#B05A35'):(oCapMaxLand(y)>=0?'#1B7A54':'#B05A35'))+'">'+(askL>0?((pr<0?'−':'')+fmt(Math.abs(pr))):((oCapMaxLand(y)<0?'−':'')+fmt(Math.abs(oCapMaxLand(y)))))+'</td>'+
-                    '<td class="n" style="color:'+(askL>0?(mg>=15?'#1B7A54':mg>=12?'#9A7B3E':'#B05A35'):'#3A3D6A')+'">'+(askL>0?pct(mg):fmt(iv*(oProfitPct/100)))+'</td></tr>'; }).join('')+
+                    '<td class="n" style="color:'+(pr>=0?'#1B7A54':'#B05A35')+'">'+(pr<0?'−':'')+fmt(Math.abs(pr))+'</td>'+
+                    '<td class="n" style="color:'+(roc>=15?'#1B7A54':roc>=0?'#9A7B3E':'#B05A35')+'">'+(roc<0?'−':'')+pct(Math.abs(roc))+'</td>'+
+                    '<td class="n" style="color:'+(ml>=0?'#3A3D6A':'#B05A35')+'">'+(ml<0?'−':'')+fmt(Math.abs(ml))+'</td></tr>'; }).join('')+
               '</table>'+
               // v10.86 — reframe the (often negative) forward-fund figures so they read as a
               // conclusion, not a loss: for houses-for-sale, forward-funding supports LESS land
               // than build-to-sell, which simply confirms plot sales as the exit.
               (function(){
-                var ffBest=oCapMaxLand(4.5);           // keenest yield = best case for the fund route
+                var ffBest=oCapMaxLand(oCapYieldPct);           // keenest (deal) yield = best case for the fund route
                 if(!(oRlv>0) || ffBest>=oRlv) return '';
                 return '<div style="font-size:8px;color:#3D5A4C;margin-top:5px;line-height:1.5;border-top:1px dashed #BFD9CF;padding-top:5px">'+
-                  '<b>Read-across (not a loss):</b> even at the keenest 4.5% yield, forward-funding the rented scheme supports '+(ffBest<0?'−':'')+fmt(Math.abs(ffBest))+' of land — about <b>'+fmt(Math.abs(oRlv-ffBest))+' below</b> the '+fmt(oRlv)+' build-to-sell residual. That confirms <b>open-market plot sales as the exit</b> for houses built for sale; forward-funding suits rental blocks (flats / BTR), not houses. Shown for completeness.'+
+                  '<b>Read-across (not a loss):</b> even at the keen '+oCapYieldPct.toFixed(2)+'% yield, forward-funding the rented scheme supports '+(ffBest<0?'−':'')+fmt(Math.abs(ffBest))+' of land — about <b>'+fmt(Math.abs(oRlv-ffBest))+' below</b> the '+fmt(oRlv)+' build-to-sell residual. So the rented-exit profit above reads negative for houses — that simply confirms <b>open-market plot sales as the exit</b>; forward-funding suits rental blocks (flats / BTR). Shown for completeness.'+
                 '</div>';
               })()+
             '</div>'
@@ -559,12 +593,15 @@ function buildBlindTeaser(data){
   var density=(acres>0&&units>0)?Math.round(units/acres):0;
   var progYears=num(SF.financeProgYears)||0, peakDebt=num(SF.financePeakDebtPct)||0;
   var tl=(typeof projectTimeline==="function")?projectTimeline(data):null;
-  // Forward-fund economics
+  // Forward-fund economics — v10.109: use the yield set on the Capitalisation page (no 4.5% floor)
+  // so the teaser reconciles with the one-pager / Capitalisation screen; sanity-clamp to [3.5%, 7%].
   var netRent=num(SF.capNetRentPa)||0;
-  var yld=(typeof dealYield==="function")?dealYield(data):4.9; if(yld>0&&yld<1) yld*=100; yld=Math.max(4.5,Math.min(6,yld||4.9));
+  var yld=num((data.capitalise||{}).targetYield); if(yld>0&&yld<1) yld*=100;
+  if(!(yld>0)) yld=(typeof dealYield==="function")?dealYield(data):4.75; if(yld>0&&yld<1) yld*=100;
+  yld=Math.max(3.5,Math.min(7,yld||4.75));
   function ffVal(y){ return y>0?netRent/(y/100):0; }
   var ffValue=ffVal(yld);
-  var yields=[4.5,5.0,5.5,6.0];
+  var yields=[yld, yld+0.5, yld+1.0, yld+1.5].map(function(x){return Math.round(x*100)/100;});
   var yieldOnCost=(dev+rlv)>0?netRent/(dev+rlv)*100:0;
   // Tenure summary (from the Tenure Mix stage if present)
   var tenLine="";
@@ -691,7 +728,7 @@ function buildBlindTeaser(data){
             '<div style="font-size:8.6px;color:#6A6F97;margin-bottom:5px;line-height:1.45">Completed scheme let &amp; sold as a rented investment at a net initial yield (net rent '+fmt(netRent)+'/yr after ~25% management). A keener yield ⇒ the fund pays more.</div>'+
             '<table><tr><td style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Net yield</td><td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Investment value</td><td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Yield on cost</td></tr>'+
               yields.map(function(y){ var iv=ffVal(y), yoc=(dev+rlv)>0?netRent/(dev+rlv)*100:0, sel=Math.abs(y-yld)<0.05;
-                return '<tr'+(sel?' style="background:rgba(27,122,84,.09);font-weight:800"':'')+'><td>'+y.toFixed(1)+'%</td><td class="n">'+fmt(iv)+'</td><td class="n">'+pct(yoc)+'</td></tr>'; }).join('')+
+                return '<tr'+(sel?' style="background:rgba(27,122,84,.09);font-weight:800"':'')+'><td>'+y.toFixed(2)+'%</td><td class="n">'+fmt(iv)+'</td><td class="n">'+pct(yoc)+'</td></tr>'; }).join('')+
             '</table></div>':'')+
         '</div>'+
       '</div>'+

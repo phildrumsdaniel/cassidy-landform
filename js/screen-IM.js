@@ -27,8 +27,13 @@ function renderIM(at, city, data, gdv, lc, up, user){
     var progYrsE=num(SF.financeProgYears)||num(f.programmeMths)/12||0;
     var peakDebtE=num(SF.financePeakDebtPct)||0;
     var netRentE=num(SF.capNetRentPa)||0;
-    var yldE=(typeof dealYield==="function")?dealYield(data):4.9; if(yldE>0&&yldE<1) yldE*=100; yldE=Math.max(4.5,Math.min(6,yldE||4.9));
+    // v10.109 — use the yield set on the Capitalisation page (no 4.5% floor) so the IM reconciles
+    // with the one-pager / Capitalisation screen; sanity-clamp to [3.5%, 7%].
+    var yldE=num((data.capitalise||{}).targetYield); if(yldE>0&&yldE<1) yldE*=100;
+    if(!(yldE>0)) yldE=(typeof dealYield==="function")?dealYield(data):4.75; if(yldE>0&&yldE<1) yldE*=100;
+    yldE=Math.max(3.5,Math.min(7,yldE||4.75));
     var ffValueE=netRentE>0?netRentE/(yldE/100):0;
+    var ffYieldsE=[yldE,yldE+0.5,yldE+1.0,yldE+1.5].map(function(x){return Math.round(x*100)/100;});
     var dealTypeE={forward_fund:"forward-funding",forward_sale:"forward sale",bulk_sale_ha:"bulk sale to a housing association",plot_sales:"open-market plot sales",stabilised:"build, stabilise and sell as an investment",retain:"build to rent and hold",phased:"phased delivery"}[ex.strategy]||"institutional forward-funding";
     var TL=(typeof projectTimeline==="function")?projectTimeline(data):null;
 
@@ -119,8 +124,8 @@ function renderIM(at, city, data, gdv, lc, up, user){
         gRows.map(function(gr){ return '<tr><td style="font-weight:700;color:#7278A0;padding:4px 0">'+gr[0]+'</td>'+bCols.map(function(c){ var m=marginAt(gr[1],c[1]); return '<td style="text-align:right;padding:4px 0;font-weight:700;color:'+(m>=15?"#1B7A54":m>=10?"#9A7B3E":"#B05A35")+'">'+pct(m)+'</td>'; }).join('')+'</tr>'; }).join('')+
         '</table>';
       var ff=netRentE>0?('<h2>Forward-Fund Value by Yield</h2><p style="font-size:11px;color:#6A6F97">Completed scheme let &amp; sold as an investment (net rent '+fmt(netRentE)+'/yr after ~25% management).</p>'+
-        '<table style="width:100%;border-collapse:collapse;font-size:12px"><tr><td style="font-weight:700;color:#7278A0;padding:4px 0">Net initial yield</td>'+[4.5,5.0,5.5,6.0].map(function(y){return '<td style="text-align:right;font-weight:700;color:#7278A0;padding:4px 0">'+y.toFixed(1)+'%</td>';}).join('')+'</tr>'+
-        '<tr><td style="padding:4px 0">Investment value</td>'+[4.5,5.0,5.5,6.0].map(function(y){var v=netRentE/(y/100);return '<td style="text-align:right;padding:4px 0;font-weight:700;color:'+(Math.abs(y-yldE)<0.05?"#1B7A54":"#1E1F5C")+'">'+fmt(v)+'</td>';}).join('')+'</tr></table>'):'';
+        '<table style="width:100%;border-collapse:collapse;font-size:12px"><tr><td style="font-weight:700;color:#7278A0;padding:4px 0">Net initial yield</td>'+ffYieldsE.map(function(y){return '<td style="text-align:right;font-weight:700;color:#7278A0;padding:4px 0">'+y.toFixed(2)+'%</td>';}).join('')+'</tr>'+
+        '<tr><td style="padding:4px 0">Investment value</td>'+ffYieldsE.map(function(y){var v=netRentE/(y/100);return '<td style="text-align:right;padding:4px 0;font-weight:700;color:'+(Math.abs(y-yldE)<0.05?"#1B7A54":"#1E1F5C")+'">'+fmt(v)+'</td>';}).join('')+'</tr></table>'):'';
       var dr='<h2>Data Room — Index</h2><p style="font-size:11px;color:#6A6F97">Available to a counterparty on execution of a mutual NDA.</p>'+
         '<div style="columns:2;font-size:11.5px;color:#3A3D6A;line-height:1.9">'+
         ["Title, plans &amp; searches","Planning decision, conditions &amp; S106","Appraisal model (live) &amp; cashflow","QS cost plan (BCIS basis)","Programme / Gantt","Ground, environmental &amp; flood reports","Biodiversity Net Gain metric &amp; plan","Energy / EPC / Future Homes strategy","Contractor tender &amp; draft building contract","Valuation &amp; insurance","Team CVs &amp; track record","SPV / heads of terms"].map(function(x){return '<div>☐ '+x+'</div>';}).join('')+'</div>';

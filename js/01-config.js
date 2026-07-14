@@ -36,8 +36,14 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.103";
+var CURRENT_VERSION = "10.109";
 var VERSION_HISTORY = [
+  {v:"10.109", date:"Jul 2026", headline:"Capitalisation now reconciles across ALL the reports. The blind investor teaser and the Investor Memorandum were still flooring the forward-fund yield at 4.5% (with a fixed 4.5–6.0% ladder), so they showed a different capitalised value from the one-pager and the Capitalisation page. Both now use the SAME net-initial yield set on the Capitalisation stage (sanity-clamped to 3.5–7%), with the sensitivity ladder anchored on it. So every stakeholder document — one-pager, blind teaser, Investor Memorandum and the Stakeholder Suite — shows the same forward-fund figure off the same engine (rents, net-income method, yield and the tenure-blind option all flow through). The Detailed Appraisal is unchanged: it is the build-to-sell RESIDUAL land appraisal and already pulls the same residual land value from the engine — the capitalisation / forward-fund exit is shown on the one-pager, teaser, IM and Exit pages, not in the residual sheet."},
+  {v:"10.108", date:"Jul 2026", headline:"Tenure-blind capitalisation — when a HA / fund buys the WHOLE scheme. New toggle on the Capitalisation stage: ‘Whole scheme sold to a HA / fund — tenure-blind’. When a housing association or institution buys the entire rented scheme as a capitalised investment, the market/affordable split is the BUYER's concern (grant and their cost of capital bridge the affordable income gap), so the affordable RENT discount should not reduce the developer's proceeds. With the toggle on, the scheme capitalises at 100% market rent — the affordable discount is not applied — lifting the capitalised value (e.g. +£36.6m on the test scheme). Off by default, so nothing changes unless you choose it; the affordable-rent-discount buttons grey out while it's on. It flows through the engine, the Capitalisation screen and the one-pager's forward-fund exit (which notes the tenure-blind basis). The headline plot-sales residual land value is unaffected — this is only the rented-investment exit."},
+  {v:"10.107", date:"Jul 2026", headline:"The one-pager capitalisation now READS OFF the Capitalisation page. The engine's net rent was computed differently from the Capitalisation screen (affordable rent at 65% of market vs the screen's −20%/80%, and a flat 25% management vs the screen's itemised voids+management+maintenance+insurance), so the two showed different capitalised values for the same scheme. The engine now mirrors the screen exactly: market gross rent from the researched per-bed rents × the house mix, an affordable-rent discount blend (default −20% Affordable Rent when the scheme has affordable units), then the itemised NOI deductions (voids 5% + management 10% + maintenance 8% + insurance 2% = 25%), honouring any override. The one-pager's forward-fund table now also uses the SAME net-initial yield set on the Capitalisation page (no longer floored at 4.5%) as its base row, widening in +0.5% steps for sensitivity. Result: the one-pager's forward-fund value reconciles with the Capitalisation page (same rents, same net income, same yield). Verified: 1,800 homes at the researched rents → net £24.36m → £573.29m at 4.25%, matching the page method to the penny."},
+  {v:"10.106", date:"Jul 2026", headline:"The engine now uses the AI-researched rents. The Capitalisation stage's ‘AI: research & fill area rents’ writes real per-bed monthly rents (1/2/3/4-bed), but the land-valuation engine was ignoring them and IMPLYING a rent from the sale value — so the one-pager's forward-fund figures didn't reflect the researched rents. Fixed: computeSFHMetrics now builds the per-home market rent from those per-bed rents (cap.rent1..4) weighted by the actual house mix, and only falls back to the sale-value proxy when no rents have been researched or entered. The one-pager labels the source accordingly (‘AI-researched per-bed rents from the Capitalisation stage’). NOTE: the one-pager's forward-fund value can still sit a little below the Capitalisation screen's rental figure because the engine applies deliberately conservative net assumptions (25% management/void deduction and affordable rent at 65% of market) — the rents are now the same; the net-income assumptions can be reconciled next if you want a single figure."},
+  {v:"10.105", date:"Jul 2026", headline:"One-pager forward-fund exit now shows the RENTS and the PROFIT RETURN the yields derive. A new rent-evidence line states the rent used per home (per year and per month), grossed across the scheme, and the net rent after management — with honest provenance: entered rent, AI-researched rent, or (the common case) ‘implied from the sale value at a ~4.5% gross rental yield — enter local rental comparables to firm up’, so the reader can see and replace it. The yield table now reports, at each net-initial yield: the fund's capital value, the DEVELOPER PROFIT and RETURN ON COST that yield derives (profit = capital value − development cost − land, measured against the guide price if entered, else the plot-sales residual), and the max supportable land — everything moving correctly as the yield widens. For a for-sale house scheme the rented-exit return reads negative, which the read-across note explains simply confirms plot sales as the exit. No engine change — the one-pager now surfaces the rent and the return transparently."},
+  {v:"10.104", date:"Jul 2026", headline:"One-pager yield clarity. A reviewer read the one-pager as showing land value moving oddly when the yield changed. Verified by rendering the report at 4.5% vs 5.0%: the headline residual land value is IDENTICAL at both (it is a plot-sales residual, independent of yield), and the forward-fund figures both fall as the yield widens — nothing rises, no bug. The confusion was the layout sitting a flat headline RLV above a moving forward-fund table. The forward-fund block now states explicitly that the headline residual land value is from PLOT SALES and does not change with yield — yield only moves the forward-fund figures (which fall as the yield widens). No calculations changed."},
   {v:"10.103", date:"Jul 2026", headline:"Floor-area measurement made explicit (GIA), from a standards-grounded review. Houses are both MARKETED and COSTED on Gross Internal Area (GIA) — the area to the inside face of the external walls (RICS Code of Measuring Practice), counting hall/landings and the stairs on each floor. The SFH House Mix column is now labelled ‘GIA sqft’ with an on-screen note: enter HABITABLE GIA and EXCLUDE the garage; the sale £/sqft and build £/sqft both apply to that same GIA so they are like-for-like. The garage, drive and external works are a cheap shell (~£600–1,000/m² vs ~£1,800–2,500/m² habitable) valued separately — the all-in build rate is intended to absorb them. The Basis of Figures spells out the same rule (and that apartments move sales/rents to NIA ≈ 80–85% of GIA while build stays on GIA; houses are ~95–100%, hence GIA throughout). No calculations changed — measurement basis is now stated so cost and value can't be applied on mismatched areas."},
   {v:"10.102", date:"Jul 2026", headline:"DEVELOPED AREA, not the whole site. Landform no longer assumes a whole site is built out — the brief's home count is the truth, and the DEVELOPED area is derived from it at a realistic net density. New ‘Net density (homes / developable acre)’ input on the SFH House Mix stage (default 20/acre, editable): net developable acres = homes ÷ density, capped at the site (a dense/urban site simply uses the whole title). The balance is SURPLUS / open space — never valued as housing and never used to inflate the home count. Effects: (1) infrastructure cost is charged on the DEVELOPED acres, not the whole title (a 200-home brief on an 88-acre site services ~10 acres, not 88 — removing a large over-charge on part-developed sites); unchanged when no site area is known. (2) The Board Proposal now shows the developable/surplus acre split, leads density on homes-per-developable-acre, and reports the residual per DEVELOPABLE acre (comparable to consented-land market bands) — so a low-density strategic site is no longer misread as under-valued because its value was spread across land that isn't being built on. No change to schemes that develop their whole site."},
   {v:"10.101", date:"Jul 2026", headline:"Two clarity fixes from a full UI walk-through of the appraisal (Patric's review). (1) The Capitalisation page's ‘Forward Funding Stack’ could show a NEGATIVE residual land value (a bulk institutional-RENT exit) right next to the POSITIVE for-sale headline RLV — two contradictory land values on one screen. It now carries a banner whenever that happens, explaining this is the institutional-RENT exit test (a for-sale housing scheme usually comes out negative because houses don't rent at institutional yields) and restating the real for-sale RLV; the waterfall's final line is relabelled ‘Land value under an institutional RENT exit (this exit does not stack)’ so it can't be mistaken for the headline. (2) The Board Proposal's market land-value guide showed typical £/acre bands that can sit well above a low-density scheme's own modelled £/acre — because those bands assume a higher serviced density. It now adds a ‘compare on £/plot, not £/acre’ note showing the scheme's density and its £/plot, so a lower-density strategic site isn't misread as under-valued. No calculations changed — both are labelling/reconciliation fixes."},
@@ -2890,16 +2896,36 @@ function computeSFHMetrics(data){
   var cap = data.capitalise || {};
   var capMk = MKT[(typeof dealCityKey === "function") ? dealCityKey(data) : (sfh.city || l.city || "").toLowerCase()] || null;
   var ahPctR = num(sfh.ahPct) || num((data.planning || {}).ahPct) || num((data.planning || {}).afhPct) || num((data.tenure || {}).ahPct) || 0;
-  // House rent is derived from the scheme's OWN market values (a flat city BTR rent
-  // badly understates house rents): market unit value × a gross rental yield.
+  // House rent priority (v10.106): (1) an explicit per-home market rent; (2) the researched per-bed
+  // rents from the Capitalisation stage (cap.rent1..4) weighted by the house mix — the SAME rents the
+  // Capitalisation screen uses, so the one-pager/forward-fund now reflect AI-analysed rents rather
+  // than a rent implied from the sale value; (3) sale value × a gross rental yield; (4) area/city data.
   var capGrossRentYield = numOr(cap.grossRentYield, 4.5) / 100;
   var avgUnitMktValue = totalUnits > 0 ? retailGdv / totalUnits : 0;
-  var mktRentPerUnitPa = num(cap.marketRentPerUnitPa) || (avgUnitMktValue * capGrossRentYield) || areaMarketRentPa(data) || (capMk && capMk.btr ? capMk.btr * 12 : 0);
-  var ahRentFactor = numOr(cap.ahRentFactor, 0.65);   // affordable/social rent ~65% of market
-  var privUnits = totalUnits * (1 - ahPctR / 100), ahUnits = totalUnits * (ahPctR / 100);
-  var capGrossRentPa = (privUnits + ahUnits * ahRentFactor) * mktRentPerUnitPa;
-  var capMgmtRate = numOr(cap.mgmtRate, 25);
-  var capNetRentPa = capGrossRentPa * (1 - capMgmtRate / 100);
+  var capMixRent = (typeof capMixRentPerUnitPa === "function") ? capMixRentPerUnitPa(data) : 0;
+  var mktRentPerUnitPa = num(cap.marketRentPerUnitPa) || capMixRent || (avgUnitMktValue * capGrossRentYield) || areaMarketRentPa(data) || (capMk && capMk.btr ? capMk.btr * 12 : 0);
+  var capRentFromResearch = capMixRent > 0 && !(num(cap.marketRentPerUnitPa) > 0);   // flag: rent came from the researched per-bed figures
+  // v10.107 — net rent now mirrors the Capitalisation page EXACTLY so the engine reads off the same
+  // figures: market gross rent → affordable-rent discount blend → NOI deductions. Affordable units
+  // rent at the page's default −20% Affordable-Rent discount (80% of market) unless overridden, and
+  // the gross-to-net deductions are the itemised NOI_DEDUCTIONS.residential (voids 5% + management
+  // 10% + maintenance 8% + insurance 2% = 25%), honouring any cap.voidRate/mgmtRate/maintRate override.
+  // v10.108 — tenure-blind capitalisation: when the WHOLE scheme is sold to a HA / fund as a
+  // capitalised investment, the developer receives the capital value and the market/affordable
+  // split is the buyer's concern (grant + their cost of capital bridge the affordable income gap),
+  // so the affordable RENT discount is NOT applied to the developer's proceeds. Default off — the
+  // blended rent (affordable discount applied) is used unless cap.capTenureBlind is set.
+  var _capTenureBlind = !!cap.capTenureBlind;
+  var _ahFrac = Math.min(1, ahPctR / 100);
+  var _ahRentDisc = _capTenureBlind ? 0 : ((cap.ahRentDisc !== undefined && cap.ahRentDisc !== "") ? num(cap.ahRentDisc) / 100 : (_ahFrac > 0 ? 0.20 : 0));
+  var _rentBlend = _capTenureBlind ? 1 : ((1 - _ahFrac) + _ahFrac * (1 - _ahRentDisc));
+  var capGrossRentPa = totalUnits * mktRentPerUnitPa * _rentBlend;
+  var _noiDed = (typeof NOI_DEDUCTIONS !== "undefined" && NOI_DEDUCTIONS.residential) ? NOI_DEDUCTIONS.residential : {voids:0.05,management:0.10,maintenance:0.08,insurance:0.02};
+  var _capVoid  = (cap.voidRate  !== undefined && cap.voidRate  !== "") ? num(cap.voidRate)/100  : _noiDed.voids;
+  var _capMgmt  = (cap.mgmtRate  !== undefined && cap.mgmtRate  !== "") ? num(cap.mgmtRate)/100  : _noiDed.management;
+  var _capMaint = (cap.maintRate !== undefined && cap.maintRate !== "") ? num(cap.maintRate)/100 : _noiDed.maintenance;
+  var capNetDeductionPct = (_capVoid + _capMgmt + _capMaint + _noiDed.insurance) * 100;   // total gross-to-net %
+  var capNetRentPa = capGrossRentPa * (1 - capNetDeductionPct / 100);
   var capYield = num(cap.targetYield); capYield = capYield > 1 ? capYield / 100 : capYield;
   capYield = capYield || (capMk && capMk.yield) || 0.05;
   var capInvestmentValue = (capYield > 0 && capNetRentPa > 0) ? capNetRentPa / capYield : 0;
@@ -2910,7 +2936,7 @@ function computeSFHMetrics(data){
   return {rows:rows,totalUnits:totalUnits,avgSqft:totalUnits>0?totalSqft/totalUnits:0,retailGdv:retailGdv,blendedGdv:effectiveBlended,gdv:effectiveBlended,ahFactor:ahFactor,buildCost:buildCost,hasNonPrivate:hasNonPrivate,basePsf:basePsf,buildPsf:buildPsf,
     acres:sfhAcres,netDensity:netDensity,netDevelopableAcres:netDevelopableAcres,surplusAcres:surplusAcres,buildInclusive:buildInclusive,fees:sfhFees,contingency:sfhContingency,finance:sfhFinance,s106:sfhS106,roads:sfhRoads,infra:sfhInfra,marketing:sfhMarketing,profit:sfhProfit,devCost:sfhDevCost,rlv:sfhGrossRlv,
     financeProgYears:finProgYears,financePeakDebtPct:finPeakDebtPct,financePhases:finPhases,financeSCurve:FIN_SCURVE,
-    capMarketRentPerUnitPa:mktRentPerUnitPa,capGrossRentPa:capGrossRentPa,capNetRentPa:capNetRentPa,capYield:capYield,capInvestmentValue:capInvestmentValue,capProfit:capProfit,capRlv:capRlv,ahPctResolved:ahPctR,
+    capMarketRentPerUnitPa:mktRentPerUnitPa,capRentFromResearch:capRentFromResearch,capTenureBlind:_capTenureBlind,capGrossRentPa:capGrossRentPa,capNetRentPa:capNetRentPa,capNetDeductionPct:capNetDeductionPct,capYield:capYield,capInvestmentValue:capInvestmentValue,capProfit:capProfit,capRlv:capRlv,ahPctResolved:ahPctR,
     affordableHomes:affordableHomes,grantEligibleHomes:grantEligibleHomes,grantPerAffHome:grantPerAffHome,grantIncome:grantIncome,rlvBeforeGrant:sfhGrossRlv-grantIncome};
 }
 
@@ -3240,6 +3266,29 @@ function normalizeSharedFields(data){
 function areaMarketRentPa(data){
   var mk = MKT[dealCityKey(data)];
   return (mk && mk.btr) ? mk.btr * 12 : 0;
+}
+// capMixRentPerUnitPa (v10.106) — the ANNUAL market rent per home built from the Capitalisation
+// stage's researched per-bed rents (cap.rent1..4, monthly £, filled by 'AI: research & fill area
+// rents' or entered), weighted by the actual house mix's bedroom counts. This is what the
+// Capitalisation screen uses, so wiring it into the engine makes the one-pager / forward-fund
+// figures reflect the SAME researched rents instead of a rent implied from the sale value.
+// Returns 0 when no per-bed rents are set, so the caller falls back to the value×yield proxy.
+function capMixRentPerUnitPa(data){
+  data = data || {};
+  var cap = data.capitalise || {};
+  var mix = (data.sfh || {}).mix || [];
+  if(!mix.length) return 0;
+  if(!(num(cap.rent1) > 0 || num(cap.rent2) > 0 || num(cap.rent3) > 0 || num(cap.rent4) > 0)) return 0;
+  function rentForBeds(b){ b = Math.max(1, Math.min(4, Math.round(num(b) || 3))); return num(cap["rent" + b]); }
+  var totCount = 0, totRentPa = 0;
+  mix.forEach(function(row){
+    var count = num(row.count); if(!count) return;
+    var beds = num(row.beds) || ((typeof HOUSE_TYPES !== "undefined" && HOUSE_TYPES[row.type] && num(HOUSE_TYPES[row.type].beds)) || 3);
+    var rpm = rentForBeds(beds); if(!(rpm > 0)) rpm = rentForBeds(3);   // fall back to the 3-bed rent if that size is unset
+    if(!(rpm > 0)) return;
+    totCount += count; totRentPa += count * rpm * 12;
+  });
+  return totCount > 0 ? totRentPa / totCount : 0;
 }
 // estSalePsfFromRent (v9.51) — estimate a SALE £/sqft from a monthly rent, used
 // ONLY as a fallback when no sale price / Land Registry figure is available.
