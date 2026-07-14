@@ -195,6 +195,52 @@ function renderGrants(city, data, gdv, lc, up, user){
         )
       ),
 
+      // v10.90 — MAKE IT STACK WITH AFFORDABLE-HOUSING GRANT. Grant £/affordable home flows into
+      // the engine (computeSFHMetrics adds it to the RLV), and this card advises the grant needed
+      // to close the viability gap — so the Grants page can actually make a marginal scheme stack.
+      (typeof grantToStack==="function") && (function(){
+        var gt=grantToStack(data);
+        var perHomeVal=num(g.grantPerAffHome);
+        var inp={background:"#fff",border:"1px solid #BFD9CF",borderRadius:5,fontSize:13,fontFamily:"DM Sans,sans-serif",color:"#2E2F8A",padding:"8px 10px",width:150};
+        var rlvAfter=gt.rlvBeforeGrant+gt.grantApplied;
+        return e("div",{style:{background:"linear-gradient(135deg,#F1FBF6,#EAF3FF)",border:"1px solid #BFD9CF",borderRadius:10,padding:18,marginBottom:16}},
+          e("div",{style:{fontSize:10,fontWeight:800,color:"#1B7A54",textTransform:"uppercase",letterSpacing:".08em",marginBottom:6}},"🏦 Make it stack — affordable-housing grant (Homes England)"),
+          e("div",{style:{fontSize:11,color:"#3A3D6A",lineHeight:1.6,marginBottom:10}},
+            gt.affordableHomes>0
+              ? "Grant per affordable home flows straight to the land value — it closes a viability gap. This scheme has ~"+fmtN(gt.affordableHomes)+" affordable homes."
+              : "Set an affordable-housing % (Planning / Tenure Mix) first — grant applies to the affordable homes."
+          ),
+          e("div",{style:{display:"flex",gap:14,alignItems:"flex-end",flexWrap:"wrap",marginBottom:12}},
+            e("div",null,
+              e("label",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".06em",fontWeight:700,display:"block",marginBottom:3}},"Grant £ / affordable home"),
+              e("input",{type:"number",value:g.grantPerAffHome||"",onChange:function(ev){up("grants","grantPerAffHome",ev.target.value);},placeholder:"e.g. 80000",style:inp})
+            ),
+            e("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
+              [40000,80000,120000].map(function(v){ return e("button",{key:v,onClick:function(){up("grants","grantPerAffHome",v);},style:{padding:"8px 11px",background:perHomeVal===v?"#1B7A54":"#fff",color:perHomeVal===v?"#fff":"#3A3D6A",border:"1px solid #BFD9CF",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"£"+Math.round(v/1000)+"k"); })
+            )
+          ),
+          e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10,marginBottom:10}},
+            [
+              {l:"RLV before grant",v:(gt.rlvBeforeGrant<0?"−":"")+fmt(Math.abs(gt.rlvBeforeGrant)),c:gt.rlvBeforeGrant>=0?"#1B7A54":"#B05A35"},
+              {l:"Grant applied",v:fmt(gt.grantApplied),c:"#1B7A54"},
+              {l:"RLV after grant",v:(rlvAfter<0?"−":"")+fmt(Math.abs(rlvAfter)),c:rlvAfter>=0?"#1B7A54":"#B05A35"}
+            ].map(function(x){ return e("div",{key:x.l,style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:8,padding:"9px 11px"}},
+              e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".06em",fontWeight:700}},x.l),
+              e("div",{style:{fontSize:16,fontWeight:800,color:x.c,marginTop:2}},x.v)); })
+          ),
+          (function(){
+            if(gt.affordableHomes<=0) return "";
+            var need=gt.landPrice>0?gt.perHomeToCoverPrice:gt.perHomeToPositive;
+            var target=gt.landPrice>0?("cover the "+fmt(gt.landPrice)+" guide price"):"reach a positive residual";
+            if(!(need>0)) return e("div",{style:{fontSize:11,color:"#1B7A54",fontWeight:700}},"✓ Stacks without grant"+(gt.landPrice>0?" at the guide price":"")+".");
+            return e("div",{style:{fontSize:11,color:"#3A3D6A",lineHeight:1.6,background:"#fff",border:"1px dashed #BFD9CF",borderRadius:6,padding:"9px 11px"}},
+              e("b",null,"Grant to make it stack: "),"~"+fmt(Math.round(need))+" per affordable home to "+target+" (× "+fmtN(gt.affordableHomes)+" homes ≈ "+fmt(Math.round(need*gt.affordableHomes))+"). ",
+              "Homes England AHP / SAHP is area- and tenure-specific — broadly £"+Math.round(gt.typicalGrantLo/1000)+"k–£"+Math.round(gt.typicalGrantHi/1000)+"k/home; confirm the rate and eligibility (an RP partner is required)."
+            );
+          })()
+        );
+      })(),
+
       // Site flags
       e("div",{style:{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}},
         e("label",{style:{display:"flex",alignItems:"center",gap:6,padding:"6px 12px",background:isBrownfield?"rgba(45,122,101,0.1)":"#F7F8FC",border:"1px solid "+(isBrownfield?"#2D7A65":"#DDE0ED"),borderRadius:20,cursor:"pointer",fontSize:11,fontWeight:700,color:isBrownfield?"#2D7A65":"#7278A0"}},

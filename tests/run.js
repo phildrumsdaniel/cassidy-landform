@@ -328,6 +328,19 @@ console.log("Landform engine consistency tests\n");
   ok("timeline: an explicit planning figure is used over the default", projectTimeline(explicit).planningMonths === 30);
 })();
 
+// 4i — v10.90: affordable-housing grant lifts the RLV, and grantToStack advises the gap
+(function(){
+  if(typeof grantToStack !== "function") return;
+  var d = sfhDeal({ sfh:{ ahPct:40, buildPsf:320 } });   // 40% affordable, high build → marginal
+  var base = computeSFHMetrics(d);
+  ok("engine reports the affordable-home count", num(base.affordableHomes) === Math.round(num(base.totalUnits) * 0.40));
+  var withGrant = computeSFHMetrics(Object.assign({}, d, { grants:{ grantPerAffHome:80000 } }));
+  ok("grant income = £/home × affordable homes", Math.round(num(withGrant.grantIncome)) === 80000 * num(base.affordableHomes) && num(withGrant.grantIncome) > 0);
+  ok("grant lifts the RLV by exactly the grant income", Math.round(num(withGrant.rlv) - num(base.rlv)) === Math.round(num(withGrant.grantIncome)));
+  var gt = grantToStack(d);
+  ok("grantToStack advises a per-home grant to reach a positive residual", gt.affordableHomes > 0 && (num(base.rlv) < 0 ? gt.perHomeToPositive > 0 : gt.perHomeToPositive === 0));
+})();
+
 // 5 — net land bid = gross RLV − acquisition costs
 (function(){
   var d = sfhDeal({ rlv:{ includeAcqCosts:true } });
