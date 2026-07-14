@@ -75,7 +75,7 @@ var ALL_STAGES = [
   // ── 2. VALUE ────────────────────────────────────────────────────────────
   {id:"rlv",         label:"Land Valuation (RLV)", icon:"◆",  group:"2. Value",    journeys:["land","sfh","btr","pbsa","property","all"]},
   {id:"sfh",         label:"SFH House Mix",        icon:"🏡", group:"2. Value",    journeys:["sfh","property","all"]},
-  {id:"tenure",      label:"Tenure Mix",           icon:"🤝", group:"2. Value",    journeys:["sfh","btr","property","all"]},
+  {id:"tenure",      label:"Tenure Mix",           icon:"🏘", group:"2. Value",    journeys:["sfh","btr","property","all"]},
   {id:"hra",         label:"BTR / PBSA Block",     icon:"🏢", group:"2. Value",    journeys:["btr","pbsa","all"]},
   {id:"capitalise",  label:"Capitalisation",       icon:"£",  group:"2. Value",    journeys:["land","btr","pbsa","sfh","all"]},
   {id:"grants",      label:"Grant & Funding",      icon:"💷", group:"2. Value",    journeys:["sfh","btr","pbsa","land","all"]},
@@ -86,11 +86,10 @@ var ALL_STAGES = [
   {id:"dd",          label:"Due Diligence",        icon:"◈",  group:"3. Develop",  journeys:["land","sfh","btr","pbsa","property","recovery","all"]},
   {id:"risks",       label:"Risk Register",        icon:"⬡",  group:"3. Develop",  journeys:["land","sfh","btr","pbsa","property","recovery","all"]},
   // ── 4. EXIT ──────────────────────────────────────────────────────────────
-  {id:"exit",        label:"Exit Strategy",        icon:"◆",  group:"4. Exit",     journeys:["land","sfh","btr","pbsa","property","recovery","all"]},
+  {id:"exit",        label:"Exit Strategy",        icon:"🚪", group:"4. Exit",     journeys:["land","sfh","btr","pbsa","property","recovery","all"]},
   {id:"recovery",    label:"Planning Recovery",    icon:"⚖",  group:"4. Exit",     journeys:["recovery","all"]},
   // ── 5. REPORT ────────────────────────────────────────────────────────────
   {id:"scorecard",   label:"Site Scorecard",       icon:"🏆", group:"5. Report",   journeys:["land","sfh","btr","pbsa","all"]},
-  {id:"teaser",      label:"Teaser PDF",           icon:"📬", group:"5. Report",   journeys:["land","sfh","btr","pbsa","all"]},
   {id:"im",          label:"Investor Memorandum",  icon:"📑", group:"5. Report",   journeys:["land","sfh","btr","pbsa","all"]},
   {id:"dataroom",    label:"Data Room",            icon:"📁", group:"5. Report",   journeys:["sfh","btr","pbsa","land","property","all"]},
   {id:"investor",    label:"Stakeholder Suite", icon:"🤝", group:"5. Report",journeys:["land","sfh","btr","pbsa","property","asset","all"]},
@@ -99,7 +98,7 @@ var ALL_STAGES = [
   // ── 6. RECORDS ───────────────────────────────────────────────────────────
   {id:"meetings",    label:"Meeting Transcripts",  icon:"📝", group:"6. Records",  journeys:["all"]},
   {id:"portfolio",   label:"Deal Portfolio",       icon:"📊", group:"6. Records",  journeys:["all"]},
-  {id:"dashboard",   label:"Deal Dashboard",       icon:"◈",  group:"6. Records",  journeys:["land","sfh","btr","pbsa","property","recovery","all"]},
+  {id:"dashboard",   label:"Deal Dashboard",       icon:"📈", group:"6. Records",  journeys:["land","sfh","btr","pbsa","property","recovery","all"]},
   // ── 7. AUDIT ─────────────────────────────────────────────────────────────
   {id:"propagation", label:"Propagation Audit",    icon:"🔬", group:"7. Audit",    journeys:["all"]},
   {id:"buildcosts",  label:"Build Cost Library",   icon:"🧱", group:"7. Audit",    journeys:["all"]},
@@ -285,12 +284,12 @@ var JOURNEYS = {
   // ── Smart filter map: exit routes that unlock specific stages ──
   // (e.g. picking 'Pension Fund' auto-shows Capitalisation even without BTR scheme)
   var EXIT_UNLOCKS = {
-    pension:    ["capitalise","im","teaser","dataroom"],         // pension fund needs investor materials
+    pension:    ["capitalise","im","investor","dataroom"],       // pension fund needs investor materials
     btr_op:     ["capitalise","hra","im","dataroom"],            // BTR operator buys operating asset
-    family:     ["capitalise","im","teaser","dataroom"],         // family office wants IM
+    family:     ["capitalise","im","investor","dataroom"],       // family office wants IM
     ha_rp:      ["grants","capitalise","dataroom"],              // HA/RP bulk = grant funding + bulk valuation
     homes_eng:  ["grants","im","dataroom"],                      // Homes England = grant funding
-    sovereign:  ["capitalise","im","teaser","dataroom"],         // SWF = institutional
+    sovereign:  ["capitalise","im","investor","dataroom"],       // SWF = institutional
     bank_takeout:["capitalise","fin","dataroom"],                // refinance = needs cashflow + capitalised NOI
     land_sale:  ["dataroom"],                                    // sell land with planning = also needs data room
     open_mkt:   ["fin","viability"]                              // open market sale = sales cashflow
