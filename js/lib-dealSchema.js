@@ -605,13 +605,13 @@ function keystonePopulateViability(data){
   var privU = Math.round(totalUnitsV * (1 - ahPctV));
   var ahU = Math.round(totalUnitsV * ahPctV * 0.9);
   var fhU = Math.round(totalUnitsV * ahPctV * 0.1);
-  var bpsf = num(f2.buildPsf || m2.build || 188);
+  var bpsf = num(s2.buildPsf || f2.buildPsf || m2.build || 188);   // v10.87 — deal's all-in rate, to tie to the engine
   var privSqft = Math.round(gia2 * 0.65), ahSqft = Math.round(gia2 * 0.25), fhSqft = Math.round(gia2 * 0.10);
   var privBuild = Math.round(privSqft * bpsf), ahBuild = Math.round(ahSqft * bpsf * 0.95), fhBuild = Math.round(fhSqft * bpsf * 0.95);
   var acresV = num(l2.acres || 0);
   var infraBase = Math.max(acresV * 150000, totalUnitsV * 8000);
   var s106V = num(f2.s106pu || 0) * totalUnitsV || num(p2.s106 || 0);
-  var engRlvV = (typeof calcDealMetrics === "function") ? num(calcDealMetrics(data).rlv) : 0;
+  var engRlvV = num(eng.rlv) || ((typeof calcDealMetrics === "function") ? num(calcDealMetrics(data).rlv) : 0);   // v10.87 — same RLV as the one-pager
   var landCostV = engRlvV > 0 ? Math.round(engRlvV) : num(l2.price || 0);
   // Private target margin follows the deal's profit target (so Viability agrees with the deal),
   // not a hardcoded 17.5%.
@@ -644,6 +644,15 @@ function keystonePopulateViability(data){
     meanMonth: num(f2.programmeMths || 36) / 2, stdDev: num(f2.programmeMths || 36) / 4,
     autoPopulated: true
   };
+  // v10.87 — when the deal's build £/sqft is ALL-IN, professional fees, contingency, roads/
+  // drainage/SuDS are already inside the build lines; adding them again double-counts and flips
+  // the profit negative. Zero the covered lines (+ CIL, folded into the £/plot S106) so the
+  // Detailed Appraisal reconciles with the engine / one-pager.
+  if(s2.buildInclusive){
+    ["enablingWorks","s278","onSiteHighways","footpaths","swDrainage","fwDrainage","utilities","landscape","overheads","professionalFees","plotAbnormals","contingency","cil"].forEach(function(k){ v.appraisal[k]=0; });
+    v.appraisal.salesMktgRate=0;
+    v.appraisal._buildInclusive=true;
+  }
   return ["Viability appraisal"];
 }
 

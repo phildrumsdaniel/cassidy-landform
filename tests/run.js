@@ -293,6 +293,14 @@ console.log("Landform engine consistency tests\n");
     ok("viability populate creates an appraisal", !!(ap && ap.siteName));
     ok("viability populate splits private/affordable units", num(ap.privateUnits) > 0 && num(ap.affordableUnits) > 0);
     ok("viability target margin follows the deal profit target", Math.abs(num(ap.targetPrivateMargin) - 0.25) < 1e-9);
+    // v10.87 — when build is ALL-IN, don't double-count fees/contingency/infra/CIL on top of it
+    var vInc = sfhDeal({ sfh:{ ahPct:30, buildInclusive:true } });
+    keystonePopulateViability(vInc);
+    var ai = vInc.viability.appraisal;
+    ok("all-in build: fees/contingency/infra/CIL not double-counted", num(ai.professionalFees)===0 && num(ai.contingency)===0 && num(ai.onSiteHighways)===0 && num(ai.cil)===0);
+    var vNot = sfhDeal({ sfh:{ ahPct:30, buildInclusive:false } });
+    keystonePopulateViability(vNot);
+    ok("construction-only build: fees/infra ARE added as separate lines", num(vNot.viability.appraisal.professionalFees) > 0);
     // no-op when an appraisal already exists
     var v2 = sfhDeal(); v2.viability = { appraisal:{ siteName:"Mine", privateUnits:5 } };
     keystonePopulateViability(v2);
