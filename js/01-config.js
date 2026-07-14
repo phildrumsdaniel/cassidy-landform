@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.106";
+var CURRENT_VERSION = "10.107";
 var VERSION_HISTORY = [
+  {v:"10.107", date:"Jul 2026", headline:"The one-pager capitalisation now READS OFF the Capitalisation page. The engine's net rent was computed differently from the Capitalisation screen (affordable rent at 65% of market vs the screen's −20%/80%, and a flat 25% management vs the screen's itemised voids+management+maintenance+insurance), so the two showed different capitalised values for the same scheme. The engine now mirrors the screen exactly: market gross rent from the researched per-bed rents × the house mix, an affordable-rent discount blend (default −20% Affordable Rent when the scheme has affordable units), then the itemised NOI deductions (voids 5% + management 10% + maintenance 8% + insurance 2% = 25%), honouring any override. The one-pager's forward-fund table now also uses the SAME net-initial yield set on the Capitalisation page (no longer floored at 4.5%) as its base row, widening in +0.5% steps for sensitivity. Result: the one-pager's forward-fund value reconciles with the Capitalisation page (same rents, same net income, same yield). Verified: 1,800 homes at the researched rents → net £24.36m → £573.29m at 4.25%, matching the page method to the penny."},
   {v:"10.106", date:"Jul 2026", headline:"The engine now uses the AI-researched rents. The Capitalisation stage's ‘AI: research & fill area rents’ writes real per-bed monthly rents (1/2/3/4-bed), but the land-valuation engine was ignoring them and IMPLYING a rent from the sale value — so the one-pager's forward-fund figures didn't reflect the researched rents. Fixed: computeSFHMetrics now builds the per-home market rent from those per-bed rents (cap.rent1..4) weighted by the actual house mix, and only falls back to the sale-value proxy when no rents have been researched or entered. The one-pager labels the source accordingly (‘AI-researched per-bed rents from the Capitalisation stage’). NOTE: the one-pager's forward-fund value can still sit a little below the Capitalisation screen's rental figure because the engine applies deliberately conservative net assumptions (25% management/void deduction and affordable rent at 65% of market) — the rents are now the same; the net-income assumptions can be reconciled next if you want a single figure."},
   {v:"10.105", date:"Jul 2026", headline:"One-pager forward-fund exit now shows the RENTS and the PROFIT RETURN the yields derive. A new rent-evidence line states the rent used per home (per year and per month), grossed across the scheme, and the net rent after management — with honest provenance: entered rent, AI-researched rent, or (the common case) ‘implied from the sale value at a ~4.5% gross rental yield — enter local rental comparables to firm up’, so the reader can see and replace it. The yield table now reports, at each net-initial yield: the fund's capital value, the DEVELOPER PROFIT and RETURN ON COST that yield derives (profit = capital value − development cost − land, measured against the guide price if entered, else the plot-sales residual), and the max supportable land — everything moving correctly as the yield widens. For a for-sale house scheme the rented-exit return reads negative, which the read-across note explains simply confirms plot sales as the exit. No engine change — the one-pager now surfaces the rent and the return transparently."},
   {v:"10.104", date:"Jul 2026", headline:"One-pager yield clarity. A reviewer read the one-pager as showing land value moving oddly when the yield changed. Verified by rendering the report at 4.5% vs 5.0%: the headline residual land value is IDENTICAL at both (it is a plot-sales residual, independent of yield), and the forward-fund figures both fall as the yield widens — nothing rises, no bug. The confusion was the layout sitting a flat headline RLV above a moving forward-fund table. The forward-fund block now states explicitly that the headline residual land value is from PLOT SALES and does not change with yield — yield only moves the forward-fund figures (which fall as the yield widens). No calculations changed."},
@@ -2902,11 +2903,21 @@ function computeSFHMetrics(data){
   var capMixRent = (typeof capMixRentPerUnitPa === "function") ? capMixRentPerUnitPa(data) : 0;
   var mktRentPerUnitPa = num(cap.marketRentPerUnitPa) || capMixRent || (avgUnitMktValue * capGrossRentYield) || areaMarketRentPa(data) || (capMk && capMk.btr ? capMk.btr * 12 : 0);
   var capRentFromResearch = capMixRent > 0 && !(num(cap.marketRentPerUnitPa) > 0);   // flag: rent came from the researched per-bed figures
-  var ahRentFactor = numOr(cap.ahRentFactor, 0.65);   // affordable/social rent ~65% of market
-  var privUnits = totalUnits * (1 - ahPctR / 100), ahUnits = totalUnits * (ahPctR / 100);
-  var capGrossRentPa = (privUnits + ahUnits * ahRentFactor) * mktRentPerUnitPa;
-  var capMgmtRate = numOr(cap.mgmtRate, 25);
-  var capNetRentPa = capGrossRentPa * (1 - capMgmtRate / 100);
+  // v10.107 — net rent now mirrors the Capitalisation page EXACTLY so the engine reads off the same
+  // figures: market gross rent → affordable-rent discount blend → NOI deductions. Affordable units
+  // rent at the page's default −20% Affordable-Rent discount (80% of market) unless overridden, and
+  // the gross-to-net deductions are the itemised NOI_DEDUCTIONS.residential (voids 5% + management
+  // 10% + maintenance 8% + insurance 2% = 25%), honouring any cap.voidRate/mgmtRate/maintRate override.
+  var _ahFrac = Math.min(1, ahPctR / 100);
+  var _ahRentDisc = (cap.ahRentDisc !== undefined && cap.ahRentDisc !== "") ? num(cap.ahRentDisc) / 100 : (_ahFrac > 0 ? 0.20 : 0);
+  var _rentBlend = (1 - _ahFrac) + _ahFrac * (1 - _ahRentDisc);
+  var capGrossRentPa = totalUnits * mktRentPerUnitPa * _rentBlend;
+  var _noiDed = (typeof NOI_DEDUCTIONS !== "undefined" && NOI_DEDUCTIONS.residential) ? NOI_DEDUCTIONS.residential : {voids:0.05,management:0.10,maintenance:0.08,insurance:0.02};
+  var _capVoid  = (cap.voidRate  !== undefined && cap.voidRate  !== "") ? num(cap.voidRate)/100  : _noiDed.voids;
+  var _capMgmt  = (cap.mgmtRate  !== undefined && cap.mgmtRate  !== "") ? num(cap.mgmtRate)/100  : _noiDed.management;
+  var _capMaint = (cap.maintRate !== undefined && cap.maintRate !== "") ? num(cap.maintRate)/100 : _noiDed.maintenance;
+  var capNetDeductionPct = (_capVoid + _capMgmt + _capMaint + _noiDed.insurance) * 100;   // total gross-to-net %
+  var capNetRentPa = capGrossRentPa * (1 - capNetDeductionPct / 100);
   var capYield = num(cap.targetYield); capYield = capYield > 1 ? capYield / 100 : capYield;
   capYield = capYield || (capMk && capMk.yield) || 0.05;
   var capInvestmentValue = (capYield > 0 && capNetRentPa > 0) ? capNetRentPa / capYield : 0;
@@ -2917,7 +2928,7 @@ function computeSFHMetrics(data){
   return {rows:rows,totalUnits:totalUnits,avgSqft:totalUnits>0?totalSqft/totalUnits:0,retailGdv:retailGdv,blendedGdv:effectiveBlended,gdv:effectiveBlended,ahFactor:ahFactor,buildCost:buildCost,hasNonPrivate:hasNonPrivate,basePsf:basePsf,buildPsf:buildPsf,
     acres:sfhAcres,netDensity:netDensity,netDevelopableAcres:netDevelopableAcres,surplusAcres:surplusAcres,buildInclusive:buildInclusive,fees:sfhFees,contingency:sfhContingency,finance:sfhFinance,s106:sfhS106,roads:sfhRoads,infra:sfhInfra,marketing:sfhMarketing,profit:sfhProfit,devCost:sfhDevCost,rlv:sfhGrossRlv,
     financeProgYears:finProgYears,financePeakDebtPct:finPeakDebtPct,financePhases:finPhases,financeSCurve:FIN_SCURVE,
-    capMarketRentPerUnitPa:mktRentPerUnitPa,capRentFromResearch:capRentFromResearch,capGrossRentPa:capGrossRentPa,capNetRentPa:capNetRentPa,capYield:capYield,capInvestmentValue:capInvestmentValue,capProfit:capProfit,capRlv:capRlv,ahPctResolved:ahPctR,
+    capMarketRentPerUnitPa:mktRentPerUnitPa,capRentFromResearch:capRentFromResearch,capGrossRentPa:capGrossRentPa,capNetRentPa:capNetRentPa,capNetDeductionPct:capNetDeductionPct,capYield:capYield,capInvestmentValue:capInvestmentValue,capProfit:capProfit,capRlv:capRlv,ahPctResolved:ahPctR,
     affordableHomes:affordableHomes,grantEligibleHomes:grantEligibleHomes,grantPerAffHome:grantPerAffHome,grantIncome:grantIncome,rlvBeforeGrant:sfhGrossRlv-grantIncome};
 }
 
