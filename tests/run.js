@@ -940,11 +940,12 @@ console.log("Landform engine consistency tests\n");
   // a PLAUSIBLE explicit unit count is honoured (10/acre on 20 acres)
   var d3 = buildDealFromBrief({ town:"Rugby", acres:20, units:200, density:12 });
   ok("plausible explicit unit count honoured", num(d3.land.units) === 200);
-  // v9.86 — an implausibly LOW count on a strategic greenfield (2.3/acre on 88 acres,
-  // e.g. a portal/AI underestimate) is upsized to what the land can carry, and flagged.
+  // v10.89 — a low explicit count on a large greenfield is now HONOURED, not silently inflated
+  // (reported: a deliberate 200 on 88 acres was overridden to 1,056). The land's fuller capacity
+  // is surfaced as UPSIDE instead of changing the stated figure.
   var d4 = buildDealFromBrief({ town:"Rugby", acres:88, units:200 });
-  near("200 on 88 acres upsized to ~1056 at 12/acre", num(d4.land.units), 1056, 0);
-  ok("low-count upsize flagged", d4._keystone.assumptions.join(" ").toLowerCase().indexOf("homes/acre") >= 0);
+  ok("low explicit count honoured (200, not inflated to 1056)", num(d4.land.units) === 200);
+  ok("land capacity surfaced as upside instead of overriding the count", d4._keystone.assumptions.join(" ").toLowerCase().indexOf("upside") >= 0);
 })();
 
 // 35a — v10.47: DEVELOP FROM THE SOURCE FIRST, surface land capacity as upside.
