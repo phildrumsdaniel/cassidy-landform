@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.99";
+var CURRENT_VERSION = "10.100";
 var VERSION_HISTORY = [
+  {v:"10.100", date:"Jul 2026", headline:"Appraisal review (Patric's feedback). (1) PEAK DEBT — the finance model let peak debt fall too far on a very large multi-phase scheme (a 1,800-home scheme dropped to ~33%). Raised the floor from 30% to 45% so a large phased scheme now sits around 45–50% of build+fees at peak — a more realistic funding assumption — and it remains an editable input on the deal. (2) AREAS (GIA/NIA) — added an explicit line to the Basis of Figures confirming the sale £/sqft and build £/sqft are both on GROSS INTERNAL AREA (GIA) throughout, which is the correct like-for-like basis for houses; apartment schemes move sales/rents to NIA (≈80–85% of GIA) while build stays on GIA. (3) LAND VALUE vs YIELD — the Basis of Figures now states plainly that the residual land value is a FOR-SALE residual off the sale values and is independent of the investment/exit yield; yield only affects the alternative build-to-rent / forward-fund value (net rent ÷ yield, where a wider yield gives a lower value). Verified the engine behaves this way. (4) Profit is confirmed as % of GDV (a ~30% housebuilder margin is profit-on-cost ≈ 22–23% on GDV); a 5-point profit change moves the land value by ~5% of GDV pound-for-pound — the residual method working correctly, now clearly labelled."},
   {v:"10.99", date:"Jul 2026", headline:"Nav tidy-up. Removed the standalone ‘Teaser PDF’ tab — the teaser now lives inside the Stakeholder Suite (Edit content + Create shareable link) alongside the new blind investor teaser, so it no longer needs its own top-level entry (it stays fully reachable, and its share links are unchanged). Fixed three duplicate sidebar icons so every stage has its own glyph: Tenure Mix is now 🏘 (was 🤝, which now belongs solely to the Stakeholder Suite), Exit Strategy is 🚪 (was ◆, shared with Land Valuation) and Deal Dashboard is 📈 (was ◈, shared with Due Diligence). Investor exit-unlock hints now point at the Stakeholder Suite rather than the old teaser tab. No calculations or saved deals affected."},
   {v:"10.98", date:"Jul 2026", headline:"New ‘🤝 Agent enquiry pack’ + a branded cover on the ‘Generate ALL packs’ document. When land is marketed through a land / estate agent, this is the document you send to register a serious, PROCEEDABLE interest and pass the agent's (and vendor's) due diligence at first contact: our indicative land offer (subject to contract & planning), proof we are funded and board-approved with no chain, who we are and our professional team, a ready-to-supply DD checklist (company ID, AML/KYC, proof of funds, solicitor, references) and how we transact to exchange in ~6–10 weeks. And the ‘Generate ALL packs’ output now opens with a branded Cassidy cover / index page (logo, scheme title, reference, date and a numbered contents list) so the whole set reads as one polished document. Both open from the Stakeholder Suite → Outreach Kit."},
   {v:"10.97", date:"Jul 2026", headline:"Renamed the ‘Investor Marketing Suite’ to the ‘Stakeholder Suite’ — it now produces a tailored pack for every party in the deal (landowner, investor, housing association, lender, local authority), not just investors, so the name reflects it. Sidebar, header and intro updated; the internal routing is unchanged so saved deals and links are unaffected."},
@@ -2030,8 +2031,11 @@ function basisOfFigures(data){
       : " — from area market data (run the AI rent research to localise)") + ", capitalised at a " + (Math.round(y * 10) / 10) + "% net initial yield (4.5% institutional floor). Drives the pension / forward-fund exit." });
   }
 
-  // Land value
-  lines.push({ k:"Land value", v:"The " + fmt(num(M.rlv)) + " is the RESIDUAL land value — the maximum supportable land price at target profit, not an agreed price. Raw / strategic land trades well below this; the gap is the promotion upside. See the market land-value guide for typical £/acre by planning status." });
+  // Areas basis (GIA / NIA) — v10.100, added to answer the reviewer's "GIA or NIA?" directly.
+  lines.push({ k:"Floor areas (GIA/NIA)", v:"Areas are GROSS INTERNAL AREA (GIA) throughout — the sale £/sqft and the build £/sqft are applied to the SAME GIA floor area, which is the correct and consistent basis for houses (new-build houses are marketed and costed on GIA). For an apartment scheme sales/rents move to NET INTERNAL AREA (NIA ≈ 80–85% of GIA) while build stays on GIA; set the efficiency ratio on the block. So the £/sqft sale and £/sqft build here are like-for-like." });
+
+  // Land value — v10.100: state plainly it is a SALES residual and does not move with yield.
+  lines.push({ k:"Land value", v:"The " + fmt(num(M.rlv)) + " is the RESIDUAL land value off the SALE values — the maximum supportable land price at target profit, not an agreed price. It is a for-sale residual, so it is independent of the investment/exit YIELD: yield only affects the alternative build-to-rent / forward-fund exit value (net rent ÷ yield), where a WIDER yield gives a LOWER value. Raw / strategic land trades well below this residual; the gap is the promotion upside. See the market land-value guide for typical £/acre by planning status." });
 
   // v10.91 — affordable-housing grant, when applied, is stated on its own line so a reader sees
   // the residual includes public subsidy (not open-market value).
@@ -2824,7 +2828,9 @@ function computeSFHMetrics(data){
   // build cost. Both are derived from the scheme's scale and are editable on the deal:
   //   • programmeYears — bigger schemes run longer (≈ 1 + units/350, clamped 2–10 yrs).
   //   • peakDebtPct — % of (build+fees) outstanding at peak; more phases ⇒ lower peak
-  //     (≈ 200 / phases, clamped 30–100%), where phases ≈ ceil(units/300).
+  //     (≈ 200 / phases, clamped 45–100%), where phases ≈ ceil(units/300). The 45% floor
+  //     (v10.100) keeps a large multi-phase scheme near ~45–50% peak debt — a phased resi
+  //     scheme rarely recycles enough early sales to drop peak debt below ~45% of build+fees.
   //   finance = (build + fees) × peakDebt% × rate × programmeYears × 0.6 (S-curve avg utilisation)
   // A single-phase small scheme (peak ~100%, ~2 yrs) lands near the old flat figure; a big
   // phased scheme shows a realistic multi-year interest cost. Tune peakDebt up for slow sales.
@@ -2833,7 +2839,7 @@ function computeSFHMetrics(data){
   var finProgYears = num(sfh.programmeYears) > 0 ? num(sfh.programmeYears)
     : Math.max(2, Math.min(10, Math.round((1 + totalUnits / 350) * 10) / 10));
   var finPeakDebtPct = num(sfh.peakDebtPct) > 0 ? num(sfh.peakDebtPct)
-    : Math.max(30, Math.min(100, Math.round(200 / finPhases)));
+    : Math.max(45, Math.min(100, Math.round(200 / finPhases)));
   var sfhFinance = (buildCost + sfhFees) * (finPeakDebtPct / 100) * (numOr(sfh.finRate, 7.5) / 100) * finProgYears * FIN_SCURVE;
   var sfhS106 = totalUnits * numOr(sfh.s106pu, 8000);
   var sfhRoads = buildInclusive ? 0 : totalUnits * numOr(sfh.roads, 12000);
@@ -2924,7 +2930,7 @@ function optimiseSfhMix(data, mode, opts){
   var optUnits = rows.reduce(function(a, r){ return a + num(r.count); }, 0);
   var optPhases = num(sfh.phases) > 0 ? num(sfh.phases) : Math.max(1, Math.ceil(optUnits / 300));
   var optProgYears = num(sfh.programmeYears) > 0 ? num(sfh.programmeYears) : Math.max(2, Math.min(10, Math.round((1 + optUnits / 350) * 10) / 10));
-  var optPeakDebtPct = num(sfh.peakDebtPct) > 0 ? num(sfh.peakDebtPct) : Math.max(30, Math.min(100, Math.round(200 / optPhases)));
+  var optPeakDebtPct = num(sfh.peakDebtPct) > 0 ? num(sfh.peakDebtPct) : Math.max(45, Math.min(100, Math.round(200 / optPhases)));
   var finMult = (optPeakDebtPct / 100) * optProgYears * 0.6;
 
   // Aggregate by type, then compute per-plot economics.
