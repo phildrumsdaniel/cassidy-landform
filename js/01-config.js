@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.105";
+var CURRENT_VERSION = "10.106";
 var VERSION_HISTORY = [
+  {v:"10.106", date:"Jul 2026", headline:"The engine now uses the AI-researched rents. The Capitalisation stage's ‘AI: research & fill area rents’ writes real per-bed monthly rents (1/2/3/4-bed), but the land-valuation engine was ignoring them and IMPLYING a rent from the sale value — so the one-pager's forward-fund figures didn't reflect the researched rents. Fixed: computeSFHMetrics now builds the per-home market rent from those per-bed rents (cap.rent1..4) weighted by the actual house mix, and only falls back to the sale-value proxy when no rents have been researched or entered. The one-pager labels the source accordingly (‘AI-researched per-bed rents from the Capitalisation stage’). NOTE: the one-pager's forward-fund value can still sit a little below the Capitalisation screen's rental figure because the engine applies deliberately conservative net assumptions (25% management/void deduction and affordable rent at 65% of market) — the rents are now the same; the net-income assumptions can be reconciled next if you want a single figure."},
   {v:"10.105", date:"Jul 2026", headline:"One-pager forward-fund exit now shows the RENTS and the PROFIT RETURN the yields derive. A new rent-evidence line states the rent used per home (per year and per month), grossed across the scheme, and the net rent after management — with honest provenance: entered rent, AI-researched rent, or (the common case) ‘implied from the sale value at a ~4.5% gross rental yield — enter local rental comparables to firm up’, so the reader can see and replace it. The yield table now reports, at each net-initial yield: the fund's capital value, the DEVELOPER PROFIT and RETURN ON COST that yield derives (profit = capital value − development cost − land, measured against the guide price if entered, else the plot-sales residual), and the max supportable land — everything moving correctly as the yield widens. For a for-sale house scheme the rented-exit return reads negative, which the read-across note explains simply confirms plot sales as the exit. No engine change — the one-pager now surfaces the rent and the return transparently."},
   {v:"10.104", date:"Jul 2026", headline:"One-pager yield clarity. A reviewer read the one-pager as showing land value moving oddly when the yield changed. Verified by rendering the report at 4.5% vs 5.0%: the headline residual land value is IDENTICAL at both (it is a plot-sales residual, independent of yield), and the forward-fund figures both fall as the yield widens — nothing rises, no bug. The confusion was the layout sitting a flat headline RLV above a moving forward-fund table. The forward-fund block now states explicitly that the headline residual land value is from PLOT SALES and does not change with yield — yield only moves the forward-fund figures (which fall as the yield widens). No calculations changed."},
   {v:"10.103", date:"Jul 2026", headline:"Floor-area measurement made explicit (GIA), from a standards-grounded review. Houses are both MARKETED and COSTED on Gross Internal Area (GIA) — the area to the inside face of the external walls (RICS Code of Measuring Practice), counting hall/landings and the stairs on each floor. The SFH House Mix column is now labelled ‘GIA sqft’ with an on-screen note: enter HABITABLE GIA and EXCLUDE the garage; the sale £/sqft and build £/sqft both apply to that same GIA so they are like-for-like. The garage, drive and external works are a cheap shell (~£600–1,000/m² vs ~£1,800–2,500/m² habitable) valued separately — the all-in build rate is intended to absorb them. The Basis of Figures spells out the same rule (and that apartments move sales/rents to NIA ≈ 80–85% of GIA while build stays on GIA; houses are ~95–100%, hence GIA throughout). No calculations changed — measurement basis is now stated so cost and value can't be applied on mismatched areas."},
@@ -2892,11 +2893,15 @@ function computeSFHMetrics(data){
   var cap = data.capitalise || {};
   var capMk = MKT[(typeof dealCityKey === "function") ? dealCityKey(data) : (sfh.city || l.city || "").toLowerCase()] || null;
   var ahPctR = num(sfh.ahPct) || num((data.planning || {}).ahPct) || num((data.planning || {}).afhPct) || num((data.tenure || {}).ahPct) || 0;
-  // House rent is derived from the scheme's OWN market values (a flat city BTR rent
-  // badly understates house rents): market unit value × a gross rental yield.
+  // House rent priority (v10.106): (1) an explicit per-home market rent; (2) the researched per-bed
+  // rents from the Capitalisation stage (cap.rent1..4) weighted by the house mix — the SAME rents the
+  // Capitalisation screen uses, so the one-pager/forward-fund now reflect AI-analysed rents rather
+  // than a rent implied from the sale value; (3) sale value × a gross rental yield; (4) area/city data.
   var capGrossRentYield = numOr(cap.grossRentYield, 4.5) / 100;
   var avgUnitMktValue = totalUnits > 0 ? retailGdv / totalUnits : 0;
-  var mktRentPerUnitPa = num(cap.marketRentPerUnitPa) || (avgUnitMktValue * capGrossRentYield) || areaMarketRentPa(data) || (capMk && capMk.btr ? capMk.btr * 12 : 0);
+  var capMixRent = (typeof capMixRentPerUnitPa === "function") ? capMixRentPerUnitPa(data) : 0;
+  var mktRentPerUnitPa = num(cap.marketRentPerUnitPa) || capMixRent || (avgUnitMktValue * capGrossRentYield) || areaMarketRentPa(data) || (capMk && capMk.btr ? capMk.btr * 12 : 0);
+  var capRentFromResearch = capMixRent > 0 && !(num(cap.marketRentPerUnitPa) > 0);   // flag: rent came from the researched per-bed figures
   var ahRentFactor = numOr(cap.ahRentFactor, 0.65);   // affordable/social rent ~65% of market
   var privUnits = totalUnits * (1 - ahPctR / 100), ahUnits = totalUnits * (ahPctR / 100);
   var capGrossRentPa = (privUnits + ahUnits * ahRentFactor) * mktRentPerUnitPa;
@@ -2912,7 +2917,7 @@ function computeSFHMetrics(data){
   return {rows:rows,totalUnits:totalUnits,avgSqft:totalUnits>0?totalSqft/totalUnits:0,retailGdv:retailGdv,blendedGdv:effectiveBlended,gdv:effectiveBlended,ahFactor:ahFactor,buildCost:buildCost,hasNonPrivate:hasNonPrivate,basePsf:basePsf,buildPsf:buildPsf,
     acres:sfhAcres,netDensity:netDensity,netDevelopableAcres:netDevelopableAcres,surplusAcres:surplusAcres,buildInclusive:buildInclusive,fees:sfhFees,contingency:sfhContingency,finance:sfhFinance,s106:sfhS106,roads:sfhRoads,infra:sfhInfra,marketing:sfhMarketing,profit:sfhProfit,devCost:sfhDevCost,rlv:sfhGrossRlv,
     financeProgYears:finProgYears,financePeakDebtPct:finPeakDebtPct,financePhases:finPhases,financeSCurve:FIN_SCURVE,
-    capMarketRentPerUnitPa:mktRentPerUnitPa,capGrossRentPa:capGrossRentPa,capNetRentPa:capNetRentPa,capYield:capYield,capInvestmentValue:capInvestmentValue,capProfit:capProfit,capRlv:capRlv,ahPctResolved:ahPctR,
+    capMarketRentPerUnitPa:mktRentPerUnitPa,capRentFromResearch:capRentFromResearch,capGrossRentPa:capGrossRentPa,capNetRentPa:capNetRentPa,capYield:capYield,capInvestmentValue:capInvestmentValue,capProfit:capProfit,capRlv:capRlv,ahPctResolved:ahPctR,
     affordableHomes:affordableHomes,grantEligibleHomes:grantEligibleHomes,grantPerAffHome:grantPerAffHome,grantIncome:grantIncome,rlvBeforeGrant:sfhGrossRlv-grantIncome};
 }
 
@@ -3242,6 +3247,29 @@ function normalizeSharedFields(data){
 function areaMarketRentPa(data){
   var mk = MKT[dealCityKey(data)];
   return (mk && mk.btr) ? mk.btr * 12 : 0;
+}
+// capMixRentPerUnitPa (v10.106) — the ANNUAL market rent per home built from the Capitalisation
+// stage's researched per-bed rents (cap.rent1..4, monthly £, filled by 'AI: research & fill area
+// rents' or entered), weighted by the actual house mix's bedroom counts. This is what the
+// Capitalisation screen uses, so wiring it into the engine makes the one-pager / forward-fund
+// figures reflect the SAME researched rents instead of a rent implied from the sale value.
+// Returns 0 when no per-bed rents are set, so the caller falls back to the value×yield proxy.
+function capMixRentPerUnitPa(data){
+  data = data || {};
+  var cap = data.capitalise || {};
+  var mix = (data.sfh || {}).mix || [];
+  if(!mix.length) return 0;
+  if(!(num(cap.rent1) > 0 || num(cap.rent2) > 0 || num(cap.rent3) > 0 || num(cap.rent4) > 0)) return 0;
+  function rentForBeds(b){ b = Math.max(1, Math.min(4, Math.round(num(b) || 3))); return num(cap["rent" + b]); }
+  var totCount = 0, totRentPa = 0;
+  mix.forEach(function(row){
+    var count = num(row.count); if(!count) return;
+    var beds = num(row.beds) || ((typeof HOUSE_TYPES !== "undefined" && HOUSE_TYPES[row.type] && num(HOUSE_TYPES[row.type].beds)) || 3);
+    var rpm = rentForBeds(beds); if(!(rpm > 0)) rpm = rentForBeds(3);   // fall back to the 3-bed rent if that size is unset
+    if(!(rpm > 0)) return;
+    totCount += count; totRentPa += count * rpm * 12;
+  });
+  return totCount > 0 ? totRentPa / totCount : 0;
 }
 // estSalePsfFromRent (v9.51) — estimate a SALE £/sqft from a monthly rent, used
 // ONLY as a fallback when no sale price / Land Registry figure is available.

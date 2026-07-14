@@ -168,14 +168,15 @@ function buildLandOnePager(data, cityHint){
     var oCapGrossRentPa=num(sf.capGrossRentPa)||0;
     var _capD2=data.capitalise||{};
     var oCapMgmtPct=numOr(_capD2.mgmtRate,25);
-    var oCapRentEntered=num(_capD2.marketRentPerUnitPa)>0;                  // an explicit comparable rent was set
+    var oCapRentEntered=num(_capD2.marketRentPerUnitPa)>0;                  // an explicit per-home rent was set
+    var oCapRentResearched=!!sf.capRentFromResearch;                        // per-bed rents from the Capitalisation stage drove it
     var oCapRentAI=(_capD2.rentSource==="AI market research");
     var oCapGrossYld=numOr(_capD2.grossRentYield,4.5);
-    // Honest provenance: unless a rent was entered (or AI-researched), the engine IMPLIES it from the
-    // sale value at a gross rental yield — say so, and prompt for real rental comparables.
+    // Honest provenance, in priority order: explicit per-home rent → researched per-bed rents from the
+    // Capitalisation stage → (fallback) rent implied from the sale value at a gross yield.
     var oCapRentProv=oCapRentEntered?"entered market rent"
-      :(oCapRentAI?"AI research of local new-build lettings"
-      :"implied from the sale value at a ~"+oCapGrossYld+"% gross rental yield — enter local rental comparables on the Capitalisation stage to firm up");
+      :(oCapRentResearched?(oCapRentAI?"AI-researched per-bed rents from the Capitalisation stage":"per-bed rents from the Capitalisation stage")
+      :"implied from the sale value at a ~"+oCapGrossYld+"% gross rental yield — research the rents on the Capitalisation stage to firm up");
     var oCapLandBasis=askL>0?totalLandCost:Math.max(0,oRlv);       // the land cost profit is measured against
     function oCapDevProfit(y){ return oCapIV(y)-oDev-oCapLandBasis; }
     function oCapReturnOnCost(y){ var c=oDev+oCapLandBasis; return c>0?oCapDevProfit(y)/c*100:0; }
