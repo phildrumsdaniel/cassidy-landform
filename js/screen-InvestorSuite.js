@@ -113,6 +113,15 @@ function renderInvestorSuite(data, navTo, saveDeal, up, user){
       if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the teaser."); return; }
       w.document.open(); w.document.write(html); w.document.close();
     }
+    // v10.98 — open the agent / vendor enquiry & credentials pack (proceedable-buyer registration).
+    function openAgentPack(){
+      if(typeof buildAgentEnquiryPack!=="function"){ if(typeof notify==="function") notify("Enquiry pack generator still loading — try again in a moment."); return; }
+      var html=buildAgentEnquiryPack(data);
+      if(typeof showReportOverlay==="function" && showReportOverlay(html,"Agent enquiry & credentials pack")) return;
+      var w=window.open("","_blank");
+      if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the pack."); return; }
+      w.document.open(); w.document.write(html); w.document.close();
+    }
     // v10.92 — open the Housing Association / Registered Provider pack (affordable turnkey + grant).
     function openRPPack(){
       if(typeof buildRPPack!=="function"){ if(typeof notify==="function") notify("RP pack generator still loading — try again in a moment."); return; }
@@ -367,12 +376,13 @@ function renderInvestorSuite(data, navTo, saveDeal, up, user){
                   e("div",{style:{fontSize:11,color:"#7278A0",lineHeight:1.55}},"The full financial case — GDV, profit, forward-fund value & yield, returns and an anticipated-questions Q&A — with the ",e("strong",null,"site identity withheld")," (no address, postcode, LPA, agent). Investors judge the numbers, then contact you under NDA. Location shows only as a region.")
                 ),
                 e("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+                  e("button",{onClick:openAgentPack,title:"Enquiry to the selling land / estate agent — proceedable interest + our DD credentials",style:{padding:"10px 18px",background:"#1E3A5F",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"🤝 Agent enquiry pack →"),
                   e("button",{onClick:openLandownerPack,title:"Proposal to the landowner — the value uplift + a de-risked option/promotion structure",style:{padding:"10px 18px",background:"#7A5A2E",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"🌳 Landowner pack →"),
                   e("button",{onClick:openBlindTeaser,style:{padding:"10px 18px",background:"#8A1B2E",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"Open teaser →"),
                   e("button",{onClick:openRPPack,title:"Affordable-homes turnkey + grant offer for a housing association",style:{padding:"10px 18px",background:"#1B7A54",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"🏛 RP / HA pack →"),
                   e("button",{onClick:openLenderPack,title:"Development-finance request for a lender (LTGDV, LTC, cover, exit, security)",style:{padding:"10px 18px",background:"#2E2F8A",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"🏦 Lender pack →"),
                   e("button",{onClick:openCouncilPack,title:"Planning benefits statement for the local authority (housing, affordable, S106, BNG, economic benefits)",style:{padding:"10px 18px",background:"#9A7B3E",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"🏛️ Council pack →"),
-                  e("button",{onClick:openAllPacks,title:"Investor teaser + RP/HA + lender + council, in one printable document",style:{padding:"10px 18px",background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",border:"1px solid #EDE84A",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"📚 Generate ALL packs →")
+                  e("button",{onClick:openAllPacks,title:"Branded cover + agent enquiry + landowner + investor teaser + RP/HA + lender + council, in one printable document",style:{padding:"10px 18px",background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)",border:"1px solid #EDE84A",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"📚 Generate ALL packs →")
                 )
               ),
               e("div",{style:{display:"flex",gap:10,marginTop:12,flexWrap:"wrap"}},

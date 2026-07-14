@@ -1132,6 +1132,125 @@ function buildLandownerPack(data){
     '</div></body></html>';
 }
 
+// ── v10.98 — AGENT / VENDOR ENQUIRY & CREDENTIALS PACK ────────────────────────
+// The document Cassidy send to a land or estate agent who is marketing a site (or
+// straight to a vendor). Its whole job is to register a serious, PROCEEDABLE interest
+// and to satisfy — at first contact — the due-diligence questions an agent and vendor
+// always ask before they will take a buyer seriously: who are you, are you funded,
+// how quickly and cleanly can you transact, and what are you actually offering. Unlike
+// the blind teaser this NAMES the site (the agent already knows it) but every figure is
+// expressly subject to contract, planning and due diligence.
+function buildAgentEnquiryPack(data){
+  data = data || {};
+  var l=data.land||{}, p=data.planning||{};
+  var SF=(typeof computeSFHMetrics==="function")?computeSFHMetrics(data):{};
+  function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  var ref=(typeof _blindRef==="function")?_blindRef(data):"CAS";
+  var cityDisp=(typeof cityName==="function")?(cityName(l.city||"")||""):(l.city||"");
+  var addr=l.address||cityDisp||"the marketed site";
+  var pc=(l.postcode||(data.rlv&&data.rlv.postcode)||"").toUpperCase().trim();
+  var lpa=p.lpa||l.localAuthority||"";
+  var siteLine=[addr,cityDisp&&cityDisp!==addr?cityDisp:"",pc].filter(function(x){return x;}).join(" · ");
+  var acres=num(l.acres)||num(SF.acres)||0;
+  var units=num(SF.totalUnits)||num(p.units)||num(l.units)||0;
+  var rlv=Math.max(0,num(SF.rlv));
+  var ask=num(l.price)||0;
+  // Indicative offer band around the maximum supportable land value at target profit.
+  var offerLow=rlv>0?Math.round(rlv*0.9):0, offerHigh=rlv>0?Math.round(rlv):0;
+  var tl=(typeof projectTimeline==="function")?projectTimeline(data):null;
+  var planStatus=p.status||l.planningStatus||"";
+  var planLbl={full:"Full consent",outline:"Outline consent",allocated:"Allocated in the Local Plan",preapp:"Pre-application",likely:"Strong planning case"}[planStatus]||"Promotion / outline";
+  function pAcre(x){ return acres>0?fmt(x/acres):"—"; }
+  var logo=((typeof BRAND_LOGO_PNG!=="undefined"&&BRAND_LOGO_PNG&&typeof cassidyLogoSrc==="function")?'<img src="'+cassidyLogoSrc()+'" alt="Cassidy Group Ltd" style="height:30px;width:auto;max-width:170px;display:block;margin:0 0 5px auto"/>':'');
+  var css=''+
+    '@page{size:A4 portrait;margin:10mm}*{box-sizing:border-box}html,body{margin:0}'+
+    'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#26284F;font-size:9.9px;line-height:1.45;font-variant-numeric:tabular-nums;-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#eef0f7}'+
+    '.pg{width:190mm;min-height:277mm;margin:6mm auto;background:#fff;padding:10mm 10mm 8mm;box-shadow:0 2px 14px rgba(0,0,0,.12)}'+
+    '@media print{body{background:#fff}.pg{margin:0;box-shadow:none;width:auto;min-height:auto;padding:0}.noprint{display:none}}'+
+    '.top{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1E3A5F;padding-bottom:6px;margin-bottom:6px}'+
+    '.brand{font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:#1E3A5F;font-weight:800}'+
+    'h1{font-family:Georgia,serif;font-size:17px;color:#1B1D46;margin:2px 0 0}.sub{color:#6A6F97;font-size:9.5px;margin-top:3px}'+
+    '.meta{text-align:right;font-size:8.3px;color:#6A6F97;line-height:1.5}'+
+    '.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin:9px 0}'+
+    '.kpi{border:1px solid #E0E2EC;border-radius:5px;padding:7px 8px;background:#F4F7FB}'+
+    '.kpi .l{font-size:7.3px;letter-spacing:.07em;text-transform:uppercase;color:#5A6E88;font-weight:700}.kpi .v{font-size:13.5px;font-weight:800;color:#1B1D46;margin-top:2px;font-family:Georgia,serif}'+
+    '.cols{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:3px}'+
+    '.card{border:1px solid #E0E2EC;border-radius:6px;padding:9px 10px;margin-bottom:9px}'+
+    '.ct{font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#1E3A5F;font-weight:800;margin-bottom:5px}'+
+    'table{width:100%;border-collapse:collapse}td{padding:2.6px 0;border-bottom:1px solid #F1F2F8}td.n{text-align:right;font-weight:600}tr.s td{border-top:1.4px solid #C9CCE4;border-bottom:none;font-weight:800;color:#1B1D46;padding-top:4px;font-size:10.6px}'+
+    '.hl{margin:0;padding-left:15px}.hl li{margin-bottom:3px;color:#33365F}'+
+    '.dd{margin:0;padding-left:0;list-style:none}.dd li{position:relative;padding-left:15px;margin-bottom:3px;color:#33365F}.dd li:before{content:"✓";position:absolute;left:0;color:#1B7A54;font-weight:800}'+
+    '.cta{border:1.5px solid #1E3A5F;border-radius:7px;padding:11px 13px;background:#F1F5FA;margin-top:2px}.cta .h{font-size:11px;font-weight:800;color:#1E3A5F}.cta .b{font-size:9px;color:#33365F;margin-top:3px;line-height:1.5}'+
+    '.foot{margin-top:9px;font-size:7.5px;color:#9298BC;line-height:1.55;border-top:1px solid #EEF0F7;padding-top:6px}'+
+    '.btn{position:fixed;top:9px;right:9px;background:#1E3A5F;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25)}';
+  return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>'+
+    '<title>Buyer Enquiry &amp; Credentials — '+esc(ref)+'</title><style>'+css+'</style></head><body>'+
+    '<button class="btn noprint" onclick="window.print()">Print / Save as PDF</button>'+
+    '<div class="pg">'+
+      '<div class="top"><div><div class="brand">Cassidy Group · Proceedable Buyer — Enquiry &amp; Credentials</div>'+
+        '<h1>Registering our interest — '+esc(addr)+'</h1>'+
+        '<div class="sub">'+(siteLine?esc(siteLine):"Marketed site")+(units>0?' · potential for ~'+esc(units.toLocaleString())+' homes':'')+'</div></div>'+
+        '<div class="meta">'+logo+'Ref '+esc(ref)+'<br/>Subject to contract<br/>Indicative · v'+esc(typeof CURRENT_VERSION!=="undefined"?CURRENT_VERSION:"")+'</div></div>'+
+      '<div class="kpis">'+
+        '<div class="kpi"><div class="l">Indicative land offer</div><div class="v" style="color:#1B7A54">'+(offerHigh>0?(fmt(offerLow)+'–'+fmt(offerHigh)):"On application")+'</div></div>'+
+        '<div class="kpi"><div class="l">Funding position</div><div class="v">Funded &amp; proceedable</div></div>'+
+        '<div class="kpi"><div class="l">Scheme potential</div><div class="v">'+(units>0?esc(units.toLocaleString())+' homes':"—")+'</div></div>'+
+        '<div class="kpi"><div class="l">To exchange</div><div class="v">~6–10 wks</div></div>'+
+      '</div>'+
+      '<div class="card"><div class="ct">Our interest in this site</div>'+
+        '<p style="margin:0;font-size:9.4px;color:#33365F;line-height:1.55">Cassidy Group would like to register a serious interest in '+esc(addr)+(cityDisp&&cityDisp!==addr?', '+esc(cityDisp):'')+'. Having appraised the site we see potential for around <b>'+esc(units.toLocaleString())+' new homes</b>'+(acres>0?' across ~'+esc(acres)+' acres':'')+'. On the basis of our appraisal we would anticipate an <b>indicative land offer in the region of '+(offerHigh>0?fmt(offerLow)+' to '+fmt(offerHigh)+(acres>0?' ('+pAcre(offerHigh)+'/acre)':''):"a competitive market level")+'</b> — <b>subject to contract, planning and due diligence</b>, and to be firmed up in heads of terms. Planning position understood to be: <b>'+esc(planLbl)+'</b>. We are ready to move quickly and would welcome access to the information pack and a conversation with you.</p>'+
+      '</div>'+
+      '<div class="cols">'+
+        '<div class="card"><div class="ct">We are proceedable — proof of position</div>'+
+          '<ul class="hl" style="font-size:8.9px">'+
+            '<li><b>Funded.</b> Equity in place, backed by established <b>development-finance and investor relationships</b> — proof of funds available on request.</li>'+
+            '<li><b>Board-approved</b> acquisition mandate — no internal approval risk once terms are agreed.</li>'+
+            '<li><b>No onward chain</b> and no reliance on selling other stock to complete.</li>'+
+            '<li><b>Solicitors ready</b> to be instructed on exchange of heads of terms — a realistic ~6–10 weeks to exchange.</li>'+
+            '<li>Comfortable with an <b>exclusivity / lock-out</b> period so you and the vendor can rely on us.</li>'+
+          '</ul>'+
+        '</div>'+
+        '<div class="card"><div class="ct">Who we are — track record &amp; team</div>'+
+          '<ul class="hl" style="font-size:8.9px">'+
+            '<li><b>Cassidy Group</b> — an experienced residential land &amp; development business delivering policy-compliant schemes.</li>'+
+            '<li>Full <b>professional advisory team</b>: planning consultants, quantity surveyor, solicitors and RICS valuers.</li>'+
+            '<li>Every site is run through a <b>full development appraisal</b> — we bid on evidenced numbers, not guesswork.</li>'+
+            '<li>We build <b>credible, deliverable schemes</b> with a proper affordable-housing offer — we are the kind of buyer a vendor is glad to have.</li>'+
+            '<li>Straightforward and transparent to deal with — <b>references available on request</b>.</li>'+
+          '</ul>'+
+        '</div>'+
+      '</div>'+
+      '<div class="card"><div class="ct">Due diligence — everything you and the vendor need to take us seriously</div>'+
+        '<p style="margin:0 0 5px;font-size:9px;color:#33365F;line-height:1.5">We understand you and the vendor must satisfy your own due diligence and anti-money-laundering obligations before progressing a buyer. We can provide, on request and without delay:</p>'+
+        '<div class="cols">'+
+          '<ul class="dd" style="font-size:8.9px">'+
+            '<li><b>Company identity</b> — registered details, structure and beneficial ownership</li>'+
+            '<li><b>AML / KYC</b> — ID and source-of-funds evidence for the acquiring entity</li>'+
+            '<li><b>Proof of funds</b> — equity confirmation and funder support letter</li>'+
+          '</ul>'+
+          '<ul class="dd" style="font-size:8.9px">'+
+            '<li><b>Solicitor details</b> — appointed and ready to be instructed</li>'+
+            '<li><b>Indicative appraisal</b> — the scheme and numbers behind our offer</li>'+
+            '<li><b>References</b> — from professional advisers and prior transactions</li>'+
+          '</ul>'+
+        '</div>'+
+      '</div>'+
+      (tl?'<div class="card"><div class="ct">How we would transact</div>'+
+        '<table>'+
+          '<tr><td>Heads of terms agreed (subject to contract)</td><td class="n">On agreement</td></tr>'+
+          '<tr><td>Exclusivity / lock-out to the vendor</td><td class="n">On HoT</td></tr>'+
+          '<tr><td>Legal due diligence &amp; exchange</td><td class="n">~6–10 weeks</td></tr>'+
+          '<tr><td>Planning promotion to consent (at our cost &amp; risk)</td><td class="n">~'+tl.planningYears+' yrs</td></tr>'+
+          '<tr><td>Build-out once consented</td><td class="n">~'+tl.buildYears+' yrs</td></tr>'+
+        '</table>'+
+        '<div style="font-size:8px;color:#6A6F97;margin-top:4px;line-height:1.5">Structures to suit the vendor — unconditional purchase, subject-to-planning, option or promotion agreement — can all be accommodated. We are happy to discuss whichever best fits the vendor\'s objectives and tax position.</div>'+
+      '</div>':'')+
+      '<div class="cta"><div class="h">▸ We would welcome the information pack and a conversation</div>'+
+        '<div class="b">Please treat this as a firm registration of interest. We would be grateful for the sales particulars / data room and any planning information, and would welcome a call to talk through terms. Contact <b>Cassidy Group</b> quoting <b>'+esc(ref)+'</b> — we can turn around heads of terms quickly and would be glad to provide our due-diligence pack straight away.</div></div>'+
+      '<div class="foot"><b>Subject to contract · without prejudice · not a formal offer.</b> Any figures are indicative, derived from Cassidy Group\'s own appraisal of the site and assume residential development can be consented; they are subject to contract, satisfactory due diligence, a QS cost plan, formal valuation and planning. A binding offer, and its terms, would be set out in heads of terms and the contract. © Cassidy Group Ltd.</div>'+
+    '</div></body></html>';
+}
+
 // ── v10.95 — ALL STAKEHOLDER PACKS in one document ────────────────────────────
 // Concatenates the deterministic packs — blind investor teaser, RP / housing-association,
 // lender and local-authority — into a single printable document (each on its own page), so the
@@ -1140,19 +1259,59 @@ function buildLandownerPack(data){
 // bundle reads as one consistent document.
 function buildAllStakeholderPacks(data){
   data = data || {};
+  function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
   var packs = [];
-  if(typeof buildLandownerPack === "function") packs.push({t:"Landowner proposal", h:buildLandownerPack(data)});
-  if(typeof buildBlindTeaser === "function") packs.push({t:"Investor teaser", h:buildBlindTeaser(data)});
-  if(typeof buildRPPack === "function")      packs.push({t:"Housing association / RP", h:buildRPPack(data)});
-  if(typeof buildLenderPack === "function")  packs.push({t:"Lender / development finance", h:buildLenderPack(data)});
-  if(typeof buildCouncilPack === "function") packs.push({t:"Local authority / planning", h:buildCouncilPack(data)});
+  if(typeof buildAgentEnquiryPack === "function") packs.push({t:"Agent enquiry &amp; credentials", d:"For the selling land / estate agent — our proceedable interest and due-diligence credentials", h:buildAgentEnquiryPack(data)});
+  if(typeof buildLandownerPack === "function") packs.push({t:"Landowner proposal", d:"For the landowner — the value uplift and a de-risked option / promotion structure", h:buildLandownerPack(data)});
+  if(typeof buildBlindTeaser === "function") packs.push({t:"Investor teaser (anonymised)", d:"For investors — the full financial case with the site identity withheld", h:buildBlindTeaser(data)});
+  if(typeof buildRPPack === "function")      packs.push({t:"Housing association / RP", d:"For a Registered Provider — affordable turnkey offer and grant strategy", h:buildRPPack(data)});
+  if(typeof buildLenderPack === "function")  packs.push({t:"Lender / development finance", d:"For a lender — LTGDV / LTC, interest cover, exit and security", h:buildLenderPack(data)});
+  if(typeof buildCouncilPack === "function") packs.push({t:"Local authority / planning", d:"For the council — housing delivery, affordable homes, S106 and economic benefits", h:buildCouncilPack(data)});
   if(!packs.length) return '<!DOCTYPE html><html><body>No packs available — build a scheme first.</body></html>';
   var style = packs.map(function(p){ var m = p.h.match(/<style>([\s\S]*?)<\/style>/); return m ? m[1] : ""; }).join("\n");
   function pg(html){ var s = html.indexOf('<div class="pg">'); var e = html.indexOf("</body>"); return (s >= 0 && e > s) ? html.substring(s, e) : ""; }
   var body = packs.map(function(p){ return pg(p.h); }).join("");
+
+  // ── Branded cover / index page ──
+  var SF=(typeof computeSFHMetrics==="function")?computeSFHMetrics(data):{};
+  var region=(typeof _blindRegion==="function")?_blindRegion(data):"the United Kingdom";
+  var ref=(typeof _blindRef==="function")?_blindRef(data):"CAS";
+  var units=num(SF.totalUnits)||num((data.planning||{}).units)||num((data.land||{}).units)||0;
+  var dateStr=""; try{ dateStr=new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}); }catch(e){ dateStr=""; }
+  var logoBig=((typeof BRAND_LOGO_PNG!=="undefined"&&BRAND_LOGO_PNG&&typeof cassidyLogoSrc==="function")?'<img src="'+cassidyLogoSrc()+'" alt="Cassidy Group Ltd" style="height:64px;width:auto;max-width:280px;display:block;margin:0 auto 26px"/>':'');
+  var contents=packs.map(function(p,i){
+    return '<div class="cov-item"><div class="cov-num">'+(i+1)+'</div><div><div class="cov-it">'+p.t+'</div><div class="cov-id">'+esc(p.d||"")+'</div></div></div>';
+  }).join("");
+  var coverCss=''+
+    '.cover{display:flex;flex-direction:column;justify-content:center;text-align:center}'+
+    '.cov-eyebrow{font-size:9px;letter-spacing:.28em;text-transform:uppercase;color:#9A7B3E;font-weight:800;margin-bottom:10px}'+
+    '.cov-title{font-family:Georgia,serif;font-size:34px;color:#1B1D46;margin:0 0 8px;line-height:1.1}'+
+    '.cov-sub{font-size:13px;color:#4A4F7A;margin-bottom:4px}'+
+    '.cov-ref{font-size:9.5px;color:#8A90B4;letter-spacing:.04em;margin-bottom:30px}'+
+    '.cov-rule{height:2px;width:80px;background:#9A7B3E;margin:0 auto 26px}'+
+    '.cov-ct{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:#4A4BAE;font-weight:800;margin-bottom:12px}'+
+    '.cov-list{max-width:150mm;margin:0 auto;text-align:left}'+
+    '.cov-item{display:flex;gap:12px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #EEF0F7}'+
+    '.cov-num{flex:0 0 24px;height:24px;border-radius:50%;background:#1B1D46;color:#fff;font-weight:800;font-size:11px;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif}'+
+    '.cov-it{font-size:12px;font-weight:800;color:#1B1D46}.cov-id{font-size:9.5px;color:#6A6F97;margin-top:1px;line-height:1.4}'+
+    '.cov-conf{margin-top:34px;font-size:8.5px;color:#8A90B4;line-height:1.6;max-width:150mm;margin-left:auto;margin-right:auto}'+
+    '.cov-conf b{color:#8A1B2E}';
+  var cover='<div class="pg cover">'+
+    logoBig+
+    '<div class="cov-eyebrow">Cassidy Group · Stakeholder Suite</div>'+
+    '<h1 class="cov-title">Stakeholder Deal Pack</h1>'+
+    '<div class="cov-sub">Residential development — '+esc(region)+(units>0?' · ~'+esc(units.toLocaleString())+' new homes':'')+'</div>'+
+    '<div class="cov-ref">Ref '+esc(ref)+(dateStr?' · Prepared '+esc(dateStr):'')+' · v'+esc(typeof CURRENT_VERSION!=="undefined"?CURRENT_VERSION:"")+'</div>'+
+    '<div class="cov-rule"></div>'+
+    '<div class="cov-ct">What\'s inside — '+packs.length+' tailored packs</div>'+
+    '<div class="cov-list">'+contents+'</div>'+
+    '<div class="cov-conf"><b>Strictly private &amp; confidential.</b> Prepared by Cassidy Group Ltd for the named recipient only. Each pack is tailored to its audience; figures are indicative and subject to contract, planning, due diligence, a QS cost plan and formal valuation. Not to be forwarded or reproduced without consent. © Cassidy Group Ltd.</div>'+
+  '</div>';
+
   return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>'+
-    '<title>Cassidy Group — stakeholder packs</title><style>'+style+' @media print{.pg{page-break-after:always}} .pg:last-of-type{page-break-after:auto}</style></head><body>'+
+    '<title>Cassidy Group — stakeholder deal pack</title><style>'+style+coverCss+' @media print{.pg{page-break-after:always}} .pg:last-of-type{page-break-after:auto}</style></head><body>'+
     '<button class="btn noprint" onclick="window.print()">Print / Save ALL as PDF</button>'+
+    cover+
     body+
     '</body></html>';
 }
