@@ -79,7 +79,7 @@ function sfhScreenRlv(data){
   // v10.55 — S-curve/peak-debt finance, mirroring the engine + SFH screen.
   var phases = num(s.phases)>0?num(s.phases):Math.max(1,Math.ceil(totalUnits/300));
   var progYears = num(s.programmeYears)>0?num(s.programmeYears):Math.max(2,Math.min(10,Math.round((1+totalUnits/350)*10)/10));
-  var peakDebtPct = num(s.peakDebtPct)>0?num(s.peakDebtPct):Math.max(30,Math.min(100,Math.round(200/phases)));
+  var peakDebtPct = num(s.peakDebtPct)>0?num(s.peakDebtPct):Math.max(45,Math.min(100,Math.round(200/phases)));
   var fin = (totalBuild+fees)*(peakDebtPct/100)*(numOr(s.finRate,7.5)/100)*progYears*0.6;
   var s106 = totalUnits*numOr(s.s106pu,8000), roads = inc?0:totalUnits*numOr(s.roads,12000), infra = inc?0:num(s.acres)*53000;
   var profit = totalGdv*(numOr(s.profitPct,17.5)/100);
@@ -166,14 +166,15 @@ console.log("Landform engine consistency tests\n");
   var big = computeSFHMetrics(sfhDeal({ sfh:{ buildInclusive:true, finRate:12,
     mix:[{type:"3-bed semi",count:"1800",sqft:"1000",unitPrice:"440000",tenure:"private"}] } }));
   ok("big scheme derives a multi-year programme", big.financeProgYears >= 5);
-  ok("big scheme derives a sub-100% peak debt (phasing recycles capital)", big.financePeakDebtPct < 100 && big.financePeakDebtPct >= 30);
+  // v10.100 — peak-debt floor raised to 45% (a large phased scheme sits ~45–50%, not ~33%).
+  ok("big scheme derives a sub-100% peak debt (phasing recycles capital)", big.financePeakDebtPct < 100 && big.financePeakDebtPct >= 45);
   near("finance == (build) × peak% × rate × years × 0.6", big.finance,
     big.buildCost * (big.financePeakDebtPct/100) * 0.12 * big.financeProgYears * 0.6, 5);
   // explicit overrides win, and raising peak debt (slower sales) raises finance
-  var slow = computeSFHMetrics(sfhDeal({ sfh:{ buildInclusive:true, finRate:12, programmeYears:6, peakDebtPct:45,
+  var slow = computeSFHMetrics(sfhDeal({ sfh:{ buildInclusive:true, finRate:12, programmeYears:6, peakDebtPct:70,
     mix:[{type:"3-bed semi",count:"1800",sqft:"1000",unitPrice:"440000",tenure:"private"}] } }));
   ok("explicit programme years honoured", slow.financeProgYears === 6);
-  ok("explicit peak debt honoured", slow.financePeakDebtPct === 45);
+  ok("explicit peak debt honoured", slow.financePeakDebtPct === 70);
   ok("slower sales / higher peak debt ⇒ more finance", slow.finance > big.finance);
   // a small single-phase scheme stays near the old flat basis (peak ~100%, ~2 yrs)
   var small = computeSFHMetrics(sfhDeal({ sfh:{ buildInclusive:true,
