@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.91";
+var CURRENT_VERSION = "10.92";
 var VERSION_HISTORY = [
+  {v:"10.92", date:"Jul 2026", headline:"New ‘🏛 RP / HA pack’ — a Housing Association / Registered Provider offer built to appeal to affordable-housing partners: the affordable homes on offer by tenure, a turnkey-at-practical-completion delivery route, build standards (Nationally Described Space Standard, EPC B from June 2026, Future Homes, Building Safety, 10% BNG), the Homes England grant sought per home, indicative price to the RP, additionality & value-for-money, and the programme. Opens from the Investor Suite → Outreach Kit. Plus an accuracy fix: grant now funds only the ADDITIONAL affordable (above the S106 requirement) — set the grant-eligible count on the Grants page; the S106 units are nil-grant, as the rules require."},
   {v:"10.91", date:"Jul 2026", headline:"The affordable-housing grant now shows up in the investor reports. When a grant £/affordable home is set, the one-pager, blind teaser and Investor Memorandum add an explicit ‘+ Affordable-housing grant (AHP)’ line to the appraisal and label the residual ‘incl. grant’, and the profit-sensitivity / two-scenario tables include it — so a marginal scheme presents its grant-assisted land value to investors, transparently. The Basis of Figures spells out that the residual includes public subsidy (RP partner required; rate to confirm). Nothing changes on a deal with no grant entered."},
   {v:"10.90", date:"Jul 2026", headline:"Grants can now make a scheme STACK. Affordable-housing grant (Homes England AHP / SAHP) per affordable home now flows into the land-valuation engine — it goes straight to the residual land value (not developer profit), so it can turn an otherwise-negative RLV positive. The Grants page has a new ‘Make it stack’ card: type a grant £/affordable home (with £40k/£80k/£120k quick-picks) and see the RLV before → after; and when the scheme doesn't stack it advises the grant per home needed to reach a positive residual (or to cover the guide price), with a broad AHP/SAHP band and the reminder that an RP partner is required."},
   {v:"10.89", date:"Jul 2026", headline:"Fix: Keystone now HONOURS the unit count you set. A low count on a large greenfield (below ~5 homes/acre on 15+ acres) was being silently inflated to acres × 12 — so a deliberate 200 homes on 88 acres was overridden to 1,056, contradicting the density card which said it develops from 200. The stated figure is now always kept; the land's fuller capacity is surfaced as UPSIDE (the density card's ‘Model N at 20/acre’ button) rather than changing your number. A brief with NO unit count still estimates from density as before."},
@@ -2331,9 +2332,10 @@ function grantToStack(data){
   data = data || {};
   var SF = (typeof computeSFHMetrics === "function") ? computeSFHMetrics(data) : {};
   var affHomes = num(SF.affordableHomes) || 0;
+  var eligHomes = num(SF.grantEligibleHomes) || affHomes;   // only ADDITIONAL affordable attracts grant
   var rlvNoGrant = num(SF.rlvBeforeGrant);
   var price = num((data.land || {}).price);
-  function perHome(gap){ return affHomes > 0 ? Math.max(0, gap) / affHomes : 0; }
+  function perHome(gap){ return eligHomes > 0 ? Math.max(0, gap) / eligHomes : 0; }
   var gapToPositive = rlvNoGrant < 0 ? -rlvNoGrant : 0;                         // reach RLV ≥ 0
   var gapToPrice = (price > 0 && rlvNoGrant < price) ? (price - rlvNoGrant) : 0; // reach RLV ≥ guide price
   return {
@@ -2840,8 +2842,14 @@ function computeSFHMetrics(data){
   // make an otherwise-negative RLV stack. Set grants.grantPerAffHome (£/affordable home) to use it.
   var _ahForGrant = num(sfh.ahPct) || num((data.planning || {}).ahPct) || num((data.planning || {}).afhPct) || num((data.tenure || {}).ahPct) || 0;
   var affordableHomes = Math.round(totalUnits * _ahForGrant / 100);
+  // v10.92 — grant funds only ADDITIONAL affordable. The S106-required affordable is a planning
+  // obligation, so it is NOT grant-eligible. Use an explicit grant-eligible (additional) count
+  // when set; else fall back to the affordable count (indicative — additionality is confirmed by
+  // the user / RP).
+  var grantEligibleHomes = num((data.grants || {}).grantEligibleHomes);
+  if(!(grantEligibleHomes > 0)) grantEligibleHomes = affordableHomes;
   var grantPerAffHome = num((data.grants || {}).grantPerAffHome);
-  var grantIncome = (grantPerAffHome > 0 && affordableHomes > 0) ? grantPerAffHome * affordableHomes : 0;
+  var grantIncome = (grantPerAffHome > 0 && grantEligibleHomes > 0) ? grantPerAffHome * grantEligibleHomes : 0;
   var sfhGrossRlv = effectiveBlended - sfhDevCost - sfhProfit + grantIncome;
 
   // ── v9.89 — CAPITALISATION / FORWARD-FUND EXIT ─────────────────────────────
@@ -2875,7 +2883,7 @@ function computeSFHMetrics(data){
     acres:sfhAcres,buildInclusive:buildInclusive,fees:sfhFees,contingency:sfhContingency,finance:sfhFinance,s106:sfhS106,roads:sfhRoads,infra:sfhInfra,marketing:sfhMarketing,profit:sfhProfit,devCost:sfhDevCost,rlv:sfhGrossRlv,
     financeProgYears:finProgYears,financePeakDebtPct:finPeakDebtPct,financePhases:finPhases,financeSCurve:FIN_SCURVE,
     capMarketRentPerUnitPa:mktRentPerUnitPa,capGrossRentPa:capGrossRentPa,capNetRentPa:capNetRentPa,capYield:capYield,capInvestmentValue:capInvestmentValue,capProfit:capProfit,capRlv:capRlv,ahPctResolved:ahPctR,
-    affordableHomes:affordableHomes,grantPerAffHome:grantPerAffHome,grantIncome:grantIncome,rlvBeforeGrant:sfhGrossRlv-grantIncome};
+    affordableHomes:affordableHomes,grantEligibleHomes:grantEligibleHomes,grantPerAffHome:grantPerAffHome,grantIncome:grantIncome,rlvBeforeGrant:sfhGrossRlv-grantIncome};
 }
 
 // ── SFH MIX OPTIMISER (v10.44) ─────────────────────────────────────────────

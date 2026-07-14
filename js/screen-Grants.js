@@ -210,14 +210,21 @@ function renderGrants(city, data, gdv, lc, up, user){
               ? "Grant per affordable home flows straight to the land value — it closes a viability gap. This scheme has ~"+fmtN(gt.affordableHomes)+" affordable homes."
               : "Set an affordable-housing % (Planning / Tenure Mix) first — grant applies to the affordable homes."
           ),
-          e("div",{style:{display:"flex",gap:14,alignItems:"flex-end",flexWrap:"wrap",marginBottom:12}},
+          e("div",{style:{display:"flex",gap:14,alignItems:"flex-end",flexWrap:"wrap",marginBottom:8}},
             e("div",null,
               e("label",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".06em",fontWeight:700,display:"block",marginBottom:3}},"Grant £ / affordable home"),
               e("input",{type:"number",value:g.grantPerAffHome||"",onChange:function(ev){up("grants","grantPerAffHome",ev.target.value);},placeholder:"e.g. 80000",style:inp})
             ),
             e("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
               [40000,80000,120000].map(function(v){ return e("button",{key:v,onClick:function(){up("grants","grantPerAffHome",v);},style:{padding:"8px 11px",background:perHomeVal===v?"#1B7A54":"#fff",color:perHomeVal===v?"#fff":"#3A3D6A",border:"1px solid #BFD9CF",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"£"+Math.round(v/1000)+"k"); })
+            ),
+            e("div",null,
+              e("label",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".06em",fontWeight:700,display:"block",marginBottom:3}},"Grant-eligible (additional) homes"),
+              e("input",{type:"number",value:g.grantEligibleHomes||"",onChange:function(ev){up("grants","grantEligibleHomes",ev.target.value);},placeholder:"default: all "+fmtN(gt.affordableHomes),style:inp})
             )
+          ),
+          e("div",{style:{fontSize:9.5,color:"#8A6A2E",lineHeight:1.5,marginBottom:10,background:"rgba(154,123,62,0.06)",borderLeft:"3px solid #9A7B3E",borderRadius:4,padding:"6px 9px"}},
+            "⚠ Grant funds only <b>additional</b> affordable — homes ABOVE the S106 requirement. The S106-required affordable is a planning obligation and is nil-grant. Set the additional count above (leave blank to model all affordable indicatively)."
           ),
           e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10,marginBottom:10}},
             [

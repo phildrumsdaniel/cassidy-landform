@@ -339,6 +339,9 @@ console.log("Landform engine consistency tests\n");
   ok("grant lifts the RLV by exactly the grant income", Math.round(num(withGrant.rlv) - num(base.rlv)) === Math.round(num(withGrant.grantIncome)));
   var gt = grantToStack(d);
   ok("grantToStack advises a per-home grant to reach a positive residual", gt.affordableHomes > 0 && (num(base.rlv) < 0 ? gt.perHomeToPositive > 0 : gt.perHomeToPositive === 0));
+  // v10.92 — grant funds only ADDITIONAL affordable: an explicit grant-eligible count is used
+  var addl = computeSFHMetrics(Object.assign({}, d, { grants:{ grantPerAffHome:80000, grantEligibleHomes:20 } }));
+  ok("grant applies to the ADDITIONAL count, not all affordable", Math.round(num(addl.grantIncome)) === 80000 * 20 && num(addl.grantEligibleHomes) === 20 && num(base.affordableHomes) > 20);
 })();
 
 // 5 — net land bid = gross RLV − acquisition costs

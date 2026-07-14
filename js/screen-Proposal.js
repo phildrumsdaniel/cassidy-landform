@@ -694,6 +694,107 @@ function buildBlindTeaser(data){
     '</div></body></html>';
 }
 
+// ── v10.92 — HOUSING ASSOCIATION / REGISTERED PROVIDER PACK ────────────────────
+// The affordable-housing proposition an RP evaluates: the homes on offer (tenure split), the
+// turnkey delivery route, build standards (NDSS, EPC B, Future Homes, Building Safety), the
+// grant sought per home (grant funds ADDITIONAL affordable only — the S106 units are excluded),
+// the indicative price to the RP, the programme and payment on practical completion. Built from
+// the deal so a developer can put a credible, standards-led offer in front of a housing
+// association. Indicative — heads of terms and grant subject to the RP / Homes England process.
+function buildRPPack(data){
+  data = data || {};
+  var p=data.planning||{}, ten=data.tenure||{}, l=data.land||{};
+  var SF=(typeof computeSFHMetrics==="function")?computeSFHMetrics(data):{};
+  function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  var region=(typeof _blindRegion==="function")?_blindRegion(data):"the United Kingdom";
+  var ref=(typeof _blindRef==="function")?_blindRef(data):"CAS";
+  var totalUnits=num(SF.totalUnits)||0;
+  var affHomes=num(SF.affordableHomes)||0;
+  var ahPct=Math.round(num(SF.ahPctResolved)||num(p.ahPct||p.afhPct||ten.ahPct||0));
+  var retail=num(SF.retailGdv)||num(SF.gdv)||0;
+  var avgHomeValue=totalUnits>0?retail/totalUnits:0;
+  var grantPerHome=num(SF.grantPerAffHome), grantEligible=num(SF.grantEligibleHomes)||affHomes, grantTotal=num(SF.grantIncome);
+  var tl=(typeof projectTimeline==="function")?projectTimeline(data):null;
+  // Tenure breakdown (from the Tenure Mix stage, else a policy-typical split of the affordable).
+  var TEN={sr:{label:"Social Rent",factor:0.50},ar:{label:"Affordable Rent",factor:0.60},so:{label:"Shared Ownership",factor:0.85},first_homes:{label:"First Homes",factor:0.70}};
+  var rows=[]; var mix=ten.mix||null;
+  if(mix){ ["sr","ar","so","first_homes"].forEach(function(k){ var pc=num(mix[k]); if(pc>0){ rows.push({label:TEN[k].label,count:Math.round(totalUnits*pc/100),factor:TEN[k].factor}); } }); }
+  if(!rows.length && affHomes>0){ var ar=Math.round(affHomes*0.6), so=Math.round(affHomes*0.3); rows.push({label:"Affordable Rent",count:ar,factor:0.60}); rows.push({label:"Shared Ownership",count:so,factor:0.85}); rows.push({label:"Social Rent",count:Math.max(0,affHomes-ar-so),factor:0.50}); }
+  var rpTotal=rows.reduce(function(a,r){ return a + r.count*avgHomeValue*r.factor; },0);
+  var developerReceipt=rpTotal+grantTotal;
+  function money(x){ return fmt(x); }
+  var logo=((typeof BRAND_LOGO_PNG!=="undefined"&&BRAND_LOGO_PNG&&typeof cassidyLogoSrc==="function")?'<img src="'+cassidyLogoSrc()+'" alt="Cassidy Group Ltd" style="height:30px;width:auto;max-width:170px;display:block;margin:0 0 5px auto"/>':'');
+  var css=''+
+    '@page{size:A4 portrait;margin:10mm}*{box-sizing:border-box}html,body{margin:0}'+
+    'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#26284F;font-size:9.9px;line-height:1.45;font-variant-numeric:tabular-nums;-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#eef0f7}'+
+    '.pg{width:190mm;min-height:277mm;margin:6mm auto;background:#fff;padding:10mm 10mm 8mm;box-shadow:0 2px 14px rgba(0,0,0,.12)}'+
+    '@media print{body{background:#fff}.pg{margin:0;box-shadow:none;width:auto;min-height:auto;padding:0}.noprint{display:none}}'+
+    '.top{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1B7A54;padding-bottom:6px;margin-bottom:6px}'+
+    '.brand{font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:#1B7A54;font-weight:800}'+
+    'h1{font-family:Georgia,serif;font-size:17px;color:#1B1D46;margin:2px 0 0}.sub{color:#6A6F97;font-size:9.5px;margin-top:3px}'+
+    '.meta{text-align:right;font-size:8.3px;color:#6A6F97;line-height:1.5}'+
+    '.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin:9px 0}'+
+    '.kpi{border:1px solid #E0E2EC;border-radius:5px;padding:7px 8px;background:#F5FBF8}'+
+    '.kpi .l{font-size:7.3px;letter-spacing:.07em;text-transform:uppercase;color:#5B8A76;font-weight:700}.kpi .v{font-size:14px;font-weight:800;color:#1B1D46;margin-top:2px;font-family:Georgia,serif}'+
+    '.card{border:1px solid #E0E2EC;border-radius:6px;padding:9px 10px;margin-bottom:9px}'+
+    '.ct{font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#1B7A54;font-weight:800;margin-bottom:5px}'+
+    'table{width:100%;border-collapse:collapse}td{padding:2.6px 0;border-bottom:1px solid #F1F2F8}td.n{text-align:right;font-weight:600}tr.s td{border-top:1.4px solid #C9CCE4;border-bottom:none;font-weight:800;color:#1B1D46;padding-top:4px;font-size:10.6px}'+
+    '.hl{margin:0;padding-left:15px}.hl li{margin-bottom:3px;color:#33365F}'+
+    '.cta{border:1.5px solid #1B7A54;border-radius:7px;padding:11px 13px;background:#F1FBF6;margin-top:2px}.cta .h{font-size:11px;font-weight:800;color:#1B7A54}.cta .b{font-size:9px;color:#33365F;margin-top:3px;line-height:1.5}'+
+    '.foot{margin-top:9px;font-size:7.5px;color:#9298BC;line-height:1.55;border-top:1px solid #EEF0F7;padding-top:6px}'+
+    '.btn{position:fixed;top:9px;right:9px;background:#1B7A54;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25)}';
+  return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>'+
+    '<title>Affordable Housing Partnership — '+esc(ref)+'</title><style>'+css+'</style></head><body>'+
+    '<button class="btn noprint" onclick="window.print()">Print / Save as PDF</button>'+
+    '<div class="pg">'+
+      '<div class="top"><div><div class="brand">Cassidy Group · Affordable Housing Partnership Opportunity</div>'+
+        '<h1>'+esc(affHomes.toLocaleString())+' affordable homes — '+esc(region)+'</h1>'+
+        '<div class="sub">Turnkey delivery to a Registered Provider · within a '+esc(totalUnits.toLocaleString())+'-home scheme</div></div>'+
+        '<div class="meta">'+logo+'Ref '+esc(ref)+'<br/>Indicative · v'+esc(typeof CURRENT_VERSION!=="undefined"?CURRENT_VERSION:"")+'</div></div>'+
+      '<div class="kpis">'+
+        '<div class="kpi"><div class="l">Affordable homes</div><div class="v">'+(affHomes?affHomes.toLocaleString():"—")+'</div></div>'+
+        '<div class="kpi"><div class="l">Affordable %</div><div class="v">'+(ahPct?ahPct+"%":"—")+'</div></div>'+
+        '<div class="kpi"><div class="l">Indicative price to RP</div><div class="v">'+(rpTotal>0?fmt(rpTotal):"—")+'</div></div>'+
+        '<div class="kpi"><div class="l">Grant sought</div><div class="v" style="color:#1B7A54">'+(grantTotal>0?fmt(grantTotal):"—")+'</div></div>'+
+      '</div>'+
+      '<div class="card"><div class="ct">The offer</div>'+
+        '<p style="margin:0 0 6px;font-size:9.4px;color:#33365F;line-height:1.5">Cassidy Group offers <b>'+esc(affHomes.toLocaleString())+' affordable homes</b> for acquisition by a Registered Provider on a <b>turnkey basis at practical completion</b>, within a '+esc(totalUnits.toLocaleString())+'-home development in '+esc(region)+'. Built to current standards, handed over ready to let. Homes England grant is sought on the additional affordable (the S106-required homes are excluded).</p>'+
+        '<table><thead><tr><td style="font-size:7.4px;color:#8A90B4;text-transform:uppercase;font-weight:700">Tenure</td><td class="n" style="font-size:7.4px;color:#8A90B4;text-transform:uppercase;font-weight:700">Homes</td><td class="n" style="font-size:7.4px;color:#8A90B4;text-transform:uppercase;font-weight:700">Indic. price/home</td><td class="n" style="font-size:7.4px;color:#8A90B4;text-transform:uppercase;font-weight:700">Total</td></tr></thead><tbody>'+
+          rows.map(function(r){ var pph=avgHomeValue*r.factor; return '<tr><td>'+esc(r.label)+'</td><td class="n">'+r.count.toLocaleString()+'</td><td class="n">'+fmt(pph)+'</td><td class="n">'+fmt(pph*r.count)+'</td></tr>'; }).join('')+
+          '<tr class="s"><td>Total to RP</td><td class="n">'+affHomes.toLocaleString()+'</td><td class="n"></td><td class="n">'+fmt(rpTotal)+'</td></tr>'+
+        '</tbody></table>'+
+        '<div style="font-size:7.5px;color:#9298BC;margin-top:3px;font-style:italic">Prices indicative — a % of open-market value by tenure; agree on a per-scheme basis. Grant of '+(grantPerHome>0?fmt(grantPerHome)+'/home on '+grantEligible.toLocaleString()+' additional homes ('+fmt(grantTotal)+')':'£0 (set a grant £/home on the Grants stage)')+' would sit on top.</div>'+
+      '</div>'+
+      '<div class="card"><div class="ct">Build standards &amp; compliance</div>'+
+        '<ul class="hl" style="font-size:9px">'+
+          '<li><b>Space:</b> designed to the Nationally Described Space Standard.</li>'+
+          '<li><b>Energy:</b> EPC B minimum (new homes, from 15 June 2026) and the Future Homes Standard — low-carbon heating, no new gas connections.</li>'+
+          '<li><b>Safety &amp; quality:</b> full Building Regulations; Building Safety Act gateways where applicable; aligned with the reformed Decent Homes Standard.</li>'+
+          '<li><b>Biodiversity:</b> 10% Biodiversity Net Gain secured.</li>'+
+        '</ul>'+
+      '</div>'+
+      '<div class="card"><div class="ct">Grant, additionality &amp; value for money</div>'+
+        '<table>'+
+          '<tr><td>Grant sought (Homes England AHP / SAHP)</td><td class="n">'+(grantPerHome>0?fmt(grantPerHome)+'/home':"—")+'</td></tr>'+
+          '<tr><td>Grant-eligible (additional) homes</td><td class="n">'+grantEligible.toLocaleString()+'</td></tr>'+
+          '<tr><td>Total grant</td><td class="n" style="color:#1B7A54">'+fmt(grantTotal)+'</td></tr>'+
+          '<tr class="s"><td>Developer receipt (RP price + grant)</td><td class="n">'+fmt(developerReceipt)+'</td></tr>'+
+        '</table>'+
+        '<div style="font-size:8px;color:#6A6F97;margin-top:4px;line-height:1.5"><b>Additionality:</b> grant is sought only on affordable homes delivered ABOVE the S106 planning requirement — the S106 units are provided nil-grant. <b>Value for money:</b> the developer funds and builds; the RP acquires de-risked homes at PC with grant minimised against its own contribution.</div>'+
+      '</div>'+
+      '<div class="card"><div class="ct">Delivery</div>'+
+        '<table>'+
+          '<tr><td>Planning position</td><td class="n">'+esc((p.status==="full")?"Full consent":(p.status==="outline")?"Outline":(p.status==="allocated")?"Allocated":"Promotion / outline")+'</td></tr>'+
+          (tl?'<tr><td>To consent</td><td class="n">~'+tl.planningYears+' yrs</td></tr><tr><td>Build to practical completion</td><td class="n">~'+tl.buildYears+' yrs</td></tr>':'')+
+          '<tr><td>Payment</td><td class="n">On practical completion (turnkey)</td></tr>'+
+        '</table>'+
+      '</div>'+
+      '<div class="cta"><div class="h">▸ Next step — heads of terms</div>'+
+        '<div class="b">We would welcome a conversation about acquiring these homes turnkey and structuring the Homes England grant bid together. Cassidy Group funds and builds; you acquire de-risked, standards-compliant homes at practical completion. Contact us quoting <b>'+esc(ref)+'</b>.</div></div>'+
+      '<div class="foot"><b>Indicative — not an offer or a financial promotion.</b> Homes, tenures, prices and grant are computed on Landform\'s engine from the scheme inputs and are subject to planning consent, a QS cost plan, formal valuation and agreed heads of terms. Homes England grant is subject to Investment Partner Qualification, the SAHP process and Homes England\'s assessment; grant cannot fund S106-required affordable. © Cassidy Group Ltd.</div>'+
+    '</div></body></html>';
+}
+
 function renderProposal(city, data, gdv, lc, up, user){
   var l=data.land||{}; var p=data.planning||{}; var ten=data.tenure||{}; var ex=data.exit||{};
   var M=(typeof calcDealMetrics==="function")?calcDealMetrics(data):{};
