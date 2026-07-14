@@ -106,7 +106,8 @@ function renderIM(at, city, data, gdv, lc, up, user){
         ((rd+inf)>0?trow("Infrastructure / roads","−"+fmt(rd+inf)):'')+
         (mk>0?trow("Marketing / disposal","−"+fmt(mk)):'')+
         trow("Developer profit ("+Math.round(marginE)+"% on GDV · "+Math.round(profitOnCostE)+"% on cost)","−"+fmt(profitE))+
-        trow("Residual land value",(rlvE<0?"−":"")+fmt(Math.abs(rlvE)),true)+
+        (num(SF.grantIncome)>0?trow("+ Affordable-housing grant (AHP)","+"+fmt(num(SF.grantIncome))):'')+
+        trow("Residual land value"+(num(SF.grantIncome)>0?" (incl. grant)":""),(rlvE<0?"−":"")+fmt(Math.abs(rlvE)),true)+
         '</table>';
       // Dual sensitivity: developer margin (%) under GDV × build-cost stress, land held at RLV.
       function marginAt(gMult,bDelta){ var g=gdvE*gMult, d=devE+bC*bDelta; var pr=g-d-rlvE; return g>0?pr/g*100:0; }

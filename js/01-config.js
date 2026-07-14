@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.90";
+var CURRENT_VERSION = "10.91";
 var VERSION_HISTORY = [
+  {v:"10.91", date:"Jul 2026", headline:"The affordable-housing grant now shows up in the investor reports. When a grant £/affordable home is set, the one-pager, blind teaser and Investor Memorandum add an explicit ‘+ Affordable-housing grant (AHP)’ line to the appraisal and label the residual ‘incl. grant’, and the profit-sensitivity / two-scenario tables include it — so a marginal scheme presents its grant-assisted land value to investors, transparently. The Basis of Figures spells out that the residual includes public subsidy (RP partner required; rate to confirm). Nothing changes on a deal with no grant entered."},
   {v:"10.90", date:"Jul 2026", headline:"Grants can now make a scheme STACK. Affordable-housing grant (Homes England AHP / SAHP) per affordable home now flows into the land-valuation engine — it goes straight to the residual land value (not developer profit), so it can turn an otherwise-negative RLV positive. The Grants page has a new ‘Make it stack’ card: type a grant £/affordable home (with £40k/£80k/£120k quick-picks) and see the RLV before → after; and when the scheme doesn't stack it advises the grant per home needed to reach a positive residual (or to cover the guide price), with a broad AHP/SAHP band and the reminder that an RP partner is required."},
   {v:"10.89", date:"Jul 2026", headline:"Fix: Keystone now HONOURS the unit count you set. A low count on a large greenfield (below ~5 homes/acre on 15+ acres) was being silently inflated to acres × 12 — so a deliberate 200 homes on 88 acres was overridden to 1,056, contradicting the density card which said it develops from 200. The stated figure is now always kept; the land's fuller capacity is surfaced as UPSIDE (the density card's ‘Model N at 20/acre’ button) rather than changing your number. A brief with NO unit count still estimates from density as before."},
   {v:"10.88", date:"Jul 2026", headline:"Two fixes so a NEW project starts clean. (1) Building a deal for a genuinely different site (postcode / address / town changed) no longer drags the previous project's downstream work across — Exit, Constraints, Due Diligence, Grants, Data Room, Risk Register etc. are only carried when it's a RE-RUN of the SAME site (reported: a Ryton & Wolston build inherited a Staplehurst deal's work). (2) The Tenure page's unit total now follows the deal — changing the number of units updates it (it previously stored its own total and lagged behind, showing a stale figure)."},
@@ -2024,6 +2025,11 @@ function basisOfFigures(data){
   // Land value
   lines.push({ k:"Land value", v:"The " + fmt(num(M.rlv)) + " is the RESIDUAL land value — the maximum supportable land price at target profit, not an agreed price. Raw / strategic land trades well below this; the gap is the promotion upside. See the market land-value guide for typical £/acre by planning status." });
 
+  // v10.91 — affordable-housing grant, when applied, is stated on its own line so a reader sees
+  // the residual includes public subsidy (not open-market value).
+  if(num(M.grantIncome) > 0){
+    lines.push({ k:"Affordable grant", v:"Includes " + fmt(num(M.grantIncome)) + " of Homes England affordable-housing grant (" + (num(M.affordableHomes) || "—") + " affordable homes). Grant is public subsidy for the affordable units and flows to the residual land value — it lifts what the scheme can pay for the land. Indicative: the AHP / SAHP rate is area- and tenure-specific and needs a Registered Provider partner; confirm eligibility and the rate with Homes England." });
+  }
   // v10.85 — conservative-basis summary: state plainly that the key value-drivers err to caution,
   // so a reviewer reads the residual as a FLOOR (downside-protected), not an optimistic figure.
   lines.push({ k:"Conservative basis", v:"The key inputs deliberately err on the side of caution — build cost set on the high side (a national builder often builds cheaper), finance at a full cost of money (senior debt is typically keener), and the sale value carries only a modest new-build premium. So the residual land value is a floor: if the real figures beat these, the land value is higher, not lower." });
