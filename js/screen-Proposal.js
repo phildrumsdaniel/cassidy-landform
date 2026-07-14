@@ -160,6 +160,25 @@ function buildLandOnePager(data, cityHint){
     function oCapProfitAllIn(y){ return oCapIV(y)-oDev-totalLandCost; }
     function oCapMaxLand(y){ var iv=oCapIV(y); return iv-oDev-iv*(oProfitPct/100); }
     var oCapYields=[4.5,5.0,5.5,6.0];
+    // v10.105 — rent evidence + the profit RETURN the yields derive. Rent per home comes from the
+    // engine (area comparables / research); the developer profit at each yield is the fund's capital
+    // value less total dev cost less the land you actually pay for (the guide price if entered, else
+    // the plot-sales residual), and the return is that profit on total cost.
+    var oCapRentPerUnitPa=num(sf.capMarketRentPerUnitPa)||0;
+    var oCapGrossRentPa=num(sf.capGrossRentPa)||0;
+    var _capD2=data.capitalise||{};
+    var oCapMgmtPct=numOr(_capD2.mgmtRate,25);
+    var oCapRentEntered=num(_capD2.marketRentPerUnitPa)>0;                  // an explicit comparable rent was set
+    var oCapRentAI=(_capD2.rentSource==="AI market research");
+    var oCapGrossYld=numOr(_capD2.grossRentYield,4.5);
+    // Honest provenance: unless a rent was entered (or AI-researched), the engine IMPLIES it from the
+    // sale value at a gross rental yield — say so, and prompt for real rental comparables.
+    var oCapRentProv=oCapRentEntered?"entered market rent"
+      :(oCapRentAI?"AI research of local new-build lettings"
+      :"implied from the sale value at a ~"+oCapGrossYld+"% gross rental yield — enter local rental comparables on the Capitalisation stage to firm up");
+    var oCapLandBasis=askL>0?totalLandCost:Math.max(0,oRlv);       // the land cost profit is measured against
+    function oCapDevProfit(y){ return oCapIV(y)-oDev-oCapLandBasis; }
+    function oCapReturnOnCost(y){ var c=oDev+oCapLandBasis; return c>0?oCapDevProfit(y)/c*100:0; }
 
     // Verdict — decision-useful: uses the margin AFTER the full cost of acquiring the land.
     var verdict, vcol, vsub;
@@ -416,19 +435,28 @@ function buildLandOnePager(data, cityHint){
         })()+
         (oCapNetRent>0
           ? '<div style="margin-top:9px;border:1px solid #BFD9CF;border-radius:7px;padding:9px 11px;background:#F5FBF8">'+
-              '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#1B7A54;font-weight:800;margin-bottom:4px">Forward-fund exit — whole scheme sold to a pension fund</div>'+
-              '<div style="font-size:9px;color:#6A6F97;margin-bottom:5px">The completed scheme let and sold as a rented investment at a net initial yield (net rent '+fmt(oCapNetRent)+'/yr, after 25% management). A keener (lower) yield means the fund pays more; a wider yield means less. <b>The headline residual land value above ('+fmt(oRlv)+') is from PLOT SALES and does NOT change with yield</b> — yield only moves the forward-fund figures in this table (both fall as the yield widens). '+(askL>0?'Profit is after the '+fmt(totalLandCost)+' all-in land cost.':'Max land value is at '+Math.round(oProfitPct)+'% target profit.')+'</div>'+
+              '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#1B7A54;font-weight:800;margin-bottom:4px">Forward-fund exit — rents, yields &amp; the profit they derive</div>'+
+              // Rent evidence — the comparable rents feeding the capitalisation, shown explicitly.
+              '<div style="font-size:9px;color:#3D5A4C;margin-bottom:5px;line-height:1.5;background:#EBF6F1;border-radius:5px;padding:6px 8px">'+
+                '<b>Rents used ('+esc(oCapRentProv)+'):</b> '+
+                (oCapRentPerUnitPa>0?'~'+fmt(oCapRentPerUnitPa)+'/home/yr (≈£'+fmtN(Math.round(oCapRentPerUnitPa/12))+' pcm)':'—')+
+                ' × '+esc(oUnits.toLocaleString())+' homes = gross '+fmt(oCapGrossRentPa)+'/yr → <b>net '+fmt(oCapNetRent)+'/yr</b> after '+oCapMgmtPct+'% management &amp; voids. This net rent is capitalised at each net-initial yield below to give the fund\'s capital value.'+
+              '</div>'+
+              '<div style="font-size:9px;color:#6A6F97;margin-bottom:5px">A keener (lower) yield ⇒ the fund pays more ⇒ more profit; a wider yield ⇒ less. Profit is the fund\'s capital value less the '+fmt(oDev)+' development cost less the land ('+(askL>0?'the '+fmt(totalLandCost)+' all-in cost of the '+fmt(askL)+' guide price':'the '+fmt(oCapLandBasis)+' build-to-sell residual land value')+'). '+
+                '<b>Note:</b> the headline residual land value ('+fmt(oRlv)+') is the PLOT-SALES exit and does not change with yield — this table is the separate rented-investment exit.</div>'+
               '<table><tr>'+
                 '<td style="color:#8A90B4;font-size:7.4px;letter-spacing:.05em;text-transform:uppercase;font-weight:700">Net yield</td>'+
                 '<td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Fund pays</td>'+
-                '<td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">'+(askL>0?'Profit (all-in)':'Max land')+'</td>'+
-                '<td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">'+(askL>0?'Margin':'Profit @ target')+'</td></tr>'+
-                oCapYields.map(function(y){ var iv=oCapIV(y), pr=oCapProfitAllIn(y), mg=iv>0?pr/iv*100:0, sel=Math.abs(y-oCapYieldPct)<0.05;
+                '<td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Developer profit</td>'+
+                '<td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Return on cost</td>'+
+                '<td class="n" style="color:#8A90B4;font-size:7.4px;text-transform:uppercase;font-weight:700">Max land</td></tr>'+
+                oCapYields.map(function(y){ var iv=oCapIV(y), pr=oCapDevProfit(y), roc=oCapReturnOnCost(y), ml=oCapMaxLand(y), sel=Math.abs(y-oCapYieldPct)<0.05;
                   return '<tr'+(sel?' style="background:rgba(27,122,84,.09);font-weight:800"':'')+'>'+
                     '<td>'+y.toFixed(1)+'%</td>'+
                     '<td class="n">'+fmt(iv)+'</td>'+
-                    '<td class="n" style="color:'+(askL>0?(pr>=0?'#1B7A54':'#B05A35'):(oCapMaxLand(y)>=0?'#1B7A54':'#B05A35'))+'">'+(askL>0?((pr<0?'−':'')+fmt(Math.abs(pr))):((oCapMaxLand(y)<0?'−':'')+fmt(Math.abs(oCapMaxLand(y)))))+'</td>'+
-                    '<td class="n" style="color:'+(askL>0?(mg>=15?'#1B7A54':mg>=12?'#9A7B3E':'#B05A35'):'#3A3D6A')+'">'+(askL>0?pct(mg):fmt(iv*(oProfitPct/100)))+'</td></tr>'; }).join('')+
+                    '<td class="n" style="color:'+(pr>=0?'#1B7A54':'#B05A35')+'">'+(pr<0?'−':'')+fmt(Math.abs(pr))+'</td>'+
+                    '<td class="n" style="color:'+(roc>=15?'#1B7A54':roc>=0?'#9A7B3E':'#B05A35')+'">'+(roc<0?'−':'')+pct(Math.abs(roc))+'</td>'+
+                    '<td class="n" style="color:'+(ml>=0?'#3A3D6A':'#B05A35')+'">'+(ml<0?'−':'')+fmt(Math.abs(ml))+'</td></tr>'; }).join('')+
               '</table>'+
               // v10.86 — reframe the (often negative) forward-fund figures so they read as a
               // conclusion, not a loss: for houses-for-sale, forward-funding supports LESS land
@@ -437,7 +465,7 @@ function buildLandOnePager(data, cityHint){
                 var ffBest=oCapMaxLand(4.5);           // keenest yield = best case for the fund route
                 if(!(oRlv>0) || ffBest>=oRlv) return '';
                 return '<div style="font-size:8px;color:#3D5A4C;margin-top:5px;line-height:1.5;border-top:1px dashed #BFD9CF;padding-top:5px">'+
-                  '<b>Read-across (not a loss):</b> even at the keenest 4.5% yield, forward-funding the rented scheme supports '+(ffBest<0?'−':'')+fmt(Math.abs(ffBest))+' of land — about <b>'+fmt(Math.abs(oRlv-ffBest))+' below</b> the '+fmt(oRlv)+' build-to-sell residual. That confirms <b>open-market plot sales as the exit</b> for houses built for sale; forward-funding suits rental blocks (flats / BTR), not houses. Shown for completeness.'+
+                  '<b>Read-across (not a loss):</b> even at the keenest 4.5% yield, forward-funding the rented scheme supports '+(ffBest<0?'−':'')+fmt(Math.abs(ffBest))+' of land — about <b>'+fmt(Math.abs(oRlv-ffBest))+' below</b> the '+fmt(oRlv)+' build-to-sell residual. So the rented-exit profit above reads negative for houses — that simply confirms <b>open-market plot sales as the exit</b>; forward-funding suits rental blocks (flats / BTR). Shown for completeness.'+
                 '</div>';
               })()+
             '</div>'
