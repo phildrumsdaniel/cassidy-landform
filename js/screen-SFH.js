@@ -317,8 +317,9 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
         e("div",{style:S.cardTitle},"Site Details"),
         e("div",{style:S.grid2},
           e(CitySelect,{value:s.city||sfhLand.city||"",onChange:function(v){up("sfh","city",v);}}),
-          e(Inp,{label:"Site Area (acres)",type:"number",value:(s.acres!==undefined&&s.acres!=="")?s.acres:(sfhLand.acres||""),onChange:function(v){up("sfh","acres",v);},placeholder:String(num(sfhLand.acres)||"e.g. 5.0")}),
-          e(Inp,{label:"Density (dph)",type:"number",value:s.dph,onChange:function(v){up("sfh","dph",v);},placeholder:"30"}),
+          e(Inp,{label:"Site Area (acres) — whole title",type:"number",value:(s.acres!==undefined&&s.acres!=="")?s.acres:(sfhLand.acres||""),onChange:function(v){up("sfh","acres",v);},placeholder:String(num(sfhLand.acres)||"e.g. 5.0")}),
+          e(Inp,{label:"Net density (homes / developable acre)",type:"number",value:s.netDensity,onChange:function(v){up("sfh","netDensity",v);},placeholder:"20"}),
+          e(Inp,{label:"Site capacity check (dph)",type:"number",value:s.dph,onChange:function(v){up("sfh","dph",v);},placeholder:"30"}),
           e(Inp,{label:"Affordable Housing %",type:"number",value:(s.ahPct!==undefined&&s.ahPct!=="")?s.ahPct:((sfhPlan.ahPct||sfhPlan.afhPct)||""),onChange:function(v){up("sfh","ahPct",v);},placeholder:String(num(sfhPlan.ahPct)||num(sfhPlan.afhPct)||"e.g. 25")}),
           num(s.ahPct)>0 && e(Sel,{label:"AH tenure (sets the GDV haircut)",value:s.ahTenure||"ahp_affordable",onChange:function(v){up("sfh","ahTenure",v);},options:[
             {value:"ahp_social",label:"Social Rent (55% MV)"},
@@ -420,7 +421,12 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
           ),
           // v9.29 — Single header row with Exit Route column added
           e("div",{style:{display:"grid",gridTemplateColumns:"160px 56px 56px 74px 88px 96px 150px 90px 70px 26px",padding:"8px 12px",background:"#2E2F8A",fontSize:9,color:"#fff",textTransform:"uppercase",letterSpacing:".06em",fontWeight:700,borderBottom:"1px solid #DDE0ED",minWidth:930,gap:7}},
-            e("span",null,"House Type"),e("span",null,"Plots"),e("span",null,"Sqft"),e("span",null,"£/sqft"),e("span",null,"Unit £"),e("span",null,"Revenue"),e("span",null,"Tenure / exit route"),e("span",null,"Hold"),e("span",null,"Build £"),e("span",null,"")
+            e("span",null,"House Type"),e("span",null,"Plots"),e("span",null,"GIA sqft"),e("span",null,"£/sqft"),e("span",null,"Unit £"),e("span",null,"Revenue"),e("span",null,"Tenure / exit route"),e("span",null,"Hold"),e("span",null,"Build £"),e("span",null,"")
+          ),
+          // v10.103 — measurement basis: enter HABITABLE GIA (RICS), exclude the garage; garage/externals are separate.
+          e("div",{style:{padding:"6px 12px",background:"#F7F8FC",borderBottom:"1px solid #EDEFF7",fontSize:9.5,color:"#7278A0",lineHeight:1.5,minWidth:930}},
+            e("strong",{style:{color:"#2E2F8A"}},"Measure as habitable GIA (Gross Internal Area) — exclude the garage. "),
+            "GIA is the area to the inside face of the external walls (the figure an agent markets), counting hall/landings and the stairs on each floor. Sale £/sqft and build £/sqft both apply to this GIA, so they're like-for-like. The garage, drive & external works are a cheap shell (~£600–1,000/m²) valued separately — your all-in build rate is meant to absorb them."
           ),
           mix.map(function(row,i){
             var info=HOUSE_TYPES[row.type]||HOUSE_TYPES["3-bed semi"];
