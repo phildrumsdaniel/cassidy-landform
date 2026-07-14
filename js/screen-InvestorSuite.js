@@ -113,6 +113,33 @@ function renderInvestorSuite(data, navTo, saveDeal, up, user){
       if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the teaser."); return; }
       w.document.open(); w.document.write(html); w.document.close();
     }
+    // v10.92 — open the Housing Association / Registered Provider pack (affordable turnkey + grant).
+    function openRPPack(){
+      if(typeof buildRPPack!=="function"){ if(typeof notify==="function") notify("RP pack generator still loading — try again in a moment."); return; }
+      var html=buildRPPack(data);
+      if(typeof showReportOverlay==="function" && showReportOverlay(html,"Housing Association / RP pack")) return;
+      var w=window.open("","_blank");
+      if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the pack."); return; }
+      w.document.open(); w.document.write(html); w.document.close();
+    }
+    // v10.93 — open the development-finance / lender pack.
+    function openLenderPack(){
+      if(typeof buildLenderPack!=="function"){ if(typeof notify==="function") notify("Lender pack generator still loading — try again in a moment."); return; }
+      var html=buildLenderPack(data);
+      if(typeof showReportOverlay==="function" && showReportOverlay(html,"Development finance / lender pack")) return;
+      var w=window.open("","_blank");
+      if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the pack."); return; }
+      w.document.open(); w.document.write(html); w.document.close();
+    }
+    // v10.94 — open the local-authority / planning benefits pack.
+    function openCouncilPack(){
+      if(typeof buildCouncilPack!=="function"){ if(typeof notify==="function") notify("Planning pack generator still loading — try again in a moment."); return; }
+      var html=buildCouncilPack(data);
+      if(typeof showReportOverlay==="function" && showReportOverlay(html,"Local authority / planning benefits pack")) return;
+      var w=window.open("","_blank");
+      if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the pack."); return; }
+      w.document.open(); w.document.write(html); w.document.close();
+    }
 
     // ── Tab styles ──
     function tabBtn(key,label){
@@ -321,7 +348,12 @@ function renderInvestorSuite(data, navTo, saveDeal, up, user){
                   e("div",{style:{fontSize:13,fontWeight:800,color:"#1E1F5C",marginBottom:3}},"📄 Blind investment teaser (anonymised)"),
                   e("div",{style:{fontSize:11,color:"#7278A0",lineHeight:1.55}},"The full financial case — GDV, profit, forward-fund value & yield, returns and an anticipated-questions Q&A — with the ",e("strong",null,"site identity withheld")," (no address, postcode, LPA, agent). Investors judge the numbers, then contact you under NDA. Location shows only as a region.")
                 ),
-                e("button",{onClick:openBlindTeaser,style:{padding:"10px 18px",background:"#8A1B2E",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"Open teaser →")
+                e("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+                  e("button",{onClick:openBlindTeaser,style:{padding:"10px 18px",background:"#8A1B2E",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"Open teaser →"),
+                  e("button",{onClick:openRPPack,title:"Affordable-homes turnkey + grant offer for a housing association",style:{padding:"10px 18px",background:"#1B7A54",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"🏛 RP / HA pack →"),
+                  e("button",{onClick:openLenderPack,title:"Development-finance request for a lender (LTGDV, LTC, cover, exit, security)",style:{padding:"10px 18px",background:"#2E2F8A",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"🏦 Lender pack →"),
+                  e("button",{onClick:openCouncilPack,title:"Planning benefits statement for the local authority (housing, affordable, S106, BNG, economic benefits)",style:{padding:"10px 18px",background:"#9A7B3E",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"🏛️ Council pack →")
+                )
               ),
               e("div",{style:{display:"flex",gap:10,marginTop:12,flexWrap:"wrap"}},
                 e("div",{style:{flex:"1 1 200px"}},
