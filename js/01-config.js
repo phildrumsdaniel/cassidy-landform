@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.116";
+var CURRENT_VERSION = "10.117";
 var VERSION_HISTORY = [
+  {v:"10.117", date:"Jul 2026", headline:"iPad report viewer now actually shows the report (Blob-URL iframe). The in-app report overlay rendered the report by writing into an iframe (contentWindow.document.write) — which shows BLANK on iOS (Chrome and Safari both use WebKit on the iPad), so it said ‘generating’ but nothing appeared. The overlay now loads the report from a Blob URL as the iframe SRC, which renders reliably on every platform. Combined with v10.116’s ‘⧉ New tab / PDF’ button, generating a one-pager / Board Proposal / any Stakeholder Suite pack on an iPad now shows the report on screen and lets you save it as a PDF (Print / Save PDF, the New-tab button, or the browser’s own Share → Print / Save to Files)."},
   {v:"10.116", date:"Jul 2026", headline:"iPad / iOS report generation fixed. On an iPad the reports (one-pager, Board Proposal, teaser and every Stakeholder Suite pack) often wouldn't produce a PDF — iOS Safari can't reliably print an in-app iframe, and the pop-up fallback (window.open) is blocked. Added a robust route: the report-overlay now has a ‘⧉ New tab / PDF’ button, and every generator falls back to opening the report as a Blob URL in a NEW TAB — where the report renders in its own context and iOS’s Share sheet (Print / Save to Files → PDF), or the report’s own ‘Print / Save as PDF’ button, works. Desktop is unchanged (the overlay + Print still work). So on iPad: generate → tap ‘New tab / PDF’ (or it opens a new tab automatically if the overlay is blocked) → Share → Save to Files as PDF."},
   {v:"10.115", date:"Jul 2026", headline:"Chosen-exit headline now flows through the Board Proposal too. The Board Proposal screen's headline Residual Land Value leads with the exit you commit to on the Exit Strategy stage (labelled with the route), matching the one-pager and Quick Appraisal — so plot sales / bulk sale to a HA-fund / forward-fund all read consistently across every appraisal surface. Wrap-up verification: all scripts parse, 577 tests pass, the Board Proposal and all 8 stakeholder reports render clean with a chosen exit."},
   {v:"10.114", date:"Jul 2026", headline:"Quick Appraisal capitalisation + a robustness audit. The Quick Appraisal now (1) respects the yield you set on the Capitalisation page (no more 4.5% floor; sanity-clamped to 3.5–7%) with the sensitivity ladder anchored on it, and (2) shows the same ‘Exit routes — land value by exit’ comparison (plot sales / bulk sale to a HA-fund / forward-fund) as the one-pager, so you can see all exits live on screen. AUDIT FIX (important): a ‘Land & Development’ journey with a house mix was showing a DIFFERENT residual land value on the deal-state / Dashboard than on the one-pager — because calcDealMetrics used the SFH GDV but a generic cost stack for any non-‘sfh’ assetType. It now uses the canonical SFH cost stack for every non-BTR/PBSA scheme with a house mix, and infers ‘sfh’ when the assetType is missing, so the Dashboard, deal-state and one-pager all show the SAME RLV (verified across assetType land / property / recovery / sfh / blank). Full audit: all 53 scripts parse, 577 engine tests pass, all 8 stakeholder reports render clean across 4 deal types, and the key screens execute without error."},
@@ -1995,8 +1996,18 @@ function showReportOverlay(html, title){
     frame.setAttribute("style", "flex:1;width:100%;border:none;background:#fff;");
     ov.appendChild(bar); ov.appendChild(frame);
     document.body.appendChild(ov);
-    var doc = frame.contentWindow.document; doc.open(); doc.write(html); doc.close();
-    function close(){ if(ov.parentNode) ov.parentNode.removeChild(ov); document.removeEventListener("keydown", onKey); }
+    // v10.117 — render the report via a Blob URL as the iframe SRC. Writing into the iframe with
+    // contentWindow.document.write() renders BLANK on iOS Safari/Chrome (all iOS browsers use WebKit),
+    // so the overlay looked empty on iPad. A Blob URL src renders reliably on every platform.
+    var _ovBlobUrl = null, _ovU = (window.URL || window.webkitURL);
+    try{
+      if(_ovU && _ovU.createObjectURL && typeof Blob !== "undefined"){
+        _ovBlobUrl = _ovU.createObjectURL(new Blob([html], { type:"text/html" }));
+        frame.setAttribute("src", _ovBlobUrl);
+      }
+    }catch(e){ _ovBlobUrl = null; }
+    if(!_ovBlobUrl){ try{ var doc = frame.contentWindow.document; doc.open(); doc.write(html); doc.close(); }catch(e){} }
+    function close(){ if(ov.parentNode) ov.parentNode.removeChild(ov); document.removeEventListener("keydown", onKey); if(_ovBlobUrl){ try{ _ovU.revokeObjectURL(_ovBlobUrl); }catch(e){} } }
     function onKey(ev){ if(ev.key === "Escape") close(); }
     closeBtn.onclick = close;
     printBtn.onclick = function(){ try{ frame.contentWindow.focus(); frame.contentWindow.print(); }catch(e){ try{ window.print(); }catch(e2){ openReportBlob(html); } } };
