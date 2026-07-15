@@ -12,6 +12,8 @@ a{color:inherit;text-decoration:none;}
 button,input,textarea{font-family:inherit;outline:none;}
 @keyframes pulse{0%{transform:scale(1);opacity:0.6}100%{transform:scale(2.5);opacity:0}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ptr-spin.loading{animation:spin 0.7s linear infinite;}
 .screen{animation:fadeIn 0.2s ease;}
 .pulse-ring{position:relative;display:inline-block;width:10px;height:10px;}
 .pulse-ring::before{content:"";position:absolute;inset:0;border-radius:50%;background:var(--pc,#C0392B);opacity:0.4;animation:pulse 1.5s ease-out infinite;}
@@ -49,6 +51,12 @@ input[type=file]{display:none;}
       <span style="color:#C0392B;font-size:11px;font-weight:700;">LIVE</span>
       <button onclick="joinFree(this)" style="background:#C0392B;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;">Join Free</button>
     </div>
+  </div>
+
+  <!-- PULL TO REFRESH -->
+  <div id="ptr" style="position:absolute;top:52px;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:8px;pointer-events:none;opacity:0;transform:translateY(-12px);transition:opacity 0.15s ease,transform 0.15s ease;z-index:90;">
+    <span class="ptr-spin" style="display:inline-block;color:#F0A500;font-size:16px;transition:transform 0.2s ease;">↓</span>
+    <span class="ptr-text" style="color:#8B9AB0;font-size:12px;font-weight:600;">Pull to refresh</span>
   </div>
 
   <!-- TAB CONTENT -->
@@ -629,6 +637,59 @@ function playVideo(ytId, title) {
     </div>`;
   document.getElementById("root").appendChild(overlay);
 }
+
+// ── PULL TO REFRESH ────────────────────────────────────────────
+(function () {
+  const scroller = document.getElementById("tabContent");
+  const ind = document.getElementById("ptr");
+  const spin = ind.querySelector(".ptr-spin");
+  const text = ind.querySelector(".ptr-text");
+  const THRESHOLD = 70;
+  let startY = 0, dist = 0, pulling = false, refreshing = false;
+
+  function reset() {
+    ind.style.opacity = 0;
+    ind.style.transform = "translateY(-12px)";
+    spin.style.transform = "rotate(0deg)";
+  }
+
+  scroller.addEventListener("touchstart", (e) => {
+    if (refreshing) return;
+    if (scroller.scrollTop <= 0) { startY = e.touches[0].clientY; pulling = true; dist = 0; }
+    else { pulling = false; }
+  }, { passive: true });
+
+  scroller.addEventListener("touchmove", (e) => {
+    if (!pulling || refreshing) return;
+    dist = e.touches[0].clientY - startY;
+    if (dist <= 0) { reset(); return; }
+    const drop = Math.min(dist * 0.4, 46);
+    ind.style.opacity = Math.min(dist / THRESHOLD, 1);
+    ind.style.transform = "translateY(" + drop + "px)";
+    const ready = dist > THRESHOLD;
+    spin.style.transform = ready ? "rotate(180deg)" : "rotate(0deg)";
+    text.textContent = ready ? "Release to refresh" : "Pull to refresh";
+  }, { passive: true });
+
+  scroller.addEventListener("touchend", () => {
+    if (!pulling || refreshing) return;
+    pulling = false;
+    if (dist > THRESHOLD) {
+      refreshing = true;
+      spin.textContent = "↻";
+      spin.classList.add("loading");
+      text.textContent = "Refreshing…";
+      ind.style.opacity = 1;
+      ind.style.transform = "translateY(46px)";
+      // Reload with a fresh query string so the browser cache is bypassed.
+      setTimeout(() => {
+        location.replace(location.pathname + "?r=" + Date.now());
+      }, 350);
+    } else {
+      reset();
+    }
+  });
+})();
 
 // Init
 showTab("home");
