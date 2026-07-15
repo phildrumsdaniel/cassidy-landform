@@ -128,6 +128,7 @@ function renderRLV(city, data, m, navTo, setData, up, user){
     var rDevProfit=rGdv*(rProfit/100);
     var rRlv=rGdv-rBc-rFees-rContCost-rFinCost-rS106-rPlan-rDevProfit;
     var rNetLandBid=rRlv;
+    var rBuildDecomposed=false;   // v10.121 — set when the all-in build is split into build+fees+contingency for display
     // v9.47 — For SFH schemes, adopt the canonical gross cost stack (build, fees,
     // contingency, finance, S106, roads, infra, profit) so this screen's RLV
     // equals the SFH House Mix screen and the AI exactly. Acquisition costs give
@@ -136,10 +137,21 @@ function renderRLV(city, data, m, navTo, setData, up, user){
     if(rIsSfhCanon){
       var DMc=calcDealMetrics(data);
       if(DMc.gdv>0){
-        rBc=DMc.buildCost; rFees=DMc.fees; rFeesPct=0.10; rContCost=DMc.contingency; rFinCost=DMc.finance;
+        rBc=DMc.buildCost; rFees=DMc.fees; rFeesPct=numOr(data.sfh&&data.sfh.feesPct,12)/100; rContCost=DMc.contingency; rFinCost=DMc.finance;
         rS106=DMc.s106; rRoads=DMc.roads; rInfra=DMc.infra; rMarketing=DMc.marketing||0; rPlan=0; rDevProfit=DMc.profit;
         rRlv=DMc.rlv; rNetLandBid=DMc.netLandBid;
       }
+    }
+    // v10.121 — when the build rate is ALL-IN, professional fees & contingency are folded into it and
+    // come back £0, which reads oddly on a residual land appraisal. Split the all-in build into its
+    // parts FOR DISPLAY — construction + fees + contingency — so the breakdown itemises them like a
+    // standard appraisal. The TOTAL build cost, the finance basis and the RESIDUAL LAND VALUE are all
+    // unchanged (this only re-labels the one all-in line into three).
+    if((data.sfh&&data.sfh.buildInclusive) && rBc>0 && !(rFees>0) && !(rContCost>0)){
+      var _fp=numOr(data.sfh&&data.sfh.feesPct,12)/100, _cp=numOr(data.sfh&&data.sfh.contingency,5)/100;
+      var _constr=rBc/(1+_fp+_cp);
+      rFees=_constr*_fp; rFeesPct=_fp; rContCost=_constr*_cp; rCont=Math.round(_cp*100); rBc=_constr;
+      rBuildDecomposed=true;
     }
     // If acquisition costs toggle is on, show the NET land bid (after SDLT/legals/agent/land finance)
     if(r.includeAcqCosts){
@@ -690,9 +702,9 @@ function renderRLV(city, data, m, navTo, setData, up, user){
           e(Inp,{label:"Professional Fees % of build"+((data.sfh&&data.sfh.feesPct!==undefined&&data.sfh.feesPct!=="")?" · saved":" · auto-default 12%"),type:"number",value:(data.sfh&&data.sfh.feesPct!==undefined)?data.sfh.feesPct:"",onChange:function(v){up("sfh","feesPct",v);},placeholder:"12"}),
           e(Inp,{label:"Contingency % of build"+((data.sfh&&data.sfh.contingency!==undefined&&data.sfh.contingency!=="")?" · saved":" · auto-default 5%"),type:"number",value:(data.sfh&&data.sfh.contingency!==undefined)?data.sfh.contingency:"",onChange:function(v){up("sfh","contingency",v);},placeholder:"5"})
         ),
-        (data.sfh&&data.sfh.buildInclusive)?e("div",{style:{margin:"8px 0 0",padding:"9px 12px",background:"rgba(154,123,62,0.08)",border:"1px solid rgba(154,123,62,0.28)",borderRadius:7,fontSize:11.5,color:"#7A5A2E",lineHeight:1.5}},
-          e("strong",null,"ℹ Professional fees & contingency show £0 because your build rate is ALL-IN."),
-          " The £",(num(r.buildPsf)||num(data.sfh&&data.sfh.buildPsf)||250),"/sqft build already covers professional fees, contingency, roads & SuDS, so they aren't added again (no double-counting). To itemise them as separate lines, switch the build rate to construction-only on the SFH House Mix stage; the %s above then apply."):null,
+        rBuildDecomposed?e("div",{style:{margin:"8px 0 0",padding:"9px 12px",background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.25)",borderRadius:7,fontSize:11.5,color:"#2D6E57",lineHeight:1.5}},
+          e("strong",null,"ℹ Fees & contingency are split out of your all-in £",(num(r.buildPsf)||num(data.sfh&&data.sfh.buildPsf)||250),"/sqft build."),
+          " That rate is ALL-IN (it already includes professional fees, contingency, roads & SuDS), so the breakdown shows the construction cost, fees and contingency as separate lines that ADD BACK to the same total — the build cost and the residual land value are unchanged. Adjust the %s above to change how the all-in rate is split; switch to a construction-only build rate on the SFH House Mix stage to add them on top instead."):null,
 
         // ── Build:Sale ratio diagnostic ─────────────────────────────────────
         rSalePsf>0&&rBuild>0&&(function(){
