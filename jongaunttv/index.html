@@ -291,7 +291,7 @@ function renderEpisodes(filter="All") {
       ${cats.map(c=>`<button class="filter-btn ${c===filter?'active':''}" onclick="showEpisodes('${c}')">${c}</button>`).join("")}
     </div>
     ${adBanner()}
-    ${filtered.map(v=>videoCardFull(v)).join("")}
+    ${filtered.slice(0,4).map(v=>videoCardFull(v)).join("")}
     <a href="https://www.youtube.com/@JonGauntTV/videos" target="_blank" style="display:block;background:#1E2F44;color:#8B9AB0;border:1px solid #2E3F55;border-radius:10px;padding:14px;text-align:center;font-size:13px;font-weight:600;">View all on YouTube →</a>
   </div>`;
 }
