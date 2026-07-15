@@ -165,10 +165,11 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
   }
 
   var box = { background:"#fff", border:"1px solid #E0E2EC", borderRadius:8, padding:"10px 12px" };
-  function kpi(label, value, color){
+  function kpi(label, value, color, note){
     return e("div", { key:label, style:{ border:"1px solid #E0E2EC", borderRadius:8, padding:"10px 12px", background:"#FAFBFF" } },
       e("div", { style:{ fontSize:9, letterSpacing:".08em", textTransform:"uppercase", color:"#8A90B4", fontWeight:700 } }, label),
-      e("div", { style:{ fontSize:22, fontWeight:800, color:color || "#1B1D46", marginTop:2 } }, value)
+      e("div", { style:{ fontSize:22, fontWeight:800, color:color || "#1B1D46", marginTop:2 } }, value),
+      note ? e("div", { style:{ fontSize:9.5, color:"#9298BC", marginTop:3, lineHeight:1.35 } }, note) : null
     );
   }
   function costRow(label, val){
@@ -360,13 +361,13 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
         e("div", { style:S.cardTitle }, "4 · Forward-fund exit — the whole scheme sold to a pension fund"),
         e("p", { style:{ fontSize:11.5, color:"#7278A0", lineHeight:1.6, margin:"0 0 12px", maxWidth:700 } },
           "Instead of selling homes one by one, the finished scheme is let and the whole rented investment is bought by an institution at a ", e("b", null, "net initial yield"),
-          ". A keener (lower) yield means the fund pays more — so a 4.5% exit is worth far more than a 6% one (4.5% is the institutional floor; we don't capitalise more keenly). Net rent ≈ ", e("b", null, fmt(capNetRentPa)+" p.a."),
+          ". A keener (lower) yield means the fund pays more — a 4.5% exit is worth far more than a 6% one. Uses the yield set on the Capitalisation page. Net rent ≈ ", e("b", null, fmt(capNetRentPa)+" p.a."),
           " (", fmt(capMktRentPerUnitPa), "/home gross, after 25% management)."),
-        // yield control (3.8%–6%)
+        // yield control (3.5%–7%, matching the deal's set yield)
         e("div", { style:{ display:"flex", alignItems:"center", gap:14, flexWrap:"wrap", marginBottom:12 } },
-          e("input", { type:"range", min:4.5, max:6, step:0.1, value:capYieldPct, onChange:function(ev){ setCapYield(num(ev.target.value)); }, style:{ flex:"1 1 240px", accentColor:"#2D7A65", cursor:"pointer" } }),
+          e("input", { type:"range", min:3.5, max:7, step:0.05, value:capYieldPct, onChange:function(ev){ setCapYield(num(ev.target.value)); }, style:{ flex:"1 1 240px", accentColor:"#2D7A65", cursor:"pointer" } }),
           e("div", { style:{ display:"flex", flexDirection:"column", alignItems:"center", gap:3 } },
-            e("input", { type:"number", min:4.5, max:6, step:0.1, value:capYieldPct, onChange:function(ev){ setCapYield(num(ev.target.value)); },
+            e("input", { type:"number", min:3.5, max:7, step:0.05, value:capYieldPct, onChange:function(ev){ setCapYield(num(ev.target.value)); },
               style:{ width:76, padding:"7px 8px", border:"1px solid #C8CDE0", borderRadius:6, fontSize:16, fontWeight:800, textAlign:"center", color:"#1B7A54", fontFamily:"DM Sans,sans-serif", background:"#fff" } }),
             e("div", { style:{ fontSize:9, color:"#7278A0", textTransform:"uppercase", letterSpacing:".06em", fontWeight:700 } }, "net yield %"))
         ),
@@ -374,7 +375,15 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
         e("div", { style:{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))", gap:10, marginBottom:12 } },
           kpi("Fund pays (investment value)", fmt(capIVsel), "#1B7A54"),
           asking > 0 ? kpi("Profit (forward-fund, all-in)", (capProfitAllIn(capYieldPct) < 0 ? "−" : "") + fmt(Math.abs(capProfitAllIn(capYieldPct))), capProfitAllIn(capYieldPct) >= 0 ? "#1B7A54" : "#B05A35")
-                     : kpi("Max land @ "+(Math.round(profitPct*10)/10)+"% profit", (capMaxLand(capYieldPct) < 0 ? "−" : "") + fmt(Math.abs(capMaxLand(capYieldPct))), capMaxLand(capYieldPct) >= 0 ? "#1B7A54" : "#B05A35"),
+                     : (function(){
+                         var ml=capMaxLand(capYieldPct), buildStronger=rlv>ml;   // build-to-sell supports more land than the rental exit
+                         return kpi(
+                           buildStronger ? "Land — rental exit only" : "Max land @ "+(Math.round(profitPct*10)/10)+"% profit",
+                           (ml<0?"−":"")+fmt(Math.abs(ml)),
+                           buildStronger ? "#B0B4CC" : (ml>=0?"#1B7A54":"#B05A35"),
+                           buildStronger ? "⚠ Not what to pay for houses — this is the rented exit. Pay off build-to-sell: "+(rlv<0?"−":"")+fmt(Math.abs(rlv)) : null
+                         );
+                       })(),
           asking > 0 ? kpi("Margin (all-in)", pct(capMarginAllIn(capYieldPct)), capMarginAllIn(capYieldPct) >= 15 ? "#1B7A54" : capMarginAllIn(capYieldPct) >= 12 ? "#9A7B3E" : "#B05A35")
                      : kpi("Developer profit @ target", fmt(capIVsel*(profitPct/100)), "#1B1D46")
         ),
