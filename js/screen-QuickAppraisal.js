@@ -186,14 +186,14 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
   var capMktRentPerUnitPa = num(M.capMarketRentPerUnitPa);
   var capD = data.capitalise || {};
   var capYieldPct = num(capD.targetYield); if(capYieldPct > 0 && capYieldPct < 1) capYieldPct *= 100;
-  if(!(capYieldPct > 0)) capYieldPct = 4.9;
-  capYieldPct = Math.max(4.5, Math.min(6, capYieldPct));   // v10.55 — 4.5% institutional floor (never capitalise more keenly)
+  if(!(capYieldPct > 0)) capYieldPct = 4.75;
+  capYieldPct = Math.max(3.5, Math.min(7, capYieldPct));   // v10.114 — respect the yield set on the Capitalisation page (no 4.5% floor); sanity-clamp only
   function capIV(y){ return y > 0 ? capNetRentPa / (y/100) : 0; }                        // investment value the fund pays
   function capProfitAllIn(y){ return capIV(y) - devCost - allInLand; }                   // actual profit given the land cost
   function capMaxLand(y){ var iv = capIV(y); return iv - devCost - iv*(profitPct/100); } // max land at target profit
   function capMarginAllIn(y){ var iv = capIV(y); return iv > 0 ? (capProfitAllIn(y)/iv*100) : 0; }
   function setCapYield(v){ up("capitalise","targetYield", v); }
-  var capYieldRow = [4.5, 4.75, 5.0, 5.25, 5.5, 6.0];
+  var capYieldRow = [capYieldPct, capYieldPct+0.5, capYieldPct+1.0, capYieldPct+1.5].map(function(x){return Math.round(x*100)/100;});
   var capIVsel = capIV(capYieldPct);
 
   return e("div", null,
@@ -333,6 +333,27 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
         e("div", { style:{ fontSize:12.5, marginTop:3, opacity:0.96, lineHeight:1.5 } }, vmsg)
       ),
 
+      // ── EXIT ROUTES — land value by exit (v10.114) ────────────────────────────
+      (function(){
+        var EX = (typeof dealExit === "function") ? dealExit(data) : null;
+        if(!EX) return null;
+        var pv = num(EX.plotRlv), hv = num(EX.haBulkRlv), cv = num(EX.capRlv);
+        if(!(pv > 0 || hv > 0 || cv > 0)) return null;
+        function card(active, label, val, note){
+          return e("div", { style:{ flex:"1 1 150px", border:"1.5px solid "+(active ? "#1B7A54" : "#E0E2EC"), borderRadius:8, padding:"9px 11px", background: active ? "#F1FBF6" : "#fff" } },
+            e("div", { style:{ fontSize:9.5, letterSpacing:".04em", textTransform:"uppercase", color: active ? "#1B7A54" : "#8A90B4", fontWeight:800, lineHeight:1.3 } }, (active ? "✓ Chosen — " : "") + label),
+            e("div", { style:{ fontSize:18, fontWeight:800, color: val >= 0 ? "#1B1D46" : "#B05A35", marginTop:2 } }, (val < 0 ? "−" : "") + fmt(Math.abs(val))),
+            e("div", { style:{ fontSize:9.5, color:"#9298BC", marginTop:1, lineHeight:1.3 } }, note));
+        }
+        return e("div", { style:Object.assign({}, S.card, { borderLeft:"4px solid #4A4BAE", marginTop:14 }) },
+          e("div", { style:S.cardTitle }, "Exit routes — land value by exit"),
+          e("div", { style:{ fontSize:11, color:"#7278A0", marginBottom:10, lineHeight:1.5 } }, EX.chosen ? e("span", null, "Headline leads with your chosen route (", e("b", null, EX.basisLabel), "). Change it on the Exit Strategy stage.") : "Every exit, side by side. Commit to one on the Exit Strategy stage and the headline + reports lead with it (defaults to plot sales)."),
+          e("div", { style:{ display:"flex", gap:9, flexWrap:"wrap" } },
+            card(EX.basis === "plot", "Open-market plot sales", pv, "Sold to buyers — highest"),
+            card(EX.basis === "ha_bulk", "Bulk sale to a HA / fund", hv, "~"+Math.round(num(EX.bulkDiscPct))+"% bulk discount + grant"),
+            card(EX.basis === "capitalised", "Forward-fund (rented)", cv, "Rent ÷ yield — suits flats / BTR")));
+      })(),
+
       // ── FORWARD-FUND / CAPITALISATION EXIT ────────────────────────────────────
       capNetRentPa > 0 && e("div", { style:Object.assign({}, S.card, { borderLeft:"4px solid #2D7A65", marginTop:14 }) },
         e("div", { style:S.cardTitle }, "4 · Forward-fund exit — the whole scheme sold to a pension fund"),
@@ -367,7 +388,7 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
             e("tbody", null, capYieldRow.map(function(y){
               var sel = Math.abs(y - capYieldPct) < 0.05, prof = capProfitAllIn(y), marg = capMarginAllIn(y);
               return e("tr", { key:y, style:{ borderTop:"1px solid #F1F2F8", background:sel ? "rgba(45,122,101,0.08)" : "transparent", fontWeight:sel ? 800 : 500, color:"#3A3D6A" } },
-                e("td", { style:{ textAlign:"left", padding:"5px 6px" } }, y.toFixed(1)+"%"),
+                e("td", { style:{ textAlign:"left", padding:"5px 6px" } }, y.toFixed(2)+"%"),
                 e("td", { style:{ textAlign:"right", padding:"5px 6px" } }, fmt(capIV(y))),
                 e("td", { style:{ textAlign:"right", padding:"5px 6px", color: asking > 0 ? (prof >= 0 ? "#1B7A54" : "#B05A35") : (capMaxLand(y) >= 0 ? "#1B7A54" : "#B05A35") } }, asking > 0 ? ((prof < 0 ? "−" : "") + fmt(Math.abs(prof))) : ((capMaxLand(y) < 0 ? "−" : "") + fmt(Math.abs(capMaxLand(y))))),
                 e("td", { style:{ textAlign:"right", padding:"5px 6px", color: asking > 0 ? (marg >= 15 ? "#1B7A54" : marg >= 12 ? "#9A7B3E" : "#B05A35") : "#3A3D6A" } }, asking > 0 ? pct(marg) : fmt(capIV(y)*(profitPct/100))));
@@ -376,8 +397,8 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
         // compare exits
         e("div", { style:{ fontSize:11, color:"#7278A0", marginTop:10, lineHeight:1.5, borderTop:"1px solid #EEF0F7", paddingTop:8 } },
           asking > 0
-            ? e("span", null, "Compare exits at ", e("b", null, capYieldPct.toFixed(1)+"%"), ": forward-fund profit ", e("b", { style:{ color: capProfitAllIn(capYieldPct) >= 0 ? "#1B7A54" : "#B05A35" } }, fmt(capProfitAllIn(capYieldPct))), " (", pct(capMarginAllIn(capYieldPct)), ") vs build-to-sell ", e("b", null, fmt(profitAllIn)), " (", pct(marginAllIn), "). ", capIVsel > gdv ? "The forward-fund exit is worth more here." : "Build-to-sell is worth more here.")
-            : e("span", null, "At ", e("b", null, capYieldPct.toFixed(1)+"%"), " the rented scheme is worth ", e("b", { style:{ color:"#1B7A54" } }, fmt(capIVsel)), " to an institution vs ", fmt(gdv), " selling home-by-home. So this exit supports ", e("b", { style:{ color: capMaxLand(capYieldPct) >= 0 ? "#1B7A54" : "#B05A35" } }, (capMaxLand(capYieldPct) < 0 ? "−" : "") + fmt(Math.abs(capMaxLand(capYieldPct)))), " of land, vs ", e("b", { style:{ color: rlv >= 0 ? "#1B7A54" : "#B05A35" } }, (rlv < 0 ? "−" : "") + fmt(Math.abs(rlv))), " on the build-to-sell appraisal above. ", e("b", null, rlv > capMaxLand(capYieldPct) ? "Build-to-sell is the stronger exit here" : "Forward-funding is the stronger exit here"), rlv > capMaxLand(capYieldPct) ? " — forward-funding suits rental blocks (flats/BTR) more than houses built for sale." : ".")
+            ? e("span", null, "Compare exits at ", e("b", null, capYieldPct.toFixed(2)+"%"), ": forward-fund profit ", e("b", { style:{ color: capProfitAllIn(capYieldPct) >= 0 ? "#1B7A54" : "#B05A35" } }, fmt(capProfitAllIn(capYieldPct))), " (", pct(capMarginAllIn(capYieldPct)), ") vs build-to-sell ", e("b", null, fmt(profitAllIn)), " (", pct(marginAllIn), "). ", capIVsel > gdv ? "The forward-fund exit is worth more here." : "Build-to-sell is worth more here.")
+            : e("span", null, "At ", e("b", null, capYieldPct.toFixed(2)+"%"), " the rented scheme is worth ", e("b", { style:{ color:"#1B7A54" } }, fmt(capIVsel)), " to an institution vs ", fmt(gdv), " selling home-by-home. So this exit supports ", e("b", { style:{ color: capMaxLand(capYieldPct) >= 0 ? "#1B7A54" : "#B05A35" } }, (capMaxLand(capYieldPct) < 0 ? "−" : "") + fmt(Math.abs(capMaxLand(capYieldPct)))), " of land, vs ", e("b", { style:{ color: rlv >= 0 ? "#1B7A54" : "#B05A35" } }, (rlv < 0 ? "−" : "") + fmt(Math.abs(rlv))), " on the build-to-sell appraisal above. ", e("b", null, rlv > capMaxLand(capYieldPct) ? "Build-to-sell is the stronger exit here" : "Forward-funding is the stronger exit here"), rlv > capMaxLand(capYieldPct) ? " — forward-funding suits rental blocks (flats/BTR) more than houses built for sale." : ".")
         )
       ),
 

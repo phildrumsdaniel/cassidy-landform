@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.113";
+var CURRENT_VERSION = "10.114";
 var VERSION_HISTORY = [
+  {v:"10.114", date:"Jul 2026", headline:"Quick Appraisal capitalisation + a robustness audit. The Quick Appraisal now (1) respects the yield you set on the Capitalisation page (no more 4.5% floor; sanity-clamped to 3.5–7%) with the sensitivity ladder anchored on it, and (2) shows the same ‘Exit routes — land value by exit’ comparison (plot sales / bulk sale to a HA-fund / forward-fund) as the one-pager, so you can see all exits live on screen. AUDIT FIX (important): a ‘Land & Development’ journey with a house mix was showing a DIFFERENT residual land value on the deal-state / Dashboard than on the one-pager — because calcDealMetrics used the SFH GDV but a generic cost stack for any non-‘sfh’ assetType. It now uses the canonical SFH cost stack for every non-BTR/PBSA scheme with a house mix, and infers ‘sfh’ when the assetType is missing, so the Dashboard, deal-state and one-pager all show the SAME RLV (verified across assetType land / property / recovery / sfh / blank). Full audit: all 53 scripts parse, 577 engine tests pass, all 8 stakeholder reports render clean across 4 deal types, and the key screens execute without error."},
   {v:"10.113", date:"Jul 2026", headline:"Three exit routes on the one-pager, each on the RIGHT basis. A bulk sale to a housing association / fund of a houses scheme realises the UNIT values (a HA buys the homes), so it is now valued off the blended sale value less a modest bulk discount (default 5%, editable via exit.haBulkDiscountPct) with the affordable already at its tenure price and grant included — NOT a rental capitalisation. So the ‘Exit routes — land value by exit’ comparison shows three honest figures: open-market plot sales (highest), bulk sale to a HA / fund (a small discount for a single-transaction, de-risked exit — note that because land is the residual, even a modest bulk discount moves it materially) and the forward-fund rented investment (rent ÷ yield — the right basis for flats / BTR, typically low or negative for houses). The headline still leads with whichever exit you commit to on the Exit Strategy stage."},
   {v:"10.112", date:"Jul 2026", headline:"Appraise EVERY exit, then commit to one and it leads. New dealExit() gives the land value under each exit off the one engine — open-market plot sales (the plot-sales residual) and a capitalised forward-fund / HA-fund sale (the capitalised residual, driven by the rents, yield and tenure-blind setting). The one-pager now shows an ‘Exit routes — land value by exit’ comparison with both side by side, and the headline Residual Land Value + verdict LEAD with the exit you commit to on the Exit Strategy stage (until you choose, it defaults to plot sales). Choose ‘Bulk sale to a housing association / fund’ or a forward-fund route and the headline switches to the capitalised value; choose plot sales and it switches back — everything you change on the Capitalisation stage then drives the headline. Note: for a houses-for-sale scheme the capitalised (rental) exit typically reads lower or negative — that is the honest signal that houses realise more via plot sales than as a rented investment; the verdict says so and points you to the stronger route."},
   {v:"10.111", date:"Jul 2026", headline:"A Keystone build now sets the capitalisation to a tenure-blind HA / fund sale. When Keystone builds a deal it already fills the Capitalisation inputs (per-bed rents and target yield); it now also turns ON the ‘Whole scheme sold to a HA / fund — tenure-blind’ toggle, so the capitalisation does NOT apply the affordable rent discount to the developer's proceeds by default (turn it off on the Capitalisation stage to value on the blended, discounted rent). It also stops writing a fixed weighted market rent, leaving the per-bed rents to drive the rent through the (editable / pinnable) bedroom mix — so changing or pinning the mix flows through to the reports. (Housing associations — Clarion, L&Q, Sovereign, VIVID, Platform, Midland Heart, Places for People — were already a final-purchaser type on the Exit Strategy page, alongside a bulk-sale-to-HA route and an RP offer tracker.)"},
@@ -3410,7 +3411,10 @@ function calcDealMetrics(data){
   var sfh = data.sfh || {};
   var hra = data.hra || {};
   var cap = data.capitalise || {};
-  var at = data.assetType || "btr";
+  // v10.114 — when assetType is missing, infer it: a deal carrying an SFH house mix is a houses
+  // scheme (default "sfh"), not BTR — so the deal-state RLV uses the canonical SFH engine and
+  // reconciles with the one-pager instead of falling into the BTR yield path.
+  var at = data.assetType || ((data.sfh && data.sfh.mix && data.sfh.mix.length) ? "sfh" : "btr");
 
   // ── INPUTS (resolve to numbers safely) ────────────────────────────────
   var acres = num(l.acres);
@@ -3524,8 +3528,13 @@ function calcDealMetrics(data){
   // ── SFH: adopt the canonical gross cost stack so the deal-state RLV equals
   // the SFH House Mix screen exactly (one engine). Includes roads/infra (subject
   // to the build-inclusive toggle); fees 10%, finance & S106 from the SFH tab. ──
+  // v10.114 — apply to ANY non-BTR/PBSA scheme with a house mix (not just assetType
+  // 'sfh'), matching the GDV source above: a 'land' / development journey with an SFH
+  // mix now takes the SAME cost stack as the GDV, so the deal-state / Dashboard RLV
+  // equals the one-pager (previously 'land' used the SFH GDV but a generic cost stack,
+  // so the two diverged, e.g. £173m vs £80m on the same scheme).
   var roads = 0, infra = 0, marketing = 0;
-  if (at === "sfh" && sfhMetrics.totalUnits > 0) {
+  if (at !== "btr" && at !== "pbsa" && sfhMetrics.totalUnits > 0) {
     buildCost   = sfhMetrics.buildCost;
     fees        = sfhMetrics.fees;
     contingency = sfhMetrics.contingency;
