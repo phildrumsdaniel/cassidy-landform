@@ -1,0 +1,13 @@
+{
+  "name": "Jon Gaunt TV",
+  "short_name": "Jon Gaunt TV",
+  "description": "Free Speech · No Filter — watch Jon Gaunt's uncensored episodes, send your view, and support independent media.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0D1B2A",
+  "theme_color": "#0D1B2A",
+  "icons": [
+    { "src": "icon.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" }
+  ]
+}
