@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.121";
+var CURRENT_VERSION = "10.122";
 var VERSION_HISTORY = [
+  {v:"10.122", date:"Jul 2026", headline:"Timeline and finance now use the same REALISTIC build-out period. The project-timeline widget showed the build taking ~8 years (homes ÷ the real housebuilder build rate, e.g. 1,800 ÷ 220/yr), but the finance cost that drives the land value was calculated on a cruder ~6-year figure (1 + units/350) — so the timeline and the money disagreed. The finance programme now uses the SAME realistic build-out (homes ÷ build rate, capped at 8 years), so a bigger scheme carries finance for its actual multi-year build. This raises the finance cost on large phased schemes and therefore trims the residual land value a little — a more conservative, defensible figure, and the timeline you see now matches the number behind the land value. Applied in the engine, the mix optimiser and the SFH stage; an explicit ‘Programme (years)’ override still wins."},
   {v:"10.121", date:"Jul 2026", headline:"Land Valuation now itemises professional fees & contingency (no more £0). A residual appraisal should show fees and contingency as their own lines — but with an ALL-IN build rate they were folded into build and read £0. The Land Valuation stage now SPLITS the all-in build into its parts for display — construction cost + professional fees (%) + contingency (%) — so the breakdown reads like a standard residual appraisal. The three lines ADD BACK to exactly the same all-in build total, so the finance basis and the residual land value are completely unchanged (it only re-labels one line into three). A green note explains the split, and the editable Fees %/Contingency % boxes (v10.120) control how the all-in rate is divided. Verified: construction + fees + contingency = the all-in build to the penny; RLV unchanged."},
   {v:"10.120", date:"Jul 2026", headline:"Editable Professional Fees % and Contingency % on the Land Valuation (RLV) stage. The RLV inputs had boxes for build, profit, finance and S106 but not for fees or contingency, and the breakdown showed them at £0 with no way to change them. Added ‘Professional Fees % of build’ and ‘Contingency % of build’ inputs (they write to the engine, so the residual recomputes), plus a note explaining WHY they read £0 when the build rate is ALL-IN: the all-in £/sqft already covers fees, contingency, roads & SuDS, so they aren’t added again (no double-counting) — switch the build rate to construction-only on the SFH House Mix stage to itemise them, and the %s then apply."},
   {v:"10.119", date:"Jul 2026", headline:"Quick Appraisal forward-fund: the ‘Max land’ figure no longer reads as ‘what to pay’ for a houses scheme. When build-to-sell supports more land than the rented exit (i.e. for houses), the forward-fund ‘Max land’ KPI is now greyed and relabelled ‘Land — rental exit only’, with a note: ‘⚠ Not what to pay for houses — this is the rented exit. Pay off build-to-sell: £X’. So a negative rental-exit land figure can’t be mistaken for the acquisition price. Also fixed the forward-fund yield slider, which was still capped at a 4.5% minimum — it now spans 3.5–7% so it can show the yield you actually set on the Capitalisation page (e.g. 4.25%), and the stale ‘4.5% institutional floor’ wording is removed."},
@@ -2403,7 +2404,7 @@ function projectTimeline(data){
   var p = data.planning || {}, l = data.land || {};
   var SF = (typeof computeSFHMetrics === "function") ? computeSFHMetrics(data) : {};
   var units = num(SF.totalUnits) || num(p.units) || num(l.units) || 0;
-  var buildYears = num(SF.financeProgYears) || Math.max(2, Math.min(10, 1 + units / 350));
+  var buildYears = num(SF.financeProgYears) || Math.round(Math.max(1.5, Math.min(8, (typeof buildRatePerYear === "function" && buildRatePerYear(units, false) > 0) ? units / buildRatePerYear(units, false) : (1 + units / 350))) * 10) / 10;
   var status = String(p.status || l.planningStatus || "").toLowerCase();
   var planningMonths = num(p.planningTimelineMonths);
   if(!(planningMonths > 0)){
@@ -2941,8 +2942,12 @@ function computeSFHMetrics(data){
   // phased scheme shows a realistic multi-year interest cost. Tune peakDebt up for slow sales.
   var FIN_SCURVE = 0.6;
   var finPhases = num(sfh.phases) > 0 ? num(sfh.phases) : Math.max(1, Math.ceil(totalUnits / 300));
+  // v10.122 — the finance programme now uses the REALISTIC build-out period (homes ÷ the housebuilder
+  // build rate, capped at 8 yrs) — the SAME figure the timeline widget shows — instead of the old
+  // 1+units/350 heuristic, so the timeline and the finance/land value agree. A bigger scheme takes
+  // longer to build out, so it carries more finance (a more conservative, defensible residual).
   var finProgYears = num(sfh.programmeYears) > 0 ? num(sfh.programmeYears)
-    : Math.max(2, Math.min(10, Math.round((1 + totalUnits / 350) * 10) / 10));
+    : Math.round(Math.max(1.5, Math.min(8, (typeof buildRatePerYear === "function" && buildRatePerYear(totalUnits, false) > 0) ? totalUnits / buildRatePerYear(totalUnits, false) : (1 + totalUnits / 350))) * 10) / 10;
   var finPeakDebtPct = num(sfh.peakDebtPct) > 0 ? num(sfh.peakDebtPct)
     : Math.max(45, Math.min(100, Math.round(200 / finPhases)));
   var sfhFinance = (buildCost + sfhFees) * (finPeakDebtPct / 100) * (numOr(sfh.finRate, 7.5) / 100) * finProgYears * FIN_SCURVE;
@@ -3054,7 +3059,7 @@ function optimiseSfhMix(data, mode, opts){
   // v10.55 — mirror the engine's S-curve/peak-debt finance so per-plot margins track the appraisal.
   var optUnits = rows.reduce(function(a, r){ return a + num(r.count); }, 0);
   var optPhases = num(sfh.phases) > 0 ? num(sfh.phases) : Math.max(1, Math.ceil(optUnits / 300));
-  var optProgYears = num(sfh.programmeYears) > 0 ? num(sfh.programmeYears) : Math.max(2, Math.min(10, Math.round((1 + optUnits / 350) * 10) / 10));
+  var optProgYears = num(sfh.programmeYears) > 0 ? num(sfh.programmeYears) : Math.round(Math.max(1.5, Math.min(8, (typeof buildRatePerYear === "function" && buildRatePerYear(optUnits, false) > 0) ? optUnits / buildRatePerYear(optUnits, false) : (1 + optUnits / 350))) * 10) / 10;
   var optPeakDebtPct = num(sfh.peakDebtPct) > 0 ? num(sfh.peakDebtPct) : Math.max(45, Math.min(100, Math.round(200 / optPhases)));
   var finMult = (optPeakDebtPct / 100) * optProgYears * 0.6;
 

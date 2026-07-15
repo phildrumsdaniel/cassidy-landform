@@ -78,7 +78,8 @@ function sfhScreenRlv(data){
   var fees = inc?0:totalBuild*(numOr(s.feesPct,12)/100), cont = inc?0:totalBuild*(numOr(s.contingency,5)/100);
   // v10.55 — S-curve/peak-debt finance, mirroring the engine + SFH screen.
   var phases = num(s.phases)>0?num(s.phases):Math.max(1,Math.ceil(totalUnits/300));
-  var progYears = num(s.programmeYears)>0?num(s.programmeYears):Math.max(2,Math.min(10,Math.round((1+totalUnits/350)*10)/10));
+  // v10.122 — realistic build-out programme (homes ÷ build rate, capped 8 yrs), mirroring the engine.
+  var progYears = num(s.programmeYears)>0?num(s.programmeYears):Math.round(Math.max(1.5,Math.min(8,(typeof buildRatePerYear==="function"&&buildRatePerYear(totalUnits,false)>0)?totalUnits/buildRatePerYear(totalUnits,false):(1+totalUnits/350)))*10)/10;
   var peakDebtPct = num(s.peakDebtPct)>0?num(s.peakDebtPct):Math.max(45,Math.min(100,Math.round(200/phases)));
   var fin = (totalBuild+fees)*(peakDebtPct/100)*(numOr(s.finRate,7.5)/100)*progYears*0.6;
   // v10.102 — infra charged on the DEVELOPED area (homes ÷ net density, capped at the site), not the whole title

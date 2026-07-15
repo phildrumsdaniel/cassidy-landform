@@ -146,7 +146,7 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
     // v10.55 — S-curve/peak-debt finance, mirroring computeSFHMetrics (programme years × peak
     // debt × rate × 0.6), so this screen reconciles with the engine.
     var sfPhases=num(s.phases)>0?num(s.phases):Math.max(1,Math.ceil(totalUnits/300));
-    var sfProgYears=num(s.programmeYears)>0?num(s.programmeYears):Math.max(2,Math.min(10,Math.round((1+totalUnits/350)*10)/10));
+    var sfProgYears=num(s.programmeYears)>0?num(s.programmeYears):Math.round(Math.max(1.5,Math.min(8,(typeof buildRatePerYear==="function"&&buildRatePerYear(totalUnits,false)>0)?totalUnits/buildRatePerYear(totalUnits,false):(1+totalUnits/350)))*10)/10;
     var sfPeakDebtPct=num(s.peakDebtPct)>0?num(s.peakDebtPct):Math.max(45,Math.min(100,Math.round(200/sfPhases)));
     var finCost=(totalBuild+fees)*(sfPeakDebtPct/100)*(sFin/100)*sfProgYears*0.6;
     var s106Total=totalUnits*s106Pu;
