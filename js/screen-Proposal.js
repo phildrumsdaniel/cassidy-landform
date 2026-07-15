@@ -122,6 +122,10 @@ function buildLandOnePager(data, cityHint){
     var oDev=num(sf.devCost)||(oBuild+oFees+oCont+oFin+oS106+oRoads+oInfra+oMkt);
     var oGrantIncome=num(sf.grantIncome)||0;   // v10.91 — AHP grant already in sf.rlv; shown explicitly & added to the RLV sensitivities
     var oRlv=num(sf.rlv);
+    // v10.112 — every exit is shown; the HEADLINE leads with the one committed to on the Exit stage.
+    var EX=(typeof dealExit==="function")?dealExit(data):{basis:"plot",chosen:false,routeLabel:"Open-market plot sales",basisLabel:"open-market plot sales",plotRlv:oRlv,capRlv:num(sf.capRlv),chosenRlv:oRlv};
+    var headlineRlv=num(EX.chosenRlv);          // the chosen exit's land value — drives the headline KPI & verdict
+    var headlineIsCap=EX.basis==="capitalised";
     var oAvgSqft=Math.round(num(sf.avgSqft)||0);
     var oBuildPsf=Math.round(num(sf.buildPsf)||0);
     var oBasePsf=Math.round(num(sf.basePsf)||0);
@@ -187,8 +191,9 @@ function buildLandOnePager(data, cityHint){
 
     // Verdict — decision-useful: uses the margin AFTER the full cost of acquiring the land.
     var verdict, vcol, vsub;
-    if(oRlv<=0){ verdict="✗ Does not stack"; vcol="#B05A35";
-      vsub="Build, costs and target profit exceed GDV — the residual land value is negative, so the site can't support any land payment at "+Math.round(oProfitPct)+"% profit as modelled."; }
+    if(headlineRlv<=0 && askL<=0){ verdict="✗ Does not stack"+(EX.chosen?" on the "+EX.basisLabel+" exit":""); vcol="#B05A35";
+      var otherRlvNeg=headlineIsCap?num(EX.plotRlv):num(EX.capRlv);
+      vsub="On the "+EX.basisLabel+" exit the residual land value is "+(headlineRlv<0?"−"+fmt(Math.abs(headlineRlv)):"nil")+" at "+Math.round(oProfitPct)+"% target profit — build, costs and profit exceed the realised value."+(EX.chosen&&otherRlvNeg>0?" The other route ("+(headlineIsCap?"open-market plot sales":"a capitalised HA/fund sale")+") would support "+fmt(otherRlvNeg)+" — consider switching exit on the Exit Strategy stage.":""); }
     else if(askL>0){
       if(marginAllIn>=15){ verdict="✓ Worth pursuing"; vcol="#1B7A54";
         vsub="At the "+fmt(askL)+" guide price plus "+fmt(acq.total)+" purchase costs (SDLT, legals, acquisition), the all-in land cost is "+fmt(totalLandCost)+" — still a "+pct(marginAllIn)+" margin ("+fmt(profitAllIn)+" profit). The residual land value of "+fmt(oRlv)+" covers it with "+fmt(headroomAllIn)+" to spare."; }
@@ -198,7 +203,8 @@ function buildLandOnePager(data, cityHint){
         vsub="With "+fmt(acq.total)+" purchase costs the all-in cost of "+fmt(totalLandCost)+" exceeds the "+fmt(oRlv)+" residual land value by "+fmt(Math.abs(headroomAllIn))+" — margin just "+pct(marginAllIn)+". Pursue only at a price near "+fmt(Math.max(0,oRlv-acq.total))+" or below."; }
     } else {
       verdict=oProfitPct>=15?"◐ Enter a guide price":"◐ Review"; vcol="#4A4BAE";
-      vsub="Maximum supportable land value is "+fmt(oRlv)+" ("+fmt(rlvPerPlot)+"/plot) at "+Math.round(oProfitPct)+"% target profit, before purchase costs. Enter the landowner's guide price to add SDLT, legals and acquisition and test the all-in position."; }
+      var otherRlv=headlineIsCap?num(EX.plotRlv):num(EX.capRlv);
+      vsub="On the chosen "+EX.basisLabel+" exit, the maximum supportable land value is "+fmt(headlineRlv)+(headlineIsCap?" (net rent "+fmt(EX.capNetRentPa)+"/yr capitalised at "+((typeof dealYield==="function")?dealYield(data).toFixed(2):"—")+"%)":" ("+fmt(rlvPerPlot)+"/plot)")+" at "+Math.round(oProfitPct)+"% target profit, before purchase costs. "+(EX.chosen?("The alternative — "+(headlineIsCap?"open-market plot sales":"a capitalised HA/fund sale")+" — supports "+(otherRlv<0?"−"+fmt(Math.abs(otherRlv)):fmt(otherRlv))+"."):"Enter the landowner's guide price to test the all-in position, or commit to an exit on the Exit Strategy stage."); }
 
     // ── PATH TO A 15% MARGIN ───────────────────────────────────────────────────
     // When the scheme falls short of a 15% developer margin (after the land, if a guide is
@@ -325,9 +331,26 @@ function buildLandOnePager(data, cityHint){
           '<div class="kpi"><div class="l">Homes</div><div class="v">'+(oUnits?oUnits.toLocaleString():"—")+'</div></div>'+
           '<div class="kpi"><div class="l">GDV</div><div class="v">'+(oGdv>0?fmt(oGdv):"—")+'</div></div>'+
           '<div class="kpi"><div class="l">Land guide price</div><div class="v">'+(askL>0?fmt(askL):"—")+'</div></div>'+
-          '<div class="kpi"><div class="l">Residual land value</div><div class="v" style="color:'+(oRlv>0?"#1B7A54":"#B05A35")+'">'+(oRlv?((oRlv<0?"−":"")+fmt(Math.abs(oRlv))):"—")+'</div></div>'+
+          '<div class="kpi"><div class="l">Residual land value'+(EX.chosen?' · '+esc(EX.basisLabel):'')+'</div><div class="v" style="color:'+(headlineRlv>0?"#1B7A54":"#B05A35")+'">'+(headlineRlv?((headlineRlv<0?"−":"")+fmt(Math.abs(headlineRlv))):"—")+'</div></div>'+
           '<div class="kpi"><div class="l">'+(askL>0?"Margin (all-in)":"Target profit")+'</div><div class="v" style="color:'+(askL>0?(marginAllIn>=15?"#1B7A54":marginAllIn>=12?"#9A7B3E":"#B05A35"):"#1B1D46")+'">'+(askL>0?pct(marginAllIn):Math.round(oProfitPct)+"%")+'</div></div>'+
         '</div>'+
+        // v10.112 — Exit routes: the land value under each exit, side by side, with the chosen route
+        // (from the Exit Strategy stage) highlighted. Appraise all options; commit to one and it leads.
+        (function(){
+          var pv=num(EX.plotRlv), cv=num(EX.capRlv);
+          if(!(pv>0 || cv>0)) return '';
+          function cell(active,label,val,note){
+            return '<div style="flex:1;border:1.5px solid '+(active?"#1B7A54":"#E0E2EC")+';border-radius:6px;padding:7px 9px;background:'+(active?"#F1FBF6":"#fff")+'">'+
+              '<div style="font-size:7.4px;letter-spacing:.06em;text-transform:uppercase;color:'+(active?"#1B7A54":"#8A90B4")+';font-weight:800">'+(active?"✓ Chosen exit — ":"")+esc(label)+'</div>'+
+              '<div style="font-size:13px;font-weight:800;color:'+(val>=0?"#1B1D46":"#B05A35")+';font-family:Georgia,serif;margin-top:1px">'+(val<0?"−":"")+fmt(Math.abs(val))+'</div>'+
+              '<div style="font-size:7.4px;color:#9298BC;margin-top:1px">'+esc(note)+'</div></div>';
+          }
+          return '<div style="margin:2px 0 3px"><div class="ct" style="margin-bottom:4px">Exit routes — land value by exit'+(EX.chosen?'':' <span style="color:#9298BC;text-transform:none;letter-spacing:0;font-weight:600">(no exit committed — showing plot sales as the headline; choose one on the Exit Strategy stage)</span>')+'</div>'+
+            '<div style="display:flex;gap:8px">'+
+              cell(EX.basis==="plot", "Open-market plot sales", pv, "Build & sell — residual off sale values")+
+              cell(EX.basis==="capitalised", "Forward-fund / HA-fund sale", cv, "Whole scheme capitalised"+(EX.capTenureBlind?" · tenure-blind":"")+" at "+((typeof dealYield==="function")?dealYield(data).toFixed(2):"—")+"%")+
+            '</div></div>';
+        })()+
         // v10.86 — hope-value / planning-risk banner near the top when the site is NOT consented,
         // so a reviewer reads the RLV as the value AT consent (years away, at risk), not today's
         // value. Pre-empts the single biggest question on a promotion play.
@@ -356,7 +379,7 @@ function buildLandOnePager(data, cityHint){
               '<tr class="s"><td>Total GDV</td><td class="n" style="text-align:right" colspan="4">'+(oGdv>0?fmt(oGdv):"—")+'</td></tr>'+
             '</tbody></table>'+
           '</div>'+
-          '<div class="card"><div class="ct">Appraisal — residual land value</div>'+
+          '<div class="card"><div class="ct">Appraisal — plot-sales residual'+(headlineIsCap?' (comparison — chosen exit is the '+esc(EX.basisLabel)+')':'')+'</div>'+
             '<table>'+
               cRow("Gross development value",fmt(oGdv),false,false)+
               (oRetail>oGdv+1?'<tr><td style="color:#9298BC">— affordable / mix discount</td><td class="n" style="color:#9298BC">−'+fmt(oRetail-oGdv)+'</td></tr>':'')+

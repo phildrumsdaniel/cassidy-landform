@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.111";
+var CURRENT_VERSION = "10.112";
 var VERSION_HISTORY = [
+  {v:"10.112", date:"Jul 2026", headline:"Appraise EVERY exit, then commit to one and it leads. New dealExit() gives the land value under each exit off the one engine — open-market plot sales (the plot-sales residual) and a capitalised forward-fund / HA-fund sale (the capitalised residual, driven by the rents, yield and tenure-blind setting). The one-pager now shows an ‘Exit routes — land value by exit’ comparison with both side by side, and the headline Residual Land Value + verdict LEAD with the exit you commit to on the Exit Strategy stage (until you choose, it defaults to plot sales). Choose ‘Bulk sale to a housing association / fund’ or a forward-fund route and the headline switches to the capitalised value; choose plot sales and it switches back — everything you change on the Capitalisation stage then drives the headline. Note: for a houses-for-sale scheme the capitalised (rental) exit typically reads lower or negative — that is the honest signal that houses realise more via plot sales than as a rented investment; the verdict says so and points you to the stronger route."},
   {v:"10.111", date:"Jul 2026", headline:"A Keystone build now sets the capitalisation to a tenure-blind HA / fund sale. When Keystone builds a deal it already fills the Capitalisation inputs (per-bed rents and target yield); it now also turns ON the ‘Whole scheme sold to a HA / fund — tenure-blind’ toggle, so the capitalisation does NOT apply the affordable rent discount to the developer's proceeds by default (turn it off on the Capitalisation stage to value on the blended, discounted rent). It also stops writing a fixed weighted market rent, leaving the per-bed rents to drive the rent through the (editable / pinnable) bedroom mix — so changing or pinning the mix flows through to the reports. (Housing associations — Clarion, L&Q, Sovereign, VIVID, Platform, Midland Heart, Places for People — were already a final-purchaser type on the Exit Strategy page, alongside a bulk-sale-to-HA route and an RP offer tracker.)"},
   {v:"10.110", date:"Jul 2026", headline:"The one-pager capitalisation now matches the Capitalisation SCREEN, bed-for-bed. The engine built its rent off the house mix through a slightly different bed classification than the Capitalisation screen, so the two could count the mix differently and show different capitalised values (e.g. the screen's headline vs the one-pager's forward-fund figure). New capBedMix() builds the 1/2/3/4-bed split the SAME way the screen does — the pinned/entered beds1..4 override, per field, an SFH-derived default that classifies each house type by bed count with the screen's own rules (incl. ‘executive’ → 4-bed, 5-bed → 4-bed rent). The rent-per-home is then this bed split × the researched per-bed rents. Verified the engine now reproduces the screen's NOI and capitalised value to the penny for a mixed 2/3/4-bed scheme. So editing (or pinning) the Capitalisation bedroom mix or rents flows straight through to the one-pager, teaser, IM and Suite — one number everywhere."},
   {v:"10.109", date:"Jul 2026", headline:"Capitalisation now reconciles across ALL the reports. The blind investor teaser and the Investor Memorandum were still flooring the forward-fund yield at 4.5% (with a fixed 4.5–6.0% ladder), so they showed a different capitalised value from the one-pager and the Capitalisation page. Both now use the SAME net-initial yield set on the Capitalisation stage (sanity-clamped to 3.5–7%), with the sensitivity ladder anchored on it. So every stakeholder document — one-pager, blind teaser, Investor Memorandum and the Stakeholder Suite — shows the same forward-fund figure off the same engine (rents, net-income method, yield and the tenure-blind option all flow through). The Detailed Appraisal is unchanged: it is the build-to-sell RESIDUAL land appraisal and already pulls the same residual land value from the engine — the capitalisation / forward-fund exit is shown on the one-pager, teaser, IM and Exit pages, not in the residual sheet."},
@@ -2307,6 +2308,35 @@ function dealYield(data){
   var t = num((data.capitalise && data.capitalise.targetYield));
   if(t > 0) return t > 1 ? t : t * 100;   // stored as percent normally; tolerate fraction
   return areaYield(data);
+}
+
+// dealExit (v10.112) — the chosen exit route and the residual land value it implies, so the whole
+// tool can SHOW every exit in the appraisal and then LEAD with the one the user commits to on the
+// Exit Strategy stage (data.exit.strategy). Two land-value bases, both off the one engine:
+//   • plot sales (build & sell)  → the plot-sales residual (SF.rlv)
+//   • capitalised (forward-fund / bulk sale to a HA or fund) → the capitalised residual (SF.capRlv)
+// Returns both figures, which is chosen, and labels — so every report switches its headline
+// consistently. Until an exit is chosen it defaults to plot sales (today's neutral behaviour).
+function dealExit(data){
+  data = data || {};
+  var SF = (typeof computeSFHMetrics === "function") ? computeSFHMetrics(data) : {};
+  var plotRlv = num(SF.rlv), capRlv = num(SF.capRlv);
+  var strategy = ((data.exit || {}).strategy || "") + "";
+  var CAP_EXITS = { forward_fund:1, forward_sale:1, bulk_sale_ha:1, stabilised:1, retain:1 };
+  var basis = CAP_EXITS[strategy] ? "capitalised" : "plot";        // plot_sales / phased / none → plot sales
+  var ROUTE = {
+    forward_fund:"Institutional forward-fund", forward_sale:"Forward sale",
+    bulk_sale_ha:"Bulk sale to a housing association / fund", stabilised:"Build, stabilise & sell as an investment",
+    retain:"Build to rent & hold", plot_sales:"Open-market plot sales", phased:"Phased plot sales"
+  };
+  return {
+    strategy:strategy, chosen:!!strategy, basis:basis,
+    routeLabel: ROUTE[strategy] || "Open-market plot sales",
+    basisLabel: basis === "capitalised" ? "capitalised HA / fund sale" : "open-market plot sales",
+    plotRlv:plotRlv, capRlv:capRlv, capValue:num(SF.capInvestmentValue),
+    capNetRentPa:num(SF.capNetRentPa), capTenureBlind:!!SF.capTenureBlind,
+    chosenRlv: basis === "capitalised" ? capRlv : plotRlv
+  };
 }
 
 // v10.82 — projectTimeline: a scheme runs on TWO separate clocks, and lumping them into one
