@@ -683,8 +683,16 @@ function renderRLV(city, data, m, navTo, setData, up, user){
           e(Inp,{label:(num(r.buildPsf)?"Build £/sqft · saved":"Build £/sqft · auto-default"+(m?" from "+cityName(city)+": £"+m.build+" · BCIS £"+bt.lo+"–£"+bt.hi:" · BCIS £"+bt.lo+"–£"+bt.hi)),type:"number",value:r.buildPsf,onChange:function(v){up("rlv","buildPsf",v);},placeholder:"£"+Math.round(rBuild)}),
           e(Inp,{label:"Developer Profit % GDV"+(num(r.profitPct)?" · saved":" · auto-default 17.5%"),type:"number",value:r.profitPct,onChange:function(v){up("rlv","profitPct",v);},placeholder:"17.5"}),
           e(Inp,{label:"Finance Rate %"+(num(r.finRate)?" · saved":" · auto-default 7.5%"),type:"number",value:r.finRate,onChange:function(v){up("rlv","finRate",v);},placeholder:"7.5"}),
-          e(Inp,{label:"S106/CIL per Unit (£)"+(num(r.s106pu)?" · saved":" · auto-default £8,000"),type:"number",value:r.s106pu,onChange:function(v){up("rlv","s106pu",v);},placeholder:"8000"})
+          e(Inp,{label:"S106/CIL per Unit (£)"+(num(r.s106pu)?" · saved":" · auto-default £8,000"),type:"number",value:r.s106pu,onChange:function(v){up("rlv","s106pu",v);},placeholder:"8000"}),
+          // v10.120 — Professional fees % and Contingency % are now editable here. They write to the
+          // engine (sfh.feesPct / sfh.contingency) so the breakdown recomputes. Both show £0 when the
+          // build rate is ALL-IN (which already covers them) — see the note below the grid.
+          e(Inp,{label:"Professional Fees % of build"+((data.sfh&&data.sfh.feesPct!==undefined&&data.sfh.feesPct!=="")?" · saved":" · auto-default 12%"),type:"number",value:(data.sfh&&data.sfh.feesPct!==undefined)?data.sfh.feesPct:"",onChange:function(v){up("sfh","feesPct",v);},placeholder:"12"}),
+          e(Inp,{label:"Contingency % of build"+((data.sfh&&data.sfh.contingency!==undefined&&data.sfh.contingency!=="")?" · saved":" · auto-default 5%"),type:"number",value:(data.sfh&&data.sfh.contingency!==undefined)?data.sfh.contingency:"",onChange:function(v){up("sfh","contingency",v);},placeholder:"5"})
         ),
+        (data.sfh&&data.sfh.buildInclusive)?e("div",{style:{margin:"8px 0 0",padding:"9px 12px",background:"rgba(154,123,62,0.08)",border:"1px solid rgba(154,123,62,0.28)",borderRadius:7,fontSize:11.5,color:"#7A5A2E",lineHeight:1.5}},
+          e("strong",null,"ℹ Professional fees & contingency show £0 because your build rate is ALL-IN."),
+          " The £",(num(r.buildPsf)||num(data.sfh&&data.sfh.buildPsf)||250),"/sqft build already covers professional fees, contingency, roads & SuDS, so they aren't added again (no double-counting). To itemise them as separate lines, switch the build rate to construction-only on the SFH House Mix stage; the %s above then apply."):null,
 
         // ── Build:Sale ratio diagnostic ─────────────────────────────────────
         rSalePsf>0&&rBuild>0&&(function(){
