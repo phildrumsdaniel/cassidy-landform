@@ -51,7 +51,13 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
   var baseMix = (homesNow > 0 && s.mix && s.mix.length)
     ? s.mix
     : (effHomes > 0 && typeof keystoneGenerateMix === "function" ? keystoneGenerateMix(effHomes, cityKey, postcode) : []);
-  var effMix = repriceMix(baseMix, effBasePsf);
+  // v10.123 — if the saved mix already carries per-type prices (from Keystone / the SFH House Mix
+  // stage), use it AS-IS so the Quick Appraisal's GDV/RLV reconciles with the detailed stages. It was
+  // repriced to a flat base £/sqft every render, which flattened the per-type blended pricing and gave
+  // a different (lower) GDV — the root of the two-RLV split (£731m vs £757m). Only a fresh DRAFT mix
+  // (no per-type prices) is priced at the base £/sqft; the base-£/sqft field still reprices via its handler.
+  var mixHasBespokePrices = homesNow > 0 && s.mix && s.mix.length && s.mix.some(function(r){ return num(r.count) > 0 && num(r.unitPrice || r.salePrice) > 0; });
+  var effMix = mixHasBespokePrices ? baseMix : repriceMix(baseMix, effBasePsf);
 
   // v10.42 — treat the build £/sqft as ALL-IN by default: it already includes roads, drainage
   // and site infrastructure (SuDS), so those are NOT added as separate lines and double-counted.
@@ -69,6 +75,10 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
   var M = computeSFHMetrics(effData);
   var homes = num(M.totalUnits) || 0;
   var gdv = num(M.gdv), rlv = num(M.rlv), devCost = num(M.devCost), profitFig = num(M.profit);
+  // v10.123 — the chosen exit (Exit Strategy stage) drives the headline, off the SAME effData the whole
+  // page uses, so the headline "Worth to us" follows the committed exit and equals the Exit-routes card.
+  var QEX = (typeof dealExit === "function") ? dealExit(effData) : { chosen:false, basis:"plot", basisLabel:"open-market plot sales", plotRlv:rlv, chosenRlv:rlv };
+  var headlineRlv = num(QEX.chosenRlv);
   var avgSqft = Math.round(num(M.avgSqft) || 0);
   var hpa = acres > 0 && homes > 0 ? Math.round((homes / acres) * 10) / 10 : 0;
   var dph = acres > 0 && homes > 0 ? Math.round(homes / (acres * 0.404686)) : 0;
@@ -249,7 +259,7 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
       e("div", { style:{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:10, margin:"4px 0 14px" } },
         kpi("Homes", homes.toLocaleString()),
         kpi("Gross dev value (GDV)", gdv > 0 ? fmt(gdv) : "—"),
-        kpi("Worth to us (RLV)", (rlv < 0 ? "−" : "") + fmt(Math.abs(rlv)), rlv > 0 ? "#1B7A54" : "#B05A35"),
+        kpi("Worth to us (RLV)"+(QEX.chosen?" · "+QEX.basisLabel:""), (headlineRlv < 0 ? "−" : "") + fmt(Math.abs(headlineRlv)), headlineRlv > 0 ? "#1B7A54" : "#B05A35"),
         kpi(asking > 0 ? "Asking price" : "Max land @ profit", asking > 0 ? fmt(asking) : ((rlv < 0 ? "−" : "") + fmt(Math.abs(rlv))), asking > 0 ? "#1B1D46" : (rlv >= 0 ? "#1B1D46" : "#B05A35")),
         kpi(asking > 0 ? "Margin (all-in)" : "Developer profit", asking > 0 ? pct(marginAllIn) : (Math.round(profitPct*10)/10)+"%", asking > 0 ? (marginAllIn >= 15 ? "#1B7A54" : marginAllIn >= 12 ? "#9A7B3E" : "#B05A35") : "#1B1D46")
       ),
@@ -337,7 +347,7 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
 
       // ── EXIT ROUTES — land value by exit (v10.114) ────────────────────────────
       (function(){
-        var EX = (typeof dealExit === "function") ? dealExit(data) : null;
+        var EX = QEX;   // v10.123 — same effData-based exit calc as the headline, so they never diverge
         if(!EX) return null;
         var pv = num(EX.plotRlv), hv = num(EX.haBulkRlv), cv = num(EX.capRlv);
         if(!(pv > 0 || hv > 0 || cv > 0)) return null;

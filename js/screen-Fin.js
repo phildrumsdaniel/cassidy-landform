@@ -20,6 +20,11 @@ function renderFin(LiveMarketBanner, at, bc, buildPsf, city, data, ey, gia, gr, 
     var sfhTotalGdv = sfhFinMetrics.gdv;
     var sfhTotalUnits = sfhFinMetrics.totalUnits || units;
     var sfhTotalBuildCost = sfhFinMetrics.buildCost || bc;
+    // v10.123 — the programme default reflects the realistic build-out from the engine
+    // (homes ÷ housebuilder rate, capped at 8 yrs) rather than a flat 36 months, so the
+    // finance S-curve and IRR agree with the Land Valuation and one-pager timelines. A
+    // figure the user types in still overrides this.
+    var finProgDefault = (isSFH && num(sfhFinMetrics.financeProgYears)>0) ? Math.max(12, Math.round(num(sfhFinMetrics.financeProgYears)*12)) : 36;
 
     // Manual GDV override from Financial Modelling inputs
     var manualGdv = num(f.manualGdv||f.gdv||f.gdvOverride||0);
@@ -68,9 +73,24 @@ function renderFin(LiveMarketBanner, at, bc, buildPsf, city, data, ey, gia, gr, 
     var finSqft = finBuildPsf>0 ? Math.round(effBuildCost/finBuildPsf) : num(gia);
     var scV=margin2>=15?"#2D7A65":"#B05A35";
 
+    // v10.123 — when the SFH build cost is all-inclusive the engine returns fees/contingency
+    // folded into Build (DM.fees / DM.contingency come back 0), which read as £0 in the cost
+    // table. Decompose for display exactly as the Land Valuation (RLV) screen does: split the
+    // inclusive build into construction + fees + contingency so each line reads correctly. The
+    // sum is unchanged, so Total Dev Cost still reconciles.
+    var finFees = num(DM.fees), finCont = num(DM.contingency), finBuildOnly = effBuildCost, finBuildDecomp = false;
+    if ((data.sfh && data.sfh.buildInclusive) && !(finFees>0) && !(finCont>0) && effBuildCost>0){
+      var _finFp = numOr(data.sfh&&data.sfh.feesPct,12)/100, _finCp = numOr(data.sfh&&data.sfh.contingency,5)/100;
+      var _finConstr = effBuildCost/(1+_finFp+_finCp);
+      finBuildOnly = _finConstr; finFees = _finConstr*_finFp; finCont = _finConstr*_finCp; finBuildDecomp = true;
+    }
+    var finConstrPsf = (finBuildDecomp && finSqft>0) ? Math.round(finBuildOnly/finSqft) : finBuildPsf;
+    var finFeesPctDisp = num(DM.buildCost)>0 ? Math.round(finFees/(finBuildDecomp?finBuildOnly:num(DM.buildCost))*100) : numOr(f.feesPct,12);
+    var finContPctDisp = finBuildOnly>0 ? Math.round(finCont/finBuildOnly*100) : finContPct;
+
     // v9.97 — cost line items straight from the engine so they SUM to Total Dev Cost.
     var finRows = (DM.gdv>0)
-      ? [["Land",lc],["Build ("+finSqft.toLocaleString()+" sqft @ £"+finBuildPsf+"/sqft)",effBuildCost],["Professional fees ("+(num(DM.buildCost)>0?Math.round(num(DM.fees)/num(DM.buildCost)*100):numOr(f.feesPct,12))+"%)",DM.fees],["Contingency",DM.contingency],["Finance",DM.finance],["S106/CIL",DM.s106]]
+      ? [["Land",lc],["Build ("+finSqft.toLocaleString()+" sqft @ £"+finConstrPsf+"/sqft"+(finBuildDecomp?", construction — fees & contingency below":"")+")",finBuildOnly],["Professional fees ("+finFeesPctDisp+"%)",finFees],["Contingency ("+finContPctDisp+"%)",finCont],["Finance",DM.finance],["S106/CIL",DM.s106]]
           .concat(DM.roads>0?[["Roads & Sewers",DM.roads]]:[])
           .concat(DM.infra>0?[["Site infra & SuDS",DM.infra]]:[])
           .concat(DM.marketing>0?[["Disposal & marketing",DM.marketing]]:[])
@@ -298,7 +318,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
         e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:14}},
           e("div",{style:{display:"flex",flexDirection:"column",gap:4}},
             e("label",{style:S.label},"Private Sales Rate (units/week)"),
-            e("input",{type:"number",value:f.salesRateWeek||"",onChange:function(ev){up("fin","salesRateWeek",ev.target.value);},placeholder:String((num(f.units||units||0)>0&&num(f.programmeMths||36)>0)?Math.round((num(f.units||units||0)/(num(f.programmeMths||36)*(52/12)))*100)/100:0.75),style:S.input})
+            e("input",{type:"number",value:f.salesRateWeek||"",onChange:function(ev){up("fin","salesRateWeek",ev.target.value);},placeholder:String((num(f.units||units||0)>0&&num(f.programmeMths||finProgDefault)>0)?Math.round((num(f.units||units||0)/(num(f.programmeMths||finProgDefault)*(52/12)))*100)/100:0.75),style:S.input})
           ),
           e("div",{style:{display:"flex",flexDirection:"column",gap:4}},
             e("label",{style:S.label},"Finance Rate (% pa) — shared with the appraisal above"),
@@ -306,11 +326,11 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
           ),
           e("div",{style:{display:"flex",flexDirection:"column",gap:4}},
             e("label",{style:S.label},"Programme Length (months)"),
-            e("input",{type:"number",value:f.programmeMths||"",onChange:function(ev){up("fin","programmeMths",ev.target.value);},placeholder:"36",style:S.input})
+            e("input",{type:"number",value:f.programmeMths||"",onChange:function(ev){up("fin","programmeMths",ev.target.value);},placeholder:String(finProgDefault),style:S.input})
           )
         ),
         (function(){
-          var progMths=num(f.programmeMths||36);
+          var progMths=num(f.programmeMths||finProgDefault);
           // v10.38 — use the CANONICAL scheme unit count (the mix-based figure for SFH, else the
           // centralised calcDealMetrics count) — NOT the stale data.fin.units, which wasn't
           // caught by the unit reconciliation and could show e.g. 1,902 while every other stage
@@ -369,7 +389,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
         e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:12}},"Industry-standard S-curve sales phasing. Slow start, peak mid-programme, tail-off at end. Matches Landval Cloud and institutional appraisal methodology."),
         (function(){
           var u3=num(f.units||sfhTotalUnits||0);
-          var prog3=num(f.programmeMths||36);
+          var prog3=num(f.programmeMths||finProgDefault);
           var finR=num(f.finRate||7.5)/100/12;  // v10.9 — one finance rate (shared with the appraisal), was a separate 8%
           var gdv3=gdv2>0?gdv2:0;
           var tc3=tc4>0?tc4:0;
@@ -455,11 +475,11 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
                 "Gross Site: "+num(l.acres||0)+" acres / "+(num(l.acres||0)*0.404686).toFixed(2)+" ha",e("br"),
                 "Units: "+u+" | GDV: "+fmt(gdv2>0?gdv2:gdvF)+" | Land (RLV): "+fmt(Math.max(0,rlv)),e("br"),
                 "Build Cost: "+fmt(totalBuild||Math.round(tcF*0.6))+" | S106 Total: "+fmt(num(f.s106pu||0)*u),e("br"),
-                "Finance: "+(f.finRate||7.5)+"% pa | Sales: "+(f.salesRateWeek||(num(f.units||units||0)>0&&num(f.programmeMths||36)>0?Math.round((num(f.units||units||0)/(num(f.programmeMths||36)*(52/12)))*100)/100:0.75))+"/wk | IRR: "+(irrVal?irrVal+"%":"—"),e("br"),
+                "Finance: "+(f.finRate||7.5)+"% pa | Sales: "+(f.salesRateWeek||(num(f.units||units||0)>0&&num(f.programmeMths||finProgDefault)>0?Math.round((num(f.units||units||0)/(num(f.programmeMths||finProgDefault)*(52/12)))*100)/100:0.75))+"/wk | IRR: "+(irrVal?irrVal+"%":"—"),e("br"),
                 "Margin: "+pct(margin2)+" | Profit on Cost: "+pct(tc4>0?(gdv2-tc4)/tc4*100:0)
               ),
               e("button",{onClick:function(){
-                var nl="\n";var t=["LANDFORM EXPORT",new Date().toLocaleDateString("en-GB"),"","SITE: "+(l.address||"Unknown"),"LPA: "+(data.planning&&data.planning.lpa||"n/a"),"Gross Site: "+num(l.acres||0)+" acres","Units: "+u,"GDV: "+fmt(gdv2>0?gdv2:gdvF),"Land Residual Value: "+fmt(Math.max(0,rlv)),"Build Cost: "+fmt(totalBuild),"S106/unit: "+(f.s106pu||0),"S106 Total: "+fmt(num(f.s106pu||0)*u),"Finance: "+(f.finRate||7.5)+"% pa","Sales Rate: "+(f.salesRateWeek||(num(f.units||units||0)>0&&num(f.programmeMths||36)>0?Math.round((num(f.units||units||0)/(num(f.programmeMths||36)*(52/12)))*100)/100:0.75))+"/wk","Programme: "+(f.programmeMths||36)+" months","Margin on GDV: "+pct(margin2),"IRR: "+(irrVal?irrVal+"%":"n/a"),"","NEXT STEP: Enter into the detailed Excel appraisal model.","Set land price to RLV. Run Normal Distribution cashflow.","Rebase BCIS build costs. Track RP offers."].join(nl);                var el=document.createElement("textarea");
+                var nl="\n";var t=["LANDFORM EXPORT",new Date().toLocaleDateString("en-GB"),"","SITE: "+(l.address||"Unknown"),"LPA: "+(data.planning&&data.planning.lpa||"n/a"),"Gross Site: "+num(l.acres||0)+" acres","Units: "+u,"GDV: "+fmt(gdv2>0?gdv2:gdvF),"Land Residual Value: "+fmt(Math.max(0,rlv)),"Build Cost: "+fmt(totalBuild),"S106/unit: "+(f.s106pu||0),"S106 Total: "+fmt(num(f.s106pu||0)*u),"Finance: "+(f.finRate||7.5)+"% pa","Sales Rate: "+(f.salesRateWeek||(num(f.units||units||0)>0&&num(f.programmeMths||finProgDefault)>0?Math.round((num(f.units||units||0)/(num(f.programmeMths||finProgDefault)*(52/12)))*100)/100:0.75))+"/wk","Programme: "+(f.programmeMths||finProgDefault)+" months","Margin on GDV: "+pct(margin2),"IRR: "+(irrVal?irrVal+"%":"n/a"),"","NEXT STEP: Enter into the detailed Excel appraisal model.","Set land price to RLV. Run Normal Distribution cashflow.","Rebase BCIS build costs. Track RP offers."].join(nl);                var el=document.createElement("textarea");
                 el.value=t;document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);
                 notify("Copied to clipboard — paste into your Excel appraisal model");
               },style:{padding:"9px 22px",background:"#EDE84A",border:"none",borderRadius:7,color:"#1E1F5C",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
