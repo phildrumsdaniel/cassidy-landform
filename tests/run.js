@@ -1966,7 +1966,9 @@ console.log("Landform engine consistency tests\n");
     ok("AI enrich applies real per-type prices to the mix", res.applied >= 2);
     // v10.56 — per-type rents also fill the Capitalisation per-bed fields (Keystone auto-fill)
     ok("AI enrich fills per-bed rents for the Capitalisation stage", num(res.data.capitalise.rent4) === 2100 && num(res.data.capitalise.rent2) === 1150);
-    ok("AI enrich sets the weighted market rent (forward-fund exit)", num(res.data.capitalise.marketRentPerUnitPa) > 0);
+    // v10.111 — Keystone no longer writes a fixed marketRentPerUnitPa; the engine derives the
+    // forward-fund rent from the per-bed rents × the (editable/pinnable) bedroom mix instead.
+    ok("AI enrich flags rents researched + engine derives a positive forward-fund rent", res.data.capitalise.rentSource === "AI market research" && num(computeSFHMetrics(res.data).capNetRentPa) > 0);
     var psfs = res.data.sfh.mix.map(function(r){ return Math.round(num(r.unitPrice)/num(r.sqft)); });
     ok("per-type £/sqft now differs (real market, not flat)", Math.max.apply(null,psfs) - Math.min.apply(null,psfs) > 20);
     ok("4-bed detached correctly shows a LOWER £/sqft than the 3-bed semi", (function(){
