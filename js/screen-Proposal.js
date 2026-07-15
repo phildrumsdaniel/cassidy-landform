@@ -1410,6 +1410,9 @@ function renderProposal(city, data, gdv, lc, up, user){
   var sitePotential=(modelledUnits>0 && siteUnits>modelledUnits*1.1)?siteUnits:0;
   var gdvV=num(M.gdv)||num(gdv)||0;
   var rlvV=num(M.rlv)||0;
+  // v10.115 — board headline leads with the exit committed on the Exit Strategy stage (default plot sales).
+  var PEX=(typeof dealExit==="function")?dealExit(data):{chosen:false,basis:"plot",basisLabel:"open-market plot sales",plotRlv:rlvV,chosenRlv:rlvV};
+  var boardRlv=num(PEX.chosenRlv)||rlvV;
   var marginV=isFinite(M.marginPct)?num(M.marginPct):0;
   var s106V=num(M.s106)||num(p.s106)||0;
   var ask=num(l.price||0);
@@ -1654,7 +1657,7 @@ function renderProposal(city, data, gdv, lc, up, user){
           '<div class="h"><div class="n">'+bandMoney(gdvV)+'</div><div class="l">Gross Dev. Value</div></div>'+
           '<div class="h"><div class="n">'+(units?units.toLocaleString():"—")+'</div><div class="l">New homes</div></div>'+
           '<div class="h"><div class="n">'+(ask>0?bandMoney(ask):"—")+'</div><div class="l">Guide price</div></div>'+
-          '<div class="h"><div class="n">'+(rlvV>0?bandMoney(rlvV):"—")+'</div><div class="l">Residual land value*</div></div>'+
+          '<div class="h"><div class="n">'+(boardRlv?((boardRlv<0?"−":"")+bandMoney(Math.abs(boardRlv))):"—")+'</div><div class="l">Residual land value*'+(PEX.chosen?' · '+esc(PEX.basisLabel):'')+'</div></div>'+
         '</div></div></div>'+
       '<div class="bd">'+
         // 01 opportunity
