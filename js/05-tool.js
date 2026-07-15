@@ -2218,7 +2218,7 @@ function loadSiteIntoDeal(site){
     )
     ,
     // ── FILE UPLOAD RESULTS MODAL ────────────────────────────────────────
-    (showFileUpload||fileProcessing)&&e("div",{style:{position:"fixed",inset:0,background:"rgba(15,15,30,0.65)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20}},
+    (showFileUpload||fileProcessing)&&e("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(15,15,30,0.65)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20}},
       e("div",{style:{background:"#fff",borderRadius:14,width:"100%",maxWidth:760,maxHeight:"85vh",display:"flex",flexDirection:"column",boxShadow:"0 30px 60px rgba(15,15,30,0.3)"}},
         e("div",{style:{padding:"18px 24px",borderBottom:"1px solid #DDE0ED",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}},
           e("div",null,
