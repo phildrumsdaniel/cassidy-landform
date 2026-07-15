@@ -109,6 +109,7 @@ function renderInvestorSuite(data, navTo, saveDeal, up, user){
       if(typeof buildBlindTeaser!=="function"){ if(typeof notify==="function") notify("Teaser generator still loading — try again in a moment."); return; }
       var html=buildBlindTeaser(data);
       if(typeof showReportOverlay==="function" && showReportOverlay(html,"Blind investment teaser (anonymised)")) return;
+      if(typeof openReportBlob==="function" && openReportBlob(html)) return;
       var w=window.open("","_blank");
       if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the teaser."); return; }
       w.document.open(); w.document.write(html); w.document.close();
@@ -118,6 +119,7 @@ function renderInvestorSuite(data, navTo, saveDeal, up, user){
       if(typeof buildAgentEnquiryPack!=="function"){ if(typeof notify==="function") notify("Enquiry pack generator still loading — try again in a moment."); return; }
       var html=buildAgentEnquiryPack(data);
       if(typeof showReportOverlay==="function" && showReportOverlay(html,"Agent enquiry & credentials pack")) return;
+      if(typeof openReportBlob==="function" && openReportBlob(html)) return;
       var w=window.open("","_blank");
       if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the pack."); return; }
       w.document.open(); w.document.write(html); w.document.close();
@@ -127,6 +129,7 @@ function renderInvestorSuite(data, navTo, saveDeal, up, user){
       if(typeof buildRPPack!=="function"){ if(typeof notify==="function") notify("RP pack generator still loading — try again in a moment."); return; }
       var html=buildRPPack(data);
       if(typeof showReportOverlay==="function" && showReportOverlay(html,"Housing Association / RP pack")) return;
+      if(typeof openReportBlob==="function" && openReportBlob(html)) return;
       var w=window.open("","_blank");
       if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the pack."); return; }
       w.document.open(); w.document.write(html); w.document.close();
@@ -136,6 +139,7 @@ function renderInvestorSuite(data, navTo, saveDeal, up, user){
       if(typeof buildLenderPack!=="function"){ if(typeof notify==="function") notify("Lender pack generator still loading — try again in a moment."); return; }
       var html=buildLenderPack(data);
       if(typeof showReportOverlay==="function" && showReportOverlay(html,"Development finance / lender pack")) return;
+      if(typeof openReportBlob==="function" && openReportBlob(html)) return;
       var w=window.open("","_blank");
       if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the pack."); return; }
       w.document.open(); w.document.write(html); w.document.close();
@@ -145,6 +149,7 @@ function renderInvestorSuite(data, navTo, saveDeal, up, user){
       if(typeof buildCouncilPack!=="function"){ if(typeof notify==="function") notify("Planning pack generator still loading — try again in a moment."); return; }
       var html=buildCouncilPack(data);
       if(typeof showReportOverlay==="function" && showReportOverlay(html,"Local authority / planning benefits pack")) return;
+      if(typeof openReportBlob==="function" && openReportBlob(html)) return;
       var w=window.open("","_blank");
       if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the pack."); return; }
       w.document.open(); w.document.write(html); w.document.close();
@@ -154,6 +159,7 @@ function renderInvestorSuite(data, navTo, saveDeal, up, user){
       if(typeof buildLandownerPack!=="function"){ if(typeof notify==="function") notify("Landowner pack generator still loading — try again in a moment."); return; }
       var html=buildLandownerPack(data);
       if(typeof showReportOverlay==="function" && showReportOverlay(html,"Landowner proposal")) return;
+      if(typeof openReportBlob==="function" && openReportBlob(html)) return;
       var w=window.open("","_blank");
       if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the pack."); return; }
       w.document.open(); w.document.write(html); w.document.close();
@@ -163,6 +169,7 @@ function renderInvestorSuite(data, navTo, saveDeal, up, user){
       if(typeof buildAllStakeholderPacks!=="function"){ if(typeof notify==="function") notify("Pack generator still loading — try again in a moment."); return; }
       var html=buildAllStakeholderPacks(data);
       if(typeof showReportOverlay==="function" && showReportOverlay(html,"All stakeholder packs")) return;
+      if(typeof openReportBlob==="function" && openReportBlob(html)) return;
       var w=window.open("","_blank");
       if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the packs."); return; }
       w.document.open(); w.document.write(html); w.document.close();
