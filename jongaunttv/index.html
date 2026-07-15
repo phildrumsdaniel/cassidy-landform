@@ -147,6 +147,13 @@ function adBanner() {
     </div></a>`;
 }
 
+// YouTube serves a 120x90 grey "no thumbnail" placeholder (HTTP 200) when a
+// video id has no real thumbnail, so onerror never fires. Detect that by size
+// and hide the image, letting the dark tile + play button show through instead.
+function ytThumbCheck(img) {
+  if (img.naturalWidth && img.naturalWidth <= 120) img.style.opacity = 0;
+}
+
 function jonAvatar(size, extra="") {
   return `<img src="${JON}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;object-position:center 15%;flex-shrink:0;${extra}"/>`;
 }
@@ -159,7 +166,7 @@ function badge(text, color) {
 function videoCardFull(v) {
   return `<div onclick="playVideo('${v.yt}','${v.title.replace(/'/g,"\\'")}');" style="background:#1E2F44;border-radius:12px;border:1px solid #2E3F55;overflow:hidden;cursor:pointer;margin-bottom:12px;">
     <div style="position:relative;background:#243B55;">
-      <img src="https://img.youtube.com/vi/${v.yt}/hqdefault.jpg" style="width:100%;aspect-ratio:16/9;object-fit:cover;display:block;" onerror="this.style.opacity=0"/>
+      <img src="https://img.youtube.com/vi/${v.yt}/hqdefault.jpg" style="width:100%;aspect-ratio:16/9;object-fit:cover;display:block;" onload="ytThumbCheck(this)" onerror="this.style.opacity=0"/>
       <div style="position:absolute;inset:0;background:rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">
         <div style="width:54px;height:54px;border-radius:50%;background:rgba(192,57,43,0.92);display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;padding-left:4px;">▶</div>
       </div>
@@ -179,7 +186,7 @@ function videoCardFull(v) {
 function videoCardCompact(v) {
   return `<div onclick="playVideo('${v.yt}','${v.title.replace(/'/g,"\\'")}');" style="display:flex;gap:10px;align-items:center;background:#1E2F44;border-radius:10px;padding:10px;margin-bottom:10px;cursor:pointer;border:1px solid #2E3F55;">
     <div style="width:80px;height:50px;border-radius:6px;overflow:hidden;flex-shrink:0;position:relative;background:#243B55;">
-      <img src="https://img.youtube.com/vi/${v.yt}/hqdefault.jpg" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.opacity=0"/>
+      <img src="https://img.youtube.com/vi/${v.yt}/hqdefault.jpg" style="width:100%;height:100%;object-fit:cover;" onload="ytThumbCheck(this)" onerror="this.style.opacity=0"/>
       <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
         <div style="width:22px;height:22px;border-radius:50%;background:rgba(192,57,43,0.9);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;padding-left:2px;">▶</div>
       </div>
