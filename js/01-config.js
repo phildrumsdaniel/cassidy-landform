@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.109";
+var CURRENT_VERSION = "10.110";
 var VERSION_HISTORY = [
+  {v:"10.110", date:"Jul 2026", headline:"The one-pager capitalisation now matches the Capitalisation SCREEN, bed-for-bed. The engine built its rent off the house mix through a slightly different bed classification than the Capitalisation screen, so the two could count the mix differently and show different capitalised values (e.g. the screen's headline vs the one-pager's forward-fund figure). New capBedMix() builds the 1/2/3/4-bed split the SAME way the screen does — the pinned/entered beds1..4 override, per field, an SFH-derived default that classifies each house type by bed count with the screen's own rules (incl. ‘executive’ → 4-bed, 5-bed → 4-bed rent). The rent-per-home is then this bed split × the researched per-bed rents. Verified the engine now reproduces the screen's NOI and capitalised value to the penny for a mixed 2/3/4-bed scheme. So editing (or pinning) the Capitalisation bedroom mix or rents flows straight through to the one-pager, teaser, IM and Suite — one number everywhere."},
   {v:"10.109", date:"Jul 2026", headline:"Capitalisation now reconciles across ALL the reports. The blind investor teaser and the Investor Memorandum were still flooring the forward-fund yield at 4.5% (with a fixed 4.5–6.0% ladder), so they showed a different capitalised value from the one-pager and the Capitalisation page. Both now use the SAME net-initial yield set on the Capitalisation stage (sanity-clamped to 3.5–7%), with the sensitivity ladder anchored on it. So every stakeholder document — one-pager, blind teaser, Investor Memorandum and the Stakeholder Suite — shows the same forward-fund figure off the same engine (rents, net-income method, yield and the tenure-blind option all flow through). The Detailed Appraisal is unchanged: it is the build-to-sell RESIDUAL land appraisal and already pulls the same residual land value from the engine — the capitalisation / forward-fund exit is shown on the one-pager, teaser, IM and Exit pages, not in the residual sheet."},
   {v:"10.108", date:"Jul 2026", headline:"Tenure-blind capitalisation — when a HA / fund buys the WHOLE scheme. New toggle on the Capitalisation stage: ‘Whole scheme sold to a HA / fund — tenure-blind’. When a housing association or institution buys the entire rented scheme as a capitalised investment, the market/affordable split is the BUYER's concern (grant and their cost of capital bridge the affordable income gap), so the affordable RENT discount should not reduce the developer's proceeds. With the toggle on, the scheme capitalises at 100% market rent — the affordable discount is not applied — lifting the capitalised value (e.g. +£36.6m on the test scheme). Off by default, so nothing changes unless you choose it; the affordable-rent-discount buttons grey out while it's on. It flows through the engine, the Capitalisation screen and the one-pager's forward-fund exit (which notes the tenure-blind basis). The headline plot-sales residual land value is unaffected — this is only the rented-investment exit."},
   {v:"10.107", date:"Jul 2026", headline:"The one-pager capitalisation now READS OFF the Capitalisation page. The engine's net rent was computed differently from the Capitalisation screen (affordable rent at 65% of market vs the screen's −20%/80%, and a flat 25% management vs the screen's itemised voids+management+maintenance+insurance), so the two showed different capitalised values for the same scheme. The engine now mirrors the screen exactly: market gross rent from the researched per-bed rents × the house mix, an affordable-rent discount blend (default −20% Affordable Rent when the scheme has affordable units), then the itemised NOI deductions (voids 5% + management 10% + maintenance 8% + insurance 2% = 25%), honouring any override. The one-pager's forward-fund table now also uses the SAME net-initial yield set on the Capitalisation page (no longer floored at 4.5%) as its base row, widening in +0.5% steps for sensitivity. Result: the one-pager's forward-fund value reconciles with the Capitalisation page (same rents, same net income, same yield). Verified: 1,800 homes at the researched rents → net £24.36m → £573.29m at 4.25%, matching the page method to the penny."},
@@ -3267,26 +3268,48 @@ function areaMarketRentPa(data){
   var mk = MKT[dealCityKey(data)];
   return (mk && mk.btr) ? mk.btr * 12 : 0;
 }
-// capMixRentPerUnitPa (v10.106) — the ANNUAL market rent per home built from the Capitalisation
-// stage's researched per-bed rents (cap.rent1..4, monthly £, filled by 'AI: research & fill area
-// rents' or entered), weighted by the actual house mix's bedroom counts. This is what the
-// Capitalisation screen uses, so wiring it into the engine makes the one-pager / forward-fund
-// figures reflect the SAME researched rents instead of a rent implied from the sale value.
-// Returns 0 when no per-bed rents are set, so the caller falls back to the value×yield proxy.
+// capBedMix (v10.110) — the 1/2/3/4-bed unit split used by the Capitalisation stage, built the SAME
+// way the Capitalisation screen builds it: the pinned/entered cap.beds1..4 override, per field, an
+// SFH-derived default (classifying each house-mix row by bed count with the screen's own rules).
+// So the engine and the screen count the mix identically, and 'Pin to current values' flows through.
+function capBedMix(data){
+  data = data || {};
+  var cap = data.capitalise || {};
+  var der = {1:0,2:0,3:0,4:0};
+  ((data.sfh || {}).mix || []).forEach(function(row){
+    var n = num(row.count); if(n <= 0) return;
+    var t = String(row.type || "").toLowerCase();
+    if(/(^|\D)5[\s-]?bed/.test(t)) der[4] += n;                                    // 5-bed → 4-bed rent field (screen has no beds5)
+    else if(/(^|\D)4[\s-]?bed/.test(t) || /executive/.test(t)) der[4] += n;
+    else if(/(^|\D)3[\s-]?bed/.test(t)) der[3] += n;
+    else if(/(^|\D)2[\s-]?bed/.test(t)) der[2] += n;
+    else if(/(^|\D)1[\s-]?bed/.test(t) || /studio/.test(t)) der[1] += n;
+    else { var hb = (typeof HOUSE_TYPES !== "undefined" && HOUSE_TYPES[row.type] && num(HOUSE_TYPES[row.type].beds)) || 3; hb = Math.max(1, Math.min(4, hb)); der[hb] += n; }
+  });
+  return {
+    1: cap.beds1 !== undefined ? num(cap.beds1) : der[1],
+    2: cap.beds2 !== undefined ? num(cap.beds2) : der[2],
+    3: cap.beds3 !== undefined ? num(cap.beds3) : der[3],
+    4: cap.beds4 !== undefined ? num(cap.beds4) : der[4]
+  };
+}
+// capMixRentPerUnitPa (v10.106, rebuilt v10.110) — the ANNUAL market rent per home from the
+// Capitalisation stage's researched per-bed rents (cap.rent1..4, monthly £) applied to the SAME
+// bedroom mix the Capitalisation screen uses (capBedMix). Wiring this into the engine makes the
+// one-pager / forward-fund figures reflect the SAME rents AND the same bed split as the screen, so
+// they reconcile (and respect 'Pin to current values'). Returns 0 when no per-bed rents are set.
 function capMixRentPerUnitPa(data){
   data = data || {};
   var cap = data.capitalise || {};
-  var mix = (data.sfh || {}).mix || [];
-  if(!mix.length) return 0;
   if(!(num(cap.rent1) > 0 || num(cap.rent2) > 0 || num(cap.rent3) > 0 || num(cap.rent4) > 0)) return 0;
-  function rentForBeds(b){ b = Math.max(1, Math.min(4, Math.round(num(b) || 3))); return num(cap["rent" + b]); }
+  function rentForBeds(b){ return num(cap["rent" + b]); }
+  var beds = capBedMix(data);
   var totCount = 0, totRentPa = 0;
-  mix.forEach(function(row){
-    var count = num(row.count); if(!count) return;
-    var beds = num(row.beds) || ((typeof HOUSE_TYPES !== "undefined" && HOUSE_TYPES[row.type] && num(HOUSE_TYPES[row.type].beds)) || 3);
-    var rpm = rentForBeds(beds); if(!(rpm > 0)) rpm = rentForBeds(3);   // fall back to the 3-bed rent if that size is unset
+  [1, 2, 3, 4].forEach(function(b){
+    var c = num(beds[b]); if(!(c > 0)) return;
+    var rpm = rentForBeds(b); if(!(rpm > 0)) rpm = rentForBeds(3) || rentForBeds(2) || rentForBeds(4) || rentForBeds(1);
     if(!(rpm > 0)) return;
-    totCount += count; totRentPa += count * rpm * 12;
+    totCount += c; totRentPa += c * rpm * 12;
   });
   return totCount > 0 ? totRentPa / totCount : 0;
 }
