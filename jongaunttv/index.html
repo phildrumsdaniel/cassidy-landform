@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>Jon Gaunt TV</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background:#0D1B2A;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#fff;overscroll-behavior:none;height:100vh;overflow:hidden;}
+::-webkit-scrollbar{display:none;}
+a{color:inherit;text-decoration:none;}
+button,input,textarea{font-family:inherit;outline:none;}
+@keyframes pulse{0%{transform:scale(1);opacity:0.6}100%{transform:scale(2.5);opacity:0}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.screen{animation:fadeIn 0.2s ease;}
+.pulse-ring{position:relative;display:inline-block;width:10px;height:10px;}
+.pulse-ring::before{content:"";position:absolute;inset:0;border-radius:50%;background:var(--pc,#C0392B);opacity:0.4;animation:pulse 1.5s ease-out infinite;}
+.pulse-ring::after{content:"";position:absolute;inset:2px;border-radius:50%;background:var(--pc,#C0392B);}
+.tab-content{overflow-y:auto;height:calc(100vh - 108px);-webkit-overflow-scrolling:touch;}
+.nav-btn{flex:1;background:transparent;border:none;padding:10px 4px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.nav-icon{font-size:18px;}
+.nav-label{font-size:10px;}
+.nav-bar{display:none;}
+.video-thumb{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:#243B55;}
+.pill{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;}
+.pill::-webkit-scrollbar{display:none;}
+.filter-btn{background:#1E2F44;color:#8B9AB0;border:1px solid #2E3F55;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.filter-btn.active{background:#C0392B;color:#fff;border-color:#C0392B;}
+.check-box{width:22px;height:22px;border-radius:5px;border:2px solid #2E3F55;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;font-weight:700;color:#fff;transition:all 0.2s;}
+.check-box.checked{background:#27AE60;border-color:#27AE60;}
+input[type=file]{display:none;}
+</style>
+</head>
+<body>
+
+<div id="root" style="max-width:390px;margin:0 auto;height:100vh;display:flex;flex-direction:column;position:relative;overflow:hidden;background:#0D1B2A;">
+
+  <!-- TOP BAR -->
+  <div style="background:#1A2D42;padding:10px 16px 8px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #2E3F55;flex-shrink:0;z-index:100;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBAUEBAYFBQUGBgYHCQ4JCQgICRINDQoOFRIWFhUSFBQXGiEcFxgfGRQUHScdHyIjJSUlFhwpLCgkKyEkJST/2wBDAQYGBgkICREJCREkGBQYJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk..." id="jonThumb" style="width:36px;height:36px;border-radius:50%;object-fit:cover;object-position:center 15%;border:2px solid #C0392B;flex-shrink:0;" onerror="this.style.display='none'"/>
+      <div>
+        <div style="color:#fff;font-weight:900;font-size:14px;line-height:1;">Jon Gaunt TV</div>
+        <div style="color:#8B9AB0;font-size:10px;">Free Speech · No Filter</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="pulse-ring"></span>
+      <span style="color:#C0392B;font-size:11px;font-weight:700;">LIVE</span>
+      <button onclick="this.outerHTML='<span style=\"color:#27AE60;font-size:12px;font-weight:700;\">✓ Member</span>'" style="background:#C0392B;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;">Join Free</button>
+    </div>
+  </div>
+
+  <!-- TAB CONTENT -->
+  <div class="tab-content" id="tabContent"></div>
+
+  <!-- BOTTOM NAV -->
+  <div style="background:#1A2D42;border-top:1px solid #2E3F55;display:flex;flex-shrink:0;z-index:100;">
+    <button class="nav-btn" onclick="showTab('home')" id="nav-home">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label" style="color:#C0392B;font-weight:700;">Home</span>
+      <div style="width:16px;height:2px;background:#C0392B;border-radius:2px;"></div>
+    </button>
+    <button class="nav-btn" onclick="showTab('episodes')" id="nav-episodes">
+      <span class="nav-icon">▶</span>
+      <span class="nav-label" style="color:#8B9AB0;">Episodes</span>
+    </button>
+    <button class="nav-btn" onclick="showTab('books')" id="nav-books">
+      <span class="nav-icon">📚</span>
+      <span class="nav-label" style="color:#8B9AB0;">Books</span>
+    </button>
+    <button class="nav-btn" onclick="showTab('shop')" id="nav-shop">
+      <span class="nav-icon">🛍️</span>
+      <span class="nav-label" style="color:#8B9AB0;">Shop</span>
+    </button>
+    <button class="nav-btn" onclick="showTab('sendview')" id="nav-sendview">
+      <span class="nav-icon">🎬</span>
+      <span class="nav-label" style="color:#8B9AB0;">Send View</span>
+    </button>
+  </div>
+
+</div>
+
+<script>
+const JON = "data:image/jpeg;base64,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";
+
+const VIDEOS = [
+  {id:"v1",yt:"r5LmcP8pL2s",title:"Charity Starts at Home — Secure UK Borders Now!",date:"26 Mar 2025",views:"18.4K",dur:"48:12",cat:"Immigration"},
+  {id:"v2",yt:"nmLxrKCl-SY",title:"Rachel Reeves Out of Her Depth and On the Freebie Take Again!",date:"24 Mar 2025",views:"22.1K",dur:"51:34",cat:"Politics"},
+  {id:"v3",yt:"j2iissaayuk",title:"Heathrow Fire Is Final Straw — I've Had Enough of Starmer's Labour",date:"24 Mar 2025",views:"31.2K",dur:"44:08",cat:"Politics"},
+  {id:"v4",yt:"c8jDTpChA_M",title:"JD Vance — Hero or Villain?",date:"20 Mar 2025",views:"27.9K",dur:"39:55",cat:"World"},
+  {id:"v5",yt:"YIiaDK5Qlog",title:"Would You Swap Trump for Starmer as UK Leader?",date:"14 Mar 2025",views:"44.3K",dur:"55:20",cat:"Politics"},
+  {id:"v6",yt:"cRM7VupZNz8",title:"Is Violent Crime Out of Control in UK?",date:"14 Mar 2025",views:"19.8K",dur:"42:17",cat:"Crime"},
+];
+
+const BOOKS = [
+  {title:"Undaunted",sub:"The True Story Behind the Shock-jock",price:"£10.99",uk:"https://www.amazon.co.uk/Undaunted-Jon-Gaunt/dp/0753513676",us:"https://www.amazon.com/Undaunted-Jon-Gaunt/dp/0753513676",cover:"https://covers.openlibrary.org/b/isbn/9780753513675-L.jpg",pages:288,year:2007,rating:4,reviews:25,emoji:"📖",badge:"AUTOBIOGRAPHY",bc:"#C0392B",desc:"Millions know him as a loudmouth radio shock-jock. Yet Jon Gaunt has overcome unimaginable hardship — his mother died when he was twelve, his father abandoned him to a children's home. At 28 his business had a million pound turnover, then fate caused catastrophe. A story of self-preservation, growth and forgiveness."},
+  {title:"Gaunty's Best of British",sub:"A Celebration of Great British Eccentrics",price:"£8.99",uk:"https://www.amazon.co.uk/s?k=Jon+Gaunt+Best+of+British",us:"https://www.amazon.com/s?k=Jon+Gaunt+Best+of+British",cover:"https://covers.openlibrary.org/b/isbn/9780007246380-L.jpg",pages:224,year:2008,rating:4,reviews:12,emoji:"🇬🇧",badge:"GREAT BRITAIN",bc:"#243B55",desc:"A passionate, funny and fiercely British celebration of the eccentrics, rebels and straight-talkers who made Britain great. Jon's love letter to the nation he grew up in — and the one he wants back."},
+];
+
+const MERCH = [
+  {name:"Free Speech Isn't Free",type:"T-Shirt",price:"£24.99",emoji:"👕",badge:"BESTSELLER",bc:"#F0A500"},
+  {name:"Working Class & Proud",type:"Hoodie",price:"£44.99",emoji:"🧥",badge:"NEW",bc:"#27AE60"},
+  {name:"I'm Not Paid To Shut Up",type:"Mug",price:"£14.99",emoji:"☕",badge:"",bc:""},
+  {name:"Jon Gaunt TV",type:"Cap",price:"£19.99",emoji:"🧢",badge:"NEW",bc:"#27AE60"},
+];
+
+const PERKS = [
+  {icon:"🎙️",perk:"Weekly Members-Only Show",desc:"Jon's unfiltered Friday debrief — never on YouTube"},
+  {icon:"📞",perk:"Direct Q&A Access",desc:"Submit questions Jon answers in the members show"},
+  {icon:"📰",perk:"Early Access to Episodes",desc:"Watch 24hrs before they go public"},
+  {icon:"🔓",perk:"Uncensored Commentary",desc:"The takes too hot for the public show"},
+  {icon:"🎬",perk:"Behind the Scenes",desc:"Pre-show prep, outtakes and raw footage"},
+  {icon:"🏆",perk:"Founding Member Badge",desc:"Your name credited on the show"},
+];
+
+const SUBS = [
+  {name:"Dave, Leeds",flag:"🇬🇧",topic:"Immigration",preview:"'Jon, this government has completely lost control of the borders...' ",aired:true},
+  {name:"Sarah, Texas",flag:"🇺🇸",topic:"Free Speech",preview:"'As a British expat in America, the BBC is a total embarrassment...'",aired:true},
+  {name:"Pete, Melbourne",flag:"🇦🇺",topic:"Cost of Living",preview:"'Britain is sleep-walking into disaster under Labour...'",aired:false},
+];
+
+const TOPICS = ["Immigration & Borders","Keir Starmer & Labour","Cost of Living","NHS & Healthcare","Free Speech & Cancel Culture","Reform UK","Crime & Law & Order","The BBC & Media Bias","Britain's Future","Other"];
+
+const ADS = [
+  {bg:"linear-gradient(135deg,#1a1a2e,#16213e)",text:"ExpressVPN — Browse Free. No Surveillance.",cta:"Try Free →",ac:"#F0A500",url:"#"},
+  {bg:"linear-gradient(135deg,#0d2137,#1a3a5c)",text:"GB News — Real News, Real Britain.",cta:"Watch →",ac:"#C0392B",url:"#"},
+  {bg:"linear-gradient(135deg,#1a2d1a,#2d4a2d)",text:"Printful — Start Your Own Merch Today",cta:"Get Started →",ac:"#27AE60",url:"#"},
+  {bg:"linear-gradient(135deg,#1a0a00,#3d1f00)",text:"☕ Enjoying the app? Help fund its development",cta:"Support Jon →",ac:"#F0A500",url:"https://www.buymeacoffee.com/Jongaunt"},
+];
+
+let adIdx = 0;
+function adBanner() {
+  const ad = ADS[adIdx % 4]; adIdx++;
+  return `<a href="${ad.url}" target="_blank" style="display:block;text-decoration:none;margin-bottom:12px;">
+    <div style="background:${ad.bg};border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;border:1px solid #2E3F55;">
+      <div><div style="font-size:9px;color:#8B9AB0;letter-spacing:0.1em;margin-bottom:2px;">SPONSORED</div>
+      <div style="font-size:12px;color:#fff;font-weight:600;">${ad.text}</div></div>
+      <div style="background:${ad.ac};color:#fff;font-size:11px;font-weight:700;padding:6px 10px;border-radius:6px;white-space:nowrap;margin-left:10px;flex-shrink:0;">${ad.cta}</div>
+    </div></a>`;
+}
+
+function jonAvatar(size, extra="") {
+  return `<img src="${JON}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;object-position:center 15%;flex-shrink:0;${extra}"/>`;
+}
+
+function badge(text, color) {
+  if(!text) return "";
+  return `<span style="background:${color};color:#fff;font-size:9px;font-weight:700;letter-spacing:0.08em;padding:2px 7px;border-radius:3px;">${text}</span>`;
+}
+
+function videoCardFull(v) {
+  return `<div onclick="playVideo('${v.yt}','${v.title.replace(/'/g,"\\'")}');" style="background:#1E2F44;border-radius:12px;border:1px solid #2E3F55;overflow:hidden;cursor:pointer;margin-bottom:12px;">
+    <div style="position:relative;background:#243B55;">
+      <img src="https://img.youtube.com/vi/${v.yt}/hqdefault.jpg" style="width:100%;aspect-ratio:16/9;object-fit:cover;display:block;" onerror="this.style.opacity=0"/>
+      <div style="position:absolute;inset:0;background:rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">
+        <div style="width:54px;height:54px;border-radius:50%;background:rgba(192,57,43,0.92);display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;padding-left:4px;">▶</div>
+      </div>
+      <div style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,0.8);color:#fff;font-size:11px;font-weight:600;padding:2px 6px;border-radius:4px;">${v.dur}</div>
+    </div>
+    <div style="padding:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="background:#243B55;color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;">${v.cat}</span>
+        <span style="color:#8B9AB0;font-size:11px;">${v.date}</span>
+      </div>
+      <div style="color:#fff;font-weight:700;font-size:13px;line-height:1.3;margin-bottom:4px;">${v.title}</div>
+      <div style="color:#8B9AB0;font-size:11px;">${v.views} views</div>
+    </div>
+  </div>`;
+}
+
+function videoCardCompact(v) {
+  return `<div onclick="playVideo('${v.yt}','${v.title.replace(/'/g,"\\'")}');" style="display:flex;gap:10px;align-items:center;background:#1E2F44;border-radius:10px;padding:10px;margin-bottom:10px;cursor:pointer;border:1px solid #2E3F55;">
+    <div style="width:80px;height:50px;border-radius:6px;overflow:hidden;flex-shrink:0;position:relative;background:#243B55;">
+      <img src="https://img.youtube.com/vi/${v.yt}/hqdefault.jpg" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.opacity=0"/>
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+        <div style="width:22px;height:22px;border-radius:50%;background:rgba(192,57,43,0.9);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;padding-left:2px;">▶</div>
+      </div>
+    </div>
+    <div style="flex:1;min-width:0;">
+      <div style="color:#fff;font-weight:600;font-size:12px;line-height:1.3;margin-bottom:3px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${v.title}</div>
+      <div style="color:#8B9AB0;font-size:11px;">${v.dur} · ${v.views}</div>
+    </div>
+  </div>`;
+}
+
+function coffeeClub() {
+  return `<div style="background:linear-gradient(135deg,#1a0e00,#2d1a00);border:2px solid #F0A500;border-radius:14px;overflow:hidden;margin-bottom:14px;">
+    <div style="background:linear-gradient(90deg,#F0A500,#e69500);padding:10px 16px;display:flex;align-items:center;gap:8px;">
+      <span style="font-size:18px;">☕</span>
+      <div style="color:#1a0e00;font-weight:900;font-size:14px;">GAUNTY'S COFFEE CLUB</div>
+      <div style="margin-left:auto;background:rgba(0,0,0,0.18);color:#1a0e00;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;">MEMBERS ONLY</div>
+    </div>
+    <div style="padding:14px 16px;">
+      <div style="color:#fff;font-weight:800;font-size:15px;margin-bottom:6px;line-height:1.3;">Buy Jon a Coffee — Get Exclusive Access</div>
+      <div style="color:rgba(255,255,255,0.75);font-size:12px;line-height:1.6;margin-bottom:14px;">Support Jon's independent broadcasting and unlock private content that never appears anywhere else.</div>
+      ${PERKS.map(p=>`<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;">
+        <div style="width:34px;height:34px;border-radius:8px;background:rgba(240,165,0,0.15);border:1px solid rgba(240,165,0,0.3);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">${p.icon}</div>
+        <div style="flex:1;padding-top:2px;">
+          <div style="color:#F0A500;font-weight:700;font-size:13px;line-height:1.2;">${p.perk}</div>
+          <div style="color:#8B9AB0;font-size:11px;margin-top:1px;">${p.desc}</div>
+        </div>
+        <div style="color:#27AE60;font-size:14px;font-weight:700;padding-top:4px;">✓</div>
+      </div>`).join("")}
+      <a href="https://www.buymeacoffee.com/Jongaunt" target="_blank"
+        style="display:block;background:linear-gradient(90deg,#F0A500,#e69500);color:#1a0e00;border-radius:10px;padding:14px;text-align:center;font-weight:900;font-size:15px;margin-top:4px;margin-bottom:8px;text-decoration:none;">
+        ☕ Join Gaunty's Coffee Club
+      </a>
+      <div style="text-align:center;color:#8B9AB0;font-size:11px;">From just the price of a coffee · Cancel anytime · Support independent media</div>
+    </div>
+  </div>`;
+}
+
+// ── SCREENS ────────────────────────────────────────────────────
+function renderHome() {
+  return `<div class="screen" style="padding-bottom:20px;">
+    <div style="background:linear-gradient(180deg,#1A2D42,#0D1B2A);padding:14px 16px 16px;border-bottom:1px solid #2E3F55;">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;">
+        <div style="position:relative;flex-shrink:0;">
+          ${jonAvatar(58,"border:2px solid #C0392B;")}
+          <div style="position:absolute;bottom:0;right:0;width:16px;height:16px;border-radius:50%;background:#C0392B;border:2px solid #0D1B2A;display:flex;align-items:center;justify-content:center;">
+            <span class="pulse-ring" style="--pc:#fff;width:8px;height:8px;"></span>
+          </div>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="color:#fff;font-weight:900;font-size:17px;line-height:1.1;">Jon Gaunt</div>
+          <div style="color:#F0A500;font-size:10px;font-weight:700;margin-bottom:2px;">Triple Sony Gold Award Winner</div>
+          <div style="color:#8B9AB0;font-size:10px;">BBC · talkSPORT · Sky News · The Sun</div>
+        </div>
+        <a href="https://www.youtube.com/@JonGauntTV" target="_blank"
+          style="background:#C0392B;color:#fff;padding:7px 12px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;">WATCH LIVE</a>
+      </div>
+      ${videoCardFull(VIDEOS[0])}
+    </div>
+    <div style="padding:14px 14px 0;">
+      ${coffeeClub()}
+      ${adBanner()}
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        ${[["7.5K","YouTube"],["33K","X/Twitter"],["Live 3×","Per Week"]].map(([v,l])=>`
+          <div style="flex:1;background:#1E2F44;border-radius:10px;padding:12px 6px;text-align:center;border:1px solid #2E3F55;">
+            <div style="color:#F0A500;font-weight:800;font-size:15px;">${v}</div>
+            <div style="color:#8B9AB0;font-size:10px;margin-top:2px;">${l}</div>
+          </div>`).join("")}
+      </div>
+      <div style="color:#8B9AB0;font-size:11px;font-weight:700;letter-spacing:0.1em;margin-bottom:10px;">MORE EPISODES</div>
+      ${VIDEOS.slice(1,4).map(v=>videoCardCompact(v)).join("")}
+      ${adBanner()}
+      <div style="display:flex;gap:8px;margin-bottom:4px;">
+        <a href="https://www.youtube.com/@JonGauntTV?sub_confirmation=1" target="_blank" style="flex:1;background:#FF0000;color:#fff;border-radius:8px;padding:11px;text-align:center;font-weight:700;font-size:12px;">▶ YouTube</a>
+        <a href="https://www.tiktok.com/@jongauntofficial" target="_blank" style="flex:1;background:#010101;color:#fff;border:1px solid #2E3F55;border-radius:8px;padding:11px;text-align:center;font-weight:700;font-size:12px;">TikTok</a>
+        <a href="https://www.facebook.com/JonGaunt/" target="_blank" style="flex:1;background:#1877F2;color:#fff;border-radius:8px;padding:11px;text-align:center;font-weight:700;font-size:12px;">Facebook</a>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderEpisodes(filter="All") {
+  const cats = ["All","Politics","Immigration","World","Crime"];
+  const filtered = filter==="All" ? VIDEOS : VIDEOS.filter(v=>v.cat===filter);
+  return `<div class="screen" style="padding:16px;">
+    <div style="display:flex;gap:12px;align-items:center;background:#1E2F44;border-radius:12px;padding:14px;margin-bottom:14px;border:1px solid #2E3F55;">
+      ${jonAvatar(52,"border:2px solid #C0392B;")}
+      <div style="flex:1;">
+        <div style="color:#fff;font-weight:800;font-size:15px;">Jon Gaunt TV</div>
+        <div style="color:#8B9AB0;font-size:11px;">All episodes — free on YouTube</div>
+      </div>
+      <a href="https://www.youtube.com/@JonGauntTV" target="_blank" style="background:#FF0000;color:#fff;border-radius:6px;padding:7px 12px;font-size:11px;font-weight:700;">Subscribe</a>
+    </div>
+    <div class="pill" style="margin-bottom:10px;">
+      ${cats.map(c=>`<button class="filter-btn ${c===filter?'active':''}" onclick="showEpisodes('${c}')">${c}</button>`).join("")}
+    </div>
+    ${adBanner()}
+    ${filtered.map(v=>videoCardFull(v)).join("")}
+    <a href="https://www.youtube.com/@JonGauntTV/videos" target="_blank" style="display:block;background:#1E2F44;color:#8B9AB0;border:1px solid #2E3F55;border-radius:10px;padding:14px;text-align:center;font-size:13px;font-weight:600;">View all on YouTube →</a>
+  </div>`;
+}
+
+function bookCard(b) {
+  return `<div style="background:#1E2F44;border-radius:14px;border:1px solid #2E3F55;overflow:hidden;margin-bottom:16px;">
+    <div style="display:flex;">
+      <div style="width:110px;flex-shrink:0;background:linear-gradient(135deg,#243B55,#0D1B2A);display:flex;align-items:center;justify-content:center;min-height:150px;position:relative;">
+        <img src="${b.cover}" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.outerHTML='<div style=\\'text-align:center;padding:12px;\\'><div style=\\'font-size:36px;margin-bottom:6px;\\'>${b.emoji}</div><div style=\\'color:#fff;font-weight:800;font-size:11px;line-height:1.3;\\'>${b.title}</div></div>'"/>
+        <div style="position:absolute;top:6px;left:6px;">${badge(b.badge,b.bc)}</div>
+      </div>
+      <div style="flex:1;padding:14px 12px;">
+        <div style="color:#fff;font-weight:900;font-size:15px;line-height:1.2;margin-bottom:3px;">${b.title}</div>
+        <div style="color:#8B9AB0;font-size:10px;margin-bottom:6px;">${b.sub}</div>
+        <div style="color:#F0A500;font-size:12px;margin-bottom:4px;">${"★".repeat(b.rating)} <span style="color:#8B9AB0;font-size:10px;">(${b.reviews})</span></div>
+        <div style="color:#8B9AB0;font-size:10px;margin-bottom:6px;">${b.pages}pp · ${b.year}</div>
+        <div style="color:#F0A500;font-weight:900;font-size:18px;">${b.price}</div>
+      </div>
+    </div>
+    <div style="padding:0 14px 14px;">
+      <div style="color:rgba(255,255,255,0.8);font-size:12px;line-height:1.6;margin-bottom:12px;">${b.desc}</div>
+      <div style="display:flex;background:#1A2D42;border-radius:8px;padding:3px;margin-bottom:10px;" id="reg_${b.title.replace(/[^a-z]/gi,'')}">
+        <button onclick="setRegion('${b.title.replace(/[^a-z]/gi,'')}','uk','${b.uk}','${b.us}','${b.price}')" style="flex:1;background:#C0392B;color:#fff;border:none;border-radius:6px;padding:7px;font-size:12px;font-weight:700;cursor:pointer;">🇬🇧 Amazon UK</button>
+        <button onclick="setRegion('${b.title.replace(/[^a-z]/gi,'')}','us','${b.uk}','${b.us}','${b.price}')" style="flex:1;background:transparent;color:#8B9AB0;border:none;border-radius:6px;padding:7px;font-size:12px;font-weight:700;cursor:pointer;">🇺🇸 Amazon US</button>
+      </div>
+      <a href="${b.uk}" target="_blank" id="buylink_${b.title.replace(/[^a-z]/gi,'')}"
+        style="display:block;background:linear-gradient(90deg,#F0A500,#e69500);color:#1a0e00;border-radius:8px;padding:13px;text-align:center;font-weight:800;font-size:14px;">
+        Buy on Amazon UK — ${b.price}
+      </a>
+    </div>
+  </div>`;
+}
+
+function setRegion(key, region, uk, us, price) {
+  const box = document.getElementById("reg_"+key);
+  const link = document.getElementById("buylink_"+key);
+  if (!box||!link) return;
+  const btns = box.querySelectorAll("button");
+  const url = region==="uk" ? uk : us;
+  const label = region==="uk" ? "UK" : "US";
+  btns[0].style.background = region==="uk" ? "#C0392B" : "transparent";
+  btns[0].style.color = region==="uk" ? "#fff" : "#8B9AB0";
+  btns[1].style.background = region==="us" ? "#C0392B" : "transparent";
+  btns[1].style.color = region==="us" ? "#fff" : "#8B9AB0";
+  link.href = url;
+  link.textContent = `Buy on Amazon ${label} — ${price}`;
+}
+
+function renderBooks() {
+  return `<div class="screen" style="padding:16px;">
+    <div style="background:linear-gradient(135deg,#1A2D42,#243B55);border:2px solid #F0A500;border-radius:14px;padding:18px;margin-bottom:16px;text-align:center;">
+      ${jonAvatar(72,"margin:0 auto 12px;display:block;border:3px solid #F0A500;")}
+      <div style="color:#fff;font-weight:900;font-size:18px;margin-bottom:4px;">Jon Gaunt's Books</div>
+      <div style="color:#8B9AB0;font-size:12px;line-height:1.6;margin-bottom:10px;">Available on Amazon UK and US</div>
+      ${badge("PUBLISHED AUTHOR","#F0A500")}
+    </div>
+    ${adBanner()}
+    ${BOOKS.map(b=>bookCard(b)).join("")}
+    <div style="background:#1E2F44;border-radius:12px;padding:16px;border:1px solid #2E3F55;margin-bottom:14px;">
+      <div style="color:#fff;font-weight:800;font-size:14px;margin-bottom:6px;">🎙️ Also on Podcast</div>
+      <div style="color:#8B9AB0;font-size:12px;margin-bottom:12px;">The Jon Gaunt Show — free on all platforms</div>
+      <div style="display:flex;gap:8px;">
+        <a href="https://podcasts.apple.com/gb/podcast/the-jon-gaunt-show/id980963118" target="_blank" style="flex:1;background:#A239CA;color:#fff;border-radius:8px;padding:10px;text-align:center;font-weight:700;font-size:12px;">Apple</a>
+        <a href="https://open.spotify.com/search/Jon%20Gaunt" target="_blank" style="flex:1;background:#1DB954;color:#fff;border-radius:8px;padding:10px;text-align:center;font-weight:700;font-size:12px;">Spotify</a>
+        <a href="https://www.buymeacoffee.com/Jongaunt" target="_blank" style="flex:1;background:#F0A500;color:#1a0e00;border-radius:8px;padding:10px;text-align:center;font-weight:700;font-size:12px;">Support</a>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderShop() {
+  return `<div class="screen" style="padding:16px;">
+    <div style="background:#1E2F44;border-radius:12px;padding:14px;margin-bottom:14px;border:1px solid #2E3F55;display:flex;gap:12px;align-items:center;">
+      ${jonAvatar(52,"border:2px solid #F0A500;")}
+      <div>
+        <div style="color:#fff;font-weight:800;font-size:15px;">Jon Gaunt TV Shop</div>
+        <div style="color:#8B9AB0;font-size:12px;">Official merch — funds independent media</div>
+      </div>
+    </div>
+    ${adBanner()}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+      ${MERCH.map((item,i)=>`<div style="background:#1E2F44;border-radius:12px;padding:14px;border:1px solid #2E3F55;display:flex;flex-direction:column;align-items:center;text-align:center;">
+        <div style="font-size:36px;margin-bottom:8px;">${item.emoji}</div>
+        ${item.badge?`<div style="margin-bottom:6px;">${badge(item.badge,item.bc)}</div>`:""}
+        <div style="color:#fff;font-weight:700;font-size:13px;margin-bottom:2px;">${item.name}</div>
+        <div style="color:#8B9AB0;font-size:11px;margin-bottom:8px;">${item.type}</div>
+        <div style="color:#F0A500;font-weight:800;font-size:15px;margin-bottom:10px;">${item.price}</div>
+        <button onclick="this.textContent='✓ Added!';this.style.background='#27AE60';setTimeout(()=>{this.textContent='Add to Cart';this.style.background='#C0392B';},2000);"
+          style="width:100%;border:none;border-radius:7px;background:#C0392B;color:#fff;padding:8px 0;font-size:12px;font-weight:700;cursor:pointer;transition:background 0.2s;">Add to Cart</button>
+      </div>`).join("")}
+    </div>
+    <div style="color:#8B9AB0;font-size:11px;font-weight:700;letter-spacing:0.1em;margin-bottom:10px;">BOOKS</div>
+    ${BOOKS.map(b=>`<div style="background:#1E2F44;border-radius:10px;padding:12px;margin-bottom:10px;border:1px solid #2E3F55;display:flex;gap:12px;align-items:center;">
+      <div style="font-size:32px;flex-shrink:0;">${b.emoji}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="color:#fff;font-weight:700;font-size:13px;">${b.title}</div>
+        <div style="color:#8B9AB0;font-size:11px;margin-bottom:4px;">${b.sub}</div>
+        <div style="color:#F0A500;font-weight:800;font-size:14px;">${b.price}</div>
+      </div>
+      <a href="${b.uk}" target="_blank" style="background:#F0A500;color:#1a0e00;border-radius:6px;padding:8px 12px;font-size:11px;font-weight:700;flex-shrink:0;">Buy</a>
+    </div>`).join("")}
+    <a href="https://www.buymeacoffee.com/Jongaunt" target="_blank"
+      style="display:block;background:linear-gradient(90deg,#F0A500,#e69500);color:#1a0e00;border-radius:10px;padding:14px;text-align:center;font-weight:800;font-size:14px;margin-top:4px;">
+      ☕ Buy Jon a Coffee — Support the Show
+    </a>
+  </div>`;
+}
+
+let submitName="", submitTopic="", submitFile=null, submitAgree=false;
+
+function renderSendView(stage="landing") {
+  if(stage==="success") return `<div class="screen" style="padding:24px 16px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:70vh;">
+    <div style="width:80px;height:80px;border-radius:50%;background:#27AE60;display:flex;align-items:center;justify-content:center;font-size:40px;margin-bottom:20px;">✓</div>
+    <div style="color:#fff;font-weight:900;font-size:22px;margin-bottom:8px;">Video Received!</div>
+    <div style="color:#8B9AB0;font-size:14px;line-height:1.7;margin-bottom:24px;max-width:280px;">Thanks ${submitName||"for submitting"}! Jon personally reviews every submission. If he selects yours, you will feature on Jon Gaunt TV.</div>
+    <div style="background:#1E2F44;border:1px solid #2E3F55;border-radius:12px;padding:16px;margin-bottom:24px;width:100%;max-width:300px;text-align:left;">
+      <div style="color:#F0A500;font-weight:700;font-size:13px;margin-bottom:12px;">What happens next</div>
+      ${["Jon reviews your video personally","If selected, it airs on the show","Jon responds to your view on air","You get credited on Jon Gaunt TV"].map((s,i)=>`
+        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;">
+          <div style="width:24px;height:24px;border-radius:50%;background:#C0392B;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</div>
+          <div style="color:rgba(255,255,255,0.85);font-size:13px;line-height:1.4;padding-top:3px;">${s}</div>
+        </div>`).join("")}
+    </div>
+    <button onclick="submitName='';submitTopic='';submitFile=null;submitAgree=false;showSendView('landing');"
+      style="background:#C0392B;color:#fff;border:none;border-radius:10px;padding:14px 32px;font-size:14px;font-weight:700;cursor:pointer;">Submit Another View</button>
+  </div>`;
+
+  if(stage==="form") return `<div class="screen" style="padding:16px;padding-bottom:24px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+      <button onclick="showSendView('landing')" style="background:#1E2F44;color:#8B9AB0;border:1px solid #2E3F55;border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;">← Back</button>
+      <div style="color:#fff;font-weight:700;font-size:15px;">Your Submission to Jon</div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <div style="color:#8B9AB0;font-size:11px;font-weight:700;letter-spacing:0.08em;margin-bottom:6px;">YOUR NAME *</div>
+      <input id="sv_name" type="text" placeholder="e.g. Dave from Leeds" value="${submitName}"
+        style="width:100%;background:#1E2F44;color:#fff;border:1px solid #2E3F55;border-radius:8px;padding:12px;font-size:14px;"/>
+    </div>
+    <div style="margin-bottom:14px;">
+      <div style="color:#8B9AB0;font-size:11px;font-weight:700;letter-spacing:0.08em;margin-bottom:6px;">YOUR LOCATION</div>
+      <input id="sv_loc" type="text" placeholder="e.g. Manchester or Texas, USA"
+        style="width:100%;background:#1E2F44;color:#fff;border:1px solid #2E3F55;border-radius:8px;padding:12px;font-size:14px;"/>
+    </div>
+    <div style="margin-bottom:16px;">
+      <div style="color:#8B9AB0;font-size:11px;font-weight:700;letter-spacing:0.08em;margin-bottom:8px;">TOPIC *</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;" id="topicBtns">
+        ${TOPICS.map(t=>`<button onclick="selectTopic('${t}')" class="filter-btn ${submitTopic===t?'active':''}" id="tp_${t.replace(/[^a-z]/gi,'')}">${t}</button>`).join("")}
+      </div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <div style="color:#8B9AB0;font-size:11px;font-weight:700;letter-spacing:0.08em;margin-bottom:8px;">YOUR VIDEO *</div>
+      <div onclick="document.getElementById('sv_file').click()" id="dropZone"
+        style="border:2px dashed #2E3F55;border-radius:12px;background:#1E2F44;padding:28px 20px;text-align:center;cursor:pointer;">
+        <div style="font-size:36px;margin-bottom:10px;">🎬</div>
+        <div id="fileLabel" style="color:#fff;font-weight:700;font-size:14px;margin-bottom:4px;">${submitFile?submitFile.name:"Tap to choose your video"}</div>
+        <div style="color:#8B9AB0;font-size:12px;">${submitFile?((submitFile.size/1024/1024).toFixed(1)+"MB"):"MP4, MOV, AVI — max 200MB"}</div>
+        <input id="sv_file" type="file" accept="video/*" onchange="handleFileChange(this)"/>
+      </div>
+    </div>
+    <div style="background:#1A2D42;border-radius:10px;padding:12px;margin-bottom:14px;border:1px solid #2E3F55;">
+      <div style="color:#F0A500;font-weight:700;font-size:12px;margin-bottom:8px;">💡 Tips for a great submission</div>
+      ${["Keep it under 3 minutes — punchy gets picked","Film landscape, good lighting, speak clearly","Say your name and where you are from","Be direct — Jon loves a strong opinion"].map(t=>`<div style="color:#8B9AB0;font-size:12px;margin-bottom:5px;padding-left:10px;border-left:2px solid #C0392B;">${t}</div>`).join("")}
+    </div>
+    <div onclick="toggleAgree()" id="agreeBox"
+      style="display:flex;gap:10px;align-items:flex-start;background:#1E2F44;border-radius:10px;padding:12px;margin-bottom:16px;border:1px solid ${submitAgree?"#27AE60":"#2E3F55"};cursor:pointer;">
+      <div class="check-box ${submitAgree?"checked":""}" id="checkIcon">${submitAgree?"✓":""}</div>
+      <div style="color:#8B9AB0;font-size:12px;line-height:1.5;">I confirm this is my original video and I give Jon Gaunt TV permission to broadcast it on the show, YouTube, TikTok and all platforms. I am over 18.</div>
+    </div>
+    <button onclick="doSubmit()" style="width:100%;background:linear-gradient(90deg,#C0392B,#E74C3C);color:#fff;border:none;border-radius:10px;padding:16px;font-size:15px;font-weight:800;cursor:pointer;">
+      Submit to Jon Gaunt TV
+    </button>
+  </div>`;
+
+  // landing
+  return `<div class="screen" style="padding-bottom:20px;">
+    <div style="background:linear-gradient(180deg,#1A2D42,#0D1B2A);padding:24px 16px;border-bottom:1px solid #2E3F55;text-align:center;">
+      ${jonAvatar(80,"margin:0 auto 14px;display:block;border:3px solid #C0392B;")}
+      <div style="color:#fff;font-weight:900;font-size:22px;line-height:1.2;margin-bottom:8px;">Send Your View to Jon</div>
+      <div style="color:#8B9AB0;font-size:13px;line-height:1.7;margin-bottom:16px;max-width:300px;margin-left:auto;margin-right:auto;">Record a short video with your opinion — Jon personally reviews every submission and responds to the best on his live show.</div>
+      <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(192,57,43,0.15);border:1px solid #C0392B;border-radius:20px;padding:7px 14px;">
+        <span class="pulse-ring" style="--pc:#C0392B;"></span>
+        <span style="color:#C0392B;font-size:12px;font-weight:700;">Jon watches every video personally</span>
+      </div>
+    </div>
+    <div style="padding:20px 16px 0;">
+      <div style="color:#8B9AB0;font-size:11px;font-weight:700;letter-spacing:0.1em;margin-bottom:14px;">HOW IT WORKS</div>
+      ${[
+        {icon:"🎬",step:"Record your view",desc:"Film yourself giving your opinion — under 3 minutes, any topic Jon covers"},
+        {icon:"📤",step:"Submit to Jon",desc:"Upload here — Jon personally vets every submission before anything airs"},
+        {icon:"⭐",step:"Get selected",desc:"If Jon picks your video it plays on the live show in front of thousands"},
+        {icon:"🎙️",step:"Jon responds",desc:"Jon plays your clip and gives his full unfiltered response on air"},
+      ].map((item,i)=>`<div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:16px;">
+        <div style="width:46px;height:46px;border-radius:12px;background:#1E2F44;border:1px solid #2E3F55;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">${item.icon}</div>
+        <div style="flex:1;padding-top:2px;">
+          <div style="color:#fff;font-weight:700;font-size:14px;margin-bottom:3px;">${item.step}</div>
+          <div style="color:#8B9AB0;font-size:12px;line-height:1.5;">${item.desc}</div>
+        </div>
+        <div style="color:#C0392B;font-weight:900;font-size:20px;padding-top:6px;">${i+1}</div>
+      </div>`).join("")}
+      ${adBanner()}
+      <div style="color:#8B9AB0;font-size:11px;font-weight:700;letter-spacing:0.1em;margin-bottom:12px;">FEATURED ON THE SHOW</div>
+      ${SUBS.map(s=>`<div style="background:#1E2F44;border-radius:10px;padding:12px;margin-bottom:10px;border:1px solid #2E3F55;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="color:#fff;font-weight:700;font-size:13px;">${s.flag} ${s.name}</span>
+          ${s.aired?`<span style="background:#27AE60;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;">AIRED</span>`:`<span style="background:#F0A500;color:#1a0e00;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;">PENDING</span>`}
+        </div>
+        <div style="background:#1A2D42;border-radius:5px;padding:3px 8px;margin-bottom:6px;display:inline-block;"><span style="color:#C0392B;font-size:11px;font-weight:600;">${s.topic}</span></div>
+        <div style="color:rgba(255,255,255,0.7);font-size:12px;line-height:1.5;font-style:italic;">${s.preview}</div>
+      </div>`).join("")}
+      <button onclick="showSendView('form')"
+        style="width:100%;background:linear-gradient(90deg,#C0392B,#E74C3C);color:#fff;border:none;border-radius:12px;padding:18px;font-size:16px;font-weight:900;cursor:pointer;margin-top:8px;margin-bottom:8px;">
+        🎬 Send Your View to Jon
+      </button>
+      <div style="text-align:center;color:#8B9AB0;font-size:11px;margin-bottom:16px;">Free to submit · Vetted by Jon personally · Over 18s only</div>
+    </div>
+  </div>`;
+}
+
+// ── NAV & ROUTING ──────────────────────────────────────────────
+let currentTab = "home";
+let currentFilter = "All";
+
+function showTab(tab) {
+  currentTab = tab;
+  const nav = ["home","episodes","books","shop","sendview"];
+  nav.forEach(t => {
+    const btn = document.getElementById("nav-"+t);
+    if(!btn) return;
+    const label = btn.querySelector(".nav-label");
+    const dot = btn.querySelector(".nav-dot");
+    if(dot) dot.remove();
+    if(label) label.style.color = t===tab ? "#C0392B" : "#8B9AB0";
+    label.style.fontWeight = t===tab ? "700" : "400";
+    if(t===tab) {
+      if(!btn.querySelector(".nav-dot")) {
+        const d = document.createElement("div");
+        d.className = "nav-dot";
+        d.style.cssText = "width:16px;height:2px;background:#C0392B;border-radius:2px;";
+        btn.appendChild(d);
+      }
+    }
+  });
+  const content = document.getElementById("tabContent");
+  content.scrollTop = 0;
+  adIdx = 0;
+  if(tab==="home") content.innerHTML = renderHome();
+  else if(tab==="episodes") content.innerHTML = renderEpisodes(currentFilter);
+  else if(tab==="books") content.innerHTML = renderBooks();
+  else if(tab==="shop") content.innerHTML = renderShop();
+  else if(tab==="sendview") content.innerHTML = renderSendView("landing");
+
+  // Fix the top bar thumbnail with full image
+  const t = document.getElementById("jonThumb");
+  if(t) t.src = JON;
+}
+
+function showEpisodes(filter) {
+  currentFilter = filter;
+  adIdx = 0;
+  document.getElementById("tabContent").innerHTML = renderEpisodes(filter);
+}
+
+function showSendView(stage) {
+  adIdx = 0;
+  document.getElementById("tabContent").innerHTML = renderSendView(stage);
+}
+
+function selectTopic(t) {
+  submitTopic = t;
+  document.querySelectorAll("#topicBtns .filter-btn").forEach(b=>{ b.classList.remove("active"); });
+  const id = "tp_"+t.replace(/[^a-z]/gi,"");
+  const el = document.getElementById(id);
+  if(el) el.classList.add("active");
+}
+
+function toggleAgree() {
+  submitAgree = !submitAgree;
+  const box = document.getElementById("agreeBox");
+  const icon = document.getElementById("checkIcon");
+  if(box) box.style.borderColor = submitAgree ? "#27AE60" : "#2E3F55";
+  if(icon) { icon.classList.toggle("checked", submitAgree); icon.textContent = submitAgree?"✓":""; }
+}
+
+function handleFileChange(input) {
+  const f = input.files[0];
+  if(!f) return;
+  if(f.size > 200*1024*1024) { alert("File too large — max 200MB"); return; }
+  submitFile = f;
+  const lbl = document.getElementById("fileLabel");
+  if(lbl) lbl.textContent = f.name;
+}
+
+function doSubmit() {
+  const nameEl = document.getElementById("sv_name");
+  if(nameEl) submitName = nameEl.value.trim();
+  if(!submitName) { alert("Please add your name"); return; }
+  if(!submitTopic) { alert("Please select a topic"); return; }
+  if(!submitFile) { alert("Please add your video"); return; }
+  if(!submitAgree) { alert("Please tick the permission box"); return; }
+  showSendView("success");
+}
+
+function playVideo(ytId, title) {
+  const overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.98);z-index:300;display:flex;flex-direction:column;max-width:390px;left:50%;transform:translateX(-50%);";
+  overlay.innerHTML = `
+    <div style="background:#1A2D42;padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #2E3F55;flex-shrink:0;">
+      <img src="${JON}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;object-position:center 15%;border:2px solid #C0392B;flex-shrink:0;"/>
+      <div style="flex:1;min-width:0;color:#fff;font-weight:700;font-size:12px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${title}</div>
+      <button onclick="this.closest('div[style*=z-index]').remove()" style="background:#1E2F44;color:#fff;border:1px solid #2E3F55;border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer;flex-shrink:0;">✕ Close</button>
+    </div>
+    <div style="flex:1;position:relative;background:#000;">
+      <iframe src="https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1"
+        style="position:absolute;inset:0;width:100%;height:100%;border:none;"
+        allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe>
+    </div>
+    <div style="padding:12px 16px;background:#1A2D42;border-top:1px solid #2E3F55;flex-shrink:0;">
+      <div style="margin-bottom:10px;">
+        <a href="https://www.buymeacoffee.com/Jongaunt" target="_blank" style="display:block;background:linear-gradient(135deg,#1a0a00,#3d1f00);border:1px solid #2E3F55;border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;text-decoration:none;">
+          <div><div style="font-size:9px;color:#8B9AB0;letter-spacing:0.1em;margin-bottom:2px;">SPONSORED</div><div style="font-size:12px;color:#fff;font-weight:600;">☕ Help fund the app — Buy Jon a Coffee</div></div>
+          <div style="background:#F0A500;color:#1a0e00;font-size:11px;font-weight:700;padding:6px 10px;border-radius:6px;white-space:nowrap;margin-left:10px;">Support →</div>
+        </a>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <a href="https://www.youtube.com/@JonGauntTV?sub_confirmation=1" target="_blank"
+          style="flex:1;background:#FF0000;color:#fff;border-radius:8px;padding:12px;font-size:13px;font-weight:700;text-align:center;display:block;">▶ Subscribe on YouTube</a>
+        <button onclick="this.closest('div[style*=z-index]').remove()" style="background:#1E2F44;color:#8B9AB0;border:1px solid #2E3F55;border-radius:8px;padding:12px 16px;font-size:12px;cursor:pointer;">Back</button>
+      </div>
+    </div>`;
+  document.getElementById("root").appendChild(overlay);
+}
+
+// Init
+showTab("home");
+</script>
+</body>
+</html>
