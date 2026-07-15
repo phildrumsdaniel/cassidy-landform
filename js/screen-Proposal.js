@@ -1687,7 +1687,7 @@ function renderProposal(city, data, gdv, lc, up, user){
             exitRow("Open-market plot sales","(build &amp; sell — primary)",gdvV)+
             (noi>0?[baseYieldPct-0.5,baseYieldPct,baseYieldPct+0.5,baseYieldPct+1.0].map(function(y){
               if(y<=0) return "";
-              return exitRow("Institutional forward sale @ "+y.toFixed(1)+"%","(capitalised NOI "+fmt(noi)+"/yr)",noi/(y/100));
+              return exitRow("Institutional forward sale @ "+y.toFixed(2)+"%","(capitalised NOI "+fmt(noi)+"/yr)",noi/(y/100));
             }).join(""):"")+
           '</table>'+
           (noi>0?'<div style="font-size:11.5px;color:#666C93;margin-top:9px">Plot sales realise the most; an institutional forward sale trades a lower headline for earlier, de-risked cash. A tighter (lower) yield means a higher price — each 0.5% of yield moves the institutional value materially.</div>'

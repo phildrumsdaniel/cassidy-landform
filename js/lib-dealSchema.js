@@ -452,7 +452,11 @@ function buildDealFromBrief(brief){
     capitalise: {
       targetYield: yieldPct || "",
       netAnnualIncome: netPa || "",
-      mgmtRate: (brief.mgmtPct != null && brief.mgmtPct !== "") ? num(brief.mgmtPct) : ""
+      mgmtRate: (brief.mgmtPct != null && brief.mgmtPct !== "") ? num(brief.mgmtPct) : "",
+      // v10.111 — a Keystone build assumes the WHOLE scheme is sold to a HA / fund (tenure-blind),
+      // so the capitalisation does NOT apply the affordable rent discount to the developer's
+      // proceeds. Turn this off on the Capitalisation stage to value on the blended (discounted) rent.
+      capTenureBlind: true
     },
     // v10.45 — auto-fill the TENURE MIX from the affordable %, so the Tenure Mix stage is complete
     // on day one (no manual entry). Split follows KEYSTONE_DEFAULTS.affordableSplit — 70% of the
@@ -538,14 +542,11 @@ function applyMarketPricesAndOptimise(data, aiTypes, opts){
   //   • rent1..rent4 — the per-bed rents the Capitalisation stage shows, so a Keystone build
   //     auto-fills those fields too (no separate "AI: research & fill area rents" click needed).
   if(Object.keys(rentByBeds).length){
-    var wr = 0, wc = 0;
-    (sfh.mix || []).forEach(function(r){
-      var info2 = (typeof HOUSE_TYPES !== "undefined" && (HOUSE_TYPES[r.type] || HOUSE_TYPES["3-bed semi"])) || { beds:3 };
-      var b = num(r.beds) || info2.beds || 3, rp = rentByBeds[b];
-      if(rp > 0){ wr += rp * num(r.count); wc += num(r.count); }
-    });
+    // v10.111 — write only the per-bed rents (rent1..4), NOT a fixed marketRentPerUnitPa. The engine
+    // derives the per-home rent from these per-bed rents × the (editable / pinnable) Capitalisation
+    // bedroom mix, so changing or pinning the mix on the Capitalisation stage flows through to the
+    // reports. A fixed marketRentPerUnitPa would override the mix and break that.
     var capPatch = {};
-    if(wc > 0) capPatch.marketRentPerUnitPa = Math.round(wr / wc * 12);
     for(var bd = 1; bd <= 4; bd++){ if(num(rentByBeds[bd]) > 0) capPatch["rent" + bd] = String(Math.round(num(rentByBeds[bd]))); }
     if(capPatch.rent1 || capPatch.rent2 || capPatch.rent3 || capPatch.rent4) capPatch.rentSource = "AI market research";
     if(Object.keys(capPatch).length) data.capitalise = Object.assign({}, data.capitalise || {}, capPatch);
