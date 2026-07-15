@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.117";
+var CURRENT_VERSION = "10.118";
 var VERSION_HISTORY = [
+  {v:"10.118", date:"Jul 2026", headline:"Report viewer fixed for OLDER iPads (iOS 12). The report overlay used the CSS ‘inset:0’ shorthand to fill the screen — but that is unsupported on iOS 12 Safari (added in Safari 14), so the overlay had no size and the report was INVISIBLE (it said ‘generating’ then nothing). Replaced with top/left/right/bottom:0 on the report overlay and two other modals (file upload, portfolio confirm). The report is also now rendered into the viewer via the iframe SRCDOC (reliable on iOS 12) rather than a Blob URL. So generating a one-pager / Board Proposal / any Stakeholder Suite pack now displays on older iPads too; use the report’s own ‘Print / Save as PDF’ button or Share → Print to save it."},
   {v:"10.117", date:"Jul 2026", headline:"iPad report viewer now actually shows the report (Blob-URL iframe). The in-app report overlay rendered the report by writing into an iframe (contentWindow.document.write) — which shows BLANK on iOS (Chrome and Safari both use WebKit on the iPad), so it said ‘generating’ but nothing appeared. The overlay now loads the report from a Blob URL as the iframe SRC, which renders reliably on every platform. Combined with v10.116’s ‘⧉ New tab / PDF’ button, generating a one-pager / Board Proposal / any Stakeholder Suite pack on an iPad now shows the report on screen and lets you save it as a PDF (Print / Save PDF, the New-tab button, or the browser’s own Share → Print / Save to Files)."},
   {v:"10.116", date:"Jul 2026", headline:"iPad / iOS report generation fixed. On an iPad the reports (one-pager, Board Proposal, teaser and every Stakeholder Suite pack) often wouldn't produce a PDF — iOS Safari can't reliably print an in-app iframe, and the pop-up fallback (window.open) is blocked. Added a robust route: the report-overlay now has a ‘⧉ New tab / PDF’ button, and every generator falls back to opening the report as a Blob URL in a NEW TAB — where the report renders in its own context and iOS’s Share sheet (Print / Save to Files → PDF), or the report’s own ‘Print / Save as PDF’ button, works. Desktop is unchanged (the overlay + Print still work). So on iPad: generate → tap ‘New tab / PDF’ (or it opens a new tab automatically if the overlay is blocked) → Share → Save to Files as PDF."},
   {v:"10.115", date:"Jul 2026", headline:"Chosen-exit headline now flows through the Board Proposal too. The Board Proposal screen's headline Residual Land Value leads with the exit you commit to on the Exit Strategy stage (labelled with the route), matching the one-pager and Quick Appraisal — so plot sales / bulk sale to a HA-fund / forward-fund all read consistently across every appraisal surface. Wrap-up verification: all scripts parse, 577 tests pass, the Board Proposal and all 8 stakeholder reports render clean with a chosen exit."},
@@ -1970,7 +1971,7 @@ function showReportOverlay(html, title){
     if(old && old.parentNode) old.parentNode.removeChild(old);
     var ov = document.createElement("div");
     ov.id = "lf-report-overlay";
-    ov.setAttribute("style", "position:fixed;inset:0;z-index:99999;background:rgba(20,21,45,0.6);display:flex;flex-direction:column;");
+    ov.setAttribute("style", "position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:rgba(20,21,45,0.6);display:flex;flex-direction:column;");
     var bar = document.createElement("div");
     bar.setAttribute("style", "display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:#1E1F5C;color:#fff;font-family:DM Sans,sans-serif;");
     var ttl = document.createElement("div");
@@ -1996,18 +1997,13 @@ function showReportOverlay(html, title){
     frame.setAttribute("style", "flex:1;width:100%;border:none;background:#fff;");
     ov.appendChild(bar); ov.appendChild(frame);
     document.body.appendChild(ov);
-    // v10.117 — render the report via a Blob URL as the iframe SRC. Writing into the iframe with
-    // contentWindow.document.write() renders BLANK on iOS Safari/Chrome (all iOS browsers use WebKit),
-    // so the overlay looked empty on iPad. A Blob URL src renders reliably on every platform.
-    var _ovBlobUrl = null, _ovU = (window.URL || window.webkitURL);
-    try{
-      if(_ovU && _ovU.createObjectURL && typeof Blob !== "undefined"){
-        _ovBlobUrl = _ovU.createObjectURL(new Blob([html], { type:"text/html" }));
-        frame.setAttribute("src", _ovBlobUrl);
-      }
-    }catch(e){ _ovBlobUrl = null; }
-    if(!_ovBlobUrl){ try{ var doc = frame.contentWindow.document; doc.open(); doc.write(html); doc.close(); }catch(e){} }
-    function close(){ if(ov.parentNode) ov.parentNode.removeChild(ov); document.removeEventListener("keydown", onKey); if(_ovBlobUrl){ try{ _ovU.revokeObjectURL(_ovBlobUrl); }catch(e){} } }
+    // v10.118 — render the report into the iframe via SRCDOC (works on old iOS 12 Safari, where
+    // Blob-URL iframe src and contentWindow.document.write() are unreliable / render blank). Assigning
+    // the srcdoc DOM property handles quote-escaping automatically. Fall back to document.write.
+    var _wrote = false;
+    try{ if("srcdoc" in frame){ frame.srcdoc = html; _wrote = true; } }catch(e){ _wrote = false; }
+    if(!_wrote){ try{ var doc = frame.contentWindow.document; doc.open(); doc.write(html); doc.close(); }catch(e){} }
+    function close(){ if(ov.parentNode) ov.parentNode.removeChild(ov); document.removeEventListener("keydown", onKey); }
     function onKey(ev){ if(ev.key === "Escape") close(); }
     closeBtn.onclick = close;
     printBtn.onclick = function(){ try{ frame.contentWindow.focus(); frame.contentWindow.print(); }catch(e){ try{ window.print(); }catch(e2){ openReportBlob(html); } } };

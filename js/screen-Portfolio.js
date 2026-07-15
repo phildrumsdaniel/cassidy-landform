@@ -303,7 +303,7 @@ function renderPortfolio(data, logMigration, navTo, saveDeal, setData, user){
 
         return e("div",{
           onClick:function(ev){if(ev.target===ev.currentTarget) close();},
-          style:{position:"fixed",inset:0,background:"rgba(30,31,92,0.45)",backdropFilter:"blur(2px)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}
+          style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(30,31,92,0.45)",backdropFilter:"blur(2px)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}
         },
           e("div",{onClick:function(ev){ev.stopPropagation();},style:{background:"#fff",borderRadius:12,maxWidth:560,width:"100%",maxHeight:"85vh",overflow:"auto",boxShadow:"0 24px 60px rgba(30,31,92,0.25)"}},
             // Header
