@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.115";
+var CURRENT_VERSION = "10.116";
 var VERSION_HISTORY = [
+  {v:"10.116", date:"Jul 2026", headline:"iPad / iOS report generation fixed. On an iPad the reports (one-pager, Board Proposal, teaser and every Stakeholder Suite pack) often wouldn't produce a PDF — iOS Safari can't reliably print an in-app iframe, and the pop-up fallback (window.open) is blocked. Added a robust route: the report-overlay now has a ‘⧉ New tab / PDF’ button, and every generator falls back to opening the report as a Blob URL in a NEW TAB — where the report renders in its own context and iOS’s Share sheet (Print / Save to Files → PDF), or the report’s own ‘Print / Save as PDF’ button, works. Desktop is unchanged (the overlay + Print still work). So on iPad: generate → tap ‘New tab / PDF’ (or it opens a new tab automatically if the overlay is blocked) → Share → Save to Files as PDF."},
   {v:"10.115", date:"Jul 2026", headline:"Chosen-exit headline now flows through the Board Proposal too. The Board Proposal screen's headline Residual Land Value leads with the exit you commit to on the Exit Strategy stage (labelled with the route), matching the one-pager and Quick Appraisal — so plot sales / bulk sale to a HA-fund / forward-fund all read consistently across every appraisal surface. Wrap-up verification: all scripts parse, 577 tests pass, the Board Proposal and all 8 stakeholder reports render clean with a chosen exit."},
   {v:"10.114", date:"Jul 2026", headline:"Quick Appraisal capitalisation + a robustness audit. The Quick Appraisal now (1) respects the yield you set on the Capitalisation page (no more 4.5% floor; sanity-clamped to 3.5–7%) with the sensitivity ladder anchored on it, and (2) shows the same ‘Exit routes — land value by exit’ comparison (plot sales / bulk sale to a HA-fund / forward-fund) as the one-pager, so you can see all exits live on screen. AUDIT FIX (important): a ‘Land & Development’ journey with a house mix was showing a DIFFERENT residual land value on the deal-state / Dashboard than on the one-pager — because calcDealMetrics used the SFH GDV but a generic cost stack for any non-‘sfh’ assetType. It now uses the canonical SFH cost stack for every non-BTR/PBSA scheme with a house mix, and infers ‘sfh’ when the assetType is missing, so the Dashboard, deal-state and one-pager all show the SAME RLV (verified across assetType land / property / recovery / sfh / blank). Full audit: all 53 scripts parse, 577 engine tests pass, all 8 stakeholder reports render clean across 4 deal types, and the key screens execute without error."},
   {v:"10.113", date:"Jul 2026", headline:"Three exit routes on the one-pager, each on the RIGHT basis. A bulk sale to a housing association / fund of a houses scheme realises the UNIT values (a HA buys the homes), so it is now valued off the blended sale value less a modest bulk discount (default 5%, editable via exit.haBulkDiscountPct) with the affordable already at its tenure price and grant included — NOT a rental capitalisation. So the ‘Exit routes — land value by exit’ comparison shows three honest figures: open-market plot sales (highest), bulk sale to a HA / fund (a small discount for a single-transaction, de-risked exit — note that because land is the residual, even a modest bulk discount moves it materially) and the forward-fund rented investment (rent ÷ yield — the right basis for flats / BTR, typically low or negative for houses). The headline still leads with whichever exit you commit to on the Exit Strategy stage."},
@@ -1979,10 +1980,15 @@ function showReportOverlay(html, title){
     var printBtn = document.createElement("button");
     printBtn.textContent = "🖨 Print / Save PDF";
     printBtn.setAttribute("style", "padding:8px 14px;background:#C9A227;color:#1E1F5C;border:none;border-radius:6px;font-weight:800;font-size:13px;cursor:pointer;font-family:DM Sans,sans-serif;");
+    // v10.116 — iPad / iOS Safari can't reliably print an iframe, so offer a plain "Open in new tab"
+    // that renders the report in its own context, where the OS Share sheet → Print / Save to PDF works.
+    var openBtn = document.createElement("button");
+    openBtn.textContent = "⧉ New tab / PDF";
+    openBtn.setAttribute("style", "padding:8px 14px;background:rgba(255,255,255,0.9);color:#1E1F5C;border:none;border-radius:6px;font-weight:800;font-size:13px;cursor:pointer;font-family:DM Sans,sans-serif;");
     var closeBtn = document.createElement("button");
     closeBtn.textContent = "✕ Close";
     closeBtn.setAttribute("style", "padding:8px 14px;background:rgba(255,255,255,0.18);color:#fff;border:none;border-radius:6px;font-weight:800;font-size:13px;cursor:pointer;font-family:DM Sans,sans-serif;");
-    btns.appendChild(printBtn); btns.appendChild(closeBtn);
+    btns.appendChild(printBtn); btns.appendChild(openBtn); btns.appendChild(closeBtn);
     bar.appendChild(ttl); bar.appendChild(btns);
     var frame = document.createElement("iframe");
     frame.setAttribute("title", title || "Report");
@@ -1993,8 +1999,29 @@ function showReportOverlay(html, title){
     function close(){ if(ov.parentNode) ov.parentNode.removeChild(ov); document.removeEventListener("keydown", onKey); }
     function onKey(ev){ if(ev.key === "Escape") close(); }
     closeBtn.onclick = close;
-    printBtn.onclick = function(){ try{ frame.contentWindow.focus(); frame.contentWindow.print(); }catch(e){ try{ window.print(); }catch(e2){} } };
+    printBtn.onclick = function(){ try{ frame.contentWindow.focus(); frame.contentWindow.print(); }catch(e){ try{ window.print(); }catch(e2){ openReportBlob(html); } } };
+    openBtn.onclick = function(){ openReportBlob(html); };
     document.addEventListener("keydown", onKey);
+    return true;
+  }catch(e){ return false; }
+}
+// openReportBlob (v10.116) — open a generated report HTML as a Blob URL in a NEW TAB. The robust
+// cross-device path, especially for iPad / iOS Safari, which pop-up-blocks window.open("")+write and
+// prints iframes unreliably. A Blob URL renders the report in its own tab, where the report's own
+// "Print / Save as PDF" button and the iOS Share sheet (Print / Save to Files → PDF) work. Returns
+// true if a tab was opened (or an anchor click was dispatched), false if Blob/URL is unavailable.
+function openReportBlob(html){
+  try{
+    if(typeof Blob === "undefined") return false;
+    var U = (typeof window !== "undefined") && (window.URL || window.webkitURL);
+    if(!U || !U.createObjectURL) return false;
+    var url = U.createObjectURL(new Blob([html], { type:"text/html" }));
+    var w = window.open(url, "_blank");
+    if(!w && typeof document !== "undefined" && document.body){
+      var a = document.createElement("a"); a.href = url; a.target = "_blank"; a.rel = "noopener";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }
+    setTimeout(function(){ try{ U.revokeObjectURL(url); }catch(e){} }, 60000);
     return true;
   }catch(e){ return false; }
 }

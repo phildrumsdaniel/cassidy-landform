@@ -2010,6 +2010,7 @@ function renderProposal(city, data, gdv, lc, up, user){
     // v10.52 — show IN-APP (overlay) so you stay in Landform and can close/regenerate; a new tab
     // strands you on mobile. Falls back to a new tab if the overlay can't be created.
     if(typeof showReportOverlay==="function" && showReportOverlay(html, "Board Proposal")) return;
+    if(typeof openReportBlob==="function" && openReportBlob(html)) return;
     var w=window.open("","_blank");
     if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the board proposal."); return; }
     w.document.open(); w.document.write(html); w.document.close();
@@ -2039,6 +2040,7 @@ function renderProposal(city, data, gdv, lc, up, user){
     if(typeof notify==="function") notify("Generating one-page land appraisal…");
     var html=buildOnePagerHTML();
     if(typeof showReportOverlay==="function" && showReportOverlay(html, "One-page land appraisal")) return;
+    if(typeof openReportBlob==="function" && openReportBlob(html)) return;
     var w=window.open("","_blank");
     if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the one-page appraisal."); return; }
     w.document.open(); w.document.write(html); w.document.close();

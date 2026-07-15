@@ -158,6 +158,7 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
     var html = buildLandOnePager(effData, cityKey);
     // v10.52 — show in-app (overlay) so you stay in Landform and can close/regenerate.
     if(typeof showReportOverlay === "function" && showReportOverlay(html, "One-page board proposal")) return;
+    if(typeof openReportBlob==="function" && openReportBlob(html)) return;
     var w = window.open("", "_blank");
     if(!w){ if(typeof notify === "function") notify("Allow pop-ups to open the one-page board proposal."); return; }
     w.document.open(); w.document.write(html); w.document.close();
