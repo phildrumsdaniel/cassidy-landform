@@ -850,10 +850,16 @@ function renderRLV(city, data, m, navTo, setData, up, user){
           })(),
 
           // ── COST BREAKDOWN — what's deducted from GDV to reach land value
-          e("div",{style:{marginTop:12,background:"#F7F8FC",borderRadius:8,padding:"14px 16px"}},
+          (function(){
+          // Use the canonical SFH average floor area (GIA) so the build-cost label's
+          // sqft, and the £/sqft it implies, match the appraisal engine rather than a
+          // stale local figure. Fall back to rSqft when the engine isn't available.
+          var realSqft = (rIsSfhCanon && typeof computeSFHMetrics==="function") ? (Math.round(num(computeSFHMetrics(data).avgSqft))||rSqft) : rSqft;
+          var effPsf = (rUnits>0 && realSqft>0) ? Math.round(rBc/(rUnits*realSqft)) : rBuild;
+          return e("div",{style:{marginTop:12,background:"#F7F8FC",borderRadius:8,padding:"14px 16px"}},
             e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:10}},"What's deducted to reach the land value"),
             [
-              {l:"Build cost ("+rUnits+" units × "+rSqft+"sqft × £"+rBuild+"/sqft)",v:rBc,pct2:rGdv>0?rBc/rGdv:0},
+              {l:"Build cost ("+rUnits+" units × "+realSqft+"sqft × £"+effPsf+"/sqft"+(rBuildDecomposed?", construction (fees & contingency shown below)":"")+")",v:rBc,pct2:rGdv>0?rBc/rGdv:0},
               {l:"Professional fees & prelims ("+Math.round(rFeesPct*100)+"% of build)",v:rFees,pct2:rGdv>0?rFees/rGdv:0},
               {l:"Contingency ("+rCont+"%)",v:rContCost,pct2:rGdv>0?rContCost/rGdv:0},
               {l:"Development finance ("+rFin+"% on build+fees)",v:rFinCost,pct2:rGdv>0?rFinCost/rGdv:0},
@@ -880,47 +886,39 @@ function renderRLV(city, data, m, navTo, setData, up, user){
               "Note: S106, drainage, utilities and enabling works are included within S106 obligations and infrastructure fees above. ",
               "For site-specific infrastructure costs (S278, flood drainage, utility diversions), use the Detailed Appraisal stage which itemises each cost line."
             )
-          ),
+          );
+          })(),
 
           // ── PROJECT TIMELINE ESTIMATOR ──────────────────────────────────
           (function(){
-            var planSt=(data.planning&&data.planning.status)||"full consent (assumed — consent basis)";
             var units2=rUnits||num(data.planning&&data.planning.units)||50;
             var schType2=r.schType||"Residential houses";
             var isApart=schType2.indexOf("apart")>=0||schType2.indexOf("BTR")>=0||schType2.indexOf("PBSA")>=0;
 
-            // Planning phase estimate (years)
-            var planPhase=planSt==="full"?0:planSt==="outline"?0.5:planSt==="allocated"?1.0:1.5;
-            // Reserved matters / discharge conditions
-            var rmPhase=planSt==="full"?0:0.5;
-            // Pre-commencement (roads, drainage, utilities)
-            var preComm=0.5;
+            // v10.123 — drive this widget from the ONE projectTimeline() helper (also used by the
+            // one-pager, blind teaser and IM) so the horizon reads the SAME everywhere. It was
+            // previously computing its own planning estimate off toy defaults (0–1.5 yrs), which
+            // understated an unconsented / allocated site by years and disagreed with the one-pager
+            // (research-grounded: a cold, unallocated start is a multi-year Local-Plan promotion).
+            var TL = (typeof projectTimeline==="function") ? projectTimeline(data) : {planningYears:0,buildYears:Math.min(8,units2/50),totalYears:0,planningMonths:0,statusLabel:""};
+            var planningYears = num(TL.planningYears);
+            var buildPhase = num(TL.buildYears);
+            // Carve a short pre-commencement (roads/drainage/utilities) sliver OUT of the consent
+            // horizon so the bar shows it distinctly without inflating the total.
+            var preComm = planningYears>1 ? 0.5 : 0;
+            var consentPhase = Math.max(0, Math.round((planningYears-preComm)*10)/10);
 
-            // ── BUILD RATE — scales with scheme size (real housebuilder programmes) ──
-            // SFH (houses): single trader builds ~50/yr, but larger schemes are PHASED
-            // with multiple plots / outlets running concurrently.
-            //   • <50 units    → single outlet, 30-40 units/yr
-            //   • 50-150       → 2 outlets, 60-80 units/yr
-            //   • 150-300      → 3 outlets, 100-130 units/yr
-            //   • 300-600      → 4 outlets, 150-200 units/yr
-            //   • 600+         → strategic scheme, 200-250+ units/yr (multiple developers/phases)
-            // Apartments: BTR/PBSA single block built faster (concurrent floors), 200-300 units/yr.
-            //             Large multi-block schemes split into phases of ~250 units each.
-            // v9.99 — shared phased build rate (same helper the SFH House Mix screen uses).
+            // ── BUILD RATE — scales with scheme size (real housebuilder programmes); same helper
+            // the SFH House Mix screen and the engine use. Kept for the "Build rate" stat below.
             var buildRate = buildRatePerYear(units2, isApart);
 
-            // Build phase years — but cap at 8 years for max practical scheme
-            var buildPhase=Math.max(0.5,Math.min(8,units2/buildRate));
-            // Sales runs concurrent with build (esp. for SFH multi-outlet), so don't double-count
+            var totalRounded=Math.round(num(TL.totalYears)*2)/2; // round to nearest 0.5
+            if(!(totalRounded>0)) totalRounded=Math.round((planningYears+buildPhase)*2)/2;
 
-            var totalYears=planPhase+rmPhase+preComm+buildPhase;
-            var totalRounded=Math.round(totalYears*2)/2; // round to nearest 0.5
-
-            // Timeline segments for display
+            // Timeline segments for display (sum to the projectTimeline total)
             var segments=[
-              planSt!=="full"&&planSt!=="outline"&&{l:"Planning application",yrs:planPhase,color:"#B05A35"},
-              planSt!=="full"&&{l:"Reserved matters / conditions",yrs:rmPhase,color:"#9A7B3E"},
-              {l:"Pre-commencement (infrastructure)",yrs:preComm,color:"#4A4BAE"},
+              consentPhase>0.05&&{l:"Planning & consent ("+TL.statusLabel+")",yrs:consentPhase,color:"#B05A35"},
+              preComm>0&&{l:"Pre-commencement (infrastructure)",yrs:preComm,color:"#4A4BAE"},
               {l:"Construction"+(units2>=150?" (phased / multi-outlet)":""),yrs:Math.round(buildPhase*10)/10,color:"#2D7A65"},
             ].filter(Boolean);
 
@@ -954,7 +952,7 @@ function renderRLV(city, data, m, navTo, setData, up, user){
                 );
               }),
               e("div",{style:{marginTop:10,paddingTop:8,borderTop:"1px dashed #DDE0ED",display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}},
-                [{l:"Start on site",v:planSt==="full"?"Ready now":planSt==="outline"?Math.round((rmPhase+preComm)*12)+" mths":"12-24 mths"},
+                [{l:"Start on site",v:num(TL.planningMonths)<=1?"Ready now":Math.round(num(TL.planningMonths))+" mths"},
                  {l:"Build rate",v:buildRate+" units/yr"},
                  {l:"Year range",v:Math.floor(totalRounded)+"-"+Math.ceil(totalRounded+0.5)+" yrs"},
                 ].map(function(item){
@@ -965,7 +963,7 @@ function renderRLV(city, data, m, navTo, setData, up, user){
                 })
               ),
               e("div",{style:{marginTop:8,fontSize:10,color:"#7278A0",lineHeight:1.7}},
-                "Based on "+units2+" units, planning status: "+(planSt||"unknown")+", scheme type: "+schType2+". ",
+                "Based on "+units2+" units, planning status: "+(TL.statusLabel||"unknown")+", scheme type: "+schType2+". ",
                 units2>=150?"Large schemes assume phased delivery with multiple outlets/plots running concurrently (industry standard for housebuilders). ":"",
                 "Adjust in Planning & Viability stage to update. Assumes sequential planning phases; pre-app work and S106 negotiation may run concurrently."
               )
@@ -1009,7 +1007,15 @@ function renderRLV(city, data, m, navTo, setData, up, user){
               }
               return raw;
             }
-            var BASE_RLV = rlvCore(BASE_SP, BASE_BP, BASE_UN, BASE_PR);
+            // v10.123 — the sensitivity widget is a simplified parallel model (flat £/sqft,
+            // no decomposition), so its own base can drift a few £m from the headline rRlv and
+            // read as a stray "third" RLV. Anchor the displayed base to the true headline and
+            // express every slider move as the MODELLED DELTA from the model's own base. At
+            // base (no slider dragged) the widget then reads exactly the headline; a drag shows
+            // the isolated impact layered on top of it.
+            var RLV_MODEL_BASE = rlvCore(BASE_SP, BASE_BP, BASE_UN, BASE_PR);
+            var BASE_RLV = rRlv;
+            function rlvSens(sp, bp, un, pr){ return rRlv + (rlvCore(sp, bp, un, pr) - RLV_MODEL_BASE); }
 
             return e("div",{style:{background:"#F7F8FC",borderRadius:8,padding:"14px 16px",marginTop:12}},
               e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}},"Sensitivity Analysis — drag to test scenarios"),
@@ -1025,10 +1031,10 @@ function renderRLV(city, data, m, navTo, setData, up, user){
                 if(!curVal) curVal = sl.base;
                 // Compute RLV at this slider's current value, ALL OTHERS HELD AT BASE
                 var adjRlv;
-                if(sl.k==="salePsf")   adjRlv = rlvCore(curVal, BASE_BP, BASE_UN, BASE_PR);
-                else if(sl.k==="buildPsf")  adjRlv = rlvCore(BASE_SP, curVal, BASE_UN, BASE_PR);
-                else if(sl.k==="units") adjRlv = rlvCore(BASE_SP, BASE_BP, curVal, BASE_PR);
-                else                    adjRlv = rlvCore(BASE_SP, BASE_BP, BASE_UN, curVal);
+                if(sl.k==="salePsf")   adjRlv = rlvSens(curVal, BASE_BP, BASE_UN, BASE_PR);
+                else if(sl.k==="buildPsf")  adjRlv = rlvSens(BASE_SP, curVal, BASE_UN, BASE_PR);
+                else if(sl.k==="units") adjRlv = rlvSens(BASE_SP, BASE_BP, curVal, BASE_PR);
+                else                    adjRlv = rlvSens(BASE_SP, BASE_BP, BASE_UN, curVal);
                 var adjColor = adjRlv > 0 ? "#2D7A65" : "#B05A35";
                 var diff = adjRlv - BASE_RLV;
                 var pctFromBase = BASE_RLV !== 0 ? (diff / Math.abs(BASE_RLV)) * 100 : 0;
@@ -1053,7 +1059,7 @@ function renderRLV(city, data, m, navTo, setData, up, user){
               }),
               e("div",{style:{fontSize:10,color:"#7278A0",marginTop:4,display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:6}},
                 e("span",null,"Base RLV: "+fmt(BASE_RLV)+" · sliders show isolated impact"),
-                Math.abs(BASE_RLV - rRlv) > 1000 ? e("button",{onClick:function(){
+                (num(r.sens_salePsf)||num(r.sens_buildPsf)||num(r.sens_units)||num(r.sens_profitPct)) ? e("button",{onClick:function(){
                   setData(function(prev){
                     var rlvNext = Object.assign({},prev.rlv||{});
                     delete rlvNext.sens_salePsf; delete rlvNext.sens_buildPsf;
