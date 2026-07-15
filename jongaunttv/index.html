@@ -74,7 +74,7 @@ input[type=file]{display:none;}
       <span class="nav-label" style="color:#8B9AB0;">Shop</span>
     </button>
     <button class="nav-btn" onclick="showTab('sendview')" id="nav-sendview">
-      <span class="nav-icon">🎬</span>
+      <span class="nav-icon">📣</span>
       <span class="nav-label" style="color:#8B9AB0;">Send View</span>
     </button>
   </div>
@@ -467,7 +467,14 @@ function renderSendView(stage="landing") {
   // landing
   return `<div class="screen" style="padding-bottom:20px;">
     <div style="background:linear-gradient(180deg,#1A2D42,#0D1B2A);padding:24px 16px;border-bottom:1px solid #2E3F55;text-align:center;">
-      ${jonAvatar(80,"margin:0 auto 14px;display:block;border:3px solid #C0392B;")}
+      <div style="width:84px;height:84px;border-radius:50%;margin:0 auto 14px;background:linear-gradient(135deg,#F0A500,#e69500);border:3px solid #F0A500;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(240,165,0,0.45);">
+        <svg viewBox="0 0 28 24" width="48" height="41" fill="none" stroke="#1a0e00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m3 11 18-5v12L3 14v-3z"/>
+          <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>
+          <path d="M23 8a5.5 5.5 0 0 1 0 8"/>
+          <path d="M25.6 5.5a9 9 0 0 1 0 13"/>
+        </svg>
+      </div>
       <div style="color:#fff;font-weight:900;font-size:22px;line-height:1.2;margin-bottom:8px;">Send Your View to Jon</div>
       <div style="color:#8B9AB0;font-size:13px;line-height:1.7;margin-bottom:16px;max-width:300px;margin-left:auto;margin-right:auto;">Record a short video with your opinion — Jon personally reviews every submission and responds to the best on his live show.</div>
       <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(192,57,43,0.15);border:1px solid #C0392B;border-radius:20px;padding:7px 14px;">
