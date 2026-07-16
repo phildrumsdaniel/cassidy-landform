@@ -198,7 +198,7 @@ function keystoneMarketKey(town, postcode){
   if(postcode && typeof postcodeMarketKey === "function"){
     var pcMk = postcodeMarketKey(postcode);
     if(pcMk && has && MKT[pcMk]) return { key:pcMk,
-      flag:"Location '" + (raw || postcode) + "' resolved from postcode " + (typeof postcodeArea === "function" ? postcodeArea(postcode) : "") + " to the nearest market, " + _keystoneTitle(pcMk) + " (" + (typeof ukRegionFor === "function" ? ukRegionFor({land:{postcode:postcode}}) : "") + "). Sale prices still use the postcode's own Land Registry value where available. Verify against local comparables." };
+      flag:"Location '" + (raw || postcode) + "' resolved from postcode " + (typeof postcodeArea === "function" ? postcodeArea(postcode) : "") + " to the nearest market, " + _keystoneTitle(pcMk) + " (" + (typeof ukRegionFor === "function" ? ukRegionFor({land:{postcode:postcode}}) : "") + "). Sale prices still use the postcode's own Land Registry value where available. Verify against local comparables. ⚠ CHECK THE PLANNING AUTHORITY separately — a postcode's postal town often differs from the council that determines planning and sets affordable-housing / S106 / CIL policy (e.g. a TN postcode can sit in Maidstone, Tunbridge Wells OR Ashford). Confirm the correct Local Planning Authority on the Planning stage." };
   }
   // 4) nothing to go on → national averages, clearly flagged
   return { key:key,
@@ -222,7 +222,12 @@ var KEYSTONE_DEFAULTS = {
   contingencyPct: 5,
   feesPct: 10,
   profitPct: 17.5,
-  financeRate: 12,   // conservative all-in finance cost so headroom is real, not flattered
+  // v10.132 — 8% development-finance rate: the midpoint of the 7–9% UK senior-debt benchmark,
+  // aligned with the Detailed Appraisal (8%) and close to Financial Modelling (7.5%). Was 12%,
+  // which was above market AND double-conservative — the engine already models finance on a
+  // peak-debt S-curve (peak% × rate × years × 0.6), so a 12% headline rate overstated finance by
+  // tens of £m and understated the residual. A figure quoted in the brief still wins.
+  financeRate: 8,
   marketingPct: 0,   // v10.50 — disposal/marketing is a SALE-side cost, left at £0 (matches the
                      // Quick Appraisal) so it isn't added on top of Cassidy's all-in build rate
   buildInclusive: true  // v10.50 — Cassidy's build £/sqft is a FULLY-LOADED all-in rate: it already
