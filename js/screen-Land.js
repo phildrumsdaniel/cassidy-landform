@@ -833,6 +833,15 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
         var ask = askingPrice;
         var askGap = ask - landownerTotal;                 // +ve = they want more than the fair offer
         var askVsMax = ask - maxBid;                       // +ve = above your ceiling
+        // v10.124 — the discount model produces YOUR indicative opening offer, not a figure the
+        // landowner is promised. What's actually paid is whatever they ask / accept. Model both
+        // side-by-side: your margin & headroom-vs-ceiling at the indicative offer, and at the
+        // agreed/asking price. A lower agreed price simply drops through to your margin.
+        var schemeCostLand = num(cm.totalCost);            // build+fees+contingency+finance+S106(+infra)
+        function landMargin(price){ return consentedGdv>0 ? ((consentedGdv - schemeCostLand - price)/consentedGdv)*100 : 0; }
+        function landProfit(price){ return consentedGdv - schemeCostLand - price; }
+        var offerMarginPct = landMargin(landownerTotal), offerProfit = landProfit(landownerTotal), offerHeadroom = consentedRlv - landownerTotal;
+        var askMarginPct   = landMargin(ask),            askProfitL  = landProfit(ask),            askHeadroom   = consentedRlv - ask;
         // Approx homes needed to justify their ask (RLV ≈ linear in units near this point)
         var rlvNeeded = structure==="overage"
           ? ( (ask - Math.max(agriValue, agriValue*1.5)) / Math.max(0.01, (sharePct/100)) + Math.max(agriValue, agriValue*1.5) )
@@ -954,11 +963,47 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
             )
           ),
 
-          // What changes hands
-          e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:14}},
+          // What changes hands — the mechanics of YOUR indicative offer
+          e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".08em",marginBottom:8}},"What changes hands — your indicative offer"),
+          e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:12}},
             tile("Pay now", payNow>0?fmt(payNow):"—", structure==="option"?"option fee":structure==="overage"?"agri-plus":"nothing up front", "#4A4BAE"),
             tile("Pay on consent", payOnConsent>0?fmt(payOnConsent):"—", structure==="promotion"?"landowner's net":structure==="overage"?"uplift share":"purchase price", "#9A7B3E"),
-            tile("Total to landowner", fmt(landownerTotal), structure==="promotion"?"after "+sharePct+"% promoter fee":"across the deal", "#2D7A65", true)
+            tile("Total to landowner", fmt(landownerTotal), structure==="promotion"?"after "+sharePct+"% promoter fee":"indicative — your opening position", "#2D7A65", true)
+          ),
+
+          // v10.124 — indicative offer (from the discount) vs the price actually agreed with the
+          // landowner, side by side, each with the margin & headroom-vs-ceiling it leaves you.
+          e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}},
+            // Left — your indicative offer (from the discount model)
+            e("div",{style:{background:"#F7F8FC",border:"1px solid #C5C8E0",borderRadius:8,padding:"12px 14px"}},
+              e("div",{style:{fontSize:9,fontWeight:800,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".08em",marginBottom:6}},"Your indicative offer"),
+              e("div",{style:{fontSize:20,fontWeight:800,color:"#2E2F8A",lineHeight:1.1}},fmt(landownerTotal)),
+              e("div",{style:{fontSize:9,color:"#7278A0",fontStyle:"italic",marginBottom:8}},"from the "+sharePct+"% "+(structure==="promotion"?"promoter fee":structure==="overage"?"uplift share":"discount")),
+              e("div",{style:{fontSize:11,color:"#3A3D6A",lineHeight:1.8}},
+                "Your margin ",e("strong",{style:{color:offerMarginPct>=15?"#1d5446":offerMarginPct>=10?"#9A7B3E":"#B05A35"}},(Math.round(offerMarginPct*10)/10)+"%")," ("+(offerProfit<0?"−":"")+fmt(Math.abs(offerProfit))+")",e("br"),
+                "Headroom vs ceiling ",e("strong",{style:{color:offerHeadroom>=0?"#1d5446":"#B05A35"}},(offerHeadroom<0?"−":"")+fmt(Math.abs(offerHeadroom)))
+              )
+            ),
+            // Right — the price actually agreed / asked (or a prompt to enter it)
+            ask>0
+              ? e("div",{style:{background:askHeadroom>=0?"rgba(45,122,101,0.06)":"rgba(176,90,53,0.06)",border:"1px solid "+(askHeadroom>=0?"rgba(45,122,101,0.4)":"rgba(176,90,53,0.4)"),borderRadius:8,padding:"12px 14px"}},
+                  e("div",{style:{fontSize:9,fontWeight:800,color:askHeadroom>=0?"#1d5446":"#B05A35",textTransform:"uppercase",letterSpacing:".08em",marginBottom:6}},"Agreed / asking price"),
+                  e("div",{style:{fontSize:20,fontWeight:800,color:"#2E2F8A",lineHeight:1.1}},fmt(ask)),
+                  e("div",{style:{fontSize:9,color:"#7278A0",fontStyle:"italic",marginBottom:8}},"what the landowner wants / has accepted"),
+                  e("div",{style:{fontSize:11,color:"#3A3D6A",lineHeight:1.8}},
+                    "Your margin ",e("strong",{style:{color:askMarginPct>=15?"#1d5446":askMarginPct>=10?"#9A7B3E":"#B05A35"}},(Math.round(askMarginPct*10)/10)+"%")," ("+(askProfitL<0?"−":"")+fmt(Math.abs(askProfitL))+")",e("br"),
+                    askHeadroom>=0
+                      ? e("span",null,e("strong",{style:{color:"#1d5446"}},fmt(askHeadroom))," below your ceiling — the difference is extra margin.")
+                      : e("span",null,e("strong",{style:{color:"#B05A35"}},fmt(-askHeadroom))," ABOVE your ceiling — over the max; margin falls below target.")
+                  )
+                )
+              : e("div",{style:{background:"#FBFAF5",border:"1px dashed #C9B98E",borderRadius:8,padding:"12px 14px",display:"flex",flexDirection:"column",justifyContent:"center"}},
+                  e("div",{style:{fontSize:9,fontWeight:800,color:"#9A7B3E",textTransform:"uppercase",letterSpacing:".08em",marginBottom:6}},"Agreed / asking price"),
+                  e("div",{style:{fontSize:11,color:"#7A5A2E",lineHeight:1.6}},"Enter the landowner's ",e("strong",null,"asking price")," (the Asking Price field on this page) to see the deal on what they'll ",e("em",null,"actually")," accept — a lower price just drops through to your margin.")
+                )
+          ),
+          e("div",{style:{fontSize:10,color:"#7278A0",lineHeight:1.6,marginBottom:14,fontStyle:"italic"}},
+            "Landform never quotes the landowner a figure — the left is your opening position, the right is what they'll take. Whatever is agreed, up to your ceiling of ",e("strong",{style:{color:"#2D7A65",fontStyle:"normal"}},fmt(consentedRlv)),", is the deal; a lower agreed price means more margin for you."
           ),
 
           // Asking-price verdict
