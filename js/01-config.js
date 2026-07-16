@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.125";
+var CURRENT_VERSION = "10.126";
 var VERSION_HISTORY = [
+  {v:"10.126", date:"Jul 2026", headline:"Audit fix — the affordable grant now lifts the residual on EVERY screen, so the Dashboard and the one-pager agree. An end-to-end reconciliation audit caught the deal-state engine (calcDealMetrics — behind the Dashboard, Financial Modelling and Site Scorecard) computing the residual land value WITHOUT the Homes England affordable grant, while the SFH House Mix, Land Valuation and one-pager (computeSFHMetrics) correctly added it. So an affordable scheme with grant showed a LOWER residual on the Dashboard than on the one-pager — the ‘two different RLV numbers’ class of bug, but only when grant was entered, which is why it had slipped through. The grant now flows to the residual and the profit in the shared engine, so all screens show the SAME residual and margin; the Financial Modelling appraisal also shows the grant as a credit (‘less: Affordable grant (AHP)’ → net cost after grant) so Profit = GDV − net cost still foots on that screen. Verified: 577 engine tests pass and a 59-check cross-screen reconciliation audit (GDV, RLV, one-pager footing, Fin decomposition, exit range, timeline) is fully green across six deal types."},
   {v:"10.125", date:"Jul 2026", headline:"Before you commit to an exit, the appraisal shows the POSSIBILITIES — not a single figure that reads like a decision. When no exit route is chosen on the Exit Strategy stage (the raw, basic-calculation stage you'd take to the board early), the headline Residual Land Value on the Quick Appraisal, the one-pager and the Board Paper now reads as a RANGE across the viable exit routes — e.g. ‘£8m – £11m · exit not yet decided’ — with the three routes (open-market plot sales / bulk sale to a HA or fund / institutional forward-fund) broken out beneath. The range spans only the routes that come out POSITIVE (a genuine disposal): for a houses-for-sale scheme the forward-fund rental route reads negative, which is a read-across confirming plot sales, so it’s listed for completeness but kept out of the headline span rather than dragging it into a scary negative. Commit to an exit and the headline switches to lead with that one route’s value, exactly as before. No engine change; 577 tests pass."},
   {v:"10.124", date:"Jul 2026", headline:"Land Deal now shows YOUR indicative offer and the price actually AGREED with the landowner side by side. The discount-to-consented-value model produces your opening offer — it is NOT a figure the landowner is promised, and if they'll accept less, that lower price is the deal and the difference drops straight to your margin. The ‘What changes hands’ block is relabelled ‘your indicative offer’, and beneath it two columns compare (1) your indicative offer (from the option discount / promoter fee / uplift share) and (2) the landowner's asking / agreed price (the Asking Price field), each with the profit margin and the headroom-vs-ceiling it leaves you. Enter a lower agreed price and you see the extra margin; enter one above your RLV ceiling and it flags that you'd be paying over the max. A note makes the principle explicit: Landform never quotes the landowner a number — whatever is agreed, up to your ceiling, is the deal, and lower means more margin. No engine change; all 577 tests pass."},
   {v:"10.123", date:"Jul 2026", headline:"Reconciliation sweep from a full end-to-end test — every screen now tells the SAME story. Six fixes so figures agree wherever you look: (1) Quick Appraisal now uses your saved house mix as-is instead of re-pricing it to a flat rate, so its GDV and residual land value match the detailed stages to the penny (they were splitting, e.g. £98m vs £120m). (2) The Quick Appraisal headline now leads with your CHOSEN exit route and its label, like the one-pager and Board Proposal. (3) Financial Modelling now itemises professional fees & contingency (they read £0 when the build rate is all-in) by splitting the all-in build the same way the Land Valuation stage does — the sum is unchanged, so Total Dev Cost still reconciles. (4) Financial Modelling’s programme now defaults to the REALISTIC build-out (homes ÷ build rate, capped 8 yrs) instead of a flat 36 months, so the finance S-curve and IRR match the land value. (5) The Land Valuation sensitivity widget is now anchored to the actual headline RLV (no more stray ‘Base RLV’ third number — sliders show the isolated impact layered on the headline). (6) The Land Valuation project-timeline widget now uses the ONE projectTimeline() helper (also behind the one-pager), so the horizon reads the same everywhere — it was understating an unconsented / allocated site by years. Plus: the one-pager appraisal breakdown now foots top-to-bottom when there’s an affordable discount (open-market value → less discount → net GDV → costs → RLV), a ‘Phased Exit’ now reads as ‘phased plot sales’ across the reports (matching the dropdown), and the profit label shows 17.5% not a rounded 18%. Verified: all scripts parse, 577 engine tests pass, and the one-pager breakdown foots to the residual exactly (diff £0)."},
@@ -3597,7 +3598,7 @@ function calcDealMetrics(data){
   // mix now takes the SAME cost stack as the GDV, so the deal-state / Dashboard RLV
   // equals the one-pager (previously 'land' used the SFH GDV but a generic cost stack,
   // so the two diverged, e.g. £173m vs £80m on the same scheme).
-  var roads = 0, infra = 0, marketing = 0;
+  var roads = 0, infra = 0, marketing = 0, grantIncome = 0;
   if (at !== "btr" && at !== "pbsa" && sfhMetrics.totalUnits > 0) {
     buildCost   = sfhMetrics.buildCost;
     fees        = sfhMetrics.fees;
@@ -3608,6 +3609,12 @@ function calcDealMetrics(data){
     infra       = sfhMetrics.infra;
     marketing   = sfhMetrics.marketing || 0;
     profit      = sfhMetrics.profit;
+    // v10.126 — Homes England affordable grant is income that flows to the residual (it lifts
+    // what the scheme can pay for the land). computeSFHMetrics adds it to its RLV; adopt it here
+    // too so the Dashboard / Financial Modelling / deal-state RLV reconcile with the SFH, RLV
+    // and one-pager screens for an affordable scheme with grant (previously understated by the
+    // grant — a "two different RLV numbers" mismatch that only appeared once grant was entered).
+    grantIncome = num(sfhMetrics.grantIncome) || 0;
     // v9.67 — keep the REPORTED target margin % in step with the profit £ actually used
     // for SFH (which comes from the SFH stage's profit %, not the finance default), so a
     // screen can't show "17.5% target" beside a profit figure that's really 15%.
@@ -3626,12 +3633,13 @@ function calcDealMetrics(data){
   // single headline shared with the SFH screen. netLandBid deducts acquisition.
   var rlv = 0, netLandBid = 0;
   if (gdv > 0) {
-    rlv = gdv - devCost - profit;
+    rlv = gdv - devCost - profit + grantIncome;
     netLandBid = rlv - totalAcqCosts;
   }
 
-  // Actual profit (if user has explicit costs)
-  var actualProfit = gdv - totalCost - landPrice;
+  // Actual profit (if user has explicit costs). Grant is real income, so it lifts the profit at
+  // a given land price too — keeping "at land = RLV, actual profit = target profit" consistent.
+  var actualProfit = gdv - totalCost - landPrice + grantIncome;
   var marginPct = gdv > 0 ? (actualProfit / gdv) * 100 : 0;
   var roc = (totalCost + landPrice) > 0 ? (actualProfit / (totalCost + landPrice)) * 100 : 0;
 
@@ -3670,6 +3678,7 @@ function calcDealMetrics(data){
     s106: s106, s106pu: s106pu,
     finance: finance, finRate: finRate,
     roads: roads, infra: infra, marketing: marketing,
+    grantIncome: grantIncome,
     devCost: devCost,
     // ── Capitalisation / forward-fund exit (SFH) — sell the scheme as a rented
     // investment. Affordable is an income effect (lower rent), NOT a capital haircut
