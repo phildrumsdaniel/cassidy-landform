@@ -2053,14 +2053,19 @@ function loadSiteIntoDeal(site){
         e("div",{style:{marginTop:6,fontSize:9,color:"rgba(255,255,255,0.2)",letterSpacing:".06em"}},"Built by Phil Daniel")
       )
     ),
-    e("main",{style:{marginLeft:isMobile?0:240,flex:1,display:"flex",flexDirection:"column",minHeight:"100vh",transition:"margin .25s ease",minWidth:0}},
+    e("main",{style:{marginLeft:isMobile?0:240,paddingTop:58,flex:1,display:"flex",flexDirection:"column",minHeight:"100vh",transition:"margin .25s ease",minWidth:0}},
       // Topbar — TWO ZONES per reviewer spec
       //   .lf-topbar-left:    hamburger + title + version (fixed in place)
       //   .lf-topbar-actions: all action buttons (horizontally scrollable on mobile)
+      // v10.129 — position:FIXED (not sticky). The ancestors (html/body/#root/main) all set
+      // overflow-x:hidden, which silently breaks position:sticky (the header scrolls away),
+      // and sticky is unreliable on older iOS anyway. Fixed is viewport-relative, so the
+      // navigation (hamburger) + actions stay reachable wherever you scroll. main gets a 58px
+      // top padding so the content isn't hidden under the bar; left offsets past the sidebar.
       e("div",{className:"lf-topbar",style:{
         height:58,background:"#fff",borderBottom:"1px solid #DDE0ED",
         display:"flex",alignItems:"center",gap:10,
-        position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 3px rgba(46,47,138,0.08)",
+        position:"fixed",top:0,left:isMobile?0:240,right:0,zIndex:100,boxShadow:"0 1px 3px rgba(46,47,138,0.08)",
         padding:"0 16px"
       }},
         // ── LEFT ZONE — locked in place ─────────────────────────────────────
