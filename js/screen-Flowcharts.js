@@ -18,7 +18,7 @@ function renderFlowcharts(data, navTo, setData, stage){
           {id:"dd",label:"Due Diligence",icon:"◈",color:"#7B6CB0",shape:"rect",desc:"25-item checklist across legal, technical, planning and commercial."},
           {id:"risks",label:"Risk Register",icon:"⬡",color:"#7B6CB0",shape:"rect",desc:"RAG-rated risks. Red risks must be mitigated before proceeding."},
           {id:"exit",label:"Investment Exit",icon:"◆",color:"#2D7A65",shape:"rect",desc:"Forward fund, plot sales, HoTs generator, Investment Memo generator."},
-          {id:"summary",label:"Executive Summary",icon:"📄",color:"#1E1F5C",shape:"oval",desc:"AI generates full deal brief for investors. Copy to clipboard."},
+          {id:"reports",label:"Reports",icon:"📑",color:"#1E1F5C",shape:"oval",desc:"All output documents in one hub — board paper, one-pager, Manager Summary, IM, stakeholder packs."},
         ]
       },
       property:{
@@ -32,7 +32,7 @@ function renderFlowcharts(data, navTo, setData, stage){
           {id:"planning",label:"Planning & Viability",icon:"▲",color:"#7B6CB0",shape:"rect",desc:"NPPF strategy, S106, planning history, officer objections."},
           {id:"fin",label:"Financial Modelling",icon:"◉",color:"#7B6CB0",shape:"rect",desc:"Full appraisal waterfall. Sensitivity analysis."},
           {id:"exit",label:"Investment Exit",icon:"◆",color:"#2D7A65",shape:"rect",desc:"Plot sales, HoTs, Investment Memo."},
-          {id:"summary",label:"Executive Summary",icon:"📄",color:"#1E1F5C",shape:"oval",desc:"AI deal brief."},
+          {id:"reports",label:"Reports",icon:"📑",color:"#1E1F5C",shape:"oval",desc:"All output documents in one hub."},
         ]
       },
       recovery:{

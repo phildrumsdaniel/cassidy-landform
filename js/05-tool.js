@@ -89,12 +89,12 @@ var ALL_STAGES = [
   {id:"exit",        label:"Exit Strategy",        icon:"🚪", group:"4. Exit",     journeys:["land","sfh","btr","pbsa","property","recovery","all"]},
   {id:"recovery",    label:"Planning Recovery",    icon:"⚖",  group:"4. Exit",     journeys:["recovery","all"]},
   // ── 5. REPORT ────────────────────────────────────────────────────────────
-  {id:"scorecard",   label:"Site Scorecard",       icon:"🏆", group:"5. Report",   journeys:["land","sfh","btr","pbsa","all"]},
-  {id:"im",          label:"Investor Memorandum",  icon:"📑", group:"5. Report",   journeys:["land","sfh","btr","pbsa","all"]},
-  {id:"dataroom",    label:"Data Room",            icon:"📁", group:"5. Report",   journeys:["sfh","btr","pbsa","land","property","all"]},
-  {id:"investor",    label:"Stakeholder Suite", icon:"🤝", group:"5. Report",journeys:["land","sfh","btr","pbsa","property","asset","all"]},
-  {id:"summary",     label:"Executive Summary",    icon:"📄", group:"5. Report",   journeys:["land","sfh","btr","pbsa","property","recovery","all"]},
-  {id:"proposal",    label:"Board Proposal",       icon:"📋", group:"5. Report",   journeys:["land","sfh","btr","pbsa","property","recovery","all"]},
+  // v10.130 — the six report stages are consolidated behind ONE "Reports" hub (below), so
+  // the sidebar isn't cluttered with output surfaces. Each document is still its own screen,
+  // reached from the hub (and still routable via navTo, e.g. the Quick Appraisal's "board
+  // paper →" link). Executive Summary is RETIRED — its completion tracker duplicated the
+  // Dashboard and its document is superseded by the Board Proposal's Manager Summary.
+  {id:"reports",     label:"Reports",              icon:"📑", group:"5. Report",   journeys:["land","sfh","btr","pbsa","property","recovery","asset","all"]},
   // ── 6. RECORDS ───────────────────────────────────────────────────────────
   {id:"meetings",    label:"Meeting Transcripts",  icon:"📝", group:"6. Records",  journeys:["all"]},
   {id:"portfolio",   label:"Deal Portfolio",       icon:"📊", group:"6. Records",  journeys:["all"]},
@@ -104,9 +104,20 @@ var ALL_STAGES = [
   {id:"buildcosts",  label:"Build Cost Library",   icon:"🧱", group:"7. Audit",    journeys:["all"]},
 ];
 
+// v10.130 — the documents that live under the "Reports" hub. Each is still its own screen
+// (routable via navTo); the hub is the single sidebar entry that lists and links to them.
+// Executive Summary is deliberately absent (retired). Order = the order they appear in the hub.
+var REPORT_DOCS = [
+  {id:"proposal",  label:"Board Proposal",      icon:"📋", desc:"The headline pack for management: board paper, one-page appraisal and the Manager Summary (with confidence flags + AI validation)."},
+  {id:"scorecard", label:"Site Scorecard",      icon:"🏆", desc:"A quick pass / caution / decline read on viability, location and planning risk."},
+  {id:"im",        label:"Investor Memorandum", icon:"📑", desc:"The full investment memorandum document for funds and investors."},
+  {id:"investor",  label:"Stakeholder Suite",   icon:"🤝", desc:"Audience-specific packs — housing association / RP, lender, council, landowner and agent."},
+  {id:"dataroom",  label:"Data Room",           icon:"📁", desc:"The due-diligence document checklist and a shareable data room."}
+];
+
 // v10.46 — the stages shown in SIMPLE MODE: find a site, quick-appraise it, report/track.
 // Everything else stays available the moment Simple mode is turned off.
-var SIMPLE_MODE_STAGES = ["keystone","scraper","placona","constraint","land","quick","sfh","proposal","scorecard","dashboard","portfolio"];
+var SIMPLE_MODE_STAGES = ["keystone","scraper","placona","constraint","land","quick","sfh","reports","dashboard","portfolio"];
 
 // ──────────────────────────────────────────────────────────────────────
 // STAGE RELEVANCE (v9.31)
@@ -283,16 +294,18 @@ var JOURNEYS = {
 
   // ── Smart filter map: exit routes that unlock specific stages ──
   // (e.g. picking 'Pension Fund' auto-shows Capitalisation even without BTR scheme)
+  // v10.130 — report surfaces (IM / stakeholder / data room) now live under the "reports" hub,
+  // so an exit route that "needs investor materials" unlocks the hub rather than each old stage.
   var EXIT_UNLOCKS = {
-    pension:    ["capitalise","im","investor","dataroom"],       // pension fund needs investor materials
-    btr_op:     ["capitalise","hra","im","dataroom"],            // BTR operator buys operating asset
-    family:     ["capitalise","im","investor","dataroom"],       // family office wants IM
-    ha_rp:      ["grants","capitalise","dataroom"],              // HA/RP bulk = grant funding + bulk valuation
-    homes_eng:  ["grants","im","dataroom"],                      // Homes England = grant funding
-    sovereign:  ["capitalise","im","investor","dataroom"],       // SWF = institutional
-    bank_takeout:["capitalise","fin","dataroom"],                // refinance = needs cashflow + capitalised NOI
-    land_sale:  ["dataroom"],                                    // sell land with planning = also needs data room
-    open_mkt:   ["fin","viability"]                              // open market sale = sales cashflow
+    pension:    ["capitalise","reports"],       // pension fund needs investor materials
+    btr_op:     ["capitalise","hra","reports"],  // BTR operator buys operating asset
+    family:     ["capitalise","reports"],       // family office wants IM
+    ha_rp:      ["grants","capitalise","reports"], // HA/RP bulk = grant funding + bulk valuation
+    homes_eng:  ["grants","reports"],            // Homes England = grant funding
+    sovereign:  ["capitalise","reports"],       // SWF = institutional
+    bank_takeout:["capitalise","fin","reports"], // refinance = needs cashflow + capitalised NOI
+    land_sale:  ["reports"],                     // sell land with planning = also needs data room
+    open_mkt:   ["fin","viability"]              // open market sale = sales cashflow
   };
   // Which exit routes have ANY exit ticked?
   function exitUnlocksStage(stageId){
@@ -436,7 +449,11 @@ var JOURNEYS = {
   // Next/Previous buttons use filteredIdx so they only walk through stages that
   // are visible in the sidebar for the current scheme + exit combination.
   var idx=ALL_STAGES.findIndex(function(s){return s.id===stage;});
-  var curStage=ALL_STAGES[idx]||ALL_STAGES[0];
+  // v10.130 — a report document (Board Proposal, IM, etc.) is a hidden sub-stage of the Reports
+  // hub, so resolve its label from REPORT_DOCS for the topbar title; retired "summary" reads as
+  // the hub. Falls back to the hub entry, then the first stage.
+  var reportDoc = REPORT_DOCS.filter(function(d){return d.id===stage;})[0];
+  var curStage=ALL_STAGES[idx] || reportDoc || ALL_STAGES.filter(function(s){return s.id==="reports";})[0] || ALL_STAGES[0];
 
   // Build the same filtered list the sidebar uses
   var navFilteredStages = ALL_STAGES.filter(stageVisibleForFlow);
@@ -1062,6 +1079,35 @@ var JOURNEYS = {
     w.document.write(html);
     w.document.close();
     setTimeout(function(){w.print();},800);
+  }
+
+  // v10.130 — Reports hub: the single landing page for every output document. Cards link to
+  // each report screen (which still render exactly as before). Consolidates six sidebar items
+  // into one and gives a clear "which document do I want?" choice.
+  function renderReportsHub(){
+    var M=(typeof calcDealMetrics==="function")?calcDealMetrics(data):{};
+    var gdvV=num(M.gdv), unitsV=num(M.units)||num(data.planning&&data.planning.units)||num(data.sfh&&data.sfh.units)||0;
+    var ready=gdvV>0 && unitsV>0;
+    return e("div",null,
+      e("div",{style:{marginBottom:18}},
+        e("div",{style:{fontSize:11,color:"#7278A0",textTransform:"uppercase",letterSpacing:".12em",fontWeight:700,marginBottom:4}},"Stage · Reports"),
+        e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",margin:"0 0 6px"}},"Reports"),
+        e("p",{style:{fontSize:13,color:"#7278A0",lineHeight:1.6,maxWidth:660}},"Every output document, in one place. They all read from the same reconciled appraisal, so the figures agree across each one — pick the document you need.")
+      ),
+      !ready&&e("div",{style:{padding:"12px 16px",background:"rgba(154,123,62,0.08)",border:"1px solid rgba(154,123,62,0.3)",borderRadius:8,fontSize:12,color:"#7A5A2E",marginBottom:16,lineHeight:1.6}},
+        "Complete the core appraisal (site, house mix / units and a GDV) first so the reports have figures to present. Current: GDV ",e("b",null,gdvV>0?fmt(gdvV):"—"),", ",e("b",null,unitsV||0)," homes."),
+      e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(258px,1fr))",gap:14}},
+        REPORT_DOCS.map(function(d){
+          return e("div",{key:d.id,onClick:function(){navTo(d.id);},
+            style:{background:"#fff",border:"1px solid #DDE0ED",borderLeft:"4px solid #4A4BAE",borderRadius:10,padding:"16px 18px",cursor:"pointer",boxShadow:"0 1px 4px rgba(46,47,138,0.05)",display:"flex",flexDirection:"column"}},
+            e("div",{style:{fontSize:26,marginBottom:8}},d.icon),
+            e("div",{style:{fontSize:15,fontWeight:800,color:"#2E2F8A",marginBottom:5}},d.label),
+            e("div",{style:{fontSize:12,color:"#7278A0",lineHeight:1.5,marginBottom:12,flex:1}},d.desc),
+            e("div",{style:{fontSize:12,fontWeight:800,color:"#4A4BAE"}},"Open "+d.label+" →")
+          );
+        })
+      )
+    );
   }
 
   function renderSummary(){
@@ -1924,7 +1970,8 @@ function loadSiteIntoDeal(site){
     if(stage==="epeworkflow")return renderEPEWorkflow(at, city, data, mergeRespectingCompletedStages, navTo, setData, stage, up, user);
     if(stage==="landworkflow")return renderLandWorkflow(at, city, data, effUnits, gdv, lc, margin, mergeRespectingCompletedStages, navTo, profit, setData, tc, units, up, user);
     if(stage==="recovery")return renderRecovery(city, data, navTo, up, user);
-    if(stage==="summary")return renderSummary();
+    if(stage==="reports")return renderReportsHub();
+    if(stage==="summary")return renderReportsHub();   // v10.130 — Executive Summary retired → Reports hub
     if(stage==="flowcharts")return renderFlowcharts(data, navTo, setData, stage);
     if(stage==="epe")return renderEPE(LiveMarketBanner, city, data, m, mergeRespectingCompletedStages, navTo, setData, up, user);
     if(stage==="rlv")return renderRLV(city, data, m, navTo, setData, up, user);
@@ -2023,7 +2070,10 @@ function loadSiteIntoDeal(site){
               return e("div",{key:g},
                 e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.3)",letterSpacing:".15em",textTransform:"uppercase",padding:"10px 16px 3px",fontWeight:700}},g),
                 activeStages.filter(function(s){return s.group===g;}).map(function(s){
-                  var active=stage===s.id;
+                  // v10.130 — keep "Reports" highlighted while viewing any of its documents
+                  // (Board Proposal / IM / Stakeholder Suite / Scorecard / Data Room) or the
+                  // retired Executive Summary route, since those aren't shown in the sidebar.
+                  var active=stage===s.id || (s.id==="reports" && (stage==="summary" || REPORT_DOCS.some(function(d){return d.id===stage;})));
                   // v9.31 — Stage relevance badge (REQUIRED / RECOMMENDED / OPTIONAL / N/A)
                   var rel = getStageRelevance(s.id, data);
                   var complete = isStageComplete(s.id, data);
