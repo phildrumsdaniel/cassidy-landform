@@ -259,7 +259,11 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
       e("div", { style:{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:10, margin:"4px 0 14px" } },
         kpi("Homes", homes.toLocaleString()),
         kpi("Gross dev value (GDV)", gdv > 0 ? fmt(gdv) : "—"),
-        kpi("Worth to us (RLV)"+(QEX.chosen?" · "+QEX.basisLabel:""), (headlineRlv < 0 ? "−" : "") + fmt(Math.abs(headlineRlv)), headlineRlv > 0 ? "#1B7A54" : "#B05A35"),
+        // v10.125 — until an exit is committed, show the RANGE across the viable exit routes
+        // (a spread of possibilities), not a single figure that reads like a decision.
+        (QEX.chosen
+          ? kpi("Worth to us (RLV) · "+QEX.basisLabel, (headlineRlv < 0 ? "−" : "") + fmt(Math.abs(headlineRlv)), headlineRlv > 0 ? "#1B7A54" : "#B05A35")
+          : kpi("Worth to us (RLV) · exit not yet decided", (QEX.rangeIsSpan ? fmt(QEX.rangeLo)+" – "+fmt(QEX.rangeHi) : fmt(QEX.rangeHi)), QEX.rangeHi > 0 ? "#1B7A54" : "#B05A35", "range across exit routes — see below")),
         kpi(asking > 0 ? "Asking price" : "Max land @ profit", asking > 0 ? fmt(asking) : ((rlv < 0 ? "−" : "") + fmt(Math.abs(rlv))), asking > 0 ? "#1B1D46" : (rlv >= 0 ? "#1B1D46" : "#B05A35")),
         kpi(asking > 0 ? "Margin (all-in)" : "Developer profit", asking > 0 ? pct(marginAllIn) : (Math.round(profitPct*10)/10)+"%", asking > 0 ? (marginAllIn >= 15 ? "#1B7A54" : marginAllIn >= 12 ? "#9A7B3E" : "#B05A35") : "#1B1D46")
       ),
@@ -359,7 +363,7 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
         }
         return e("div", { style:Object.assign({}, S.card, { borderLeft:"4px solid #4A4BAE", marginTop:14 }) },
           e("div", { style:S.cardTitle }, "Exit routes — land value by exit"),
-          e("div", { style:{ fontSize:11, color:"#7278A0", marginBottom:10, lineHeight:1.5 } }, EX.chosen ? e("span", null, "Headline leads with your chosen route (", e("b", null, EX.basisLabel), "). Change it on the Exit Strategy stage.") : "Every exit, side by side. Commit to one on the Exit Strategy stage and the headline + reports lead with it (defaults to plot sales)."),
+          e("div", { style:{ fontSize:11, color:"#7278A0", marginBottom:10, lineHeight:1.5 } }, EX.chosen ? e("span", null, "Headline leads with your chosen route (", e("b", null, EX.basisLabel), "). Change it on the Exit Strategy stage.") : "Every exit, side by side. No exit committed yet, so the headline shows the RANGE across these routes — commit to one on the Exit Strategy stage and the headline + reports lead with it."),
           e("div", { style:{ display:"flex", gap:9, flexWrap:"wrap" } },
             card(EX.basis === "plot", "Open-market plot sales", pv, "Sold to buyers — highest"),
             card(EX.basis === "ha_bulk", "Bulk sale to a HA / fund", hv, "~"+Math.round(num(EX.bulkDiscPct))+"% bulk discount + grant"),
