@@ -332,7 +332,12 @@ function buildLandOnePager(data, cityHint){
           '<div class="kpi"><div class="l">Homes</div><div class="v">'+(oUnits?oUnits.toLocaleString():"—")+'</div></div>'+
           '<div class="kpi"><div class="l">GDV</div><div class="v">'+(oGdv>0?fmt(oGdv):"—")+'</div></div>'+
           '<div class="kpi"><div class="l">Land guide price</div><div class="v">'+(askL>0?fmt(askL):"—")+'</div></div>'+
-          '<div class="kpi"><div class="l">Residual land value'+(EX.chosen?' · '+esc(EX.basisLabel):'')+'</div><div class="v" style="color:'+(headlineRlv>0?"#1B7A54":"#B05A35")+'">'+(headlineRlv?((headlineRlv<0?"−":"")+fmt(Math.abs(headlineRlv))):"—")+'</div></div>'+
+          // v10.125 — no exit committed → the headline reads as a RANGE across the viable exit
+          // routes (possibilities), not a single figure that looks decided. The routes card below
+          // breaks the spread out. Once an exit is committed it leads with that route's value.
+          (EX.chosen
+            ? '<div class="kpi"><div class="l">Residual land value · '+esc(EX.basisLabel)+'</div><div class="v" style="color:'+(headlineRlv>0?"#1B7A54":"#B05A35")+'">'+(headlineRlv?((headlineRlv<0?"−":"")+fmt(Math.abs(headlineRlv))):"—")+'</div></div>'
+            : '<div class="kpi"><div class="l">Residual land value · exit not yet decided</div><div class="v" style="color:'+(num(EX.rangeHi)>0?"#1B7A54":"#B05A35")+'">'+(EX.rangeIsSpan?fmt(EX.rangeLo)+' – '+fmt(EX.rangeHi):fmt(EX.rangeHi))+'</div></div>')+
           '<div class="kpi"><div class="l">'+(askL>0?"Margin (all-in)":"Target profit")+'</div><div class="v" style="color:'+(askL>0?(marginAllIn>=15?"#1B7A54":marginAllIn>=12?"#9A7B3E":"#B05A35"):"#1B1D46")+'">'+(askL>0?pct(marginAllIn):(Math.round(oProfitPct*10)/10)+"%")+'</div></div>'+
         '</div>'+
         // v10.112 — Exit routes: the land value under each exit, side by side, with the chosen route
@@ -346,7 +351,7 @@ function buildLandOnePager(data, cityHint){
               '<div style="font-size:12.5px;font-weight:800;color:'+(val>=0?"#1B1D46":"#B05A35")+';font-family:Georgia,serif;margin-top:1px">'+(val<0?"−":"")+fmt(Math.abs(val))+'</div>'+
               '<div style="font-size:7px;color:#9298BC;margin-top:1px;line-height:1.25">'+esc(note)+'</div></div>';
           }
-          return '<div style="margin:2px 0 3px"><div class="ct" style="margin-bottom:4px">Exit routes — land value by exit'+(EX.chosen?' · headline leads with your chosen route':' <span style="color:#9298BC;text-transform:none;letter-spacing:0;font-weight:600">(no exit committed — showing plot sales; choose one on the Exit Strategy stage)</span>')+'</div>'+
+          return '<div style="margin:2px 0 3px"><div class="ct" style="margin-bottom:4px">Exit routes — land value by exit'+(EX.chosen?' · headline leads with your chosen route':' <span style="color:#9298BC;text-transform:none;letter-spacing:0;font-weight:600">(no exit committed — headline shows the range across these routes; commit to one on the Exit Strategy stage)</span>')+'</div>'+
             '<div style="display:flex;gap:7px">'+
               cell(EX.basis==="plot", "Open-market plot sales", pv, "Build & sell to buyers — residual off sale values")+
               cell(EX.basis==="ha_bulk", "Bulk sale to a HA / fund", hv, "Whole scheme to one buyer, ~"+Math.round(num(EX.bulkDiscPct))+"% bulk discount + grant")+
@@ -1664,7 +1669,11 @@ function renderProposal(city, data, gdv, lc, up, user){
           '<div class="h"><div class="n">'+bandMoney(gdvV)+'</div><div class="l">Gross Dev. Value</div></div>'+
           '<div class="h"><div class="n">'+(units?units.toLocaleString():"—")+'</div><div class="l">New homes</div></div>'+
           '<div class="h"><div class="n">'+(ask>0?bandMoney(ask):"—")+'</div><div class="l">Guide price</div></div>'+
-          '<div class="h"><div class="n">'+(boardRlv?((boardRlv<0?"−":"")+bandMoney(Math.abs(boardRlv))):"—")+'</div><div class="l">Residual land value*'+(PEX.chosen?' · '+esc(PEX.basisLabel):'')+'</div></div>'+
+          // v10.125 — no exit committed → show the land value as a RANGE across the viable exit
+          // routes (possibilities) rather than one figure; the exit-routes section breaks it out.
+          (PEX.chosen
+            ? '<div class="h"><div class="n">'+(boardRlv?((boardRlv<0?"−":"")+bandMoney(Math.abs(boardRlv))):"—")+'</div><div class="l">Residual land value* · '+esc(PEX.basisLabel)+'</div></div>'
+            : '<div class="h"><div class="n">'+(PEX.rangeIsSpan?bandMoney(PEX.rangeLo)+' – '+bandMoney(PEX.rangeHi):bandMoney(PEX.rangeHi))+'</div><div class="l">Residual land value* · exit not yet decided</div></div>')+
         '</div></div></div>'+
       '<div class="bd">'+
         // 01 opportunity

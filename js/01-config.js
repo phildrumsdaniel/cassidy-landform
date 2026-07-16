@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.124";
+var CURRENT_VERSION = "10.125";
 var VERSION_HISTORY = [
+  {v:"10.125", date:"Jul 2026", headline:"Before you commit to an exit, the appraisal shows the POSSIBILITIES — not a single figure that reads like a decision. When no exit route is chosen on the Exit Strategy stage (the raw, basic-calculation stage you'd take to the board early), the headline Residual Land Value on the Quick Appraisal, the one-pager and the Board Paper now reads as a RANGE across the viable exit routes — e.g. ‘£8m – £11m · exit not yet decided’ — with the three routes (open-market plot sales / bulk sale to a HA or fund / institutional forward-fund) broken out beneath. The range spans only the routes that come out POSITIVE (a genuine disposal): for a houses-for-sale scheme the forward-fund rental route reads negative, which is a read-across confirming plot sales, so it’s listed for completeness but kept out of the headline span rather than dragging it into a scary negative. Commit to an exit and the headline switches to lead with that one route’s value, exactly as before. No engine change; 577 tests pass."},
   {v:"10.124", date:"Jul 2026", headline:"Land Deal now shows YOUR indicative offer and the price actually AGREED with the landowner side by side. The discount-to-consented-value model produces your opening offer — it is NOT a figure the landowner is promised, and if they'll accept less, that lower price is the deal and the difference drops straight to your margin. The ‘What changes hands’ block is relabelled ‘your indicative offer’, and beneath it two columns compare (1) your indicative offer (from the option discount / promoter fee / uplift share) and (2) the landowner's asking / agreed price (the Asking Price field), each with the profit margin and the headroom-vs-ceiling it leaves you. Enter a lower agreed price and you see the extra margin; enter one above your RLV ceiling and it flags that you'd be paying over the max. A note makes the principle explicit: Landform never quotes the landowner a number — whatever is agreed, up to your ceiling, is the deal, and lower means more margin. No engine change; all 577 tests pass."},
   {v:"10.123", date:"Jul 2026", headline:"Reconciliation sweep from a full end-to-end test — every screen now tells the SAME story. Six fixes so figures agree wherever you look: (1) Quick Appraisal now uses your saved house mix as-is instead of re-pricing it to a flat rate, so its GDV and residual land value match the detailed stages to the penny (they were splitting, e.g. £98m vs £120m). (2) The Quick Appraisal headline now leads with your CHOSEN exit route and its label, like the one-pager and Board Proposal. (3) Financial Modelling now itemises professional fees & contingency (they read £0 when the build rate is all-in) by splitting the all-in build the same way the Land Valuation stage does — the sum is unchanged, so Total Dev Cost still reconciles. (4) Financial Modelling’s programme now defaults to the REALISTIC build-out (homes ÷ build rate, capped 8 yrs) instead of a flat 36 months, so the finance S-curve and IRR match the land value. (5) The Land Valuation sensitivity widget is now anchored to the actual headline RLV (no more stray ‘Base RLV’ third number — sliders show the isolated impact layered on the headline). (6) The Land Valuation project-timeline widget now uses the ONE projectTimeline() helper (also behind the one-pager), so the horizon reads the same everywhere — it was understating an unconsented / allocated site by years. Plus: the one-pager appraisal breakdown now foots top-to-bottom when there’s an affordable discount (open-market value → less discount → net GDV → costs → RLV), a ‘Phased Exit’ now reads as ‘phased plot sales’ across the reports (matching the dropdown), and the profit label shows 17.5% not a rounded 18%. Verified: all scripts parse, 577 engine tests pass, and the one-pager breakdown foots to the residual exactly (diff £0)."},
   {v:"10.122", date:"Jul 2026", headline:"Timeline and finance now use the same REALISTIC build-out period. The project-timeline widget showed the build taking ~8 years (homes ÷ the real housebuilder build rate, e.g. 1,800 ÷ 220/yr), but the finance cost that drives the land value was calculated on a cruder ~6-year figure (1 + units/350) — so the timeline and the money disagreed. The finance programme now uses the SAME realistic build-out (homes ÷ build rate, capped at 8 years), so a bigger scheme carries finance for its actual multi-year build. This raises the finance cost on large phased schemes and therefore trims the residual land value a little — a more conservative, defensible figure, and the timeline you see now matches the number behind the land value. Applied in the engine, the mix optimiser and the SFH stage; an explicit ‘Programme (years)’ override still wins."},
@@ -2384,6 +2385,20 @@ function dealExit(data){
   };
   var BASIS_LABEL = { plot:"open-market plot sales", ha_bulk:"bulk sale to a HA / fund", capitalised:"capitalised rental investment" };
   var chosenRlv = basis === "capitalised" ? capRlv : (basis === "ha_bulk" ? haBulkRlv : plotRlv);
+  // v10.125 — the three exit possibilities as a set, plus the value RANGE across them. Used when
+  // NO exit has been committed yet: the board appraisal shows the spread of what the land is worth
+  // under each realistic exit rather than silently defaulting to one. The forward-fund (rental)
+  // route reads negative for a houses-for-sale scheme — that's a read-across, not a genuine
+  // disposal — so the headline RANGE spans only the routes that come out POSITIVE (a viable exit);
+  // all three are still listed beneath with their figures and context.
+  var routes = [
+    { key:"plot",        label:"Open-market plot sales",      basis:"plot",        value:plotRlv },
+    { key:"ha_bulk",     label:"Bulk sale to a HA / fund",    basis:"ha_bulk",     value:haBulkRlv },
+    { key:"capitalised", label:"Institutional forward-fund",  basis:"capitalised", value:capRlv }
+  ];
+  var viable = routes.filter(function(r){ return r.value > 0; });
+  var rangeVals = (viable.length ? viable : routes).map(function(r){ return r.value; });
+  var rangeLo = Math.min.apply(null, rangeVals), rangeHi = Math.max.apply(null, rangeVals);
   return {
     strategy:strategy, chosen:!!strategy, basis:basis,
     routeLabel: ROUTE[strategy] || "Open-market plot sales",
@@ -2393,7 +2408,8 @@ function dealExit(data){
     basisLabel: (strategy === "phased" ? "phased plot sales" : (BASIS_LABEL[basis] || "open-market plot sales")),
     plotRlv:plotRlv, capRlv:capRlv, haBulkRlv:haBulkRlv, bulkDiscPct:bulkDiscPct,
     capValue:num(SF.capInvestmentValue), capNetRentPa:num(SF.capNetRentPa), capTenureBlind:!!SF.capTenureBlind,
-    chosenRlv:chosenRlv
+    chosenRlv:chosenRlv,
+    routes:routes, viableRoutes:viable, rangeLo:rangeLo, rangeHi:rangeHi, rangeIsSpan:(rangeHi - rangeLo > 1)
   };
 }
 
