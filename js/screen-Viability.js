@@ -141,6 +141,14 @@ function renderViability(city, data, gdv, lc, up, user){
           hasData&&e("button",{onClick:function(){confirmToast("Clear this appraisal?",function(){up("viability","appraisal",{});},{confirmLabel:"Clear"});},style:{padding:"8px 14px",background:"none",border:"1px solid #DDE0ED",borderRadius:6,color:"#B05A35",fontSize:11,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Clear")
         )
       ),
+      // v10.131 — when the deal's build £/sqft is ALL-IN, the infrastructure, professional-fees
+      // and contingency lines are ZEROED here so they aren't double-counted (they're already inside
+      // the build rate). Without this note the £0s read as an omission — a reviewer (and the MCP
+      // agent) flag them as "missing ~£57m of fees & contingency", which would be WRONG to add back
+      // on top of an all-in rate. This banner makes clear they're included, not omitted.
+      hasData&&ap._buildInclusive&&e("div",{style:{padding:"12px 16px",background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.35)",borderRadius:8,fontSize:12,color:"#1d5446",marginBottom:16,lineHeight:1.6}},
+        e("b",null,"Build rate is all-in. "),"Professional fees, contingency, infrastructure (S278, drainage, utilities, abnormals) and CIL show ",e("b",null,"£0 because they are already covered by your all-in build £/sqft")," — they are NOT missing, and must not be added again on top (that would double-count ~£50m+ and understate the margin). To itemise them here, switch the build rate to construction-only on the SFH House Mix stage; the fees %, contingency % and infra lines then populate."
+      ),
       !hasData&&e("div",{style:{textAlign:"center",padding:"48px 24px",background:"rgba(74,75,174,0.04)",borderRadius:10,border:"1px dashed rgba(74,75,174,0.25)"}},
         e("div",{style:{fontSize:40,marginBottom:12}},"📐"),
         e("div",{style:{fontSize:15,fontWeight:700,color:"#2E2F8A",marginBottom:8}},"Start with your deal data"),
