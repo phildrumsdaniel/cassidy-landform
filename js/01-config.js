@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.126";
+var CURRENT_VERSION = "10.127";
 var VERSION_HISTORY = [
+  {v:"10.127", date:"Jul 2026", headline:"Realistic build-out period for large housing schemes (the 8-year construction on a 1,800-home site was too short). The project timeline was capping construction at 8 years and assuming a flat 220 homes/yr for any scheme over 600 units — so an 1,800-home strategic site read an 8-year build (and 220×8 = 1,760 homes, short of the 1,800). A single sales outlet delivers ~40–50 homes/yr, and the industry benchmark (Lichfields ‘Start to Finish’) for 1,500–2,000-home sites is ~150/yr, so the build rate is recalibrated down — mega-schemes (1,000+) to 180/yr, large (600–999) to 200/yr — and the construction cap raised from 8 to 12 years. An 1,800-home scheme now builds out over ~10 years (180/yr, which reconciles exactly to 1,800), not 8. Because the development finance is charged over the build programme, the longer, more realistic build carries more finance and therefore trims the residual land value a touch — a more conservative, board-defensible figure. Applied consistently in the engine, the SFH stage, the mix optimiser, the one-pager/teaser/IM timelines and the Land Valuation timeline widget; an explicit ‘Programme (years)’ override still wins. 578 tests pass."},
   {v:"10.126", date:"Jul 2026", headline:"Audit fix — the affordable grant now lifts the residual on EVERY screen, so the Dashboard and the one-pager agree. An end-to-end reconciliation audit caught the deal-state engine (calcDealMetrics — behind the Dashboard, Financial Modelling and Site Scorecard) computing the residual land value WITHOUT the Homes England affordable grant, while the SFH House Mix, Land Valuation and one-pager (computeSFHMetrics) correctly added it. So an affordable scheme with grant showed a LOWER residual on the Dashboard than on the one-pager — the ‘two different RLV numbers’ class of bug, but only when grant was entered, which is why it had slipped through. The grant now flows to the residual and the profit in the shared engine, so all screens show the SAME residual and margin; the Financial Modelling appraisal also shows the grant as a credit (‘less: Affordable grant (AHP)’ → net cost after grant) so Profit = GDV − net cost still foots on that screen. Verified: 577 engine tests pass and a 59-check cross-screen reconciliation audit (GDV, RLV, one-pager footing, Fin decomposition, exit range, timeline) is fully green across six deal types."},
   {v:"10.125", date:"Jul 2026", headline:"Before you commit to an exit, the appraisal shows the POSSIBILITIES — not a single figure that reads like a decision. When no exit route is chosen on the Exit Strategy stage (the raw, basic-calculation stage you'd take to the board early), the headline Residual Land Value on the Quick Appraisal, the one-pager and the Board Paper now reads as a RANGE across the viable exit routes — e.g. ‘£8m – £11m · exit not yet decided’ — with the three routes (open-market plot sales / bulk sale to a HA or fund / institutional forward-fund) broken out beneath. The range spans only the routes that come out POSITIVE (a genuine disposal): for a houses-for-sale scheme the forward-fund rental route reads negative, which is a read-across confirming plot sales, so it’s listed for completeness but kept out of the headline span rather than dragging it into a scary negative. Commit to an exit and the headline switches to lead with that one route’s value, exactly as before. No engine change; 577 tests pass."},
   {v:"10.124", date:"Jul 2026", headline:"Land Deal now shows YOUR indicative offer and the price actually AGREED with the landowner side by side. The discount-to-consented-value model produces your opening offer — it is NOT a figure the landowner is promised, and if they'll accept less, that lower price is the deal and the difference drops straight to your margin. The ‘What changes hands’ block is relabelled ‘your indicative offer’, and beneath it two columns compare (1) your indicative offer (from the option discount / promoter fee / uplift share) and (2) the landowner's asking / agreed price (the Asking Price field), each with the profit margin and the headroom-vs-ceiling it leaves you. Enter a lower agreed price and you see the extra margin; enter one above your RLV ceiling and it flags that you'd be paying over the max. A note makes the principle explicit: Landform never quotes the landowner a number — whatever is agreed, up to your ceiling, is the deal, and lower means more margin. No engine change; all 577 tests pass."},
@@ -2244,7 +2245,12 @@ function postcodeMarketKey(pc){
 function buildRatePerYear(units, isApart){
   units = num(units);
   if(isApart) return units >= 300 ? 250 : units >= 150 ? 200 : 150;
-  if(units >= 600) return 220;   // strategic / multi-phase
+  // v10.127 — houses. A single sales outlet delivers ~40–50/yr; large schemes run several outlets
+  // concurrently but real strategic build-out is slower than a flat 220/yr implied (Lichfields
+  // "Start to Finish": 1,500–2,000-home sites average ~150/yr). Mega-schemes recalibrated down so
+  // an 1,800-home scheme builds out over ~10 years, not ~8, and the finance reflects the longer hold.
+  if(units >= 1000) return 180;  // mega / multi-phase strategic (was a flat 220)
+  if(units >= 600) return 200;   // large strategic — several outlets
   if(units >= 300) return 175;   // ~4 outlets
   if(units >= 150) return 115;   // ~3 outlets
   if(units >= 50)  return 70;    // ~2 outlets
@@ -2426,7 +2432,7 @@ function projectTimeline(data){
   var p = data.planning || {}, l = data.land || {};
   var SF = (typeof computeSFHMetrics === "function") ? computeSFHMetrics(data) : {};
   var units = num(SF.totalUnits) || num(p.units) || num(l.units) || 0;
-  var buildYears = num(SF.financeProgYears) || Math.round(Math.max(1.5, Math.min(8, (typeof buildRatePerYear === "function" && buildRatePerYear(units, false) > 0) ? units / buildRatePerYear(units, false) : (1 + units / 350))) * 10) / 10;
+  var buildYears = num(SF.financeProgYears) || Math.round(Math.max(1.5, Math.min(12, (typeof buildRatePerYear === "function" && buildRatePerYear(units, false) > 0) ? units / buildRatePerYear(units, false) : (1 + units / 350))) * 10) / 10;
   var status = String(p.status || l.planningStatus || "").toLowerCase();
   var planningMonths = num(p.planningTimelineMonths);
   if(!(planningMonths > 0)){
@@ -2969,7 +2975,7 @@ function computeSFHMetrics(data){
   // 1+units/350 heuristic, so the timeline and the finance/land value agree. A bigger scheme takes
   // longer to build out, so it carries more finance (a more conservative, defensible residual).
   var finProgYears = num(sfh.programmeYears) > 0 ? num(sfh.programmeYears)
-    : Math.round(Math.max(1.5, Math.min(8, (typeof buildRatePerYear === "function" && buildRatePerYear(totalUnits, false) > 0) ? totalUnits / buildRatePerYear(totalUnits, false) : (1 + totalUnits / 350))) * 10) / 10;
+    : Math.round(Math.max(1.5, Math.min(12, (typeof buildRatePerYear === "function" && buildRatePerYear(totalUnits, false) > 0) ? totalUnits / buildRatePerYear(totalUnits, false) : (1 + totalUnits / 350))) * 10) / 10;
   var finPeakDebtPct = num(sfh.peakDebtPct) > 0 ? num(sfh.peakDebtPct)
     : Math.max(45, Math.min(100, Math.round(200 / finPhases)));
   var sfhFinance = (buildCost + sfhFees) * (finPeakDebtPct / 100) * (numOr(sfh.finRate, 7.5) / 100) * finProgYears * FIN_SCURVE;
@@ -3081,7 +3087,7 @@ function optimiseSfhMix(data, mode, opts){
   // v10.55 — mirror the engine's S-curve/peak-debt finance so per-plot margins track the appraisal.
   var optUnits = rows.reduce(function(a, r){ return a + num(r.count); }, 0);
   var optPhases = num(sfh.phases) > 0 ? num(sfh.phases) : Math.max(1, Math.ceil(optUnits / 300));
-  var optProgYears = num(sfh.programmeYears) > 0 ? num(sfh.programmeYears) : Math.round(Math.max(1.5, Math.min(8, (typeof buildRatePerYear === "function" && buildRatePerYear(optUnits, false) > 0) ? optUnits / buildRatePerYear(optUnits, false) : (1 + optUnits / 350))) * 10) / 10;
+  var optProgYears = num(sfh.programmeYears) > 0 ? num(sfh.programmeYears) : Math.round(Math.max(1.5, Math.min(12, (typeof buildRatePerYear === "function" && buildRatePerYear(optUnits, false) > 0) ? optUnits / buildRatePerYear(optUnits, false) : (1 + optUnits / 350))) * 10) / 10;
   var optPeakDebtPct = num(sfh.peakDebtPct) > 0 ? num(sfh.peakDebtPct) : Math.max(45, Math.min(100, Math.round(200 / optPhases)));
   var finMult = (optPeakDebtPct / 100) * optProgYears * 0.6;
 

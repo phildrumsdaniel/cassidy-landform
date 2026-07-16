@@ -79,7 +79,7 @@ function sfhScreenRlv(data){
   // v10.55 — S-curve/peak-debt finance, mirroring the engine + SFH screen.
   var phases = num(s.phases)>0?num(s.phases):Math.max(1,Math.ceil(totalUnits/300));
   // v10.122 — realistic build-out programme (homes ÷ build rate, capped 8 yrs), mirroring the engine.
-  var progYears = num(s.programmeYears)>0?num(s.programmeYears):Math.round(Math.max(1.5,Math.min(8,(typeof buildRatePerYear==="function"&&buildRatePerYear(totalUnits,false)>0)?totalUnits/buildRatePerYear(totalUnits,false):(1+totalUnits/350)))*10)/10;
+  var progYears = num(s.programmeYears)>0?num(s.programmeYears):Math.round(Math.max(1.5,Math.min(12,(typeof buildRatePerYear==="function"&&buildRatePerYear(totalUnits,false)>0)?totalUnits/buildRatePerYear(totalUnits,false):(1+totalUnits/350)))*10)/10;
   var peakDebtPct = num(s.peakDebtPct)>0?num(s.peakDebtPct):Math.max(45,Math.min(100,Math.round(200/phases)));
   var fin = (totalBuild+fees)*(peakDebtPct/100)*(numOr(s.finRate,7.5)/100)*progYears*0.6;
   // v10.102 — infra charged on the DEVELOPED area (homes ÷ net density, capped at the site), not the whole title
@@ -176,11 +176,14 @@ console.log("Landform engine consistency tests\n");
   near("finance == (build) × peak% × rate × years × 0.6", big.finance,
     big.buildCost * (big.financePeakDebtPct/100) * 0.12 * big.financeProgYears * 0.6, 5);
   // explicit overrides win, and raising peak debt (slower sales) raises finance
-  var slow = computeSFHMetrics(sfhDeal({ sfh:{ buildInclusive:true, finRate:12, programmeYears:6, peakDebtPct:70,
+  // v10.127 — hold the programme EQUAL to the auto scheme so this isolates the peak-debt effect
+  // (the auto 1,800-home programme is now ~10yrs after the build-rate recalibration, so a shorter
+  // manual programme would no longer be a like-for-like comparison).
+  var slow = computeSFHMetrics(sfhDeal({ sfh:{ buildInclusive:true, finRate:12, programmeYears:10, peakDebtPct:70,
     mix:[{type:"3-bed semi",count:"1800",sqft:"1000",unitPrice:"440000",tenure:"private"}] } }));
-  ok("explicit programme years honoured", slow.financeProgYears === 6);
+  ok("explicit programme years honoured", slow.financeProgYears === 10);
   ok("explicit peak debt honoured", slow.financePeakDebtPct === 70);
-  ok("slower sales / higher peak debt ⇒ more finance", slow.finance > big.finance);
+  ok("higher peak debt (same programme) ⇒ more finance", slow.finance > big.finance);
   // a small single-phase scheme stays near the old flat basis (peak ~100%, ~2 yrs)
   var small = computeSFHMetrics(sfhDeal({ sfh:{ buildInclusive:true,
     mix:[{type:"3-bed semi",count:"80",sqft:"1000",unitPrice:"400000",tenure:"private"}] } }));
@@ -319,7 +322,7 @@ console.log("Landform engine consistency tests\n");
   if(typeof projectTimeline !== "function") return;
   var big = sfhDeal({ sfh:{ mix:[{type:"3-bed semi",count:"1000",sqft:"950",unitPrice:String(950*444),tenure:"private"},{type:"4-bed detached",count:"800",sqft:"1250",unitPrice:String(1250*470),tenure:"private"}] } });
   var t = projectTimeline(big);
-  ok("timeline: build-out reflects scale (~6yrs for 1800)", t.buildYears >= 5 && t.buildYears <= 8);
+  ok("timeline: build-out reflects scale (~10yrs for 1800, v10.127 recalibration)", t.buildYears >= 9 && t.buildYears <= 12);
   // v10.83 — unconsented cold-start default is a ~7-year promotion (research-grounded), not months
   ok("timeline: unconsented site defaults to a ~7-year promotion", t.planningMonths >= 72);
   ok("timeline: total = planning + build", Math.abs(t.totalYears - (t.planningYears + t.buildYears)) < 0.15);
@@ -692,7 +695,8 @@ console.log("Landform engine consistency tests\n");
   // v10.0 — location score shared by Land Appraisal + Scorecard (was only on the Land screen)
   ok("locationScore reflects the land dropdowns", locationScore({land:{proximity:"fair",transport:"fair",contamination:"unknown",tenure:"freehold",constraint:"none"}}) === 53);
   ok("locationScore is 0 when unset", locationScore({}) === 0);
-  ok("buildRatePerYear phased (1056 homes -> 220/yr)", buildRatePerYear(1056,false) === 220 && buildRatePerYear(40,false) === 40);
+  ok("buildRatePerYear phased (1056 homes -> 180/yr mega, 40 -> 40)", buildRatePerYear(1056,false) === 180 && buildRatePerYear(40,false) === 40);
+  ok("buildRatePerYear tiers (1800->180, 800->200, 400->175)", buildRatePerYear(1800,false) === 180 && buildRatePerYear(800,false) === 200 && buildRatePerYear(400,false) === 175);
 })();
 
 // 22 — SFH inherits site area from Land Appraisal (engine stays consistent with screen)

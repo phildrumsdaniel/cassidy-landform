@@ -900,7 +900,7 @@ function renderRLV(city, data, m, navTo, setData, up, user){
             // previously computing its own planning estimate off toy defaults (0–1.5 yrs), which
             // understated an unconsented / allocated site by years and disagreed with the one-pager
             // (research-grounded: a cold, unallocated start is a multi-year Local-Plan promotion).
-            var TL = (typeof projectTimeline==="function") ? projectTimeline(data) : {planningYears:0,buildYears:Math.min(8,units2/50),totalYears:0,planningMonths:0,statusLabel:""};
+            var TL = (typeof projectTimeline==="function") ? projectTimeline(data) : {planningYears:0,buildYears:Math.min(12,units2/50),totalYears:0,planningMonths:0,statusLabel:""};
             var planningYears = num(TL.planningYears);
             var buildPhase = num(TL.buildYears);
             // Carve a short pre-commencement (roads/drainage/utilities) sliver OUT of the consent
