@@ -354,6 +354,35 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
           ):e("div",null)
         ),
 
+        // v10.133 — flag when the STORED sale £/sqft is materially adrift from the tool's own
+        // Land-Registry-derived new-build estimate, and offer one click to adopt it (re-pricing
+        // the whole mix off it). Sale price is the single biggest lever; a generic default (e.g.
+        // Keystone's £300 fallback when a location isn't resolved) silently running ~30% under the
+        // evidence-based figure is the costliest thing to leave unchecked — surfaced by an
+        // end-to-end test where a Staplehurst deal ran on £300 vs the tool's own £445 estimate.
+        nbInfo && num(s.basePsf)>0 && Math.abs(num(s.basePsf)-num(nbInfo.newBuild)) >= Math.max(15, num(nbInfo.newBuild)*0.08) && (function(){
+          var cur=num(s.basePsf), est=num(nbInfo.newBuild), low=cur<est;
+          var pctDiff=Math.round(Math.abs(cur-est)/est*100);
+          return e("div",{style:{margin:"12px 0 0",padding:"11px 14px",background:low?"rgba(176,90,53,0.08)":"rgba(154,123,62,0.08)",border:"1px solid "+(low?"rgba(176,90,53,0.4)":"rgba(154,123,62,0.4)"),borderRadius:8,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}},
+            e("div",{style:{flex:1,minWidth:220,fontSize:12,color:"#3A3D6A",lineHeight:1.6}},
+              e("b",{style:{color:low?"#B05A35":"#9A7B3E"}},"Sale price is "+pctDiff+"% "+(low?"below":"above")+" the Land Registry estimate. "),
+              "You're using £"+cur+"/sqft; the new-build estimate for this postcode is £"+est+"/sqft (LR existing £"+num(nbInfo.existing)+" + "+num(nbInfo.premiumPct)+"% premium). It's the biggest single lever — verify against a local new-build comp before relying on it."
+            ),
+            e("button",{onClick:function(){
+              var nm=mix.map(function(r){
+                var inf=HOUSE_TYPES[r.type]||HOUSE_TYPES["3-bed semi"]||{sqft:900,adj:1};
+                var sq=numOr(r.sqft, inf.sqft);
+                var psf2=Math.round(est*(inf.adj||1));
+                var c=Object.assign({},r); c.psf=String(psf2);
+                if(sq>0){ c.unitPrice=String(Math.round(sq*psf2)); if(c.salePrice!==undefined) c.salePrice=c.unitPrice; }
+                return c;
+              });
+              up("sfh","basePsf",est); up("sfh","mix",nm);
+            },style:{padding:"8px 14px",background:"#2D7A65",border:"none",borderRadius:6,color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",flexShrink:0}},"Apply £"+est+"/sqft"),
+            e("div",{style:{fontSize:10,color:"#9298BC",width:"100%"}},"Applies the estimate as the Base Sale £/sqft and re-prices every house type off it. Enter real per-type comps to override.")
+          );
+        })(),
+
         // ── Build:Sale ratio diagnostic ─────────────────────────────────────
         basePsf>0&&sBuild>0&&(function(){
           var ratio=sBuild/basePsf*100;
