@@ -1400,6 +1400,189 @@ function buildAllStakeholderPacks(data){
     '</body></html>';
 }
 
+// ── MANAGER SUMMARY APPRAISAL (v10.128) ──────────────────────────────────────
+// A concrete, sendable evaluation report for managers: the reconciled headline
+// figures (straight from the one engine, so they match every other screen), a
+// CONFIDENCE table that tags each key input Verified / AI-researched / Assumption
+// (so a manager sees what is evidence-backed vs a working assumption), a
+// "resolve before offer" list derived from the assumptions, and — auto-run on
+// generate — two AI passes: a benchmark/accuracy sense-check vs the major
+// housebuilders + BCIS, and a risk / red-flag review. Async because it runs the AI.
+async function buildManagerSummary(data, cityHint, user){
+  data = data || {};
+  function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function mdToHtml(t){
+    if(!t) return '<div style="color:#9298BC;font-style:italic">No AI response — check the connection and try again.</div>';
+    var lines=String(t).split(/\r?\n/), out=[], inUl=false;
+    function closeUl(){ if(inUl){ out.push('</ul>'); inUl=false; } }
+    lines.forEach(function(ln){
+      var s=ln.trim(); if(!s){ closeUl(); return; }
+      s=esc(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/__(.+?)__/g,'<b>$1</b>');
+      var h=s.match(/^#{1,6}\s+(.*)/);
+      if(h){ closeUl(); out.push('<div style="font-weight:800;color:#2E2F8A;margin:7px 0 3px;font-size:9.6px;text-transform:uppercase;letter-spacing:.04em">'+h[1].replace(/[:#]+$/,'')+'</div>'); return; }
+      var b=s.match(/^[-*•]\s+(.*)/)||s.match(/^\d+[.)]\s+(.*)/);
+      if(b){ if(!inUl){ out.push('<ul style="margin:2px 0 4px 15px;padding:0">'); inUl=true; } out.push('<li style="margin:1.5px 0">'+b[1]+'</li>'); return; }
+      closeUl(); out.push('<div style="margin:3px 0">'+s+'</div>');
+    });
+    closeUl(); return out.join('');
+  }
+
+  var l=data.land||{}, s=data.sfh||{}, plan=data.planning||{};
+  var SF=(typeof computeSFHMetrics==="function")?computeSFHMetrics(data):{};
+  var DM=(typeof calcDealMetrics==="function")?calcDealMetrics(data):{};
+  var EX=(typeof dealExit==="function")?dealExit(data):{};
+  var TL=(typeof projectTimeline==="function")?projectTimeline(data):{};
+  var cityDisp=(typeof cityName==="function")?cityName(cityHint||l.city||s.city||""):(cityHint||l.city||"");
+  var addr=l.address||(cityDisp?("Site, "+cityDisp):"Development site");
+
+  var units=num(SF.totalUnits)||num(plan.units)||0;
+  var gdv=num(SF.gdv), dev=num(SF.devCost), profit=num(SF.profit), rlv=num(SF.rlv);
+  var margin=gdv>0?profit/gdv*100:0;
+  var avgSqft=num(SF.avgSqft);
+  var blendPsf=(units>0&&avgSqft>0)?Math.round(gdv/(units*avgSqft)):0;
+  var buildPsf=num(SF.buildPsf)||numOr(s.buildPsf,0);
+  var ask=num(l.price);
+  var acres=num(l.acres)||num(s.acres);
+  var ahPct=numOr((plan.ahPct!==undefined?plan.ahPct:s.ahPct),0);
+  var grant=num(SF.grantIncome);
+
+  // ── Verdict (engine-derived) ────────────────────────────────────────────────
+  var verdict, vcol, vsub;
+  if(!(gdv>0)||!(units>0)){ verdict="INCOMPLETE — build the scheme first"; vcol="#7278A0"; vsub="Enter the house mix and site so the appraisal has a GDV and unit count."; }
+  else if(rlv<=0){ verdict="✗ DOES NOT STACK"; vcol="#B05A35"; vsub="At these inputs the scheme supports NO land payment — costs and target profit exceed the realised value. Revisit density, sale price or costs before any offer."; }
+  else if(ask>0 && ask>rlv){ verdict="⚠ CAUTION — asking exceeds our ceiling"; vcol="#9A7B3E"; vsub="The guide price of "+fmt(ask)+" is "+fmt(ask-rlv)+" above the residual land value of "+fmt(rlv)+". Negotiate to the RLV or below, or improve the scheme, before committing."; }
+  else if(margin>=17.5){ verdict="✓ PROCEED — stacks at target profit"; vcol="#1d5446"; vsub="The scheme carries a "+(Math.round(margin*10)/10)+"% margin at the residual land value"+(ask>0?" and the "+fmt(ask)+" guide price sits within the "+fmt(rlv)+" ceiling":"")+". Subject to the assumptions below being confirmed."; }
+  else if(margin>=15){ verdict="⚠ CAUTION — thin margin"; vcol="#9A7B3E"; vsub="Margin is "+(Math.round(margin*10)/10)+"% — below the 17.5% viability benchmark. It may still proceed but has little headroom; firm up costs and sale prices."; }
+  else { verdict="✗ MARGINAL / DECLINE"; vcol="#B05A35"; vsub="Margin of "+(Math.round(margin*10)/10)+"% is below the 15% viability floor. The deal does not stack as entered."; }
+
+  // ── Confidence of the key inputs (Verified / AI-researched / Assumption) ─────
+  var mixHasPrices=s.mix&&s.mix.some(function(r){ return num(r.unitPrice||r.salePrice)>0; });
+  var rentResearched=!!SF.capRentFromResearch;
+  function row(label,value,tag,note){ return {label:label,value:value,tag:tag,note:note||""}; }
+  var TAG_VER="Verified", TAG_AI="AI-researched", TAG_ASSUME="Assumption";
+  var conf=[
+    row("Sale value (blended)", (blendPsf>0?"£"+fmtN(blendPsf)+"/sqft":"—"), mixHasPrices?TAG_VER:TAG_ASSUME, mixHasPrices?"Per-type prices entered on the House Mix":"Area default — validate with local new-build comparables"),
+    row("Build cost", (buildPsf>0?"£"+fmtN(buildPsf)+"/sqft"+((s.buildInclusive)?" all-in":""):"—"), (num(s.buildPsf)>0?TAG_VER:TAG_ASSUME), (num(s.buildPsf)>0?"Entered on the House Mix":"BCIS / typical — confirm with a QS")),
+    row("Affordable housing", (ahPct>0?Math.round(ahPct)+"% affordable":"none modelled"), ((plan.ahPct!==undefined||s.ahPct!==undefined)&&ahPct>=0&&(plan.ahPct!==""&&plan.ahPct!==undefined||s.ahPct!==""&&s.ahPct!==undefined)?TAG_VER:TAG_ASSUME), "Confirm % + tenure split + transfer price with the LPA"),
+    (grant>0?row("Affordable grant (AHP)", fmt(grant), TAG_ASSUME, "Indicative rate — needs a Registered Provider partner + Homes England confirmation"):null),
+    row("Exit / rents & yield", (EX.chosen?EX.basisLabel:"not committed — range shown"), (rentResearched?TAG_AI:TAG_ASSUME), (rentResearched?"Rents from AI research — verify vs live listings":"Yield/rents implied — research area rents on the Capitalisation stage")),
+    row("Finance", numOr(s.finRate,7.5)+"% pa over ~"+(num(SF.financeProgYears)||"?")+"yr", TAG_ASSUME, "Confirm facility rate & structure with a lender"),
+    row("S106 / CIL", "£"+fmtN(numOr(s.s106pu,8000))+"/unit", (num(s.s106pu)>0?TAG_VER:TAG_ASSUME), "Confirm the obligation with the LPA / a planning consultant"),
+    row("Planning status", (TL.statusLabel||"Unallocated"), (plan.status?TAG_VER:TAG_ASSUME), "The residual is the value AT consent — factor the planning risk & "+(TL.planningYears||"?")+"-yr promotion"),
+    row("Programme", (num(SF.financeProgYears)||"?")+"yr build · "+(TL.totalYears||"?")+"yr total", (num(s.programmeYears)>0?TAG_VER:TAG_ASSUME), (num(s.programmeYears)>0?"Explicit programme entered":"Modelled from build-out rate — refine with a delivery plan"))
+  ].filter(Boolean);
+  var tagColor={ }; tagColor[TAG_VER]="#1d5446"; tagColor[TAG_AI]="#4A4BAE"; tagColor[TAG_ASSUME]="#9A7B3E";
+  var resolve=conf.filter(function(r){ return r.tag===TAG_ASSUME; });
+
+  // ── AI passes (auto-run on generate) ────────────────────────────────────────
+  var aiBench="", aiRisk="";
+  if(typeof callAI==="function" && typeof buildHonestPrompt==="function"){
+    var pBench=buildHonestPrompt(data,"You are a senior development finance director writing the validation section of a MANAGER SUMMARY appraisal. Sense-check every headline figure and benchmark it.\nGDV "+fmt(gdv)+" | Dev cost "+fmt(dev)+" | RLV "+fmt(rlv)+" | Margin "+(Math.round(margin*10)/10)+"% | Units "+units+" | Sale ~£"+blendPsf+"/sqft | Build ~£"+buildPsf+"/sqft.\nProvide, tightly and in plain text with short headings:\n1) ACCURACY CHECK — are sale £/sqft, build £/sqft, S106, finance and yield within normal ranges for "+(cityDisp||"this area")+"? State the correct range for each and whether ours sits inside it.\n2) HOUSEBUILDER BENCHMARK — margin & cost vs Persimmon, Barratt, Taylor Wimpey, Bellway (typical 18–23% GDV margin).\n3) VERDICT — one line: Proceed / Caution / Abort, with a 1–10 confidence score.\nBe concise — this is a summary, not an essay.","fin");
+    var pRisk=buildHonestPrompt(data,"You are a development director writing the RISK section of a MANAGER SUMMARY appraisal for a "+units+"-home scheme at "+esc(addr)+".\nProvide, plain text with short headings:\n1) TOP RISKS — the 4–5 biggest risks (planning, affordable, sales absorption, build cost, finance), each with a one-line £m or % impact on the RLV of "+fmt(rlv)+".\n2) RESOLVE BEFORE AN OFFER — the specific data points that must be confirmed before committing to a land price.\nBe concise and specific.","risk");
+    try {
+      var out=await Promise.all([
+        callAI(user,"manager_summary","You are a senior UK real estate development advisor. Be specific, numerate, use UK conventions. Plain text with short headings and bullets only — no preamble.",pBench).catch(function(){return "";}),
+        callAI(user,"manager_summary","You are a senior UK real estate development advisor. Be specific, numerate, use UK conventions. Plain text with short headings and bullets only — no preamble.",pRisk).catch(function(){return "";})
+      ]);
+      aiBench=out[0]||""; aiRisk=out[1]||"";
+    } catch(e){ aiBench=""; aiRisk=""; }
+  }
+
+  // ── Headline land value (chosen exit, or the range if none committed) ────────
+  var landHeadline = EX.chosen ? ((num(EX.chosenRlv)<0?"−":"")+fmt(Math.abs(num(EX.chosenRlv)))) : (EX.rangeIsSpan?fmt(EX.rangeLo)+" – "+fmt(EX.rangeHi):fmt(num(EX.rangeHi)||rlv));
+  var landLabel = "Residual land value"+(EX.chosen?" · "+esc(EX.basisLabel):" · exit not yet decided");
+
+  var css=''+
+    '@page{size:A4 portrait;margin:10mm}*{box-sizing:border-box}html,body{margin:0}'+
+    'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#26284F;font-size:10px;line-height:1.45;font-variant-numeric:tabular-nums;-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#eef0f7}'+
+    '.pg{width:190mm;margin:6mm auto;background:#fff;padding:9mm 9mm 7mm;box-shadow:0 2px 14px rgba(0,0,0,.12)}'+
+    '@media print{body{background:#fff}.pg{margin:0;box-shadow:none;width:auto;padding:0}.noprint{display:none}}'+
+    'h1{font-family:Georgia,serif;font-size:17px;color:#1B1D46;margin:0}'+
+    '.top{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1B1D46;padding-bottom:6px;margin-bottom:9px}'+
+    '.brand{font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:#9A7B3E;font-weight:800}'+
+    '.sub{color:#6A6F97;font-size:9.5px;margin-top:3px}.meta{text-align:right;font-size:8.4px;color:#6A6F97;line-height:1.5}'+
+    '.verdict{border-radius:8px;padding:11px 14px;color:#fff;margin-bottom:10px}'+
+    '.verdict .vh{font-size:15px;font-weight:800}.verdict .vs{font-size:9.6px;margin-top:3px;opacity:.97;line-height:1.5}'+
+    '.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:0 0 10px}'+
+    '.kpi{border:1px solid #E0E2EC;border-radius:6px;padding:7px 8px;background:#FafBff}'+
+    '.kpi .l{font-size:7.2px;letter-spacing:.06em;text-transform:uppercase;color:#8A90B4;font-weight:700}'+
+    '.kpi .v{font-size:14px;font-weight:800;color:#1B1D46;margin-top:3px;font-family:Georgia,serif}'+
+    '.cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}'+
+    '.card{border:1px solid #E0E2EC;border-radius:7px;padding:9px 11px;margin-bottom:9px}'+
+    '.ct{font-size:8.2px;letter-spacing:.1em;text-transform:uppercase;color:#4A4BAE;font-weight:800;margin-bottom:6px}'+
+    'table{width:100%;border-collapse:collapse}td{padding:3px 0;border-bottom:1px solid #F1F2F8;vertical-align:top}'+
+    'td.n{text-align:right;font-weight:600;white-space:nowrap}'+
+    'tr.s td{border-top:1.4px solid #C9CCE4;border-bottom:none;font-weight:800;color:#1B1D46;padding-top:5px;font-size:11px}'+
+    '.tag{display:inline-block;font-size:7.4px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:1px 6px;border-radius:20px;color:#fff;white-space:nowrap}'+
+    '.note{font-size:8px;color:#8A90B4;line-height:1.4}'+
+    '.ai{font-size:9.2px;line-height:1.5;color:#3A3D6A}'+
+    '.foot{margin-top:10px;font-size:7.6px;color:#9298BC;line-height:1.55;border-top:1px solid #EEF0F7;padding-top:6px}'+
+    '.btn{position:fixed;top:9px;right:9px;background:#1E1F5C;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25)}';
+
+  var kpis=[
+    ["Homes", units?units.toLocaleString():"—"],
+    ["Gross dev value", gdv>0?fmt(gdv):"—"],
+    [landLabel.replace(" · "+esc(EX.basisLabel||""),"").replace(" · exit not yet decided",""), landHeadline],
+    ["Dev margin", gdv>0?(Math.round(margin*10)/10)+"%":"—"],
+    ["Guide price", ask>0?fmt(ask):"—"],
+    ["Total horizon", (TL.totalYears||"?")+"yr"]
+  ];
+
+  var html='<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>'+
+    '<title>Manager summary — '+esc(addr)+'</title><style>'+css+'</style></head><body>'+
+    '<button class="btn noprint" onclick="window.print()">Print / Save as PDF</button>'+
+    '<div class="pg">'+
+      '<div class="top"><div>'+
+        '<div class="brand">Cassidy Group · Manager summary appraisal</div>'+
+        '<h1>'+esc(addr)+'</h1>'+
+        '<div class="sub">'+(units?units.toLocaleString()+" homes":"")+(acres>0?" · "+fmtN(acres,1)+" acres":"")+(cityDisp?" · "+esc(cityDisp):"")+'</div>'+
+      '</div><div class="meta">'+((typeof cassidyLogoSrc==="function"&&typeof BRAND_LOGO_PNG!=="undefined"&&BRAND_LOGO_PNG)?'<img src="'+cassidyLogoSrc()+'" alt="Cassidy Group" style="height:28px;width:auto;max-width:160px;display:block;margin:0 0 5px auto"/>':'')+
+        esc(TL.statusLabel||"Unallocated / promotion")+'<br/>For management evaluation<br/>Indicative · v'+esc(typeof CURRENT_VERSION!=="undefined"?CURRENT_VERSION:"")+'</div></div>'+
+
+      '<div class="verdict" style="background:'+vcol+'"><div class="vh">'+esc(verdict)+'</div><div class="vs">'+esc(vsub)+'</div></div>'+
+
+      '<div class="kpis">'+kpis.map(function(k){ return '<div class="kpi"><div class="l">'+esc(k[0])+'</div><div class="v">'+k[1]+'</div></div>'; }).join('')+'</div>'+
+
+      '<div class="cols">'+
+        // Left — the numbers
+        '<div class="card"><div class="ct">The numbers — reconciled appraisal</div><table>'+
+          '<tr><td>Gross development value</td><td class="n">'+(gdv>0?fmt(gdv):"—")+'</td></tr>'+
+          '<tr><td>Build cost'+(avgSqft&&units?" ("+fmtN(Math.round(avgSqft*units))+" sqft)":"")+'</td><td class="n">'+fmt(num(SF.buildCost))+'</td></tr>'+
+          (num(SF.fees)>0?'<tr><td>Professional fees</td><td class="n">'+fmt(num(SF.fees))+'</td></tr>':'')+
+          (num(SF.contingency)>0?'<tr><td>Contingency</td><td class="n">'+fmt(num(SF.contingency))+'</td></tr>':'')+
+          '<tr><td>Finance</td><td class="n">'+fmt(num(SF.finance))+'</td></tr>'+
+          '<tr><td>S106 / CIL</td><td class="n">'+fmt(num(SF.s106))+'</td></tr>'+
+          ((num(SF.roads)+num(SF.infra)+num(SF.marketing))>0?'<tr><td>Roads, infra &amp; disposal</td><td class="n">'+fmt(num(SF.roads)+num(SF.infra)+num(SF.marketing))+'</td></tr>':'')+
+          '<tr><td>Developer profit ('+(Math.round(margin*10)/10)+'%)</td><td class="n">'+fmt(profit)+'</td></tr>'+
+          (grant>0?'<tr><td style="color:#1d5446">+ Affordable grant (AHP)</td><td class="n" style="color:#1d5446">+'+fmt(grant)+'</td></tr>':'')+
+          '<tr class="s"><td>'+esc(landLabel)+'</td><td class="n">'+landHeadline+'</td></tr>'+
+        '</table>'+
+        '<div class="ct" style="margin-top:9px">Exit routes — land value by exit</div><table>'+
+          (EX.routes?EX.routes.map(function(r){ return '<tr><td>'+esc(r.label)+(EX.chosen&&EX.basis===r.basis?' <b>(chosen)</b>':'')+'</td><td class="n" style="color:'+(r.value>0?"#1B1D46":"#B05A35")+'">'+(r.value<0?"−":"")+fmt(Math.abs(r.value))+'</td></tr>'; }).join(''):'')+
+        '</table>'+
+        (ask>0?'<div class="note" style="margin-top:7px">Guide price '+fmt(ask)+' vs residual '+fmt(rlv)+' — headroom <b style="color:'+((rlv-ask)>=0?"#1d5446":"#B05A35")+'">'+((rlv-ask)<0?"−":"+")+fmt(Math.abs(rlv-ask))+'</b> before purchase costs.</div>':'')+
+        '</div>'+
+
+        // Right — confidence of inputs
+        '<div class="card"><div class="ct">Confidence of the key inputs</div><table>'+
+          conf.map(function(r){ return '<tr><td style="width:42%"><b>'+esc(r.label)+'</b><div class="note">'+esc(r.note)+'</div></td>'+
+            '<td class="n" style="width:30%">'+esc(r.value)+'</td>'+
+            '<td class="n" style="width:28%"><span class="tag" style="background:'+tagColor[r.tag]+'">'+esc(r.tag)+'</span></td></tr>'; }).join('')+
+        '</table>'+
+        (resolve.length?'<div class="ct" style="margin-top:9px;color:#9A7B3E">Resolve before an offer</div><ul style="margin:2px 0 0 15px;padding:0;font-size:9px;color:#3A3D6A">'+
+          resolve.map(function(r){ return '<li style="margin:2px 0"><b>'+esc(r.label)+'</b> — '+esc(r.note)+'</li>'; }).join('')+'</ul>':'')+
+        '</div>'+
+      '</div>'+
+
+      // AI validation
+      '<div class="card"><div class="ct">AI validation &amp; benchmarks — vs major housebuilders / BCIS</div><div class="ai">'+mdToHtml(aiBench)+'</div></div>'+
+      '<div class="card"><div class="ct">Risks &amp; red flags</div><div class="ai">'+mdToHtml(aiRisk)+'</div></div>'+
+
+      '<div class="foot"><b>How to read this.</b> Every figure is the residual on a fully-consented scheme, taken from the one appraisal engine, so it reconciles with the Dashboard, one-pager and Board Paper. The residual land value is the MAXIMUM supportable price at target profit — not an agreed price. Items tagged <b>Assumption</b> are working inputs pending evidence; confirm them (and the AI red flags) before committing to a land price. AI validation is indicative and must be checked against live comparables. Generated '+esc(new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}))+' · Cassidy Group · Landform v'+esc(typeof CURRENT_VERSION!=="undefined"?CURRENT_VERSION:"")+'.</div>'+
+    '</div></body></html>';
+  return html;
+}
+
 function renderProposal(city, data, gdv, lc, up, user){
   var l=data.land||{}; var p=data.planning||{}; var ten=data.tenure||{}; var ex=data.exit||{};
   var M=(typeof calcDealMetrics==="function")?calcDealMetrics(data):{};
@@ -2061,6 +2244,20 @@ function renderProposal(city, data, gdv, lc, up, user){
     if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the one-page appraisal."); return; }
     w.document.open(); w.document.write(html); w.document.close();
   }
+  // v10.128 — Manager summary appraisal. Async: it AUTO-RUNS the AI validation on generate, so it
+  // takes a few seconds. Shows the same reconciled figures + a confidence table + AI benchmark/risk.
+  var mgrBusy=false;
+  function openManagerSummary(){
+    if(mgrBusy) return; mgrBusy=true;
+    if(typeof notify==="function") notify("Generating manager summary — running AI validation (a few seconds)…");
+    Promise.resolve(buildManagerSummary(data, city, user)).then(function(html){
+      mgrBusy=false;
+      if(typeof showReportOverlay==="function" && showReportOverlay(html, "Manager summary appraisal")) return;
+      if(typeof openReportBlob==="function" && openReportBlob(html)) return;
+      var w=window.open("","_blank"); if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the manager summary."); return; }
+      w.document.open(); w.document.write(html); w.document.close();
+    }).catch(function(err){ mgrBusy=false; if(typeof notify==="function") notify("Could not generate the manager summary: "+((err&&err.message)||err)); });
+  }
 
   // ── On-screen panel ─────────────────────────────────────────────────────────
   return e("div",null,
@@ -2075,6 +2272,10 @@ function renderProposal(city, data, gdv, lc, up, user){
           title:"A single side of A4 — size, homes, GDV, the full cost stack and residual land value tested against the asking price. The quick ‘is this worth pursuing?’ briefing.",
           style:{padding:"11px 20px",background:(!ready)?"#EDEEF6":"#fff",border:"1.5px solid "+((!ready)?"#D7D9E8":"#2E2F8A"),borderRadius:8,color:(!ready)?"#A9ACC6":"#2E2F8A",fontSize:13,fontWeight:800,cursor:(!ready)?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},
           "📄 One-page appraisal (A4)"),
+        e("button",{onClick:openManagerSummary,disabled:!ready,
+          title:"A concrete evaluation report for managers: the reconciled figures, a confidence table tagging each input Verified / AI-researched / Assumption, a resolve-before-offer list, and AI benchmark & risk validation run on generate.",
+          style:{padding:"11px 20px",background:(!ready)?"#EDEEF6":"#fff",border:"1.5px solid "+((!ready)?"#D7D9E8":"#9A7B3E"),borderRadius:8,color:(!ready)?"#A9ACC6":"#7A5A2E",fontSize:13,fontWeight:800,cursor:(!ready)?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},
+          "🧭 Manager summary"),
         e("button",{onClick:generate,disabled:!ready,
           style:{padding:"11px 22px",background:(!ready)?"#B7BAD8":"linear-gradient(135deg,#1E1F5C,#2E2F8A)",border:"none",borderRadius:8,color:"#fff",fontSize:13,fontWeight:800,cursor:(!ready)?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",boxShadow:"0 3px 12px rgba(30,31,92,.28)",whiteSpace:"nowrap"}},
           "📋 Generate Board Proposal")
