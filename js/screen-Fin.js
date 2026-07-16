@@ -197,7 +197,16 @@ function renderFin(LiveMarketBanner, at, bc, buildPsf, city, data, ey, gia, gr, 
                 );
               }),
               e("div",{style:{display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:700,color:"#2E2F8A",padding:"8px 0",borderTop:"1px solid #DDE0ED",marginTop:4}},
-                e("span",null,"Total Dev Cost"),e("span",null,fmt(tc4))
+                e("span",null,"Total Dev Cost"+(num(DM.grantIncome)>0?" (incl. land)":"")),e("span",null,fmt(tc4))
+              ),
+              // v10.126 — affordable grant (AHP) is income that flows to the residual/profit; the
+              // engine now folds it into profit & RLV, so show it here as a credit and net it off
+              // so Profit = GDV − net cost foots on this screen too (as on the one-pager).
+              num(DM.grantIncome)>0 && e("div",{style:{display:"flex",justifyContent:"space-between",fontSize:11,color:"#1B7A54",padding:"4px 0"}},
+                e("span",null,"less: Affordable grant (AHP)"),e("span",null,"−"+fmt(num(DM.grantIncome)))
+              ),
+              num(DM.grantIncome)>0 && e("div",{style:{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:700,color:"#2E2F8A",padding:"6px 0 0",borderTop:"1px dashed #DDE0ED"}},
+                e("span",null,"Net cost after grant"),e("span",null,fmt(tc4-num(DM.grantIncome)))
               )
             ),
             e("div",null,
