@@ -519,7 +519,11 @@ var JOURNEYS = {
     }
   }
   function saveDeal(){
-    var autoName=(data.land&&data.land.address)||
+    // v10.134 — prefer an in-app name (set via the Deal name field on the Dashboard) as the
+    // default, so the Save prompt comes pre-filled with what you already typed — and the deal
+    // can be named without relying on the native prompt (which is clunky on iPad and can't be
+    // driven by an automated browser at all).
+    var autoName=(data.dealName)||(data.land&&data.land.address)||
       (data.scraper&&data.scraper.result&&data.scraper.result.address)||
       "Deal "+new Date().toLocaleDateString("en-GB");
     var name=window.prompt("Name this deal:",autoName)||autoName;

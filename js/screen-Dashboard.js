@@ -20,6 +20,18 @@ function renderDashboard(ALL_STAGES, JOURNEYS, at, city, data, effUnits, ey, gdv
     ];
     return e("div",null,
       e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Deal Dashboard"),
+      // v10.134 — in-app deal name / rename. Previously the only place to name a deal was the
+      // native Save prompt, which offered no way to rename after the fact (and can't be driven on
+      // iPad / by an automated browser). This field edits data.dealName directly; Save uses it as
+      // the name, and re-saving an already-saved deal updates the same portfolio card — so this
+      // IS the rename. Blank falls back to the site address.
+      e("div",{style:{display:"flex",alignItems:"center",gap:9,flexWrap:"wrap",marginBottom:12}},
+        e("label",{style:{fontSize:10,color:"#7278A0",fontWeight:700,textTransform:"uppercase",letterSpacing:".06em"}},"Deal name"),
+        e("input",{type:"text",value:data.dealName||"",placeholder:(data.land&&data.land.address)||"Name this deal (e.g. Maldon Stacked)",
+          onChange:function(ev){ var v=ev.target.value; setData(function(prev){ return Object.assign({},prev,{dealName:v}); }); },
+          style:{flex:"1 1 260px",minWidth:0,maxWidth:420,padding:"8px 11px",border:"1px solid #DDE0ED",borderRadius:7,fontSize:14,fontWeight:700,color:"#2E2F8A",fontFamily:"DM Sans,sans-serif"}}),
+        e("span",{style:{fontSize:10,color:"#9298BC",lineHeight:1.4}},"Used when you Save · edit any time to rename (re-saving updates the same portfolio card)")
+      ),
       LandReconciliationPanel(data, up),
       e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:data.masterReport?8:12}},"Live overview — fill in the stages to see metrics update"),
       // v10.5 — Assumption Mode entry point (present as consented/DD-clear for stakeholders)
