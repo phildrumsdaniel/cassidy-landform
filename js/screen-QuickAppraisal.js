@@ -75,6 +75,12 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
   var M = computeSFHMetrics(effData);
   var homes = num(M.totalUnits) || 0;
   var gdv = num(M.gdv), rlv = num(M.rlv), devCost = num(M.devCost), profitFig = num(M.profit);
+  // v10.135 — the affordable grant (AHP) flows to the residual in the engine (rlv includes it,
+  // v10.126). Carry it here too so the target-profit widget/ladder and the cost breakdown match
+  // the headline rather than sitting ~£grant below it (a 35%-affordable scheme's grant can be
+  // tens of £m — the gap that read as "two different RLVs"). Shown as an explicit credit line so
+  // it's clear how much of the residual is grant-dependent.
+  var grantInc = num(M.grantIncome);
   // v10.123 — the chosen exit (Exit Strategy stage) drives the headline, off the SAME effData the whole
   // page uses, so the headline "Worth to us" follows the committed exit and equals the Exit-routes card.
   var QEX = (typeof dealExit === "function") ? dealExit(effData) : { chosen:false, basis:"plot", basisLabel:"open-market plot sales", plotRlv:rlv, chosenRlv:rlv };
@@ -284,8 +290,10 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
           num(M.infra) > 0 && costRow("Infrastructure & SuDS", num(M.infra)),
           num(M.marketing) > 0 && costRow("Marketing / disposal", num(M.marketing)),
           costRow("Developer profit ("+(Math.round(profitPct*10)/10)+"%)", profitFig),
+          grantInc > 0 && e("div", { style:{ display:"flex", justifyContent:"space-between", padding:"4px 0", fontSize:12.5, color:"#1B7A54" } },
+            e("span", null, "+ Affordable grant (AHP)"), e("span", null, "+" + fmt(grantInc))),
           e("div", { style:{ display:"flex", justifyContent:"space-between", padding:"8px 0 2px", fontSize:15, fontWeight:800, color:rlv > 0 ? "#1B7A54" : "#B05A35", borderTop:"2px solid #DDE0ED", marginTop:4 } },
-            e("span", null, "Residual land value"), e("span", null, (rlv < 0 ? "−" : "") + fmt(Math.abs(rlv)))),
+            e("span", null, "Residual land value"+(grantInc>0?" (incl. grant)":"")), e("span", null, (rlv < 0 ? "−" : "") + fmt(Math.abs(rlv)))),
           e("div", { style:{ fontSize:10.5, color:"#9298BC", marginTop:5, lineHeight:1.5 } }, "The most the land is worth to us at "+(Math.round(profitPct*10)/10)+"% profit — "+fmt(rlvPerPlot)+"/plot"+(acres > 0 ? " · "+fmt(rlvPerAcre)+"/acre" : "")+".")
         ),
         // The land test
@@ -312,7 +320,7 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
       // 20%+ on GDV (or profit-on-cost), so show the swing rather than a single 17.5% figure.
       gdv > 0 && homes > 0 && (function(){
         var profitRow = [17.5, 20, 25, 30];
-        function rlvAtProfit(p){ return (gdv - devCost) - gdv*(p/100); }
+        function rlvAtProfit(p){ return (gdv - devCost) - gdv*(p/100) + grantInc; }   // v10.135 — incl. AHP grant, to match the headline RLV
         return e("div", { style:Object.assign({}, S.card, { borderLeft:"4px solid #4A4BAE", marginTop:14 }) },
           e("div", { style:S.cardTitle }, "Target profit → what you can pay for the land"),
           e("div", { style:{ fontSize:11, color:"#7278A0", lineHeight:1.5, marginBottom:10 } },
