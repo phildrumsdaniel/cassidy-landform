@@ -243,17 +243,31 @@ function renderFin(LiveMarketBanner, at, bc, buildPsf, city, data, ey, gia, gr, 
               e("div",null,e("span",{style:{color:"#7278A0"}},"S106 total: "),e("span",{style:{fontWeight:600}},fmt(s106fin)))
             )
           ),
+          // v10.136 — GUARD: with no land price entered, Profit/Margin here are BEFORE the cost of
+          // buying the land (= GDV − dev cost = the residual land value + developer profit, e.g.
+          // ~£300m at ~38%), NOT the scheme's return. Read alone this stage looks ~3× too
+          // profitable and wrongly badges "✓ Viable". Flag it and caveat the verdict until a land
+          // price is set (the true post-land margin is on the SFH House Mix / Dashboard).
+          (!(lc>0) && rlv>0) && e("div",{style:{padding:"10px 14px",background:"rgba(176,90,53,0.09)",border:"1px solid rgba(176,90,53,0.4)",borderRadius:6,marginBottom:12,fontSize:12,color:"#B05A35",lineHeight:1.55}},
+            e("b",null,"⚠ No land price entered. "),
+            "The Profit and Margin below are ",e("b",null,"before the cost of buying the land"),": this is the pot to split between the land payment and developer profit (≈ the residual land value of ",e("b",null,fmt(rlv)),"), not the scheme's return after purchase. Enter a land price in the Assumptions above — or read the true post-land margin on the ",e("b",null,"SFH House Mix / Dashboard"),"."
+          ),
           e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:12}},
-            [{l:"Profit",v:fmt(profit2),ok:margin2>=15},{l:"Margin on GDV",v:pct(margin2),ok:margin2>=15},{l:"Return on Cost",v:pct(roc),ok:roc>20},{l:"Price per "+(at==="pbsa"?"Bed":"Unit"),v:units>0?fmt(gdv2/units):"—",ok:false}].map(function(item){
+            [{l:(!(lc>0)&&rlv>0)?"Profit (before land)":"Profit",v:fmt(profit2),ok:margin2>=15 && (lc>0||!(rlv>0))},{l:(!(lc>0)&&rlv>0)?"Margin (before land)":"Margin on GDV",v:pct(margin2),ok:margin2>=15 && (lc>0||!(rlv>0))},{l:"Return on Cost",v:pct(roc),ok:roc>20 && (lc>0||!(rlv>0))},{l:"Price per "+(at==="pbsa"?"Bed":"Unit"),v:units>0?fmt(gdv2/units):"—",ok:false}].map(function(item){
               return e("div",{key:item.l,style:{background:item.ok?"rgba(45,122,101,0.06)":"#F7F8FC",border:"1px solid "+(item.ok?"rgba(45,122,101,0.2)":"#DDE0ED"),borderRadius:8,padding:12}},
                 e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:5}},item.l),
                 e("div",{style:{fontSize:18,fontWeight:700,color:item.ok?"#2D7A65":"#2E2F8A"}},item.v)
               );
             })
           ),
-          e("div",{style:{padding:"10px 14px",borderRadius:6,background:margin2>=15?"rgba(45,122,101,0.06)":"rgba(176,90,53,0.06)",border:"1px solid "+(margin2>=15?"rgba(45,122,101,0.2)":"rgba(176,90,53,0.2)"),fontSize:12,fontWeight:700,color:scV}},
-            margin2>=15?"✓ Viable — "+pct(margin2)+" margin on GDV":"✗ Not viable — "+pct(margin2)+" ("+pct(15-margin2)+" below 15% threshold)"
-          )
+          (function(){
+            var preLand = !(lc>0) && rlv>0;
+            var vcol2 = preLand ? "#9A7B3E" : scV;
+            return e("div",{style:{padding:"10px 14px",borderRadius:6,background:preLand?"rgba(154,123,62,0.08)":(margin2>=15?"rgba(45,122,101,0.06)":"rgba(176,90,53,0.06)"),border:"1px solid "+(preLand?"rgba(154,123,62,0.35)":(margin2>=15?"rgba(45,122,101,0.2)":"rgba(176,90,53,0.2)")),fontSize:12,fontWeight:700,color:vcol2}},
+              preLand ? ("◐ Before land — "+pct(margin2)+" is the pre-land margin, not the scheme's viability. Enter a land price for the true figure.")
+                : (margin2>=15?"✓ Viable — "+pct(margin2)+" margin on GDV":"✗ Not viable — "+pct(margin2)+" ("+pct(15-margin2)+" below 15% threshold)")
+            );
+          })()
         ),
         e("div",{style:S.card},
           e("div",{style:S.cardTitle},"Scenario Analysis"),
