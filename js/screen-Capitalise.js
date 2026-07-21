@@ -625,7 +625,7 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
           e("div",{style:{marginTop:14,padding:"14px 16px",background:"linear-gradient(135deg,#F8F9FC,#FBFCFF)",border:"1px solid #C5C8E0",borderRadius:8}},
             e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}},
               e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em"}},"Deal evolution — full P&L across all routes"),
-              e("div",{style:{fontSize:9,color:"#7278A0"}},"Build cost £"+routeBuildPsf+"/sqft (to construct, not a sale price) · Profit target "+Math.round(routeProfitTargetPct*100)+"% · From SFH inputs")
+              e("div",{style:{fontSize:9,color:"#7278A0"}},"Build cost £"+routeBuildPsf+"/sqft (to construct, not a sale price) · Profit target "+(Math.round(routeProfitTargetPct*1000)/10)+"% · From SFH inputs")
             ),
             e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginTop:8}},
               // Total Revenue (Realised)

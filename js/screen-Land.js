@@ -912,7 +912,7 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
               e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}},
                 tile("Gross dev value (GDV)", fmt(consentedGdv), assumedUnits+" homes", "#2E2F8A"),
                 tile("Build + all costs", fmt(schemeCost), "excl. land", "#B05A35"),
-                tile("Developer profit", fmt(targetProfit), Math.round(num(cm.profitPctTarget))+"% target margin", "#4A4BAE"),
+                tile("Developer profit", fmt(targetProfit), (Math.round(num(cm.profitPctTarget)*10)/10)+"% target margin", "#4A4BAE"),
                 tile("Max land (RLV)", fmt(consentedRlv), "to hit that margin", "#2D7A65", true)
               ),
               ask>0 && e("div",{style:{marginTop:10,padding:"10px 12px",borderRadius:6,background:stacks?"rgba(45,122,101,0.08)":"rgba(176,90,53,0.08)",borderLeft:"3px solid "+verdictCol}},

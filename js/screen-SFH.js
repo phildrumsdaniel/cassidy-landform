@@ -179,11 +179,18 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
       return Object.assign({},sc2,{ahUnits:ahU,blGdv:blGdv,blRlv:blRlv});
     }):[];
 
+    // v10.137 — anchor the sensitivity to the SFH screen's OWN headline RLV (rlv, above) so its
+    // "Base" reads exactly the figure shown above it. The scenario recompute uses a simplified
+    // flat-finance formula that drifted a few £m from the headline (which uses the S-curve
+    // finance); the Base is now the headline and Pessimistic/Optimistic are the modelled swing
+    // from it. (The separate SFH-vs-engine grant difference is a modelling decision, not fixed here.)
+    var sensitModelBase=totalGdv-totalBuild-totalBuild*(sFeesPct/100)-totalBuild*(sCont/100)-(totalBuild+totalBuild*(sFeesPct/100))*(sFin/100)-s106Total-roadsTotal-infra-totalGdv*(numOr(s.marketingPct,0)/100)-totalGdv*(sProfit/100);
     var sensitScens=[{l:"Pessimistic",sm:-0.10,bm:+0.12},{l:"Base",sm:0,bm:0},{l:"Optimistic",sm:+0.08,bm:-0.05}].map(function(sc3){
       var sG=totalGdv*(1+sc3.sm);
       var sB=totalBuild*(1+sc3.bm);
       var sP=sG*(sProfit/100);
-      var sR=sG-sB-sB*(sFeesPct/100)-sB*(sCont/100)-(sB+sB*(sFeesPct/100))*(sFin/100)-s106Total-roadsTotal-infra-sG*(numOr(s.marketingPct,0)/100)-sP;
+      var sRmodel=sG-sB-sB*(sFeesPct/100)-sB*(sCont/100)-(sB+sB*(sFeesPct/100))*(sFin/100)-s106Total-roadsTotal-infra-sG*(numOr(s.marketingPct,0)/100)-sP;
+      var sR=rlv+(sRmodel-sensitModelBase);
       return{l:sc3.l,gdv:sG,rlv:sR,rlvPu:totalUnits>0?sR/totalUnits:0,rlvAcre:sAcres>0?sR/sAcres:0};
     });
 
