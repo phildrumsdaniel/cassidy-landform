@@ -284,7 +284,13 @@ function buildLandOnePager(data, cityHint){
     var ahU=Math.round(oUnits*ahPct/100);
 
     function cRow(k,v,neg,strong){ return '<tr'+(strong?' class="s"':'')+'><td>'+k+'</td><td class="n">'+(neg?"−":"")+v+'</td></tr>'; }
-    var siteSub=[cityDisp,county,pc].filter(Boolean).join(" · ");
+    // v10.141 — the pricing market (cityDisp, resolved from the postcode) can differ from the
+    // planning authority (lpa) — e.g. a TN postcode priced off Tunbridge Wells but sitting in
+    // Maidstone. Don't print the market town as if it's the site's location (it contradicts the
+    // LPA shown alongside and reads wrong on a board paper). Drop it when it conflicts; the
+    // pricing-benchmark town is still disclosed in "Basis of figures — Sale value".
+    var subLoc = (lpa && cityDisp && String(lpa).toLowerCase().indexOf(String(cityDisp).toLowerCase())<0) ? "" : cityDisp;
+    var siteSub=[subLoc,county,pc].filter(Boolean).join(" · ");
 
     return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>'+
       '<title>Land appraisal — '+esc(addr)+'</title><style>'+
@@ -410,7 +416,7 @@ function buildLandOnePager(data, cityHint){
               cRow("Residual land value"+(oGrantIncome>0?" (incl. grant)":""),(oRlv<0?"−":"")+fmt(Math.abs(oRlv)),false,true)+
             '</table>'+
             '<div class="two">'+
-              '<div class="box"><div class="l">Max land @ target profit</div><div class="v">'+(oRlv?((oRlv<0?"−":"")+fmt(Math.abs(oRlv))):"—")+'</div></div>'+
+              '<div class="box"><div class="l">Max land @ target profit'+(!headlineIsPlot?' · plot sales':'')+'</div><div class="v">'+(oRlv?((oRlv<0?"−":"")+fmt(Math.abs(oRlv))):"—")+'</div>'+(!headlineIsPlot?'<div style="font-size:7px;color:#9298BC;margin-top:1px">chosen exit ('+esc(EX.basisLabel)+'): '+fmt(num(EX.chosenRlv))+'</div>':'')+'</div>'+
               '<div class="box"><div class="l">'+(askL>0?"Headroom vs asking":"Per plot")+'</div><div class="v" style="color:'+(askL>0?(headroom>=0?"#1B7A54":"#B05A35"):"#1B1D46")+'">'+(askL>0?((headroom<0?"−":"+")+fmt(Math.abs(headroom))):fmt(rlvPerPlot))+'</div></div>'+
             '</div>'+
             '<div class="rr" style="margin-top:5px"><span>Per plot'+(oNetDevAcres>0&&oSurplusAcres>0.5?' / per developable acre':' / per acre')+'</span><b>'+fmt(rlvPerPlot)+' · '+(oNetDevAcres>0&&oSurplusAcres>0.5?fmt(rlvPerDevAcre)+'/dev ac':(acres>0?fmt(rlvPerAcre):"—"))+'</b></div>'+
@@ -446,7 +452,7 @@ function buildLandOnePager(data, cityHint){
         '<div class="verdict" style="background:'+vcol+'"><div class="vh">'+verdict+'</div><div class="vs">'+vsub+'</div></div>'+
         (oGdv>0
           ? '<div style="margin-top:9px;border:1px solid #C9CCE4;border-radius:7px;padding:9px 11px;background:#FBFAF5">'+
-              '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#4A4BAE;font-weight:800;margin-bottom:4px">Target profit &rarr; what you can pay for the land</div>'+
+              '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#4A4BAE;font-weight:800;margin-bottom:4px">Target profit &rarr; what you can pay for the land'+(!headlineIsPlot?' <span style="color:#8A6A2E;text-transform:none;letter-spacing:0;font-weight:700">· open-market plot-sales basis (the upside). Your chosen '+esc(EX.basisLabel)+' exit supports '+fmt(num(EX.chosenRlv))+'.</span>':'')+'</div>'+
               '<div style="font-size:8px;color:#6A6F97;margin-bottom:5px"><b>The more profit you target, the less you can pay for the land.</b> 17.5% of GDV is the planning-viability benchmark; volume house-builders often target 20%+ (a &lsquo;30% margin&rsquo; is usually profit-on-cost, &asymp; 22&ndash;23% on GDV).</div>'+
               '<table><tr>'+[17.5,20,25,30].map(function(p){ return '<td class="n" style="font-size:7.4px;color:#8A90B4;text-transform:uppercase;font-weight:700">'+p+'% profit</td>'; }).join('')+'</tr>'+
                 '<tr>'+[17.5,20,25,30].map(function(p){ var v=(oGdv-oDev)-oGdv*(p/100)+oGrantIncome;var pp=oUnits>0?v/oUnits:0; return '<td class="n" style="font-weight:800;color:'+(pp>=0?'#1B7A54':'#B05A35')+'">'+(pp<0?'−£':'£')+Math.abs(Math.round(pp/1000)).toLocaleString()+'k/plot</td>'; }).join('')+'</tr>'+
