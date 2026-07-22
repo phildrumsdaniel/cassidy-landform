@@ -72,10 +72,8 @@
     white-space:nowrap!important;
   }
   .lf-stage-mobile-title{
-    max-width:105px!important;
+    max-width:min(52vw,180px)!important;   /* v10.138 — room for the scheme name over the stage */
     overflow:hidden!important;
-    text-overflow:ellipsis!important;
-    white-space:nowrap!important;
   }
   .lf-hamburger{display:flex!important;align-items:center!important;flex-shrink:0!important;}
 
