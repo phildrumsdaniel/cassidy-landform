@@ -2132,7 +2132,16 @@ function loadSiteIntoDeal(site){
             e("span",{style:{width:18,height:2,background:"#2E2F8A",display:"block",borderRadius:2}}),
             e("span",{style:{width:18,height:2,background:"#2E2F8A",display:"block",borderRadius:2}})
           ),
-          e("div",{className:"lf-stage-mobile-title",style:{fontSize:isMobile?14:15,fontWeight:700,color:"#2E2F8A",whiteSpace:"nowrap"}},curStage.label),
+          // v10.138 — header shows the SCHEME NAME (bold) over the current stage, so you always
+          // know which deal you're in. Name = the Dashboard "Deal name" (data.dealName), else the
+          // site address; falls back to a neutral label for an unstarted deal.
+          (function(){
+            var schemeName = data.dealName || (data.land&&data.land.address) || data.masterAddress || "New scheme";
+            return e("div",{className:"lf-stage-mobile-title",style:{display:"flex",flexDirection:"column",justifyContent:"center",lineHeight:1.12,minWidth:0}},
+              e("span",{title:schemeName,style:{fontSize:isMobile?12.5:15,fontWeight:800,color:"#2E2F8A",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},schemeName),
+              e("span",{style:{fontSize:isMobile?9.5:11,fontWeight:600,color:"#7278A0",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},curStage.label)
+            );
+          })(),
           e("button",{
             title:"Click to see what's new in v"+CURRENT_VERSION,
             onClick:function(){
