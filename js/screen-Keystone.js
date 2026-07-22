@@ -289,14 +289,21 @@ function renderKeystone(data, setData, up, navTo, user){
   // the headroom is visible before building — the source's number leads, the potential is flagged.
   var refDensity = (typeof KEYSTONE_REF_DENSITY !== "undefined") ? KEYSTONE_REF_DENSITY : 20;
   var statedUnits = briefObj ? num(briefObj.units) : 0;
-  var capacityAtRef = briefAcres > 0 ? Math.round(briefAcres * refDensity) : 0;
+  // v10.140 — the reference density (~20/acre) is a NET-DEVELOPABLE density; a strategic site loses
+  // ~40% of the gross area to roads, open space, SuDS, biodiversity net gain and schools. Applying
+  // it to the GROSS acres overstated capacity (e.g. 271.8ac × 20 = 5,436 homes — not credible;
+  // reviewer #3). Capacity is now the net-developable count, and the "model this" button sets the
+  // equivalent GROSS density so the modelled units match the figure shown.
+  var NET_DEV_FACTOR = 0.6;
+  var grossDensityEquiv = Math.max(1, Math.round(refDensity * NET_DEV_FACTOR));   // ~12/gross acre ≈ 20/net-developable acre
+  var capacityAtRef = briefAcres > 0 ? Math.round(briefAcres * grossDensityEquiv) : 0;
   var impliedDensity = (briefAcres > 0 && statedUnits > 0) ? (Math.round((statedUnits / briefAcres) * 10) / 10) : 0;
   var capacityBanner = (statedUnits > 0 && capacityAtRef >= statedUnits * 1.2) ? e("div",{style:{marginTop:12,padding:"10px 12px",background:"rgba(74,75,174,0.06)",border:"1px solid rgba(74,75,174,0.25)",borderRadius:8,fontSize:11,color:"#3A3D6A",lineHeight:1.6}},
     e("b",null,"Source states room for "+statedUnits.toLocaleString()+" homes"),
     " (~"+impliedDensity+"/acre) — the appraisal develops from this. ",
-    e("b",null,"Land capacity: ~"+capacityAtRef.toLocaleString()+" homes at "+refDensity+"/acre"),
-    " on "+briefAcres+" acres — potential upside of ~"+(capacityAtRef-statedUnits).toLocaleString()+". Drag the density up to model the fuller scheme.",
-    e("button",{onClick:function(){ setDensity(refDensity); },style:{marginLeft:8,padding:"3px 10px",background:"#4A4BAE",color:"#fff",border:"none",borderRadius:5,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Model "+capacityAtRef.toLocaleString()+" at "+refDensity+"/acre")
+    e("b",null,"Land capacity: ~"+capacityAtRef.toLocaleString()+" homes at ~"+refDensity+"/net-developable acre"),
+    " (≈"+grossDensityEquiv+"/gross acre after ~40% for roads, open space, SuDS, BNG &amp; schools) on "+briefAcres+" acres — potential upside of ~"+(capacityAtRef-statedUnits).toLocaleString()+". A masterplan capacity study would firm this up.",
+    e("button",{onClick:function(){ setDensity(grossDensityEquiv); },style:{marginLeft:8,padding:"3px 10px",background:"#4A4BAE",color:"#fff",border:"none",borderRadius:5,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Model "+capacityAtRef.toLocaleString()+" homes")
   ) : null;
   var densityCard = (briefObj && briefAcres > 0) ? e("div",{style:Object.assign({},S.card,{borderLeft:"4px solid #4A4BAE"})},
     e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:8}},

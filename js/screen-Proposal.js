@@ -1609,6 +1609,13 @@ function renderProposal(city, data, gdv, lc, up, user){
   var PEX=(typeof dealExit==="function")?dealExit(data):{chosen:false,basis:"plot",basisLabel:"open-market plot sales",plotRlv:rlvV,chosenRlv:rlvV};
   var boardRlv=num(PEX.chosenRlv)||rlvV;
   var marginV=isFinite(M.marginPct)?num(M.marginPct):0;
+  // v10.139 — M.marginPct is the margin AFTER land, but with NO land/guide price entered it returns
+  // the PRE-LAND surplus (~38% = profit + RLV / GDV), which misreads on a board paper as a huge
+  // developer margin ("Strong margin"). Present the HONEST margin: the target margin at the residual
+  // land value when no guide price is set (what the scheme makes buying land at the RLV), else the
+  // achieved margin at the entered guide price. Fixes the reviewer's #1 (the "38.3% margin" error).
+  var boardAskLand = num((data.land&&data.land.price))||0;
+  var boardMargin = boardAskLand>0 ? marginV : (num(M.profitPctTarget)||17.5);
   var s106V=num(M.s106)||num(p.s106)||0;
   var ask=num(l.price||0);
   var ahPct=num(p.ahPct||p.afhPct||ten.ahPct||0);
@@ -1687,7 +1694,10 @@ function renderProposal(city, data, gdv, lc, up, user){
   var exRpOffers=(data.rpOffers||[]).filter(function(o){return num(o.gb)>0||num(o.tk)>0;});
   // Multi-year DCF hold (v10.29) — same core as the Exit page & Capitalisation stage.
   var exDcfP=(typeof capDCFParams==="function")?capDCFParams(data):{growth:2.75,floor:1,cap:4,years:25};
-  var EX_PENSION_YIELD=0.045;   // pension DCF discounts at its own 4.5% (apples-to-apples with its static row)
+  // v10.140 — pension/sovereign long-income prices ~30bps TIGHTER (lower) than the BTR yield. A
+  // fixed 0.045 read WIDER than a 4.3% deal yield yet was described as "tighter" (reviewer #12).
+  // Derive it from the deal yield so it is always genuinely tighter, floored at a sane minimum.
+  var EX_PENSION_YIELD=Math.max(0.035, exDealY - 0.003);
   var exPensionNOI=exNoi>0?exNoi:(exUnits*exMkt.btr*12*0.75);
   var exPensionDCF=(typeof computeDCFHoldValue==="function")?computeDCFHoldValue(exPensionNOI,exDcfP.growth,exDcfP.floor,exDcfP.cap,exDcfP.years,EX_PENSION_YIELD):{value:0,effectiveGrowth:0};
   var exHoldDCF=(typeof computeDCFHoldValue==="function")?computeDCFHoldValue(exHoldNOI,exDcfP.growth,exDcfP.floor,exDcfP.cap,exDcfP.years,exDealY):{value:0,effectiveGrowth:0};
@@ -1749,7 +1759,9 @@ function renderProposal(city, data, gdv, lc, up, user){
       :ccVerdict==="CAUTION"?'<span class="pill a">CAUTION'+(ccScore?" · "+ccScore+"/100":"")+'</span>'
       :ccVerdict==="AVOID"?'<span class="pill r">AVOID'+(ccScore?" · "+ccScore+"/100":"")+'</span>'
       :'<span class="pill" style="color:#7278A0;border-color:#DDE0ED">To assess</span>';
-    var verdictLine = (marginV>=15?"Strong margin":marginV>=12?"Viable margin":"Marginal at full land value")+
+    var verdictLine = (boardAskLand>0
+        ? (boardMargin>=15?"Strong margin after land":boardMargin>=12?"Viable margin after land":"Marginal at the land price")
+        : "Meets the "+pct(boardMargin)+" target margin on modelled assumptions")+
       (ccVerdict==="AVOID"?" · high planning risk":ccVerdict==="CAUTION"?" · planning risk to manage":"");
 
     // Map block: real OSM embed when geocoded, else the indicative plan carries it.
@@ -1894,7 +1906,7 @@ function renderProposal(city, data, gdv, lc, up, user){
             apRow("Total build &amp; infrastructure","~"+(units?units.toLocaleString():"—")+" homes",buildTot>0?fmt(buildTot):"To confirm")+
             apRow("Section 106 / planning obligations","",s106V>0?fmt(s106V):"To confirm")+
             apRow("Fees, contingency &amp; finance","","included")+
-            apRow("Developer profit","on GDV",isFinite(marginV)&&marginV?pct(marginV):"—")+
+            apRow("Developer profit",boardAskLand>0?"margin on GDV, after land":"target margin on GDV, at the residual land value",isFinite(boardMargin)&&boardMargin?pct(boardMargin):"—")+
             apRowSum("Supportable residual land value","on consent",rlvV>0?fmt(rlvV):"—")+
             (ask>0?apRow("Guide price","current",fmt(ask)):"")+
             (headroom>0?apRowSum("Indicative headroom to residual value","",'<span style="color:#2D7A65">'+fmt(headroom)+'</span>'):"")+
@@ -1904,7 +1916,7 @@ function renderProposal(city, data, gdv, lc, up, user){
             '<li><b>Gross Development Value —</b> the '+(units?units.toLocaleString():"")+' homes valued at their sale prices'+(ahPct?', blended across the '+(100-ahPct)+'% open-market / '+ahPct+'% affordable split — affordable valued at its realisable transfer value, not full open market':'')+' = <b>'+fmt(gdvV)+'</b>'+((units&&gdvV)?' (≈'+fmt(gdvV/units)+' per home blended)':'')+'.</li>'+
             '<li><b>Development cost —</b> build &amp; infrastructure '+(buildTot>0?fmt(buildTot):'per the cost plan')+', Section 106 '+(s106V>0?fmt(s106V):'to confirm')+', plus professional fees, contingency and development finance.</li>'+
             '<li><b>Residual land value —</b> GDV less all development costs less the target developer profit = <b>'+(rlvV>0?fmt(rlvV):'—')+'</b> — the maximum land price the scheme can support at target return, on consent.</li>'+
-            '<li><b>Developer margin —</b> '+(isFinite(marginV)&&marginV?pct(marginV):'—')+' of GDV at the modelled land value.</li>'+
+            '<li><b>Developer margin —</b> '+(isFinite(boardMargin)&&boardMargin?pct(boardMargin):'—')+(boardAskLand>0?' of GDV at the '+fmt(boardAskLand)+' land price.':' of GDV — the target margin, taken at the residual land value (a land price above the RLV reduces it).')+'</li>'+
           '</ul></div></section>'+
         // 05 exit routes & yield sensitivity
         '<section><div class="sh"><span class="i">05</span><h2>Exit routes &amp; profit sensitivity</h2></div>'+
@@ -2040,7 +2052,7 @@ function renderProposal(city, data, gdv, lc, up, user){
         buyerRows+
       '</table><div style="font-size:11px;color:#98A0C0;margin-top:7px">Appetite reflects fit with this scheme\'s size, location, affordable % and asset type. “N/A” means the route doesn\'t value this scheme as modelled.</div></div>'+
       // 2 · value range
-      '<div class="callout" style="margin-top:13px"><b>Value range.</b> '+rangeLine+'</div>'+
+      '<div class="callout" style="margin-top:13px"><b>Value range.</b> '+rangeLine+' <span style="color:#8A6A2E">Note: these routes measure <b>different things</b> — a completed investment value (pension / BTR forward-fund), a residual land bid (housebuilder), and an affordable-package price are not directly comparable. The decision metric is <b>net profit / NPV / net equity after land, build, finance and debt</b>, not the highest gross figure.</span></div>'+
       // 3 & 4 · hold vs sell + refinancing (two columns)
       '<div class="g2" style="margin-top:13px">'+
         '<div class="card"><div class="sub-title">Hold vs sell</div><table class="ap">'+
@@ -2051,10 +2063,10 @@ function renderProposal(city, data, gdv, lc, up, user){
         '</table></div>'+
         '<div class="card"><div class="sub-title">Refinancing potential — retain &amp; refinance</div><table class="ap">'+
           apRow("Stabilised value","",exStabilised>0?fmt(exStabilised):"—")+
-          apRow("65% LTV refinance","equity released",exRefinance>0?fmt(exRefinance):"—")+
+          apRow("65% LTV refinance","gross loan raised (before debt repaid)",exRefinance>0?fmt(exRefinance):"—")+
           apRowSum("Annual income (NOI)","",exAnnualIncome>0?fmt(exAnnualIncome)+" pa":"—")+
         '</table>'+
-        (exRefinance>0?'<div style="font-size:11px;color:#666C93;margin-top:8px">Refinancing at 65% LTV releases '+fmt(exRefinance)+' while retaining the asset; NOI services the debt.</div>':'')+
+        (exRefinance>0?'<div style="font-size:11px;color:#666C93;margin-top:8px">Refinancing at 65% LTV raises '+fmt(exRefinance)+' of <b>gross debt</b> against the stabilised value while retaining the asset. <b>Net equity released</b> = this less any development debt repaid, rolled-up interest, arrangement/exit fees and retained cash — and the NOI must cover the debt service at the facility rate (test coverage before relying on it).</div>':'')+
         '</div>'+
       '</div>'+
       (exHoldDCF.value>0?'<div class="callout" style="margin-top:13px"><b>Two valuation bases for a long hold.</b> The <b>static year-1 basis</b> capitalises today\'s net rent at '+pct(exDealY*100)+'. The <b>'+exDcfP.years+'-year DCF (indexed)</b> grows the rent at a CPI-linked, collared '+pct(exHoldDCF.effectiveGrowth*100)+' pa over a '+exDcfP.years+'-year hold, capitalises year '+(exDcfP.years+1)+'\'s rent at '+pct(exDealY*100)+' for a term-and-reversion terminal value, and discounts every cash flow back at '+pct(exDealY*100)+' — the growth-adjusted value shown alongside the conservative static figure, not instead of it. The pension / sovereign row above applies the same method at that buyer\'s own tighter '+pct(EX_PENSION_YIELD*100)+' long-income yield.</div>':'')+
@@ -2065,7 +2077,12 @@ function renderProposal(city, data, gdv, lc, up, user){
         apRow("PBSA / student","",'5.5–6.5%')+
         apRow("Pension / sovereign","",'4.0–5.0%')+
         apRow("Social rent (RP)","",'3.5–4.5%')+
-        apRow("Market BTR rent","",'£'+fmtN(exMkt.btr)+'/month')+
+        apRow("Market BTR benchmark","apartments — a low proxy for houses",'£'+fmtN(exMkt.btr)+'/mo')+
+        // v10.140 — the NOI is built from this scheme's own (higher) house rents, so show the
+        // per-home rent that DRIVES the NOI, gross then net after ~25% costs (voids/mgmt/maint/
+        // insurance). Fixes the reviewer's #9 — the net rent can't exceed a gross benchmark; the
+        // apartment BTR benchmark above simply isn't the rent used for houses.
+        ((noi>0&&exUnits>0)?apRow("Scheme rent per home (drives NOI)","gross · net after ~25% costs",'£'+fmtN(Math.round(noi/0.75/exUnits/12))+' · £'+fmtN(Math.round(noi/exUnits/12))+'/mo'):"")+
         apRow("PBSA rent","",'£'+fmtN(exMkt.pbsa)+'/week')+
       '</table></div>'+
       // 6 · logged HA/RP offers
@@ -2364,7 +2381,7 @@ function renderProposal(city, data, gdv, lc, up, user){
     e("div",{style:Object.assign({},S.card,{background:"linear-gradient(160deg,#1E1F5C,#26286e)",color:"#EDEEFB",border:"none"})},
       e("div",{style:{fontSize:10,letterSpacing:".15em",textTransform:"uppercase",color:"#C9A227",fontWeight:700,marginBottom:10}},"Preview — headline figures"),
       e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:1,background:"rgba(255,255,255,0.12)",border:"1px solid rgba(255,255,255,0.14)",borderRadius:8,overflow:"hidden"}},
-        [["Gross Dev. Value",gdvV>0?fmt(gdvV):"—"],["New homes",units?units.toLocaleString():"—"],["Guide price",ask>0?fmt(ask):"—"],["Residual land value",rlvV>0?fmt(rlvV):"—"],["Dev margin",isFinite(marginV)&&marginV?pct(marginV):"—"],["Planning",planStatus]].map(function(it){
+        [["Gross Dev. Value",gdvV>0?fmt(gdvV):"—"],["New homes",units?units.toLocaleString():"—"],["Guide price",ask>0?fmt(ask):"—"],["Residual land value",rlvV>0?fmt(rlvV):"—"],["Dev margin"+(boardAskLand>0?"":" (target)"),isFinite(boardMargin)&&boardMargin?pct(boardMargin):"—"],["Planning",planStatus]].map(function(it){
           return e("div",{key:it[0],style:{background:"rgba(14,15,40,0.4)",padding:"12px 14px"}},
             e("div",{style:{fontSize:18,fontWeight:800,color:"#fff",fontFamily:"Georgia,serif"}},it[1]),
             e("div",{style:{fontSize:9,color:"#AEB2E4",marginTop:4,textTransform:"uppercase",letterSpacing:".04em"}},it[0]));
