@@ -1694,7 +1694,10 @@ function renderProposal(city, data, gdv, lc, up, user){
   var exRpOffers=(data.rpOffers||[]).filter(function(o){return num(o.gb)>0||num(o.tk)>0;});
   // Multi-year DCF hold (v10.29) — same core as the Exit page & Capitalisation stage.
   var exDcfP=(typeof capDCFParams==="function")?capDCFParams(data):{growth:2.75,floor:1,cap:4,years:25};
-  var EX_PENSION_YIELD=0.045;   // pension DCF discounts at its own 4.5% (apples-to-apples with its static row)
+  // v10.140 — pension/sovereign long-income prices ~30bps TIGHTER (lower) than the BTR yield. A
+  // fixed 0.045 read WIDER than a 4.3% deal yield yet was described as "tighter" (reviewer #12).
+  // Derive it from the deal yield so it is always genuinely tighter, floored at a sane minimum.
+  var EX_PENSION_YIELD=Math.max(0.035, exDealY - 0.003);
   var exPensionNOI=exNoi>0?exNoi:(exUnits*exMkt.btr*12*0.75);
   var exPensionDCF=(typeof computeDCFHoldValue==="function")?computeDCFHoldValue(exPensionNOI,exDcfP.growth,exDcfP.floor,exDcfP.cap,exDcfP.years,EX_PENSION_YIELD):{value:0,effectiveGrowth:0};
   var exHoldDCF=(typeof computeDCFHoldValue==="function")?computeDCFHoldValue(exHoldNOI,exDcfP.growth,exDcfP.floor,exDcfP.cap,exDcfP.years,exDealY):{value:0,effectiveGrowth:0};
@@ -2074,7 +2077,12 @@ function renderProposal(city, data, gdv, lc, up, user){
         apRow("PBSA / student","",'5.5–6.5%')+
         apRow("Pension / sovereign","",'4.0–5.0%')+
         apRow("Social rent (RP)","",'3.5–4.5%')+
-        apRow("Market BTR rent","",'£'+fmtN(exMkt.btr)+'/month')+
+        apRow("Market BTR benchmark","apartments — a low proxy for houses",'£'+fmtN(exMkt.btr)+'/mo')+
+        // v10.140 — the NOI is built from this scheme's own (higher) house rents, so show the
+        // per-home rent that DRIVES the NOI, gross then net after ~25% costs (voids/mgmt/maint/
+        // insurance). Fixes the reviewer's #9 — the net rent can't exceed a gross benchmark; the
+        // apartment BTR benchmark above simply isn't the rent used for houses.
+        ((noi>0&&exUnits>0)?apRow("Scheme rent per home (drives NOI)","gross · net after ~25% costs",'£'+fmtN(Math.round(noi/0.75/exUnits/12))+' · £'+fmtN(Math.round(noi/exUnits/12))+'/mo'):"")+
         apRow("PBSA rent","",'£'+fmtN(exMkt.pbsa)+'/week')+
       '</table></div>'+
       // 6 · logged HA/RP offers
