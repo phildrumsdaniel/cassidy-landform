@@ -243,6 +243,11 @@ function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi,
 
     // Hold vs Sell analysis
     var currentValue=rlvVal2>0?rlvVal2:(gdv*0.88);
+    // v10.147 — on an UNCONSENTED site, "sell now" is NOT the consented land value: you can only
+    // realise that AT consent (a forward sale). Today's sale is the pre-consent, risk-adjusted
+    // value. Relabel the tile and lead with today's figure so it isn't read as "cash now, no risk".
+    var exitPCV=(typeof preConsentLandValue==="function")?preConsentLandValue(data):{isConsented:true,todayValue:currentValue,consentedRlv:currentValue};
+    var exitUnconsented=exitPCV && !exitPCV.isConsented && num(exitPCV.consentedRlv)>0;
     var holdNOI=noi>0?noi:(units2*cityMkt.btr*12*0.72);
     var holdYield=dealY; // v9.53 — single net initial yield
     var stabilisedValue=holdNOI/holdYield;
@@ -372,7 +377,9 @@ function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi,
         e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:14}},"Hold vs Sell Analysis"),
         e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}},
           [
-            {l:"Sell Now (land)",v:fmt(currentValue),c:"#4A4BAE",s:"Immediate exit, no build risk",icon:"→"},
+            (exitUnconsented
+              ? {l:"Sell land now (pre-consent)",v:fmt(exitPCV.todayValue),c:"#9A7B3E",s:"Today's risk-adjusted value. The "+fmt(exitPCV.consentedRlv)+" land value is only realisable AT consent (a forward sale), not today.",icon:"→"}
+              : {l:"Sell Now (land)",v:fmt(currentValue),c:"#4A4BAE",s:"Immediate exit, no build risk",icon:"→"}),
             {l:"Build & Sell",v:fmt(gdv),c:"#2E2F8A",s:"GDV after build — less costs",icon:"🏗"},
             {l:"Retain & Stabilise",v:fmt(stabilisedValue),c:"#2D7A65",s:"Static year-1 · NOI ÷ yield",icon:"🏦",
               v2:holdDCF.value>0?fmt(holdDCF.value):null,v2l:dcfP.years+"-yr DCF (indexed)"},

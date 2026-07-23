@@ -537,6 +537,23 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
           });
         }
 
+        // v10.147 — one-click rescale of the scenario probabilities to total 100%. The expected
+        // value is already normalised (÷ totalProb/100), but a table that visibly sums to 80% reads
+        // as uncalibrated; this rescales each probability proportionally, using largest-remainder
+        // rounding so the integers land on exactly 100.
+        function normalizeProbs(){
+          if(!(totalProb>0)) return;
+          var rounded=scenarioCalcs.map(function(s){return {key:s.key, v:Math.round(s.probPct/totalProb*100)};});
+          var sum=rounded.reduce(function(a,b){return a+b.v;},0), diff=100-sum;
+          if(diff!==0){ var mi=0; for(var i=1;i<rounded.length;i++){ if(rounded[i].v>rounded[mi].v) mi=i; } rounded[mi].v+=diff; }
+          setData(function(prev){
+            var land=Object.assign({},prev.land||{});
+            rounded.forEach(function(r){ land["scenProb_"+r.key]=String(r.v); });
+            return Object.assign({},prev,{land:land});
+          });
+          notify("Rescaled the scenario probabilities to total 100% (kept in proportion).");
+        }
+
         return e("div",{style:S.card},
           e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}},
             e("div",{style:S.cardTitle},"Planning Scenarios — "+cityName(city)+" · "+acresVal.toFixed(1)+" acres"),
@@ -612,7 +629,7 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
                   e("td",{style:{padding:"12px 6px",textAlign:"right",fontWeight:800,color:"#2E2F8A",fontSize:15}},fmt(expectedValue)),
                   e("td",{style:{padding:"12px 6px",textAlign:"right",fontSize:10,color:"#7278A0"}},"Total prob: "+totalProb+"%"),
                   e("td",{style:{padding:"12px 6px"}}),
-                  e("td",{style:{padding:"12px 6px",textAlign:"right",fontSize:10,color:"#7278A0",fontStyle:"italic"}},Math.abs(totalProb-100)>1?"⚠ Adjust probabilities to total 100%":"✓"),
+                  e("td",{style:{padding:"12px 6px",textAlign:"right",fontSize:10,color:"#7278A0",fontStyle:"italic"}},Math.abs(totalProb-100)>1?e("button",{onClick:normalizeProbs,title:"Rescale all probabilities proportionally so they total 100%",style:{padding:"3px 8px",fontSize:9,fontWeight:700,letterSpacing:".03em",background:"rgba(176,90,53,0.10)",border:"1px solid #B05A35",color:"#B05A35",borderRadius:4,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"⚠ Normalise to 100%"):"✓"),
                   e("td",{style:{padding:"12px 6px"}})
                 )
               )
