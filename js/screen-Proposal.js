@@ -94,6 +94,13 @@ function buildViabilityScenario(data, cityHint){
   data = data || {};
   function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
   if(typeof computeSFHMetrics!=="function") return "";
+  // v10.146 — Page 2 is the DE-RISKED case: it assumes planning consent is secured and due
+  // diligence, constraints and risks are all resolved, then shows the scheme-economics levers that
+  // would make it stack. This is the deliberate counterpoint to page 1 (which now leads with
+  // today's at-risk, pre-consent position), so we compute on a clone with Assumption Mode fully ON.
+  // The residual math already runs on the consented-scheme basis; the flags make the assumption
+  // explicit and keep it consistent if any risk-adjusted helper is added later.
+  try{ var _dd=JSON.parse(JSON.stringify(data)); _dd._assume={planning:true,dd:true,constraints:true,risks:true}; data=_dd; }catch(e){}
   var SF=computeSFHMetrics(data);
   var gdv=num(SF.gdv), dev=num(SF.devCost), rlv=num(SF.rlv), units=num(SF.totalUnits), avgSqft=num(SF.avgSqft);
   if(!(gdv>0&&units>0)) return "";
@@ -145,14 +152,19 @@ function buildViabilityScenario(data, cityHint){
   return '<div class="pg" style="page-break-before:always">'+
     '<div class="top"><div><div class="brand" style="color:#B05A35">Cassidy Group · Illustrative viability scenario — NOT the real appraisal</div>'+
       '<h1>Path to viability — what would need to be true</h1>'+
-      '<div class="sub">Page 2 of 2 · scenario only · page 1 is the truthful appraisal</div></div>'+
+      '<div class="sub">Page 2 of 2 · scenario only · assumes consent secured &amp; DD clear · page 1 is the truthful appraisal</div></div>'+
       '<div class="meta">'+(landRef>0?'Guide price £'+fmtN(landRef):'No guide price')+'<br/>Illustrative · v'+esc(typeof CURRENT_VERSION!=="undefined"?CURRENT_VERSION:"")+'</div></div>'+
     // watermark caveat
     '<div style="border:1.5px solid #B05A35;background:#FDF3EE;border-radius:7px;padding:9px 12px;margin-bottom:9px;font-size:9px;color:#8A3A1E;line-height:1.5">'+
       '<b>⚠ Illustrative scenario — these are NOT the current, agreed or evidenced figures.</b> Each shows the single change to one lever that would make the scheme stack, solved on the appraisal engine holding the others fixed. They are targets to test, not facts: confirm each with a QS cost plan, S106 heads of terms and comparable sales before relying on it. <b>This page must not be sent to a lender, investor or landowner as the deal position.</b>'+
     '</div>'+
+    // v10.146 — state the de-risked basis plainly: this page assumes the planning and DD risk on
+    // page 1 is resolved, so it isolates the SCHEME ECONOMICS (the deal-can-it-work question).
+    '<div style="border:1px solid #C9CCE4;background:#F7F8FC;border-radius:7px;padding:8px 11px;margin-bottom:9px;font-size:8.6px;color:#3A3D6A;line-height:1.5">'+
+      '<b>Basis — the de-risked case.</b> This page assumes planning consent is secured and due diligence, site constraints and risks are all resolved. It answers only "<b>if the deal is de-risked, do the scheme economics stack, and what would it take?</b>" — the counterpoint to page 1, which shows today\'s at-risk, pre-consent position. It is not a claim that the planning or DD risk has gone away.'+
+    '</div>'+
     // base recap
-    '<div class="card"><div class="ct">Where it stands today (from page 1)</div><table>'+
+    '<div class="card"><div class="ct">The scheme\'s residual economics (consented basis)</div><table>'+
       '<tr><td>Residual land value (max supportable, at '+(Math.round(profitPct*10)/10)+'% profit)</td><td class="n" style="color:'+(rlv>0?"#1B7A54":"#B05A35")+'">'+(rlv<0?"−":"")+fmt(Math.abs(rlv))+'</td></tr>'+
       (landRef>0?'<tr><td>Landowner guide price</td><td class="n">'+fmt(landRef)+'</td></tr>'+
         '<tr class="s"><td>'+(rlv>=landRef?"Headroom over the guide":"Shortfall vs the guide")+'</td><td class="n" style="color:'+(rlv>=landRef?"#1B7A54":"#B05A35")+'">'+(rlv-landRef<0?"−":"+")+fmt(Math.abs(rlv-landRef))+'</td></tr>'+
