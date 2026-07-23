@@ -1,12 +1,33 @@
 // ── renderRisks  (params: at, data, setData, up, user)
 // Lifted out of Tool; body byte-unchanged. Takes the Tool variables it uses as
 // explicit params; all other names resolve to globals. Loaded before 05-tool.js.
+// v10.156 — guard so the deferred Planning-RAG alignment persists once per (deal, level), not every render.
+var _riskAlignSig = null;
 function renderRisks(at, data, setData, up, user){
     try {
       // Defensive: ensure risks is always an array (data corruption protection)
       var risks = data && data.risks;
       if(!Array.isArray(risks) || risks.length===0){
-        risks = RISK_DEFAULTS.map(function(r){return Object.assign({},r);});
+        risks = (typeof riskDefaultsFor==="function") ? riskDefaultsFor(data) : RISK_DEFAULTS.map(function(r){return Object.assign({},r);});
+      }
+      // v10.156 — keep the Planning risk's RAG aligned with the computed planning risk level
+      // (Planning & Viability / Dashboard), unless the user has manually pinned it. Fixes: a site
+      // rated "High" planning risk showing only Amber here. Persist the alignment (deferred, once per
+      // level) so the Dashboard, reports and Data Room — which all read data.risks — agree too.
+      var planLevelRag = (typeof riskRagFromLevel==="function") ? riskRagFromLevel(data && data.planning && data.planning.riskLevel) : null;
+      if(planLevelRag){
+        risks = risks.map(function(r){ return (r && r.cat==="Planning" && !r._ragManual && r.rag!==planLevelRag) ? Object.assign({},r,{rag:planLevelRag}) : r; });
+        var _needPersist = (Array.isArray(data && data.risks) && data.risks.some(function(r){return r && r.cat==="Planning" && !r._ragManual && r.rag!==planLevelRag;}));
+        var _sig = String((data && (data._cloudDealId||data.dealName||(data.land&&data.land.address)))||"")+":"+planLevelRag;
+        if(_needPersist && _riskAlignSig!==_sig){
+          _riskAlignSig=_sig;
+          setTimeout(function(){ setData(function(d){
+            var base=(Array.isArray(d.risks)&&d.risks.length)?d.risks:((typeof riskDefaultsFor==="function")?riskDefaultsFor(d):RISK_DEFAULTS.map(function(x){return Object.assign({},x);}));
+            var lvl=(typeof riskRagFromLevel==="function")?riskRagFromLevel(d.planning&&d.planning.riskLevel):null;
+            var rr=base.map(function(r){ return (lvl && r && r.cat==="Planning" && !r._ragManual && r.rag!==lvl) ? Object.assign({},r,{rag:lvl}) : r; });
+            return Object.assign({},d,{risks:rr});
+          }); },0);
+        }
       }
       var RC={red:"#B05A35",amber:"#9A7B3E",green:"#2D7A65"};
       var counts={red:0,amber:0,green:0};
@@ -17,6 +38,8 @@ function renderRisks(at, data, setData, up, user){
           if(r.id!==id) return r;
           var next=Object.assign({},r);
           next[key]=val;
+          // v10.156 — a manual RAG change on the Planning risk pins it (stops auto-aligning).
+          if(key==="rag" && r.cat==="Planning") next._ragManual=true;
           return next;
         });
         setData(function(d){return Object.assign({},d,{risks:updated});});

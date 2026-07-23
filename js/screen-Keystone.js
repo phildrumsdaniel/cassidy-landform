@@ -265,7 +265,7 @@ function renderKeystone(data, setData, up, navTo, user){
     });
     done.push("Financial Modelling", "Viability appraisal");
     setK({ journeyBusy:false, journeyNote: done.length ? ("Journey filled: "+done.join(", ")+". Review each stage.") : "Couldn't fill the journey stages — try again." });
-    notify(done.length ? ("✓ Keystone filled the journey — "+done.join(", ")+". Human stages (Due Diligence, Meetings, Data Room, Risk Register) are left for you.") : "Journey fill didn't return usable data — try again.");
+    notify(done.length ? ("✓ Keystone filled the journey — "+done.join(", ")+". The Risk Register is pre-seeded with standard risks (RAG-rated to the planning risk) — review & adjust. Due Diligence, Meetings and the Data Room are the empty stages left for you.") : "Journey fill didn't return usable data — try again.");
   }
 
   var detected = (function(){ try{ return detectJourney(JSON.parse(k.brief||"{}")); }catch(e2){ return ""; } })();
@@ -505,7 +505,7 @@ function renderKeystone(data, setData, up, navTo, user){
         // v10.59 — one click fills the WHOLE journey: prices/rents, then Planning, Exit, Grants &
         // Constraints via AI. Human stages (Due Diligence, Meetings, Data Room, Risk Register) left alone.
         k.builtJourney && (data.sfh && data.sfh.mix && data.sfh.mix.length) && e("button",{onClick:completeJourneyWithAI,disabled:!!(k.enriching||k.journeyBusy),
-          title:"Fills every stage that needs data: researches prices & rents, then Planning (risk, BNG, timeline), Exit strategy & target buyer, Grant/funding strategy and a planning & GIS constraints screen — using national-builder benchmarks. Due Diligence, Meetings, Data Room and the Risk Register are left for you. Indicative — review each stage.",
+          title:"Fills every stage that needs data: researches prices & rents, then Planning (risk, BNG, timeline), Exit strategy & target buyer, Grant/funding strategy and a planning & GIS constraints screen — using national-builder benchmarks. The Risk Register is pre-seeded with standard risks (RAG-rated to the planning risk); Due Diligence, Meetings and the Data Room are the empty stages left for you. Indicative — review each stage.",
           style:{padding:"9px 18px",background:(k.enriching||k.journeyBusy)?"#9AA":"linear-gradient(135deg,#1E7A5C,#2D7A65)",border:"none",color:"#fff",borderRadius:6,fontSize:13,fontWeight:800,cursor:(k.enriching||k.journeyBusy)?"wait":"pointer",fontFamily:"DM Sans,sans-serif"}},
           k.journeyBusy?"⏳ Filling the journey…":"🚀 Complete the whole journey with AI"),
         k.builtJourney && e("button",{onClick:function(){navTo("dashboard");},style:{padding:"9px 18px",background:"#fff",border:"1px solid #4A4BAE",color:"#4A4BAE",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Go to Deal Dashboard →"),
