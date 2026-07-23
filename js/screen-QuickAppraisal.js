@@ -179,6 +179,20 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
     if(!w){ if(typeof notify === "function") notify("Allow pop-ups to open the one-page board proposal."); return; }
     w.document.open(); w.document.write(html); w.document.close();
   }
+  // v10.143 — one-pager + a second "path to viability" page (illustrative scenario, watermarked),
+  // the same two-page report as the Board Proposal stage, fed the effective deal.
+  function openOnePagerScenario(){
+    if(typeof buildLandOnePager !== "function"){ if(typeof notify === "function") notify("Report generator still loading — try again in a moment."); return; }
+    if(typeof notify === "function") notify("Generating one-pager + viability scenario…");
+    var html = buildLandOnePager(effData, cityKey);
+    var scen = (typeof buildViabilityScenario==="function") ? buildViabilityScenario(effData, cityKey) : "";
+    if(scen) html = html.replace("</body>", scen+"</body>");
+    if(typeof showReportOverlay === "function" && showReportOverlay(html, "One-pager + viability scenario")) return;
+    if(typeof openReportBlob==="function" && openReportBlob(html)) return;
+    var w = window.open("", "_blank");
+    if(!w){ if(typeof notify === "function") notify("Allow pop-ups to open the report."); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+  }
 
   var box = { background:"#fff", border:"1px solid #E0E2EC", borderRadius:8, padding:"10px 12px" };
   function kpi(label, value, color, note){
@@ -438,6 +452,7 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
         // One-click one-page board proposal — the SAME A4 PDF as the Board Proposal stage,
         // generated straight from this page's figures (buildLandOnePager is shared, so identical).
         e("button", { onClick:openOnePager, style:{ padding:"9px 18px", background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)", border:"none", color:"#fff", borderRadius:6, fontSize:12.5, fontWeight:800, cursor:"pointer", fontFamily:"DM Sans,sans-serif", boxShadow:"0 2px 10px rgba(30,31,92,.25)" } }, "📄 One-page board proposal (PDF)"),
+        e("button", { onClick:openOnePagerScenario, title:"Two pages: the truthful appraisal, then an ILLUSTRATIVE ‘what would make it stack’ scenario (build / S106 / sale / affordable % / profit / land) — solved on the engine and watermarked as NOT the real figures.", style:{ padding:"9px 16px", background:"#fff", border:"1.5px solid #B05A35", color:"#8A3A1E", borderRadius:6, fontSize:12, fontWeight:800, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "📄 + Viability scenario"),
         e("button", { onClick:function(){ navTo("sfh"); }, style:{ padding:"9px 16px", background:"#fff", border:"1px solid #4A4BAE", color:"#4A4BAE", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "Refine the house mix →"),
         e("button", { onClick:function(){ navTo("proposal"); }, style:{ padding:"9px 16px", background:"#fff", border:"1px solid #DDE0ED", color:"#3A3D6A", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "Full board paper →")
       ),
