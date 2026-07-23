@@ -121,6 +121,7 @@ function renderKeystone(data, setData, up, navTo, user){
       "\n• A capacity/allocation statement IS the unit figure: 'room for 1,800 houses', 'circa 1,800 units', 'allocated for ~1,000 homes', 'capacity for 1,800 dwellings' → units: 1800. Never drop it as vague. Quote the exact wording in assumptions." +
       "\n• Capture the site area (acres) exactly as stated. If given in hectares, convert: acres ≈ ha × 2.471." +
       "\n• Capture any stated or target density into 'density' as HOMES PER ACRE. If the source says dph (dwellings/hectare), convert to per-acre (÷ 2.471) and note the original figure and its unit (dph vs per-acre) in assumptions." +
+      "\n• POSTCODE — critical: it is the biggest driver of the valuation. If the source gives no postcode but names a town / village / place (e.g. 'land north of Staplehurst'), INFER the postcode DISTRICT (outcode only, e.g. 'TN12') for that place from your UK geography knowledge and set postcodeInferred:true. The outcode alone is enough. Note in assumptions that the postcode was inferred from the location. Only leave the postcode blank if NO place whatsoever is identifiable." +
       "\nSOURCE:\n"+(k.source||"").substring(0,12000);
     try{
       var res = await callAI(user, "keystone", sys, prompt);
@@ -461,23 +462,35 @@ function renderKeystone(data, setData, up, navTo, user){
         var mk=(typeof keystoneMarketKey==="function")?keystoneMarketKey(briefTown, briefPc):{key:"",flag:""};
         var resolves=!!(mk.key && typeof MKT!=="undefined" && MKT[mk.key]);
         var marketName=(resolves && typeof _keystoneTitle==="function")?_keystoneTitle(mk.key):"";
+        // v10.151 — three states. RED: no resolvable location (national-average fallback). AMBER:
+        // the postcode was INFERRED from the named place (e.g. TN12 from 'Staplehurst') — it resolves,
+        // but it's a best-guess to confirm. GREEN: a stated/edited postcode that resolves.
+        var inferred = resolves && !!bo.postcodeInferred && !!briefPc;
+        var tone = !resolves ? "red" : (inferred ? "amber" : "green");
+        var col  = {red:"#B05A35", amber:"#8A6A2E", green:"#1d5446"}[tone];
+        var edge = {red:"#B05A35", amber:"#C8A24A", green:"#2D7A65"}[tone];
+        var bg   = {red:"#FDF3EE", amber:"#FDF9EF", green:"rgba(45,122,101,0.05)"}[tone];
         function setBriefPostcode(pc){
           var o; try{ o=JSON.parse(k.brief||"{}"); }catch(e){ return; }
           o.postcode=String(pc||"").toUpperCase();
+          o.postcodeInferred=false;   // the moment you touch it, it's confirmed — no longer a guess
           setK({brief:JSON.stringify(o,null,2)});
         }
-        return e("div",{style:{border:"1px solid "+(resolves?"#2D7A65":"#B05A35"),borderLeft:"4px solid "+(resolves?"#2D7A65":"#B05A35"),background:resolves?"rgba(45,122,101,0.05)":"#FDF3EE",borderRadius:8,padding:"12px 14px",marginBottom:12}},
-          e("div",{style:{fontSize:12,fontWeight:800,color:resolves?"#1d5446":"#B05A35",marginBottom:5}},
-            resolves?("📍 Location resolves to "+marketName+" — local pricing will be used"):"⚠ Confirm the postcode — location does NOT resolve to a local market"),
-          e("div",{style:{fontSize:11,color:"#5A4A3E",lineHeight:1.55,marginBottom:8}},
-            resolves
-              ? "Pricing, build cost and yield use this local market; the sale £/sqft still uses the postcode's own Land Registry value where available. Correct it here if it's wrong."
-              : "Postcode / location is the single biggest driver of the valuation. Without a resolvable location Keystone falls back to UK NATIONAL AVERAGES (≈£300/sqft sale, £215/sqft build, 4.75% yield) — which can swing the residual land value by tens of millions vs the correct local figures. Enter the site postcode before building."),
+        var heading = !resolves ? "⚠ Confirm the postcode — location does NOT resolve to a local market"
+          : inferred ? ("📍 Postcode "+briefPc+" was INFERRED from ‘"+briefTown+"’ — confirm it's right (resolves to "+marketName+")")
+          : ("📍 Location resolves to "+marketName+" — local pricing will be used");
+        var body = !resolves ? "Postcode / location is the single biggest driver of the valuation. Without a resolvable location Keystone falls back to UK NATIONAL AVERAGES (≈£300/sqft sale, £215/sqft build, 4.75% yield) — which can swing the residual land value by tens of millions vs the correct local figures. Enter the site postcode before building."
+          : inferred ? ("No postcode was stated in the source, so Keystone inferred the district from the place name to pick the "+marketName+" pricing market. Check the area is right and correct it if not — the sale £/sqft uses the postcode's own Land Registry value where available.")
+          : "Pricing, build cost and yield use this local market; the sale £/sqft still uses the postcode's own Land Registry value where available. Correct it here if it's wrong.";
+        return e("div",{style:{border:"1px solid "+edge,borderLeft:"4px solid "+edge,background:bg,borderRadius:8,padding:"12px 14px",marginBottom:12}},
+          e("div",{style:{fontSize:12,fontWeight:800,color:col,marginBottom:5}}, heading),
+          e("div",{style:{fontSize:11,color:"#5A4A3E",lineHeight:1.55,marginBottom:8}}, body),
           e("div",{style:{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}},
             e("label",{style:{fontSize:10,fontWeight:700,color:"#7278A0",textTransform:"uppercase",letterSpacing:".05em"}},"Site postcode"),
             e("input",{value:briefPc,placeholder:"e.g. TN12 0AB (outcode TN12 is enough)",onChange:function(ev){ setBriefPostcode(ev.target.value); },
-              style:{padding:"7px 10px",border:"1px solid "+(resolves?"#DDE0ED":"#B05A35"),borderRadius:6,fontSize:13,fontWeight:700,textTransform:"uppercase",fontFamily:"DM Mono,monospace,DM Sans",minWidth:190}}),
-            briefTown && e("span",{style:{fontSize:11,color:"#7278A0"}},"Town: ",e("strong",null,briefTown))
+              style:{padding:"7px 10px",border:"1px solid "+edge,borderRadius:6,fontSize:13,fontWeight:700,textTransform:"uppercase",fontFamily:"DM Mono,monospace,DM Sans",minWidth:190}}),
+            briefTown && e("span",{style:{fontSize:11,color:"#7278A0"}},"Town: ",e("strong",null,briefTown)),
+            inferred && e("button",{onClick:function(){ setBriefPostcode(briefPc); },title:"Accept the inferred postcode",style:{padding:"6px 12px",background:"#2D7A65",border:"none",color:"#fff",borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"✓ Confirm "+briefPc)
           )
         );
       })(),

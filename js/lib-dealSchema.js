@@ -18,7 +18,8 @@ var KEYSTONE_BRIEF_SCHEMA = {
   // ── Site ──
   address:      "string — site address",
   town:         "string — town/city (drives area rents, build & yield benchmarks)",
-  postcode:     "string",
+  postcode:     "string — the site's postcode. If the source states one, use it exactly. If NO postcode is stated but a town / village / place is named (e.g. 'land NORTH of Staplehurst', 'off Marden Road, Headcorn'), INFER the postcode DISTRICT (the outcode only, e.g. 'TN12') you would expect for that place and set postcodeInferred:true — the outcode alone is enough to pick the correct local pricing market, and the user is shown it to confirm. Never leave this blank when any place name is given.",
+  postcodeInferred: "boolean — true when you INFERRED the postcode from the named location rather than reading a stated postcode from the source (so the tool can flag it for the user to confirm)",
   acres:        "number — site area in acres",
   askingPrice:  "number — landowner's asking price (£)",
   // ── Scheme (assetType auto-detected if omitted) ──
