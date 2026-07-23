@@ -1,3 +1,78 @@
+// v10.153 — RETAIL vs BULK sales split for realistic phasing/IRR. Individual-buyer homes (open
+// market, First Homes, discounted market sale) absorb one-at-a-time at the sales rate; affordable /
+// HA-RP / institutional homes (Social & Affordable Rent, Shared Ownership, pension/BTR bulk, PRS)
+// transfer in a few forward-fund / bulk transactions AS THEY'RE BUILT, so they don't sit in a long
+// retail sales tail. Uses the engine's tenure precedence: House Mix per-row tenure > Tenure Mix
+// split > scheme ah%. GDV is split by realisable value (bulk affordable realises ~0.6× market).
+var FIN_BULK_HM_KEYS = {pension:1, ahp_social:1, ahp_so:1, ahp_affordable:1, retained_prs:1, btr_operator:1, rent_to_buy:1};
+function finBulkRetailSplit(data, totalUnits, gdv){
+  totalUnits = (typeof num==="function"?num(totalUnits):+totalUnits)||0;
+  gdv = (typeof num==="function"?num(gdv):+gdv)||0;
+  var bulkFrac = 0;
+  var mix = (data && data.sfh && data.sfh.mix) || [];
+  var hmTotal=0, hmBulk=0, hmAny=false;
+  mix.forEach(function(r){ var c=num(r.count); if(c<=0) return; hmTotal+=c; var t=r.tenure||"private"; if(t!=="private"){ hmAny=true; if(FIN_BULK_HM_KEYS[t]) hmBulk+=c; } });
+  if(hmAny && hmTotal>0){ bulkFrac = hmBulk/hmTotal; }
+  else if(data && data.tenure && data.tenure.mix && typeof TENURE_TYPES!=="undefined"){
+    var tm=data.tenure.mix, tot=0, bulk=0;
+    TENURE_TYPES.forEach(function(td){ var v=num(tm[td.key]); if(!v) return; tot+=v; if(td.buyerType==="ha_rp"||td.buyerType==="institutional"||td.buyerType==="council") bulk+=v; });
+    if(tot>0) bulkFrac = bulk/tot;
+  } else {
+    var ah = num((data && data.planning && (data.planning.ahPct||data.planning.afhPct))||0);
+    bulkFrac = ah>0 ? ah/100 : 0;
+  }
+  bulkFrac = Math.max(0, Math.min(1, bulkFrac));
+  var bulkUnits = Math.round(totalUnits*bulkFrac);
+  var retailUnits = Math.max(0, totalUnits - bulkUnits);
+  var BULK_VALUE_FACTOR = 0.6;   // affordable/bulk realises ~60% of open-market value
+  var wB = bulkUnits*BULK_VALUE_FACTOR, wR = retailUnits*1.0;
+  var bulkGdv = (wB+wR)>0 ? gdv*wB/(wB+wR) : 0;
+  return {bulkFrac:bulkFrac, bulkUnits:bulkUnits, retailUnits:retailUnits, bulkGdv:bulkGdv, retailGdv:gdv-bulkGdv};
+}
+
+// v10.153 — one phased-cashflow model used by BOTH the returns summary and the S-curve card, so
+// they show the SAME IRR (they used to disagree — a crude single-period "all GDV at year N" upstairs
+// vs an S-curve downstairs). LAND is the t0 outflow (the actual land price, or the RLV if none is
+// entered yet — an IRR without the land investment is meaningless); dev costs lead on the build
+// curve; bulk transfers as built; retail absorbs on its own tail. IRR is a true monthly-cashflow
+// IRR (bisection), annualised — so earlier bulk receipts genuinely lift it.
+function finPhasedCashflow(data, units, gdv, devCostExLand, landOut, buildMonths, salesRateWeek, finMonthly){
+  units=num(units); gdv=num(gdv); devCostExLand=Math.max(0,num(devCostExLand)); landOut=Math.max(0,num(landOut));
+  buildMonths=Math.max(1,num(buildMonths)); finMonthly=num(finMonthly);
+  var br=finBulkRetailSplit(data, units, gdv);
+  var salesRate=num(salesRateWeek) || (units>0&&buildMonths>0?Math.round((units/(buildMonths*52/12))*100)/100:0.75);
+  var absorption=(br.retailUnits>0&&salesRate>0)?Math.max(1,Math.ceil(br.retailUnits/(salesRate*52/12))):buildMonths;
+  var retailMonths=Math.max(buildMonths, absorption);   // retail can't sell out before it's built
+  var prog=retailMonths;
+  function scv(t){ if(t<=0)return 0; if(t>=1)return 1; return t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2; }
+  var cs=[], cumSales=0, cumCost=0, peakDebt=0, totalInt=0, runDebt=0, milestones=[];
+  for(var m=1;m<=prog;m++){
+    var costD=(scv(Math.min(1,(m/buildMonths)*1.2))-scv(Math.min(1,((m-1)/buildMonths)*1.2)))*devCostExLand;
+    if(m===1) costD+=landOut;                                        // land paid up front (t0)
+    var bulkD=(scv(m/buildMonths)-scv((m-1)/buildMonths))*br.bulkGdv;  // bulk transfers as built
+    var retailD=(scv(m/retailMonths)-scv((m-1)/retailMonths))*br.retailGdv;
+    var sales=bulkD+retailD;
+    cumSales+=sales; cumCost+=costD; cs.push(sales-costD);
+    runDebt=Math.max(0,cumCost-cumSales);
+    var intr=runDebt*finMonthly; totalInt+=intr; runDebt+=intr;
+    peakDebt=Math.max(peakDebt,runDebt);
+    if(m===1||m===Math.floor(prog/4)||m===Math.floor(prog/2)||m===Math.floor(prog*3/4)||m===prog)
+      milestones.push({m:m,sales:Math.round(cumSales),cost:Math.round(cumCost),debt:Math.round(runDebt),profit:Math.round(cumSales-cumCost-totalInt)});
+  }
+  var irr=(function(){
+    if(!(cs.length>1))return null;
+    function npv(r){var v=0;for(var i=0;i<cs.length;i++)v+=cs[i]/Math.pow(1+r,i+1);return v;}
+    var lo=-0.5,hi=0.5,nl=npv(lo),nh=npv(hi);
+    if(!(isFinite(nl)&&isFinite(nh))||nl*nh>0)return null;   // no sign change → IRR undefined (e.g. a loss)
+    for(var it=0;it<90;it++){var mid=(lo+hi)/2,nm=npv(mid);if(!isFinite(nm))return null;if(nl*nm<=0){hi=mid;}else{lo=mid;nl=nm;}}
+    var a=(Math.pow(1+(lo+hi)/2,12)-1)*100;
+    return (a>-99&&a<500)?Math.round(a*10)/10:null;
+  })();
+  return {br:br, salesRate:salesRate, absorption:absorption, retailMonths:retailMonths, prog:prog, peakDebt:peakDebt,
+          totalInt:totalInt, irr:irr, finalProfit:gdv-devCostExLand-landOut-totalInt, milestones:milestones,
+          cumSales:cumSales, cumCost:cumCost, landOut:landOut};
+}
+
 // ── renderFin  (params: LiveMarketBanner, at, bc, buildPsf, city, data, ey, gia, gr, lc, m, navTo, units, up, user)
 // Lifted out of Tool; body byte-unchanged. Tool variables passed as explicit
 // params; all other names resolve to globals. Loaded before 05-tool.js.
@@ -379,37 +454,31 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
           var tcF=tc4>0?tc4:0;
           var marginF=margin2;
           if(u<1||gdvF<1)return e("div",{style:{fontSize:12,color:"#7278A0",padding:"10px 0"}},"Enter units and GDV in the appraisal above to calculate IRR.");
-          var salesMths=salesRate>0?Math.ceil(u/(salesRate*52/12)):progMths;
+          // v10.153 — only RETAIL units sit in the house-by-house sales tail; bulk/affordable units
+          // transfer as built. So the sales PERIOD is driven by retail units, not the whole scheme.
+          var brF=finBulkRetailSplit(data, u, gdvF);
+          var salesMths=salesRate>0?Math.ceil((brF.retailUnits||u)/(salesRate*52/12)):progMths;
           var peakDebt=(tcF>0?tcF:tc4)*0.65;
           var finCost=peakDebt*finRatePa*(progMths/12);
-          // Newton-Raphson IRR approximation
-          var irrVal=(function(){
-            var iGdv=gdvF>0?gdvF:gdv2; var iTc=tcF>0?tcF:tc4; if(iGdv<=0||iTc<=0)return null;
-            var r=0.15;
-            var n=progMths/12;
-            for(var i=0;i<60;i++){
-              var pv=iGdv/Math.pow(1+r,n);
-              var npv=pv-iTc*(1+finRatePa*n/2);
-              var dpv=-n*iGdv/Math.pow(1+r,n+1);
-              var nr=r-npv/dpv;
-              if(Math.abs(nr-r)<0.00001)break;
-              r=nr;
-            }
-            return r>-1&&r<5?Math.round(r*1000)/10:null;
-          })();
-          var irrColor=irrVal&&irrVal>=15?"#2D7A65":irrVal&&irrVal>=10?"#9A7B3E":"#B05A35";
+          // v10.153 — IRR now comes from the SAME phased-cashflow model as the S-curve card below
+          // (land at t0, bulk-as-built + retail tail), so the two IRRs agree instead of the old crude
+          // "all GDV at year N" giving a different, over-pessimistic number.
+          var landOutF = num(lc)>0 ? num(lc) : Math.max(0, num(rlv));
+          var devExLandF = Math.max(0, tcF - num(lc));
+          var irrVal = finPhasedCashflow(data, u, gdvF, devExLandF, landOutF, progMths, f.salesRateWeek, finRatePa/12).irr;
+          var irrColor=irrVal!=null&&irrVal>=15?"#2D7A65":irrVal!=null&&irrVal>=10?"#9A7B3E":"#B05A35";
 
           return e("div",null,
             e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:12}},
               [
-                {l:"Private Units",v:u},
-                {l:"Sales Period",v:salesMths+" mths"},
+                {l:"Retail / bulk units",v:brF.bulkUnits>0?(brF.retailUnits.toLocaleString()+" / "+brF.bulkUnits.toLocaleString()):u},
+                {l:"Retail sales period",v:salesMths+" mths"},
                 {l:"Programme",v:progMths+" mths"},
                 {l:"Peak Debt (est)",v:fmt(peakDebt)},
                 {l:"Finance — upper est",v:fmt(finCost),s:true},
                 {l:"Profit on Cost",v:tcF>0?pct((gdvF-tcF)/tcF*100):"—",c:gdvF>tcF?"#2D7A65":"#B05A35",big:true},
                 {l:"Margin on GDV",v:gdvF>0?pct(marginF):"—",c:marginF>=15?"#2D7A65":"#B05A35",big:true},
-                {l:"Approx IRR",v:irrVal?irrVal+"%":"—",c:irrColor,big:true},
+                {l:"Project IRR",v:irrVal!=null?irrVal+"%":"—",c:irrColor,big:true},
               ].map(function(item){
                 return e("div",{key:item.l,style:{background:"#fff",border:"1px solid #DDE0ED",borderTop:"3px solid "+(item.c||"#4A4BAE"),borderRadius:8,padding:12,textAlign:"center"}},
                   e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:4}},item.l),
@@ -434,58 +503,38 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
         e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:12}},"Industry-standard S-curve sales phasing. Slow start, peak mid-programme, tail-off at end. Matches Landval Cloud and institutional appraisal methodology."),
         (function(){
           var u3=num(f.units||sfhTotalUnits||0);
-          var prog3=num(f.programmeMths||finProgDefault);
+          var buildMonths=Math.max(1,num(f.programmeMths||finProgDefault));   // construction programme
           var finR=num(f.finRate||7.5)/100/12;  // v10.9 — one finance rate (shared with the appraisal), was a separate 8%
           var gdv3=gdv2>0?gdv2:0;
           var tc3=tc4>0?tc4:0;
           if(u3<1||gdv3<1)return e("div",{style:{fontSize:12,color:"#7278A0",padding:"8px 0"}},"Enter units and GDV above to see phased cashflow.");
-          // Generate monthly cashflow using S-curve (normal distribution approximation)
-          var months=[];
-          var cumSales=0; var cumCost=0; var peakDebt2=0; var totalInt=0; var runDebt=0;
-          for(var m3=1;m3<=prog3;m3++){
-            // S-curve sales: slow-fast-slow using sine approximation
-            var pct=(m3-1)/(prog3-1);
-            var sCurvePct=pct<0.5?2*pct*pct:1-Math.pow(-2*pct+2,2)/2;
-            var prevCurve=pct===0?0:((m3-2)/(prog3-1)<0.5?2*Math.pow((m3-2)/(prog3-1),2):1-Math.pow(-2*(m3-2)/(prog3-1)+2,2)/2);
-            var monthSales=(sCurvePct-prevCurve)*gdv3;
-            // Costs: front-loaded (construction S-curve slightly ahead of sales)
-            var costPct=Math.min(1,pct*1.2);
-            var prevCostPct=Math.min(1,(m3-2>0?(m3-2)/(prog3-1)*1.2:0));
-            var monthCost=(costPct-prevCostPct)*tc3;
-            cumSales+=monthSales; cumCost+=monthCost;
-            runDebt=Math.max(0,cumCost-cumSales);
-            var interest=runDebt*finR;
-            totalInt+=interest; runDebt+=interest;
-            peakDebt2=Math.max(peakDebt2,runDebt);
-            if(m3<=prog3&&(m3===1||m3===Math.floor(prog3/4)||m3===Math.floor(prog3/2)||m3===Math.floor(prog3*3/4)||m3===prog3)){
-              months.push({m:m3,sales:Math.round(cumSales),cost:Math.round(cumCost),debt:Math.round(runDebt),profit:Math.round(cumSales-cumCost-totalInt)});
-            }
-          }
-          var finalProfit=gdv3-tc3-totalInt;
-          var scIRR=(function(){
-            if(gdv3<=0||tc3<=0)return null;
-            var r=0.15; var n=prog3/12;
-            for(var it=0;it<50;it++){
-              var pv2=gdv3/Math.pow(1+r,n);
-              var npv2=pv2-(tc3+totalInt);
-              var dpv2=-n*gdv3/Math.pow(1+r,n+1);
-              var nr=r-npv2/dpv2;
-              if(Math.abs(nr-r)<0.00001)break;
-              r=nr;
-            }
-            return r>-1&&r<5?Math.round(r*1000)/10:null;
-          })();
+          // v10.153 — one phased model (finPhasedCashflow): land at t0, dev costs lead on the build
+          // curve, BULK/affordable transfers as built, RETAIL absorbs on its own tail. Land = the
+          // entered price, or the RLV if none set yet (an IRR needs the land investment).
+          var landOut3 = num(lc)>0 ? num(lc) : Math.max(0, num(rlv));
+          var landAssumed3 = !(num(lc)>0) && landOut3>0;
+          var devExLand3 = Math.max(0, tc3 - num(lc));
+          var cf = finPhasedCashflow(data, u3, gdv3, devExLand3, landOut3, buildMonths, f.salesRateWeek, finR);
+          var peakDebt2=cf.peakDebt, totalInt=cf.totalInt, finalProfit=cf.finalProfit, scIRR=cf.irr, months=cf.milestones, prog3=cf.prog, br3=cf.br;
 
           return e("div",null,
-            e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}},
+            e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:10}},
               [{l:"Peak Debt",v:fmt(peakDebt2),c:"#B05A35"},{l:"Total Interest (phased)",v:fmt(totalInt),c:"#9A7B3E"},
-               {l:"Net Profit (after finance)",v:fmt(finalProfit),c:finalProfit>0?"#2D7A65":"#B05A35"},{l:"S-Curve IRR",v:scIRR?scIRR+"%":"—",c:scIRR&&scIRR>=15?"#2D7A65":"#B05A35"}
+               {l:"Net Profit (after land & finance)",v:fmt(finalProfit),c:finalProfit>0?"#2D7A65":"#B05A35"},{l:"Project IRR",v:scIRR!=null?scIRR+"%":"—",c:scIRR!=null&&scIRR>=15?"#2D7A65":scIRR!=null&&scIRR>=10?"#9A7B3E":"#B05A35"}
               ].map(function(item){
                 return e("div",{key:item.l,style:{background:"#fff",border:"1px solid #DDE0ED",borderTop:"3px solid "+item.c,borderRadius:8,padding:12,textAlign:"center"}},
                   e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:4}},item.l),
                   e("div",{style:{fontSize:18,fontWeight:800,color:item.c}},item.v)
                 );
               })
+            ),
+            // v10.153 — explain the phasing basis so the IRR is legible
+            e("div",{style:{fontSize:10,color:"#5A5A70",background:"#F7F8FC",border:"1px solid #E4E6F0",borderRadius:6,padding:"8px 11px",marginBottom:14,lineHeight:1.55}},
+              br3.bulkUnits>0
+                ? e("span",null,e("b",null,"Retail vs bulk phasing. "),br3.retailUnits.toLocaleString()+" retail homes absorb house-by-house over ~"+cf.retailMonths+" months; the "+br3.bulkUnits.toLocaleString()+" affordable / HA homes transfer as built (a few bulk deals), so their cash comes in earlier and doesn't sit in the sales tail. ")
+                : e("span",null,e("b",null,"Phasing. ")),
+              e("b",null,"Land at day 0: "),landAssumed3?("no land price entered, so the IRR assumes you pay the "+fmt(landOut3)+" residual — enter a guide price for your actual land cost."):("the "+fmt(landOut3)+" land price you entered."),
+              " The Project IRR is a true monthly-cashflow IRR on this profile."
             ),
             e("div",{style:{border:"1px solid #DDE0ED",borderRadius:8,overflow:"hidden"}},
               e("div",{style:{display:"grid",gridTemplateColumns:"60px 1fr 1fr 1fr 1fr",padding:"7px 12px",background:"#2E2F8A",fontSize:9,color:"#fff",fontWeight:700,textTransform:"uppercase"}},
