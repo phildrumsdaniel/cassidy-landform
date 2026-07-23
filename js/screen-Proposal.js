@@ -223,6 +223,10 @@ function buildLandOnePager(data, cityHint){
     var headlineRlv=num(EX.chosenRlv);          // the chosen exit's land value — drives the headline KPI & verdict
     var headlineIsCap=EX.basis==="capitalised";
     var headlineIsPlot=EX.basis==="plot";
+    // v10.145 — board-safety (deal-audit finding): on an UNCONSENTED site the residual is the land
+    // value AT consent (a ceiling), not today. The hero KPI now leads with the pre-consent /
+    // risk-adjusted value and shows the consented residual as the ceiling beneath it.
+    var PCV=(typeof preConsentLandValue==="function")?preConsentLandValue(data):{isConsented:true,todayValue:0,consentedRlv:headlineRlv,probFactor:1,tierLabel:""};
     var oAvgSqft=Math.round(num(sf.avgSqft)||0);
     var oBuildPsf=Math.round(num(sf.buildPsf)||0);
     var oBasePsf=Math.round(num(sf.basePsf)||0);
@@ -437,9 +441,13 @@ function buildLandOnePager(data, cityHint){
           // v10.125 — no exit committed → the headline reads as a RANGE across the viable exit
           // routes (possibilities), not a single figure that looks decided. The routes card below
           // breaks the spread out. Once an exit is committed it leads with that route's value.
-          (EX.chosen
-            ? '<div class="kpi"><div class="l">Residual land value · '+esc(EX.basisLabel)+'</div><div class="v" style="color:'+(headlineRlv>0?"#1B7A54":"#B05A35")+'">'+(headlineRlv?((headlineRlv<0?"−":"")+fmt(Math.abs(headlineRlv))):"—")+'</div></div>'
-            : '<div class="kpi"><div class="l">Residual land value · exit not yet decided</div><div class="v" style="color:'+(num(EX.rangeHi)>0?"#1B7A54":"#B05A35")+'">'+(EX.rangeIsSpan?fmt(EX.rangeLo)+' – '+fmt(EX.rangeHi):fmt(EX.rangeHi))+'</div></div>')+
+          // v10.145 — on an UNCONSENTED site the hero leads with the pre-consent (risk-adjusted)
+          // value; the consented residual is shown beneath it as the ceiling "at consent".
+          ((!PCV.isConsented && PCV.consentedRlv>0)
+            ? '<div class="kpi"><div class="l">Land value today · pre-consent</div><div class="v" style="color:'+(PCV.todayValue>0?"#4A4BAE":"#B05A35")+'">'+fmt(PCV.todayValue)+'</div><div style="font-size:6.8px;color:#9298BC;margin-top:1px;line-height:1.2">'+Math.round(PCV.probFactor*100)+'% planning prob · ceiling at consent '+fmt(PCV.consentedRlv)+'</div></div>'
+            : (EX.chosen
+              ? '<div class="kpi"><div class="l">Residual land value · '+esc(EX.basisLabel)+'</div><div class="v" style="color:'+(headlineRlv>0?"#1B7A54":"#B05A35")+'">'+(headlineRlv?((headlineRlv<0?"−":"")+fmt(Math.abs(headlineRlv))):"—")+'</div></div>'
+              : '<div class="kpi"><div class="l">Residual land value · exit not yet decided</div><div class="v" style="color:'+(num(EX.rangeHi)>0?"#1B7A54":"#B05A35")+'">'+(EX.rangeIsSpan?fmt(EX.rangeLo)+' – '+fmt(EX.rangeHi):fmt(EX.rangeHi))+'</div></div>'))+
           '<div class="kpi"><div class="l">'+(askL>0?"Margin (all-in)":"Target profit")+'</div><div class="v" style="color:'+(askL>0?(marginAllIn>=15?"#1B7A54":marginAllIn>=12?"#9A7B3E":"#B05A35"):"#1B1D46")+'">'+(askL>0?pct(marginAllIn):(Math.round(oProfitPct*10)/10)+"%")+'</div></div>'+
         '</div>'+
         // v10.112 — Exit routes: the land value under each exit, side by side, with the chosen route
@@ -464,15 +472,12 @@ function buildLandOnePager(data, cityHint){
         // so a reviewer reads the RLV as the value AT consent (years away, at risk), not today's
         // value. Pre-empts the single biggest question on a promotion play.
         (function(){
-          var consented=/full|outline/.test(String(planStatus).toLowerCase());
-          if(consented || !(oRlv>0)) return '';
+          // v10.145 — gate on the same helper that drives the hero so the two agree.
+          if(PCV.isConsented || !(oRlv>0)) return '';
           var t2=(typeof projectTimeline==="function")?projectTimeline(data):null;
-          var g2=(typeof landValueGuide==="function")?landValueGuide(data):null;
-          var hopeLo=0,hopeHi=0;
-          if(g2 && g2.bands){ var hb=g2.bands.filter(function(b){return /hope|strategic|greenbelt/i.test(b.label);})[0]; if(hb){ var a2=g2.acres||acres; hopeLo=hb.lo*a2; hopeHi=hb.hi*a2; } }
           return '<div style="margin:2px 0 9px;border:1px solid #C8A24A;border-left:5px solid #C8A24A;border-radius:7px;padding:9px 12px;background:#FDF9EF">'+
             '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#8A6A2E;font-weight:800;margin-bottom:3px">⚑ Planning risk — a promotion play, not a consented site</div>'+
-            '<div style="font-size:9.3px;color:#5A4A2E;line-height:1.5">The <b>'+fmt(oRlv)+'</b> residual is the land value <b>at consent</b> — not today. Current position: <b>'+esc(planStatusLabel)+'</b>'+(hopeHi>0?"; today's strategic / hope value is <b>"+fmt(hopeLo)+'–'+fmt(hopeHi)+'</b>':'')+'. The gap is the <b>promotion upside</b>, earned over '+(t2?('~'+t2.planningYears+' years to consent'):'the planning period')+' at cost and risk. Buy at hope value; the consented residual is the exit, not the entry.</div>'+
+            '<div style="font-size:9.3px;color:#5A4A2E;line-height:1.5">The <b>'+fmt(oRlv)+'</b> residual is the land value <b>at consent</b> — a ceiling, not today. Current position: <b>'+esc(planStatusLabel)+'</b>. Today\'s risk-adjusted value is about <b>'+fmt(PCV.todayValue)+'</b> ('+Math.round(PCV.probFactor*100)+'% planning probability). The gap is the <b>promotion upside</b>, earned over '+(t2?('~'+t2.planningYears+' years to consent'):'the planning period')+' at cost and risk. Buy near today\'s value; the consented residual is the exit, not the entry.</div>'+
           '</div>';
         })()+
         '<div class="cols">'+
