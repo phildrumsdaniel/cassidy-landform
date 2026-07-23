@@ -337,15 +337,23 @@ console.log("Landform engine consistency tests\n");
   ok("timeline: an explicit planning figure is used over the default", projectTimeline(explicit).planningMonths === 30);
 })();
 
-// 4i — v10.90: affordable-housing grant lifts the RLV, and grantToStack advises the gap
+// 4i — v10.90/v10.144: affordable-housing grant treatment, and grantToStack advises the gap.
+// v10.144 (Phil + Patric decision): grant treatment is now a setting. Default 'margin' does NOT
+// capitalise the grant into the land value (it is developer-margin upside); 'land' (competitive
+// land bid) lifts the RLV by the grant; 'rp' is neutral. Default with no setting = 'margin'.
 (function(){
   if(typeof grantToStack !== "function") return;
   var d = sfhDeal({ sfh:{ ahPct:40, buildPsf:320 } });   // 40% affordable, high build → marginal
   var base = computeSFHMetrics(d);
   ok("engine reports the affordable-home count", num(base.affordableHomes) === Math.round(num(base.totalUnits) * 0.40));
-  var withGrant = computeSFHMetrics(Object.assign({}, d, { grants:{ grantPerAffHome:80000 } }));
+  var withGrant = computeSFHMetrics(Object.assign({}, d, { grants:{ grantPerAffHome:80000 } }));   // no treatment → default 'margin'
   ok("grant income = £/home × affordable homes", Math.round(num(withGrant.grantIncome)) === 80000 * num(base.affordableHomes) && num(withGrant.grantIncome) > 0);
-  ok("grant lifts the RLV by exactly the grant income", Math.round(num(withGrant.rlv) - num(base.rlv)) === Math.round(num(withGrant.grantIncome)));
+  ok("default 'margin' treatment does NOT lift the RLV (grant is margin, not land)", Math.round(num(withGrant.rlv) - num(base.rlv)) === 0 && withGrant.grantMode === "margin");
+  var withGrantLand = computeSFHMetrics(Object.assign({}, d, { grants:{ grantPerAffHome:80000, grantTreatment:"land" } }));
+  ok("'land' treatment lifts the RLV by exactly the grant income", Math.round(num(withGrantLand.rlv) - num(base.rlv)) === Math.round(num(withGrantLand.grantIncome)) && num(withGrantLand.grantIncome) > 0);
+  var withGrantRp = computeSFHMetrics(Object.assign({}, d, { grants:{ grantPerAffHome:80000, grantTreatment:"rp" } }));
+  ok("'rp' treatment is neutral to the RLV", Math.round(num(withGrantRp.rlv) - num(base.rlv)) === 0);
+  ok("grantToProfit: 'margin' and 'land' receive the grant, 'rp' does not", Math.round(num(withGrant.grantToProfit)) === Math.round(num(withGrant.grantIncome)) && Math.round(num(withGrantLand.grantToProfit)) === Math.round(num(withGrantLand.grantIncome)) && Math.round(num(withGrantRp.grantToProfit)) === 0);
   var gt = grantToStack(d);
   ok("grantToStack advises a per-home grant to reach a positive residual", gt.affordableHomes > 0 && (num(base.rlv) < 0 ? gt.perHomeToPositive > 0 : gt.perHomeToPositive === 0));
   // v10.92 — grant funds only ADDITIONAL affordable: an explicit grant-eligible count is used

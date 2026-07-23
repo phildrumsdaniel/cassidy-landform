@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.143";
+var CURRENT_VERSION = "10.144";
 var VERSION_HISTORY = [
+  {v:"10.144", date:"Jul 2026", headline:"Grant treatment settled — one setting, every stage agrees (Phil + Patric decision). The Homes England affordable grant (AHP/SAHP) used to be capitalised into the LAND VALUE on the engine/RLV/Quick/Dashboard/one-pager while the SFH House Mix and Detailed Appraisal showed no grant at all — the same scheme could read two different land values. It’s now a single choice on the Grants page: ‘Developer margin’ (the DEFAULT — the land is priced WITHOUT the grant and the grant is margin upside if/when secured; prudent, you never bid up land on subsidy you haven’t won), ‘Competitive land bid’ (the grant lifts the land value — a deliberate higher bid for a contested site), or ‘Passed to RP’ (the grant funds the affordable homes via a Registered Provider — neutral to land and margin). One resolver splits the grant into grantToRlv (hits the residual only under a competitive bid) and grantToProfit (hits developer profit under margin/land, zero under RP), and computeSFHMetrics, calcDealMetrics, dealExit, the SFH House Mix screen, Quick Appraisal, Financial Modelling and the one-pager all read it — so every stage shows the SAME land value and the reports label the grant as a land credit, a margin uplift or an RP pass-through to match. Default changed the headline behaviour: an affordable scheme’s residual no longer includes the grant unless you explicitly choose a competitive land bid. See docs/grant-treatment-note.md. 581 engine tests pass (grant now asserted per-treatment: land lifts RLV by exactly the grant, margin/RP do not)."},
   {v:"10.143", date:"Jul 2026", headline:"The Quick Appraisal now also generates the two-page ‘+ Viability scenario’ report. The truthful one-pager + illustrative ‘what would make it stack’ scenario (v10.142) was only on the Board Proposal stage; a matching ‘📄 + Viability scenario’ button now sits next to the one-page board proposal on the Quick Appraisal too, generated from the same effective deal (so it matches what’s on screen) with the identical watermarking. Same generator, so the two stages can never diverge. 578 tests pass."},
   {v:"10.142", date:"Jul 2026", headline:"NEW ‘📄 + Viability scenario’ — a two-page one-pager: the truthful appraisal, then a clearly-labelled ‘what would make it stack’ page. On the Board Proposal stage, next to the one-pager, a new button generates the standard one-page appraisal (page 1, the real figures) followed by a second page, ‘Path to viability — what would need to be true’. That page reverse-engineers, on the REAL engine, the single change to EACH lever — sale £/sqft, build £/sqft, S106/plot, affordable %, developer profit target, and the land price ceiling — that would make the scheme (A) cover a landowner’s guide price and (B) reach a 15% developer margin after paying it, plus a balanced combined route; a lever that can’t get there on its own is shown as ‘not alone’. Crucially it is watermarked throughout as an ILLUSTRATIVE scenario — ‘these are NOT the current, agreed or evidenced figures … must not be sent to a lender, investor or landowner as the deal position’ — so the honest base case (page 1) and the ‘what would it take’ working (page 2) can never be confused. Enter a guide price to target covering it; otherwise the ‘cover the land’ column targets a break-even residual. No engine change; 578 tests pass; the two-page report renders and reconciles."},
   {v:"10.141", date:"Jul 2026", headline:"One-pager: the ‘what you can pay for the land’ figures now match the CHOSEN exit, and the market town no longer contradicts the planning authority. (1) When you commit to a non-plot exit (e.g. bulk sale to a HA / fund), the headline correctly led with that exit’s land value — but the ‘Target profit → what you can pay for the land’ table and the ‘Max land @ target profit’ tile still showed the open-market PLOT-SALES figure with no flag, so a board reader saw two land values (e.g. £63.78m headline vs £95.02m in the table) and couldn’t tell which is the buying price. Both now carry an explicit ‘open-market plot-sales basis (the upside) — your chosen [exit] supports £Xm’ label, so the recommended figure is unambiguous. (2) The subtitle printed the pricing-market town resolved from the postcode (e.g. ‘Tunbridge Wells’ for a TN postcode) even when the planning authority was Maidstone — it now drops that town when it conflicts with the LPA (falling back to the county), so the location line no longer contradicts the LPA shown beside it. The pricing-benchmark town is still disclosed in ‘Basis of figures — Sale value’. No engine change; 578 tests pass."},
@@ -2114,7 +2115,7 @@ function basisOfFigures(data){
   // v10.91 — affordable-housing grant, when applied, is stated on its own line so a reader sees
   // the residual includes public subsidy (not open-market value).
   if(num(M.grantIncome) > 0){
-    lines.push({ k:"Affordable grant", v:"Includes " + fmt(num(M.grantIncome)) + " of Homes England affordable-housing grant (" + (num(M.affordableHomes) || "—") + " affordable homes). Grant is public subsidy for the affordable units and flows to the residual land value — it lifts what the scheme can pay for the land. Indicative: the AHP / SAHP rate is area- and tenure-specific and needs a Registered Provider partner; confirm eligibility and the rate with Homes England." });
+    lines.push({ k:"Affordable grant", v:"Includes " + fmt(num(M.grantIncome)) + " of Homes England affordable-housing grant (" + (num(M.affordableHomes) || "—") + " affordable homes). " + (M.grantMode === "land" ? "Treated as a competitive land bid — the grant lifts the residual land value (what the scheme can pay for the land)." : M.grantMode === "rp" ? "Passed to a Registered Provider to fund the affordable homes — neutral to the land value and to developer margin." : "Treated as developer margin — the land is priced WITHOUT the grant, and the grant is upside to the margin if/when it is secured (it is not capitalised into the land price).") + " Indicative: the AHP / SAHP rate is area- and tenure-specific and needs a Registered Provider partner; confirm eligibility and the rate with Homes England." });
   }
   // v10.85 — conservative-basis summary: state plainly that the key value-drivers err to caution,
   // so a reviewer reads the residual as a FLOOR (downside-protected), not an optimistic figure.
@@ -2393,7 +2394,9 @@ function dealExit(data){
   // discount (default 7.5%, editable), with the affordable already at its tenure price and grant
   // included. Profit is taken on the bulk GDV. This is the right basis for houses (the rental
   // capitalisation route reads negative for houses — that's the forward-fund/BTR basis, kept separate).
-  var gdv = num(SF.gdv), dev = num(SF.devCost), grant = num(SF.grantIncome);
+  // v10.144 — only a 'land' (competitive-bid) grant treatment lifts the exit land value; under the
+  // default 'margin' and under 'rp' the grant does not capitalise into land (grantToRlv is 0).
+  var gdv = num(SF.gdv), dev = num(SF.devCost), grant = num(SF.grantToRlv) || 0;
   var profitFrac = gdv > 0 ? num(SF.profit) / gdv : 0.175;
   var bulkDiscPct = numOr((data.exit || {}).haBulkDiscountPct, 5);
   var haBulkGdv = gdv * (1 - bulkDiscPct / 100);
@@ -2471,6 +2474,26 @@ function projectTimeline(data){
   return { units:units, planningMonths:planningMonths, planningYears:planningYears, buildYears:buildYears,
     totalYears:Math.round((planningYears + buildYears) * 10) / 10, status:status, statusLabel:statusLabel };
 }
+
+// v10.144 — GRANT TREATMENT (Phil + Patric decision, Jul 2026 — see docs/grant-treatment-note.md).
+// The Homes England AHP/SAHP grant can land in one of three pockets, and the whole tool now reads
+// ONE setting (grants.grantTreatment) so every stage agrees:
+//   'margin' (DEFAULT, "B") — grant is NOT capitalised into the land price. The land is priced on
+//        the un-granted residual and the grant is developer MARGIN upside if/when it lands. Prudent:
+//        you never bid up land on subsidy you haven't secured.
+//   'land' ("A") — grant lifts the residual land value: a deliberate COMPETITIVE LAND BID for a
+//        contested site. Aggressive — the grant is paid away to the landowner.
+//   'rp' ("C") — grant is passed to a Registered Provider to fund the affordable homes; neutral to
+//        both land value and developer margin (the grant is the RP's money, not Cassidy's).
+// grantToRlv    = the £ that hits the RESIDUAL (land value) — only under 'land'.
+// grantToProfit = the £ that hits developer PROFIT/margin at a given land price — under 'land' (where
+//        it cancels the higher land price) and 'margin'; zero under 'rp'.
+function grantTreatmentMode(data){
+  var m = ((((data || {}).grants) || {}).grantTreatment || "margin") + "";
+  return (m === "land" || m === "margin" || m === "rp") ? m : "margin";
+}
+function grantToRlvAmt(data, grantIncome){ return grantTreatmentMode(data) === "land" ? (num(grantIncome) || 0) : 0; }
+function grantToProfitAmt(data, grantIncome){ var m = grantTreatmentMode(data); return (m === "land" || m === "margin") ? (num(grantIncome) || 0) : 0; }
 
 // v10.90 — grantToStack: how much Homes England grant PER AFFORDABLE HOME would make a marginal
 // scheme stack. Grant flows to the residual (computeSFHMetrics adds grantIncome to the RLV), so
@@ -3017,7 +3040,13 @@ function computeSFHMetrics(data){
   if(!(grantEligibleHomes > 0)) grantEligibleHomes = affordableHomes;
   var grantPerAffHome = num((data.grants || {}).grantPerAffHome);
   var grantIncome = (grantPerAffHome > 0 && grantEligibleHomes > 0) ? grantPerAffHome * grantEligibleHomes : 0;
-  var sfhGrossRlv = effectiveBlended - sfhDevCost - sfhProfit + grantIncome;
+  // v10.144 — grant treatment: only a 'land' (competitive-bid) treatment lifts the residual land
+  // value. Default 'margin' and 'rp' price the land WITHOUT the grant (grant is margin upside / RP
+  // money respectively). So the SFH / Land / one-pager residual no longer capitalises grant into
+  // land unless the deal explicitly opts into the competitive land bid.
+  var grantMode = grantTreatmentMode(data);
+  var grantToRlv = grantToRlvAmt(data, grantIncome);
+  var sfhGrossRlv = effectiveBlended - sfhDevCost - sfhProfit + grantToRlv;
 
   // ── v9.89 — CAPITALISATION / FORWARD-FUND EXIT ─────────────────────────────
   // Value the finished scheme as a rented investment sold to an institution (e.g. a
@@ -3070,7 +3099,7 @@ function computeSFHMetrics(data){
     acres:sfhAcres,netDensity:netDensity,netDevelopableAcres:netDevelopableAcres,surplusAcres:surplusAcres,buildInclusive:buildInclusive,fees:sfhFees,contingency:sfhContingency,finance:sfhFinance,s106:sfhS106,roads:sfhRoads,infra:sfhInfra,marketing:sfhMarketing,profit:sfhProfit,devCost:sfhDevCost,rlv:sfhGrossRlv,
     financeProgYears:finProgYears,financePeakDebtPct:finPeakDebtPct,financePhases:finPhases,financeSCurve:FIN_SCURVE,
     capMarketRentPerUnitPa:mktRentPerUnitPa,capRentFromResearch:capRentFromResearch,capTenureBlind:_capTenureBlind,capGrossRentPa:capGrossRentPa,capNetRentPa:capNetRentPa,capNetDeductionPct:capNetDeductionPct,capYield:capYield,capInvestmentValue:capInvestmentValue,capProfit:capProfit,capRlv:capRlv,ahPctResolved:ahPctR,
-    affordableHomes:affordableHomes,grantEligibleHomes:grantEligibleHomes,grantPerAffHome:grantPerAffHome,grantIncome:grantIncome,rlvBeforeGrant:sfhGrossRlv-grantIncome};
+    affordableHomes:affordableHomes,grantEligibleHomes:grantEligibleHomes,grantPerAffHome:grantPerAffHome,grantIncome:grantIncome,grantMode:grantMode,grantToRlv:grantToRlv,grantToProfit:grantToProfitAmt(data,grantIncome),rlvBeforeGrant:sfhGrossRlv-grantToRlv};
 }
 
 // ── SFH MIX OPTIMISER (v10.44) ─────────────────────────────────────────────
@@ -3653,15 +3682,21 @@ function calcDealMetrics(data){
   // ── RLV / RESIDUAL ────────────────────────────────────────────────────
   // rlv = GROSS residual land value (max land value before purchase costs) — the
   // single headline shared with the SFH screen. netLandBid deducts acquisition.
+  // v10.144 — grant treatment (see grantTreatmentMode): only a 'land' competitive-bid treatment
+  // capitalises the grant into the residual; 'margin' (default) and 'rp' price land without it.
+  var grantMode = grantTreatmentMode(data);
+  var grantToRlv = grantToRlvAmt(data, grantIncome);
+  var grantToProfit = grantToProfitAmt(data, grantIncome);
   var rlv = 0, netLandBid = 0;
   if (gdv > 0) {
-    rlv = gdv - devCost - profit + grantIncome;
+    rlv = gdv - devCost - profit + grantToRlv;
     netLandBid = rlv - totalAcqCosts;
   }
 
-  // Actual profit (if user has explicit costs). Grant is real income, so it lifts the profit at
-  // a given land price too — keeping "at land = RLV, actual profit = target profit" consistent.
-  var actualProfit = gdv - totalCost - landPrice + grantIncome;
+  // Actual profit at a given land price. Under 'margin' the grant lifts the margin (land priced
+  // without it); under 'land' the grant is received but was paid away into the higher land price,
+  // so it cancels and margin returns to target; under 'rp' the grant is the RP's — neutral.
+  var actualProfit = gdv - totalCost - landPrice + grantToProfit;
   var marginPct = gdv > 0 ? (actualProfit / gdv) * 100 : 0;
   var roc = (totalCost + landPrice) > 0 ? (actualProfit / (totalCost + landPrice)) * 100 : 0;
 
@@ -3700,7 +3735,7 @@ function calcDealMetrics(data){
     s106: s106, s106pu: s106pu,
     finance: finance, finRate: finRate,
     roads: roads, infra: infra, marketing: marketing,
-    grantIncome: grantIncome,
+    grantIncome: grantIncome, grantMode: grantMode, grantToRlv: grantToRlv, grantToProfit: grantToProfit,
     devCost: devCost,
     // ── Capitalisation / forward-fund exit (SFH) — sell the scheme as a rented
     // investment. Affordable is an income effect (lower rent), NOT a capital haircut

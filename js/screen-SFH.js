@@ -157,7 +157,12 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
     var sMarketing=totalGdv*(numOr(s.marketingPct, 0)/100);
     var devProfit=totalGdv*(sProfit/100);
     var tc3=totalBuild+fees+contCost+finCost+s106Total+roadsTotal+infra+sMarketing;
-    var rlv=totalGdv-tc3-devProfit;
+    // v10.144 — grant treatment: only a 'land' (competitive-bid) treatment lifts the residual land
+    // value; under the default 'margin' and under 'rp' this is 0, so this screen shows the same
+    // grant-free residual as the engine. When a competitive land bid is chosen, add the grant so
+    // this screen's land value matches the Land Valuation / Quick Appraisal / one-pager.
+    var sfGrantToRlv=num(((typeof computeSFHMetrics==="function")?computeSFHMetrics(data):{}).grantToRlv)||0;
+    var rlv=totalGdv-tc3-devProfit+sfGrantToRlv;
     var rlvPu=totalUnits>0?rlv/totalUnits:0;
     var rlvAcre=sAcres>0?rlv/sAcres:0;
     var sMargin=totalGdv>0?(devProfit/totalGdv)*100:0;
@@ -809,7 +814,10 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
             var marketing=Math.min(totalUnits*1500,80000);
             var netRev=totalGdv-agentFee-legalSale-marketing;
             var totalCosts=tc3+Math.max(0,rlv)*1.05+agentFee+legalSale+marketing;
-            var netProfit=netRev-totalCosts;
+            // v10.144 — under a competitive land bid the grant is received as income too, so it
+            // offsets the higher land cost (leaving only the SDLT on the extra land). Zero under
+            // the default treatment, so the Bottom Line is unchanged there.
+            var netProfit=netRev-totalCosts+sfGrantToRlv;
             var roi=totalCosts>0?(netProfit/totalCosts)*100:0;
             var profitPu=totalUnits>0?netProfit/totalUnits:0;
             var scP=netProfit>0?"#2D7A65":"#B05A35";
