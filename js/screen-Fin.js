@@ -297,11 +297,18 @@ function renderFin(LiveMarketBanner, at, bc, buildPsf, city, data, ey, gia, gr, 
             ),
             e("div",null,
               e("div",{style:{fontSize:9,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".14em",fontWeight:700,marginBottom:10}},"INCOME & GDV"),
-              [["Gross Rent (pa)",gr],["Effective Rent ("+(at==="pbsa"?97:95)+"% occupancy)",gr*voidAdj],["OpEx (pa)",-opex],["NOI (pa)",noi2],["Exit Yield",null,pct(ey2*100)]].map(function(row){
-                return e("div",{key:row[0],style:{display:"flex",justifyContent:"space-between",fontSize:12,color:"#7278A0",padding:"4px 0",borderBottom:"1px solid #F0F0F0"}},
-                  e("span",null,row[0]),e("span",null,row[2]||fmt(row[1]))
-                );
-              }),
+              // v10.156 — for a HOUSES-FOR-SALE scheme, the GDV is house sales, not rent. The
+              // Gross Rent / NOI / yield rows are BTR/PBSA template residue that confused readers on an
+              // SFH deal (they don't drive this GDV). Show them only for rental schemes; for SFH, a
+              // one-line note that rent/NOI/yield only size the alternative forward-fund exit.
+              isSFH
+                ? e("div",{style:{fontSize:11,color:"#7278A0",padding:"2px 0 8px",lineHeight:1.55,borderBottom:"1px solid #F0F0F0"}},
+                    "Revenue is from ",e("b",null,"house sales")," (itemised on the SFH House Mix stage) — the GDV below. Rent, NOI and yield don't drive this scheme; they only size the alternative ",e("b",null,"forward-fund / rented exit")," (yield "+pct(ey2*100)+"), shown on Capitalisation & Exit Strategy.")
+                : [["Gross Rent (pa)",gr],["Effective Rent ("+(at==="pbsa"?97:95)+"% occupancy)",gr*voidAdj],["OpEx (pa)",-opex],["NOI (pa)",noi2],["Exit Yield",null,pct(ey2*100)]].map(function(row){
+                    return e("div",{key:row[0],style:{display:"flex",justifyContent:"space-between",fontSize:12,color:"#7278A0",padding:"4px 0",borderBottom:"1px solid #F0F0F0"}},
+                      e("span",null,row[0]),e("span",null,row[2]||fmt(row[1]))
+                    );
+                  }),
               e("div",{style:{display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:700,color:"#2E2F8A",padding:"8px 0",borderTop:"1px solid #DDE0ED",marginTop:4}},
                 e("span",null,"GDV"),e("span",null,fmt(gdv2))
               )

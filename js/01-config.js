@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.155";
+var CURRENT_VERSION = "10.156";
 var VERSION_HISTORY = [
+  {v:"10.156", date:"Jul 2026", headline:"Three cross-stage consistency fixes from a forensic audit. (1) RISK REGISTER now matches the planning risk. It rated ‘Consent delayed or refused’ a static Amber even when Planning & Viability and the Dashboard both rated the site's planning risk HIGH — an inconsistency between stages. The Planning risk's RAG now derives from the computed planning risk level (high → Red, medium → Amber, low → Green), aligned and PERSISTED so the Dashboard, reports and Data Room (which all read the risk list) agree too; you can still manually pin a different rating and it stops auto-aligning. (2) KEYSTONE COMPLETION MESSAGE no longer calls the Risk Register a ‘human stage left for you’ — it's pre-seeded with standard risks (now RAG-rated to the planning risk); the message now says so and names Due Diligence, Meetings and the Data Room as the genuinely empty stages. (3) FINANCIAL MODELLING no longer shows BTR/PBSA rental rows (Gross Rent / NOI / OpEx) on a houses-for-sale scheme — they don't drive the SFH GDV (which is house sales) and read as template residue. For SFH the block now shows a one-line note that rent / NOI / yield only size the alternative forward-fund exit; rental schemes still see the full rental income table. No engine-value change; all consistency and disclosure."},
   {v:"10.155", date:"Jul 2026", headline:"Propagation audit: the Exit Strategy stage's ‘Target Exit Yield’ box now actually drives the model and syncs with the other yield boxes. A full sweep of every manually-editable box against the shared-field propagation found one genuinely stranded input: the yield on the Exit stage wrote its own key (exit.exitYield) that the engine's dealYield() never read (it reads the Capitalisation yield) and that wasn't in the yield propagation group — so changing the yield there did nothing and didn't reach Capitalisation or Financial Modelling. It's now wired into the yield group both ways, so editing it recalculates the capitalised/forward-fund exit everywhere, and a yield set on Capitalisation or Financial Modelling shows here too. Everything else checked out: build cost, sale £/sqft, profit %, finance rate, fees %, contingency %, S106/plot, all-in toggle, affordable %, units, average unit size, land price/guide, city, postcode, acres, address and LPA all already propagate across every stage that shows them. Deliberately NOT auto-synced (by design): per-house-type overrides in the House Mix table (a scheme-level change must not wipe a hand-set row), the Land page's ‘homes with consent’ capacity test, the BTR/PBSA and existing-property inputs (separate scheme types — only one is active per deal), and Capitalisation rents (they only drive the rental exit)."},
   {v:"10.154", date:"Jul 2026", headline:"Editing the Build cost or Sale £/sqft on the Land Appraisal page now PROPAGATES to every other stage (SFH House Mix, Financial Modelling, RLV and the Quick Appraisal) — reported: a change made on Land Appraisal didn't show up on the one-page Quick Appraisal. Those two boxes were writing to a Land-stage-only ‘what-if’ field (land.assumedBuildPsf / assumedSalePsf) that never left the page — a hangover from when they were a land-value sensitivity tool. They now write the CANONICAL shared value (sfh.buildPsf / sfh.basePsf), which the tool's shared-field propagation already fans out to the finance, RLV and House Mix stages, and which the engine (and therefore the Quick Appraisal, one-pager and Dashboard) reads — so a build-cost or sale-price change made here follows through everywhere the box is replicated, exactly like editing it on the SFH or Quick Appraisal stage. No engine-value change; wiring only. (The Land page's ‘homes with consent’ units/density boxes are left as a separate land-capacity test, not the modelled scheme's unit count.)"},
   {v:"10.153", date:"Jul 2026", headline:"Financial Modelling now paces BULK and RETAIL sales separately, so the programme and IRR are realistic instead of the all-retail worst case (the deferred item from the SFH forensic pass). Before, all homes — including the affordable / HA units — were modelled as absorbing house-by-house at the private sales rate, which stretched the sales tail and dragged the IRR down. Now the individual-buyer homes (open market, First Homes, discounted market sale) absorb one-at-a-time on the sales rate, while the affordable / HA-RP / institutional homes (Social & Affordable Rent, Shared Ownership, pension/BTR bulk, PRS) transfer AS BUILT in a few bulk / forward-fund deals — so their cash arrives earlier, cutting peak debt and interest. The split uses the engine's tenure precedence (House Mix per-row tenure > Tenure Mix > scheme ah%). Both the returns summary and the phased S-curve card now run ONE shared cashflow model (finPhasedCashflow) so they show the SAME ‘Project IRR’ (they used to disagree — a crude ‘all GDV received at year N’ figure upstairs vs an S-curve downstairs). That model is also more correct: LAND is the day-0 outflow (your entered price, or the RLV if none is set — an IRR is meaningless without the land investment), dev costs lead on the build curve, and the IRR is a true monthly-cashflow IRR. For the Staplehurst case the Project IRR reads ~12% (paying the residual for the land) rather than the old ~4.6%. The ‘Sales period’ and unit tiles now show the retail figure and the retail/bulk split. No change to GDV, cost or the residual — this is the returns/timing model only."},
@@ -1932,6 +1933,27 @@ var RISK_DEFAULTS = [
   {id:5,cat:"Finance",desc:"Senior debt facility pulled",rag:"amber",mit:"Two lenders in parallel conversations"},
   {id:6,cat:"Exit",desc:"Yield compression at exit",rag:"amber",mit:"Forward fund terms being negotiated"},
 ];
+
+// v10.156 — the Planning risk in the register must match the planning RISK LEVEL the rest of the
+// tool computes (Planning & Viability / Dashboard), not a static Amber. Reported: a site the model
+// rates "High" planning risk still showed Amber on the Risk Register — an inconsistency between
+// stages. Map the computed level to a RAG; the register aligns the Planning risk to it (unless the
+// user has manually pinned that rating).
+function riskRagFromLevel(level){
+  var l = String(level == null ? "" : level).toLowerCase();
+  if(l === "high") return "red";
+  if(l === "medium" || l === "moderate") return "amber";
+  if(l === "low") return "green";
+  return null;   // unknown → leave whatever default is there
+}
+function riskDefaultsFor(data){
+  var rag = riskRagFromLevel(data && data.planning && data.planning.riskLevel);
+  return RISK_DEFAULTS.map(function(r){
+    var c = Object.assign({}, r);
+    if(rag && c.cat === "Planning") c.rag = rag;
+    return c;
+  });
+}
 
 var BUYERS = [
   {name:"Greystar",type:"REIM",min:50,status:"Active"},
