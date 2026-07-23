@@ -776,7 +776,11 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
           cm = cmBase = calcDealMetrics(data);
         } else {
           cmBase = calcDealMetrics(landClone(false));
-          cm = (assumedBuildPsf>0 || assumedSalePsf>0) ? calcDealMetrics(landClone(true)) : cmBase;
+          // v10.154 — the build/sale £/sqft boxes below now edit the CANONICAL shared value directly
+          // (so a change propagates to SFH, Financial Modelling, RLV and the Quick Appraisal), instead
+          // of a land-stage-only "what-if" override that never left this page. So there's nothing extra
+          // to apply here — cmBase already reflects the edit.
+          cm = cmBase;
         }
         var defBuildPsf = Math.round(num(cmBase.buildPsf));
         var defSalePsf  = Math.round(num(cmBase.salePsf));
@@ -787,17 +791,17 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
         var costInput = e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}},
           e("div",null,
             e("label",{style:{fontSize:10,color:"#7278A0",fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:3}},"Build cost (£/sqft)"),
-            e("input",{type:"number",min:0,step:5,value:l.assumedBuildPsf!==undefined&&l.assumedBuildPsf!==""?l.assumedBuildPsf:"",placeholder:String(defBuildPsf),
-              onChange:function(ev){up("land","assumedBuildPsf",ev.target.value);},
+            e("input",{type:"number",min:0,step:5,value:(data.sfh&&data.sfh.buildPsf!==undefined&&data.sfh.buildPsf!=="")?data.sfh.buildPsf:"",placeholder:String(defBuildPsf),
+              onChange:function(ev){up("sfh","buildPsf",ev.target.value);},
               style:{width:"100%",padding:"8px 10px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:14,fontFamily:"DM Mono,monospace",fontWeight:700}}),
-            e("div",{style:{fontSize:9,color:"#9A9AAE",marginTop:3}},"Area benchmark £"+defBuildPsf+"/sqft — edit to match your build")
+            e("div",{style:{fontSize:9,color:"#9A9AAE",marginTop:3}},"£"+defBuildPsf+"/sqft — edits here follow through to SFH, Financial Modelling, RLV & the Quick Appraisal")
           ),
           e("div",null,
             e("label",{style:{fontSize:10,color:"#7278A0",fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:3}},"Sale price (£/sqft)"),
-            e("input",{type:"number",min:0,step:5,value:l.assumedSalePsf!==undefined&&l.assumedSalePsf!==""?l.assumedSalePsf:"",placeholder:String(defSalePsf),
-              onChange:function(ev){up("land","assumedSalePsf",ev.target.value);},
+            e("input",{type:"number",min:0,step:5,value:(data.sfh&&data.sfh.basePsf!==undefined&&data.sfh.basePsf!=="")?data.sfh.basePsf:"",placeholder:String(defSalePsf),
+              onChange:function(ev){up("sfh","basePsf",ev.target.value);},
               style:{width:"100%",padding:"8px 10px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:14,fontFamily:"DM Mono,monospace",fontWeight:700}}),
-            e("div",{style:{fontSize:9,color:"#9A9AAE",marginTop:3}},"Used: £"+defSalePsf+"/sqft — what your homes sell for")
+            e("div",{style:{fontSize:9,color:"#9A9AAE",marginTop:3}},"£"+defSalePsf+"/sqft — edits here follow through to every stage that shows the sale price")
           )
         );
 
