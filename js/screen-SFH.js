@@ -658,31 +658,61 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
       totalUnits>0 && (function(){
         var alloc={}, order=[];
         houseCalcs.forEach(function(h){ var k=h.tenure||"private"; if(!alloc[k]){alloc[k]={units:0,retail:0,real:0};order.push(k);} alloc[k].units+=h.count; alloc[k].retail+=h.totalGdv; alloc[k].real+=h.blendedGdv; });
-        var sumReal=order.reduce(function(a,k){return a+alloc[k].real;},0);
         var allPrivate = order.length===1 && order[0]==="private";
+        // v10.152 — HONEST ALLOCATION (SFH audit finding). When the House Mix rows are all "private",
+        // the engine does NOT price the scheme as 100% private — it falls back to the Tenure Mix
+        // split (per-row tenure > Tenure Mix > overall ahPct). But this summary used to roll up only
+        // the per-row tenure and report 100% private, flatly contradicting the 31% affordable split
+        // the RLV was actually built on. Now, when the rows are all private and a Tenure Mix split
+        // covers the scheme, this shows THAT allocation (what the engine used), so the page agrees
+        // with itself. The per-row dropdown still overrides per house type when you set one.
+        var tmix = (data.tenure && data.tenure.mix) || null;
+        var tmMode = (data.tenure && data.tenure.inputMode) || "units";
+        var tmRows = null, tmCovered = false;
+        if(allPrivate && tmix && typeof TENURE_TYPES !== "undefined"){
+          var talloc=0; TENURE_TYPES.forEach(function(td){ talloc += num(tmix[td.key]); });
+          if(talloc>0){
+            tmCovered = (tmMode==="units") ? (talloc >= totalUnits*0.9) : (talloc>=90);
+            tmRows = TENURE_TYPES.filter(function(td){return num(tmix[td.key])>0;}).map(function(td){
+              var v=num(tmix[td.key]);
+              var u=(tmMode==="units") ? v : Math.round(v/100*totalUnits);
+              return {label:td.label, units:u, factor:td.pricingFactor};
+            });
+          }
+        }
+        var fromTM = allPrivate && tmRows && tmCovered;
+        var avgRetail = totalUnits>0 ? retailGdv/totalUnits : 0;
+        var rows = fromTM
+          ? tmRows.map(function(r){ return {label:r.label, units:r.units, real:r.units*avgRetail*r.factor, factorPct:Math.round(r.factor*100)}; })
+          : order.map(function(k){ var a=alloc[k], rd=ROUTE_DISCOUNT[k]||ROUTE_DISCOUNT.private; return {label:rd.label, units:a.units, real:a.real, factorPct:Math.round(rd.pct*100)}; });
+        var sumReal=rows.reduce(function(a,r){return a+r.real;},0);
+        var sumUnits=rows.reduce(function(a,r){return a+r.units;},0);
         var th={fontSize:9,color:"#fff",textTransform:"uppercase",letterSpacing:".05em",fontWeight:700};
         var grid="2fr 60px 60px 1fr 60px";
         return e("div",{style:S.card},
           e("div",{style:S.cardTitle},"Exit / buyer allocation"),
-          e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:10,lineHeight:1.5}},"Who each home is sold to — set the “Tenure / exit route” on each row in the mix above (e.g. 10 private sale, 20 to a pension fund, 30 to a housing association). This shows the units and the realisable value going to each buyer."),
+          e("div",{style:{fontSize:11,color:"#7278A0",marginBottom:10,lineHeight:1.5}}, fromTM
+            ? "This is the split from the Tenure Mix stage — the allocation the valuation actually uses when the house-type rows are left as ‘Private retail sale’. To override tenure for a SPECIFIC house type, set its “Tenure / exit route” on the row above."
+            : "Who each home is sold to — set the “Tenure / exit route” on each row in the mix above (e.g. 10 private sale, 20 to a pension fund, 30 to a housing association). This shows the units and the realisable value going to each buyer."),
+          fromTM && e("div",{style:{fontSize:10,color:"#1d5446",background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.3)",borderRadius:5,padding:"6px 9px",marginBottom:8,lineHeight:1.5}},"✓ Source: Tenure Mix stage — this summary now agrees with the affordable split the RLV is built on."),
           e("div",{style:{overflowX:"auto"}},
             e("div",{style:{display:"grid",gridTemplateColumns:grid,gap:8,padding:"8px 12px",background:"#2E2F8A",borderRadius:"6px 6px 0 0",minWidth:440}},
               e("span",{style:th},"Buyer / exit route"),e("span",{style:Object.assign({},th,{textAlign:"right"})},"Units"),e("span",{style:Object.assign({},th,{textAlign:"right"})},"%"),e("span",{style:Object.assign({},th,{textAlign:"right"})},"Realisable £"),e("span",{style:Object.assign({},th,{textAlign:"right"})},"MV%")
             ),
-            order.map(function(k){ var a=alloc[k], rd=ROUTE_DISCOUNT[k]||ROUTE_DISCOUNT.private;
-              return e("div",{key:k,style:{display:"grid",gridTemplateColumns:grid,gap:8,padding:"7px 12px",borderBottom:"1px solid #EEF",alignItems:"center",minWidth:440,fontSize:12}},
-                e("span",{style:{color:"#3A3D6A",fontWeight:600}},rd.label),
-                e("span",{style:{textAlign:"right",color:"#2E2F8A",fontWeight:700}},a.units),
-                e("span",{style:{textAlign:"right",color:"#7278A0"}},pct(a.units/Math.max(totalUnits,1)*100)),
-                e("span",{style:{textAlign:"right",color:"#4A4BAE",fontWeight:700}},fmt(a.real)),
-                e("span",{style:{textAlign:"right",color:rd.pct===1?"#2D7A65":"#B05A35",fontSize:10}},Math.round(rd.pct*100)+"%")
+            rows.map(function(r,ri){
+              return e("div",{key:ri,style:{display:"grid",gridTemplateColumns:grid,gap:8,padding:"7px 12px",borderBottom:"1px solid #EEF",alignItems:"center",minWidth:440,fontSize:12}},
+                e("span",{style:{color:"#3A3D6A",fontWeight:600}},r.label),
+                e("span",{style:{textAlign:"right",color:"#2E2F8A",fontWeight:700}},r.units),
+                e("span",{style:{textAlign:"right",color:"#7278A0"}},pct(r.units/Math.max(totalUnits,1)*100)),
+                e("span",{style:{textAlign:"right",color:"#4A4BAE",fontWeight:700}},fmt(r.real)),
+                e("span",{style:{textAlign:"right",color:r.factorPct>=100?"#2D7A65":"#B05A35",fontSize:10}},r.factorPct+"%")
               );
             }),
             e("div",{style:{display:"grid",gridTemplateColumns:grid,gap:8,padding:"9px 12px",background:"#F7F8FC",borderTop:"2px solid #DDE0ED",fontWeight:800,color:"#2E2F8A",minWidth:440,fontSize:12}},
-              e("span",null,"TOTAL"),e("span",{style:{textAlign:"right"}},totalUnits),e("span",null,""),e("span",{style:{textAlign:"right",color:"#4A4BAE"}},fmt(sumReal)),e("span",null,"")
+              e("span",null,"TOTAL"),e("span",{style:{textAlign:"right"}},sumUnits),e("span",null,""),e("span",{style:{textAlign:"right",color:"#4A4BAE"}},fmt(sumReal)),e("span",null,"")
             )
           ),
-          allPrivate && ahPct>0 && e("div",{style:{fontSize:10,color:"#9A7B3E",marginTop:8,fontStyle:"italic",lineHeight:1.5}},"You've set affordable housing as an overall "+ahPct+"% (applied as a blended discount). To allocate specific units to a housing association, pension fund, BTR operator etc., set the “Tenure / exit route” on individual rows above.")
+          allPrivate && !fromTM && ahPct>0 && e("div",{style:{fontSize:10,color:"#9A7B3E",marginTop:8,fontStyle:"italic",lineHeight:1.5}},"You've set affordable housing as an overall "+ahPct+"% (applied as a blended discount). To allocate specific units to a housing association, pension fund, BTR operator etc., set the “Tenure / exit route” on individual rows above, or use the Tenure Mix stage.")
         );
       })(),
       totalUnits>0&&totalGdv>0&&e("div",null,
@@ -841,6 +871,13 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
                 sAcres>0&&e("span",null,"Profit per acre: "+fmt(sAcres>0?netProfit/sAcres:0)),
                 e("span",null,"Margin on GDV: "+pct(totalGdv>0?(netProfit/totalGdv)*100:0)),
                 e("span",null,"Build period: ~"+Math.max(1,Math.round(totalUnits/buildRatePerYear(totalUnits,false)))+" year(s) at "+buildRatePerYear(totalUnits,false)+" plots/yr")
+              ),
+              // v10.152 — explain why this margin differs from the "17.5% ✓ Viable" appraisal above
+              // (SFH audit finding: two profit figures on one page look like a bug). They measure
+              // different things — one sets profit as an input, the other measures it after real costs.
+              e("div",{style:{fontSize:10.5,color:"#5A5A70",background:"rgba(255,255,255,0.55)",border:"1px solid rgba(46,47,138,0.12)",borderRadius:6,padding:"8px 11px",marginTop:12,lineHeight:1.55}},
+                e("b",null,"Why is this margin ("+pct(totalGdv>0?(netProfit/totalGdv)*100:0)+") lower than the "+(Math.round((num(s.profitPct)||num(sfhPlan.profitPct)||17.5)*10)/10)+"% in the appraisal above? "),
+                "They answer different questions. The residual appraisal SETS developer profit to the "+(Math.round((num(s.profitPct)||num(sfhPlan.profitPct)||17.5)*10)/10)+"% target and solves for the maximum land price (the RLV) — profit is an input there. This Bottom Line then takes that RLV as the land you actually buy and deducts the REAL transaction costs the appraisal doesn't — 5% SDLT on the land, plus agent, legal and marketing on the sales — so the net return comes out lower. Both are correct: the RLV is the maximum you can bid; this is the return if you pay it."
               ),
               e("div",{style:{display:"flex",gap:10,justifyContent:"center",marginTop:14}},
                 e("button",{onClick:function(){navTo("planning");},style:{padding:"9px 20px",background:"#4A4BAE",border:"none",borderRadius:6,color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"→ Planning & Viability"),
