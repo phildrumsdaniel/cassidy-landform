@@ -7,12 +7,19 @@ function renderDashboard(ALL_STAGES, JOURNEYS, at, city, data, effUnits, ey, gdv
     var targetProfit = DMd.profit;        // GDV * 17.5% — the developer's TARGET on RLV stage
     var actualProfit = DMd.actualProfit;  // GDV - totalCost - landPrice — what's actually left
     var targetMargin = gdv>0 ? (targetProfit/gdv)*100 : 0;
+    // v10.149 — BEFORE-LAND guard (deal-audit finding). When NO land price is entered, "Total Dev
+    // Cost" excludes land (it's £0), so Profit = GDV − costs is actually LAND + PROFIT combined, and
+    // the margin (e.g. 38.1%) reads far above the 17.5% target it's built on. Relabel the two tiles
+    // as "before land" and explain, mirroring the Financial Modelling fix (v10.136), so nobody reads
+    // the pre-land surplus as developer profit.
+    var dashLandPrice = num((data.land&&data.land.price)||0);
+    var dashBeforeLand = gdv>0 && tc>0 && !(dashLandPrice>0) && num(DMd.rlv)>0;
 
     var cards=[
       {l:"GDV",v:gdv>0?fmt(gdv):"—"},
-      {l:"Total Dev Cost",v:tc>0&&gdv>0?fmt(tc):"—",sub:"Build + fees + cont + S106 + finance + land"},
-      {l:"Profit on Cost",v:gdv>0&&tc>0?fmt(profit):"—",c:profit>0?scM:"#C0C4D8",sub:"GDV − all costs incl. land"},
-      {l:"Margin on GDV",v:gdv>0&&tc>0?pct(margin):"—",c:margin>0?scM:"#C0C4D8",sub:"Actual margin (after land price)"},
+      {l:"Total Dev Cost",v:tc>0&&gdv>0?fmt(tc):"—",sub:dashBeforeLand?"Build + fees + cont + S106 + finance — NO land priced yet":"Build + fees + cont + S106 + finance + land"},
+      {l:dashBeforeLand?"Surplus before land":"Profit on Cost",v:gdv>0&&tc>0?fmt(profit):"—",c:profit>0?scM:"#C0C4D8",sub:dashBeforeLand?"GDV − costs — this is LAND + profit, not profit alone":"GDV − all costs incl. land"},
+      {l:dashBeforeLand?"Margin before land":"Margin on GDV",v:gdv>0&&tc>0?pct(margin):"—",c:margin>0?(dashBeforeLand?"#9A7B3E":scM):"#C0C4D8",sub:dashBeforeLand?"before land — not the 17.5% target margin":"Actual margin (after land price)"},
       {l:"NOI (pa)",v:!isSFHdash&&noi>0?fmt(noi):"—"},
       {l:"Exit Yield",v:!isSFHdash&&ey>0?(ey*100).toFixed(2)+"%":"—"},
       {l:"Units / Beds",v:effUnits||"—"},
@@ -297,6 +304,13 @@ function renderDashboard(ALL_STAGES, JOURNEYS, at, city, data, effUnits, ey, gdv
         e("strong",{style:{color:"#1E1F5C"}},"ℹ Why does this differ from the RLV stage? "),
         "The RLV uses a TARGET developer profit of ~17.5% to calculate the maximum land bid. This Dashboard shows your ACTUAL margin based on what you're paying for the land. ",
         "If actual land price (",fmt(num(data.land.price)),") < max land bid (",fmt(DMd.rlv),"), your actual margin (",pct(margin),") will be HIGHER than the 17.5% target."
+      ),
+      // v10.149 — BEFORE-LAND note: shown when NO land price is entered (the reconciliation note
+      // above only fires once a price is set). Makes clear the headline "profit"/"margin" tiles are
+      // the pre-land surplus, and that at the residual land value the margin is the 17.5% target.
+      dashBeforeLand && e("div",{style:{margin:"6px 0 14px",padding:"10px 14px",background:"rgba(154,123,62,0.08)",border:"1px solid rgba(154,123,62,0.35)",borderRadius:6,fontSize:11,color:"#7A5E24",lineHeight:1.6}},
+        e("strong",{style:{color:"#6A4E1A"}},"◐ No land price entered — the tiles above are BEFORE land. "),
+        "With no land price set, ‘Total Dev Cost’ excludes land, so the ",fmt(profit)," ‘surplus’ and ",pct(margin)," margin are actually LAND + PROFIT combined — not developer profit. That surplus splits into the residual land value (",e("strong",null,fmt(num(DMd.rlv))),") plus the target profit (",e("strong",null,fmt(num(DMd.profit))),"); at that land value the developer margin is the ",pct(targetMargin)," target the appraisal is built on. Enter the landowner's guide price on Land Appraisal to see your ACTUAL margin."
       ),
       (function(){
         var hasLand=!!(data.land&&data.land.address);
