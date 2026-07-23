@@ -180,6 +180,37 @@ function renderPropagationAudit(data, setData, up){
       if(hi > 0 && (hi - lo) / hi > 0.02)
         sharedDrift.push({fields:present.map(function(x){return {label:x.label, v:"£"+(Math.round(x.v/1e5)/10)+"m"};})});
     })();
+    // v10.152 — TENURE / BUYER ALLOCATION cross-check (SFH audit finding). This class of drift was
+    // structurally invisible: the audit only tracked scalar fields, so House Mix showing 100% private
+    // while Tenure Mix said 31% affordable went uncaught. Compares the affordable proportion across
+    // House Mix per-row tenure, the Tenure Mix stage and the Planning ah%, HONOURING the engine's
+    // precedence (per-row tenure overrides Tenure Mix overrides scheme ah%), and flags material
+    // disagreement — the important case being House Mix per-row tenure silently overriding a Tenure
+    // Mix split the user thinks is applied.
+    (function(){
+      var mix = (data.sfh && data.sfh.mix) || [];
+      var hmTotal=0, hmNonPriv=0;
+      mix.forEach(function(r){ var c=num(r.count); if(c<=0) return; hmTotal+=c; if(r.tenure && r.tenure!=="private") hmNonPriv+=c; });
+      var hmActive = hmTotal>0 && hmNonPriv>0;   // per-row tenure is actually driving the blend
+      var hmAffPct = hmTotal>0 ? Math.round(hmNonPriv/hmTotal*100) : null;
+      var tmAffPct=null;
+      if(data.tenure && data.tenure.mix && typeof TENURE_TYPES!=="undefined"){
+        var tm=data.tenure.mix, tot=0, aff=0;
+        TENURE_TYPES.forEach(function(td){ var v=num(tm[td.key]); if(!v) return; tot+=v; if(td.key!=="oms") aff+=v; });
+        if(tot>0) tmAffPct = Math.round(aff/tot*100);
+      }
+      var planAhRaw = num((data.planning&&(data.planning.ahPct||data.planning.afhPct))||0);
+      var planAhPct = planAhRaw>0 ? Math.round(planAhRaw) : null;
+      var used = hmActive ? "House Mix per-row" : (tmAffPct!=null ? "Tenure Mix" : "Planning ah%");
+      var present=[];
+      if(hmActive && hmAffPct!=null) present.push({label:"House Mix per-row"+(used==="House Mix per-row"?" (used)":""), v:hmAffPct+"% aff"});
+      if(tmAffPct!=null) present.push({label:"Tenure Mix"+(used==="Tenure Mix"?" (used)":""), v:tmAffPct+"% aff"});
+      if(planAhPct!=null) present.push({label:"Planning ah%"+(used==="Planning ah%"?" (used)":""), v:planAhPct+"% aff"});
+      if(present.length<2) return;
+      var nums=present.map(function(x){return parseInt(x.v,10);});
+      var spread=Math.max.apply(null,nums)-Math.min.apply(null,nums);
+      if(spread>5) sharedDrift.push({fields:present});
+    })();
     totals.drift += sharedDrift.length;
 
     function autoFixAll(){

@@ -196,6 +196,13 @@ function renderFin(LiveMarketBanner, at, bc, buildPsf, city, data, ey, gia, gr, 
                   e("span",null,row[0]),e("span",null,fmt(row[1]))
                 );
               }),
+              // v10.152 — reconcile the two build-rate presentations (SFH audit finding). This page
+              // shows the all-in rate SPLIT into construction + fees + contingency (e.g. £175 + 12% +
+              // 5%), while the SFH House Mix and Dashboard show the single ALL-IN rate (£205) with
+              // fees/contingency folded in. They are the SAME cost (£175 × 1.17 ≈ £205) and foot to the
+              // same Total Dev Cost — shown here itemised so the appraisal reads like a standard residual.
+              finBuildDecomp && e("div",{style:{fontSize:10,color:"#7278A0",fontStyle:"italic",padding:"5px 0 0",lineHeight:1.5}},
+                "Build shown as construction (£"+finConstrPsf+"/sqft) + fees + contingency. The SFH House Mix & Dashboard show this as one ALL-IN rate (£"+Math.round(num(finConstrPsf)*(1+finFeesPctDisp/100+finContPctDisp/100))+"/sqft) — same cost, itemised here; both foot to the same Total Dev Cost."),
               e("div",{style:{display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:700,color:"#2E2F8A",padding:"8px 0",borderTop:"1px solid #DDE0ED",marginTop:4}},
                 e("span",null,"Total Dev Cost"+(num(DM.grantIncome)>0?" (incl. land)":"")),e("span",null,fmt(tc4))
               ),
@@ -560,7 +567,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
                 {l:"Agricultural Value",v:fmt(agriVal2),c:"#7278A0",sub:"Baseline — no planning"},
                 {l:"Planning Uplift",v:fmt(uplift2),c:"#9A7B3E",sub:"Value created by consent"},
                 {l:"Max Land Value (RLV)",v:fmt(rlvVal2),c:"#4A4BAE",sub:"Developer max bid"},
-                {l:"Cassidy Dev Profit",v:fmt(devProfit),c:"#2D7A65",sub:"20% target on GDV"},
+                {l:"Cassidy Dev Profit",v:fmt(devProfit),c:"#2D7A65",sub:(gdv2>0?(Math.round(devProfit/gdv2*1000)/10):17.5)+"% target on GDV"},
               ].map(function(item){
                 return e("div",{key:item.l,style:{background:"#fff",border:"1px solid #DDE0ED",borderTop:"3px solid "+item.c,borderRadius:8,padding:12,textAlign:"center"}},
                   e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",marginBottom:4}},item.l),

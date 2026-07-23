@@ -585,7 +585,11 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
             var discPct = route === "retained_prs" ? "yield-based" : Math.round((1 - rd.pct) * 100) + "%";
             // v9.33 — Route-level cost & profit colour
             var profitCol = r.profit > 0 ? "#2D7A65" : (r.profit < -1000 ? "#B05A35" : "#9A7B3E");
-            return e("div",{key:route,style:{display:"grid",gridTemplateColumns:"1.8fr 60px 70px 100px 100px 100px",padding:"10px 12px",borderBottom:"1px solid #DDE0ED",gap:8,alignItems:"center",fontSize:11}},
+            // v10.152 — flag loss-making / thin-margin routes visually (SFH audit finding: a −18%
+            // Social Rent row sat as plain data with no warning, unlike the rest of the tool's risk flags).
+            var lossRoute = r.marginPct < 0;
+            var lowRoute = r.marginPct >= 0 && r.marginPct < 5;
+            return e("div",{key:route,style:{display:"grid",gridTemplateColumns:"1.8fr 60px 70px 100px 100px 100px",padding:"10px 12px",borderBottom:"1px solid #DDE0ED",borderLeft:"3px solid "+(lossRoute?"#B05A35":lowRoute?"#C8A24A":"transparent"),background:lossRoute?"rgba(176,90,53,0.06)":lowRoute?"rgba(154,123,62,0.05)":"transparent",gap:8,alignItems:"center",fontSize:11}},
               e("div",null,
                 e("div",{style:{fontSize:11,fontWeight:700,color:rd.col}},rd.label),
                 e("div",{style:{fontSize:9,color:"#7278A0",marginTop:2}},
@@ -597,8 +601,13 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
                   e("span",{style:{color:"#7278A0"}},"Cost to build & deliver: "),
                   "build £"+fmtCompact(r.buildCost)+" (£"+routeBuildPsf+"/sqft) · fees/S106/roads £"+fmtCompact(r.fees+r.s106+r.roads+r.contingency)+" · finance £"+fmtCompact(r.financeCost),
                   e("br",null),
-                  e("span",{style:{fontWeight:800,color:profitCol}},"Profit "+(r.profit<0?"−":"")+"£"+fmtCompact(Math.abs(r.profit))+" · Margin "+Math.round(r.marginPct)+"%")
+                  e("span",{style:{fontWeight:800,color:profitCol}},"Profit "+(r.profit<0?"−":"")+"£"+fmtCompact(Math.abs(r.profit))+" · Margin "+Math.round(r.marginPct)+"%"),
+                  (lossRoute||lowRoute) && e("span",{style:{display:"inline-block",marginLeft:6,padding:"1px 6px",borderRadius:3,fontSize:8.5,fontWeight:800,letterSpacing:".03em",background:lossRoute?"#B05A35":"#C8A24A",color:"#fff"}}, lossRoute?"⚠ LOSS-MAKING AT BUILD COST":"⚠ THIN MARGIN")
                 ),
+                (lossRoute||lowRoute) && e("div",{style:{fontSize:8.5,color:lossRoute?"#B05A35":"#8A6A2E",marginTop:2,lineHeight:1.4,fontStyle:"italic"}},
+                  lossRoute
+                    ? "This tenure sells below what it costs to build — normal for deep-discount affordable (Social / Affordable Rent); it's cross-subsidised by the open-market homes. Grant and/or the Tenure Mix balance carry it. Not a route to sell the whole scheme through."
+                    : "Slim margin on this tenure alone — carried by the open-market homes in the blend."),
                 route === "retained_prs" && r.prsAnnualRent && e("div",{style:{fontSize:9,color:"#9A7B3E",marginTop:3,fontStyle:"italic"}},
                   "Rent £"+Math.round(r.prsAnnualRent/1000)+"k/yr · NOI £"+Math.round(r.prsNoi/1000)+"k · cap @ "+(targetYield*100).toFixed(2)+"%"
                 )
