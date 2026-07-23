@@ -84,6 +84,100 @@ function esc0(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g
 // real OpenStreetMap of the site (geocoded from the postcode) plus an indicative site plan.
 // Loaded before 05-tool.js. Uses globals: e, S, fmt, pct, num, fmtN, cityName, notify,
 // calcDealMetrics, computeSFHMetrics, constraintVerdict, REGION_LATLNG, dealCityKey.
+// v10.142 — buildViabilityScenario: an OPTIONAL second page for the one-pager. Page 1 is the
+// truthful appraisal (buildLandOnePager). This page reverse-engineers, on the REAL engine, the
+// single change to EACH lever (sale, build, S106, affordable %, profit target, land price) that
+// would make the scheme (A) cover a landowner's guide price and (B) reach a 15% developer margin
+// after that price — plus a balanced combined route. It is EXPLICITLY an illustrative "what would
+// need to be true" scenario, watermarked as such — never the current, agreed or evidenced figures.
+function buildViabilityScenario(data, cityHint){
+  data = data || {};
+  function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  if(typeof computeSFHMetrics!=="function") return "";
+  var SF=computeSFHMetrics(data);
+  var gdv=num(SF.gdv), dev=num(SF.devCost), rlv=num(SF.rlv), units=num(SF.totalUnits), avgSqft=num(SF.avgSqft);
+  if(!(gdv>0&&units>0)) return "";
+  var profitPct=numOr((data.sfh&&data.sfh.profitPct),17.5);
+  var guide=num(data.land&&data.land.price);
+  var basePsf=Math.round((units>0&&avgSqft>0)?gdv/(units*avgSqft):0);
+  var buildPsf=Math.round(num(SF.buildPsf)||numOr(data.sfh&&data.sfh.buildPsf,0));
+  var s106pu=Math.round(numOr(data.sfh&&data.sfh.s106pu,8000));
+  var ahPct=Math.round(numOr((data.planning&&data.planning.ahPct)||(data.planning&&data.planning.afhPct)||(data.sfh&&data.sfh.ahPct),0));
+  var landRef=guide>0?guide:0;   // "cover the land" target: the guide price (else break-even at £0)
+  function clone(){ try{return JSON.parse(JSON.stringify(data));}catch(e){return null;} }
+  function rlvOf(d){ return num(computeSFHMetrics(d).rlv); }
+  function marginAt(d){ var m=computeSFHMetrics(d), g=num(m.gdv); return g>0?((g-num(m.devCost)-landRef)/g*100):-999; }
+  // bisection: find x in [lo,hi] where metric(mutate(x)) hits target (monotonic levers)
+  function solve(mutate, lo, hi, metric, target){
+    function f(x){ var d=clone(); if(!d)return NaN; try{mutate(d,x);}catch(e){return NaN;} var v=metric(d); return isFinite(v)?v:NaN; }
+    var a=f(lo), b=f(hi); if(isNaN(a)||isNaN(b)) return null;
+    if((a-target)*(b-target)>0) return null;
+    for(var i=0;i<42;i++){ var mid=(lo+hi)/2, m=f(mid); if(isNaN(m))return null; if((m-target)*(a-target)<=0){hi=mid;b=m;}else{lo=mid;a=m;} }
+    return (lo+hi)/2;
+  }
+  function mBuild(d,x){ var s=d.sfh||(d.sfh={}); var cur=num(s.buildPsf)||buildPsf; var fx=cur>0?x/cur:1; s.buildPsf=String(Math.round(x)); if(Array.isArray(s.mix))s.mix=s.mix.map(function(r){r=Object.assign({},r); if(num(r.buildPsf))r.buildPsf=String(Math.round(num(r.buildPsf)*fx)); return r;}); }
+  function mSale(d,x){ var s=d.sfh||(d.sfh={}); var cur=num(s.basePsf)||basePsf; var fx=cur>0?x/cur:1; s.basePsf=String(Math.round(x)); if(Array.isArray(s.mix))s.mix=s.mix.map(function(r){r=Object.assign({},r); if(num(r.unitPrice))r.unitPrice=String(Math.round(num(r.unitPrice)*fx)); if(num(r.salePrice))r.salePrice=String(Math.round(num(r.salePrice)*fx)); if(num(r.psf))r.psf=String(Math.round(num(r.psf)*fx)); return r;}); }
+  function mS106(d,x){ (d.sfh||(d.sfh={})).s106pu=String(Math.round(x)); }
+  function mAh(d,x){ var s=d.sfh||(d.sfh={}); s.ahPct=String(x); var p=d.planning||(d.planning={}); p.ahPct=String(x); p.afhPct=String(x); if(d.tenure)d.tenure.ahPct=String(x); }
+  function mProfit(d,x){ (d.sfh||(d.sfh={})).profitPct=String(x); }
+  // affordable is only a live lever when it isn't captured as per-row tenure
+  var ahLive=false; if(ahPct>0){ var dz=clone(); if(dz){ mAh(dz,0); ahLive=Math.abs(rlvOf(dz)-rlv)>1000; } }
+  // solve each lever to BOTH targets (A: cover the guide/RLV≥guide ; B: 15% margin after the guide)
+  function both(mutate, lo, hi){
+    return { cover: (landRef>0? solve(mutate,lo,hi,rlvOf,landRef) : null),
+             margin: solve(mutate,lo,hi,marginAt,15) };
+  }
+  var sSale=both(mSale, basePsf*0.6, basePsf*2.2);
+  var sBuild=both(mBuild, Math.max(60,buildPsf*0.35), buildPsf*1.05);
+  var sS106=both(mS106, 0, Math.max(s106pu*3,45000));
+  var sAh=ahLive?both(mAh, 0, ahPct):{cover:null,margin:null};
+  var sProfit=both(mProfit, 5, Math.max(profitPct, 30));
+  // combined balanced route to 15% margin (sale +up to 10%, build −up to 12%, AH −up to 15pts)
+  var tC=solve(function(d,t){ mSale(d,Math.round(basePsf*(1+0.10*t))); mBuild(d,Math.round(buildPsf*(1-0.12*t))); if(ahLive)mAh(d,Math.max(0,ahPct-15*t)); }, 0, 1, marginAt, 15);
+  var marginNowAtGuide=(gdv>0)?((gdv-dev-landRef)/gdv*100):0;
+
+  function fmtLever(v,unit,better){ if(v==null) return '<span style="color:#9298BC">not alone</span>'; return '<b style="color:#1B7A54">'+(unit==="£sqft"?"£"+Math.round(v):(unit==="£plot"?"£"+fmtN(Math.round(v)):(unit==="%"?(Math.round(v*10)/10)+"%":Math.round(v))))+'</b>'; }
+  function levRow(label, now, s, unit){
+    return '<tr><td>'+label+'</td><td class="n">'+now+'</td><td class="n">'+fmtLever(s.cover,unit)+'</td><td class="n">'+fmtLever(s.margin,unit)+'</td></tr>';
+  }
+
+  var css=''; // inherits the one-pager document's styles (this page is injected into it)
+  return '<div class="pg" style="page-break-before:always">'+
+    '<div class="top"><div><div class="brand" style="color:#B05A35">Cassidy Group · Illustrative viability scenario — NOT the real appraisal</div>'+
+      '<h1>Path to viability — what would need to be true</h1>'+
+      '<div class="sub">Page 2 of 2 · scenario only · page 1 is the truthful appraisal</div></div>'+
+      '<div class="meta">'+(landRef>0?'Guide price £'+fmtN(landRef):'No guide price')+'<br/>Illustrative · v'+esc(typeof CURRENT_VERSION!=="undefined"?CURRENT_VERSION:"")+'</div></div>'+
+    // watermark caveat
+    '<div style="border:1.5px solid #B05A35;background:#FDF3EE;border-radius:7px;padding:9px 12px;margin-bottom:9px;font-size:9px;color:#8A3A1E;line-height:1.5">'+
+      '<b>⚠ Illustrative scenario — these are NOT the current, agreed or evidenced figures.</b> Each shows the single change to one lever that would make the scheme stack, solved on the appraisal engine holding the others fixed. They are targets to test, not facts: confirm each with a QS cost plan, S106 heads of terms and comparable sales before relying on it. <b>This page must not be sent to a lender, investor or landowner as the deal position.</b>'+
+    '</div>'+
+    // base recap
+    '<div class="card"><div class="ct">Where it stands today (from page 1)</div><table>'+
+      '<tr><td>Residual land value (max supportable, at '+(Math.round(profitPct*10)/10)+'% profit)</td><td class="n" style="color:'+(rlv>0?"#1B7A54":"#B05A35")+'">'+(rlv<0?"−":"")+fmt(Math.abs(rlv))+'</td></tr>'+
+      (landRef>0?'<tr><td>Landowner guide price</td><td class="n">'+fmt(landRef)+'</td></tr>'+
+        '<tr class="s"><td>'+(rlv>=landRef?"Headroom over the guide":"Shortfall vs the guide")+'</td><td class="n" style="color:'+(rlv>=landRef?"#1B7A54":"#B05A35")+'">'+(rlv-landRef<0?"−":"+")+fmt(Math.abs(rlv-landRef))+'</td></tr>'+
+        '<tr><td>Developer margin at the guide price</td><td class="n" style="color:'+(marginNowAtGuide>=15?"#1B7A54":marginNowAtGuide>=12?"#9A7B3E":"#B05A35")+'">'+pct(marginNowAtGuide)+'</td></tr>'
+        :'<tr><td colspan="2" style="color:#9A7B3E;font-size:8.5px">Enter a landowner guide price on the Land / Board Proposal stage to model what makes the scheme COVER it at a viable margin. Until then, the "cover the land" column targets a break-even (nil) residual.</td></tr>')+
+    '</table></div>'+
+    // the lever table
+    '<div class="card"><div class="ct">What would make it stack — each lever solved on the engine</div>'+
+      '<div style="font-size:8px;color:#6A6F97;margin-bottom:5px">Any ONE change below reaches the target on its own (others held fixed). "Cover the land" = residual ≥ the guide price; "15% margin" = a 15% developer margin after paying the guide price.</div>'+
+      '<table><tr><td style="color:#8A90B4;font-size:7.2px;text-transform:uppercase;font-weight:700">Lever</td><td class="n" style="color:#8A90B4;font-size:7.2px;text-transform:uppercase;font-weight:700">Now</td><td class="n" style="color:#8A90B4;font-size:7.2px;text-transform:uppercase;font-weight:700">To cover the land</td><td class="n" style="color:#8A90B4;font-size:7.2px;text-transform:uppercase;font-weight:700">To a 15% margin</td></tr>'+
+        levRow("Sale price","£"+basePsf+"/sqft",sSale,"£sqft")+
+        levRow("Build cost","£"+buildPsf+"/sqft",sBuild,"£sqft")+
+        levRow("S106 / CIL","£"+fmtN(s106pu)+"/plot",sS106,"£plot")+
+        (ahLive?levRow("Affordable %",ahPct+"%",sAh,"%"):'<tr><td>Affordable %</td><td class="n">'+ahPct+'%</td><td class="n" colspan="2" style="color:#9298BC;font-size:8px">set per-row by tenure — flex it on the Tenure Mix stage, not as a single %</td></tr>')+
+        levRow("Developer profit target",(Math.round(profitPct*10)/10)+"%",sProfit,"%")+
+        '<tr class="s"><td>Land price (what you pay)</td><td class="n">'+(landRef>0?fmt(landRef):"—")+'</td><td class="n" colspan="2">must be ≤ the residual: <b style="color:#1B7A54">'+fmt(Math.max(0,rlv))+'</b></td></tr>'+
+      '</table>'+
+      '<div style="font-size:9px;color:#3A3D6A;margin-top:6px;line-height:1.45"><b>Balanced route to a 15% margin:</b> '+
+        (tC!=null? ('sale £'+Math.round(basePsf*(1+0.10*tC))+'/sqft <b>+</b> build £'+Math.round(buildPsf*(1-0.12*tC))+'/sqft'+(ahLive?' <b>+</b> affordable '+Math.round(Math.max(0,ahPct-15*tC))+'%':'')+' — together reach 15% at the guide price.')
+          : 'even a combined push (sale +10%, build −12%'+(ahLive?', affordable −15pts':'')+') falls short — it needs a step-change in values, a lower land basis, or grant support.')+'</div>'+
+    '</div>'+
+    '<div class="foot">Illustrative scenario generated in Landform on '+esc(new Date().toLocaleDateString("en-GB"))+'. The figures on this page are engine-solved targets, not evidence. Page 1 is the appraisal on the actual inputs. Cassidy Group · v'+esc(typeof CURRENT_VERSION!=="undefined"?CURRENT_VERSION:"")+'.</div>'+
+  '</div>';
+}
+
 // v10.41 — buildLandOnePager: the one-page A4 land appraisal, extracted to a shared GLOBAL so
 // BOTH the Board Proposal stage and the Quick Appraisal page generate the IDENTICAL one-pager
 // from any deal (single source — it can never diverge). Every figure is computed from the deal.
@@ -2267,6 +2361,18 @@ function renderProposal(city, data, gdv, lc, up, user){
     if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the one-page appraisal."); return; }
     w.document.open(); w.document.write(html); w.document.close();
   }
+  // v10.142 — one-pager + a second "path to viability" page (illustrative scenario, watermarked).
+  function openOnePagerScenario(){
+    if(typeof notify==="function") notify("Generating one-pager + viability scenario…");
+    var html=buildLandOnePager(data, city);
+    var scen=(typeof buildViabilityScenario==="function")?buildViabilityScenario(data, city):"";
+    if(scen) html=html.replace("</body>", scen+"</body>");
+    if(typeof showReportOverlay==="function" && showReportOverlay(html, "One-pager + viability scenario")) return;
+    if(typeof openReportBlob==="function" && openReportBlob(html)) return;
+    var w=window.open("","_blank");
+    if(!w){ if(typeof notify==="function") notify("Allow pop-ups to open the report."); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+  }
   // v10.128 — Manager summary appraisal. Async: it AUTO-RUNS the AI validation on generate, so it
   // takes a few seconds. Shows the same reconciled figures + a confidence table + AI benchmark/risk.
   var mgrBusy=false;
@@ -2295,6 +2401,10 @@ function renderProposal(city, data, gdv, lc, up, user){
           title:"A single side of A4 — size, homes, GDV, the full cost stack and residual land value tested against the asking price. The quick ‘is this worth pursuing?’ briefing.",
           style:{padding:"11px 20px",background:(!ready)?"#EDEEF6":"#fff",border:"1.5px solid "+((!ready)?"#D7D9E8":"#2E2F8A"),borderRadius:8,color:(!ready)?"#A9ACC6":"#2E2F8A",fontSize:13,fontWeight:800,cursor:(!ready)?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},
           "📄 One-page appraisal (A4)"),
+        e("button",{onClick:openOnePagerScenario,disabled:!ready,
+          title:"Two pages: page 1 is the truthful appraisal; page 2 is an ILLUSTRATIVE ‘what would make it stack’ scenario — the single change to each lever (build, S106, sale, affordable %, profit, land price) that would cover a guide price and reach a 15% margin, solved on the engine and clearly watermarked as NOT the real figures.",
+          style:{padding:"11px 20px",background:(!ready)?"#EDEEF6":"#fff",border:"1.5px solid "+((!ready)?"#D7D9E8":"#B05A35"),borderRadius:8,color:(!ready)?"#A9ACC6":"#8A3A1E",fontSize:13,fontWeight:800,cursor:(!ready)?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},
+          "📄 + Viability scenario"),
         e("button",{onClick:openManagerSummary,disabled:!ready,
           title:"A concrete evaluation report for managers: the reconciled figures, a confidence table tagging each input Verified / AI-researched / Assumption, a resolve-before-offer list, and AI benchmark & risk validation run on generate.",
           style:{padding:"11px 20px",background:(!ready)?"#EDEEF6":"#fff",border:"1.5px solid "+((!ready)?"#D7D9E8":"#9A7B3E"),borderRadius:8,color:(!ready)?"#A9ACC6":"#7A5A2E",fontSize:13,fontWeight:800,cursor:(!ready)?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},
