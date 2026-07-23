@@ -36,8 +36,10 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.144";
+var CURRENT_VERSION = "10.146";
 var VERSION_HISTORY = [
+  {v:"10.146", date:"Jul 2026", headline:"The two-page one-pager's page 2 (‘Path to viability — what would make it stack’) now explicitly assumes the deal is DE-RISKED: planning consent secured and due diligence, constraints and risks all resolved. This is the deliberate counterpoint to page 1, which (since v10.145) leads with today's at-risk, pre-consent land value — so a reader who saw the cautious page-1 figure understands page 2 is the ‘if it all lands, do the scheme economics stack?’ case. Page 2 now computes on a clone with Assumption Mode fully ON, states the de-risked basis in a note (‘it is not a claim the planning/DD risk has gone away’), carries it in the subtitle (‘assumes consent secured & DD clear’), and relabels the recap card from ‘Where it stands today’ to ‘The scheme's residual economics (consented basis)’ so the word ‘today’ belongs only to page 1's pre-consent figure. The lever-solving maths is unchanged (the residual already ran on the consented basis); this makes the assumption explicit and reconciles the two pages. Requested by Phil."},
+  {v:"10.145", date:"Jul 2026", headline:"Board-safety pass from a deal audit — the board-facing screens no longer make the CONSENTED upside look like today's land value. A worked residual land value is the price the land supports AT consent (years away, at planning risk) — a ceiling, not what the site is worth today. On an UNCONSENTED site (allocated / speculative / stalled / status-not-set), the one-pager hero KPI, the Deal Dashboard banner and the Exit Strategy header now LEAD with the pre-consent, risk-adjusted land value (consented residual × the tier's planning-probability factor, floored at agricultural value), and show the consented residual beneath it clearly labelled as the ‘ceiling at consent’. Outline and full consent still lead with the residual (the planning principle is secured). One shared helper — preConsentLandValue() — drives all three so they always agree, mirroring the Land Appraisal ‘Today — pre-consent’ tile exactly. Also, two ‘Basis of figures’ clarifications on the one-pager: (1) an all-in build £/sqft now explains it reads higher than a pure construction rate quoted elsewhere (BCIS construction-only ~£175–210/sqft for houses) because it also carries fees, contingency and external works — the SAME cost on two bases, so nobody adds fees/contingency on top of an all-in rate; (2) a strategic-site S106 flag warns when the per-plot obligation looks light (<£20k on a 500+ home site) until education, off-site highways, drainage/utilities, 10% BNG, health, community and strategic transport are properly costed. No engine-value change; guardrails and disclosure only. Prompted by an IC-style audit of the rebuilt Staplehurst model."},
   {v:"10.144", date:"Jul 2026", headline:"Grant treatment settled — one setting, every stage agrees (Phil + Patric decision). The Homes England affordable grant (AHP/SAHP) used to be capitalised into the LAND VALUE on the engine/RLV/Quick/Dashboard/one-pager while the SFH House Mix and Detailed Appraisal showed no grant at all — the same scheme could read two different land values. It’s now a single choice on the Grants page: ‘Developer margin’ (the DEFAULT — the land is priced WITHOUT the grant and the grant is margin upside if/when secured; prudent, you never bid up land on subsidy you haven’t won), ‘Competitive land bid’ (the grant lifts the land value — a deliberate higher bid for a contested site), or ‘Passed to RP’ (the grant funds the affordable homes via a Registered Provider — neutral to land and margin). One resolver splits the grant into grantToRlv (hits the residual only under a competitive bid) and grantToProfit (hits developer profit under margin/land, zero under RP), and computeSFHMetrics, calcDealMetrics, dealExit, the SFH House Mix screen, Quick Appraisal, Financial Modelling and the one-pager all read it — so every stage shows the SAME land value and the reports label the grant as a land credit, a margin uplift or an RP pass-through to match. Default changed the headline behaviour: an affordable scheme’s residual no longer includes the grant unless you explicitly choose a competitive land bid. See docs/grant-treatment-note.md. 581 engine tests pass (grant now asserted per-treatment: land lifts RLV by exactly the grant, margin/RP do not)."},
   {v:"10.143", date:"Jul 2026", headline:"The Quick Appraisal now also generates the two-page ‘+ Viability scenario’ report. The truthful one-pager + illustrative ‘what would make it stack’ scenario (v10.142) was only on the Board Proposal stage; a matching ‘📄 + Viability scenario’ button now sits next to the one-page board proposal on the Quick Appraisal too, generated from the same effective deal (so it matches what’s on screen) with the identical watermarking. Same generator, so the two stages can never diverge. 578 tests pass."},
   {v:"10.142", date:"Jul 2026", headline:"NEW ‘📄 + Viability scenario’ — a two-page one-pager: the truthful appraisal, then a clearly-labelled ‘what would make it stack’ page. On the Board Proposal stage, next to the one-pager, a new button generates the standard one-page appraisal (page 1, the real figures) followed by a second page, ‘Path to viability — what would need to be true’. That page reverse-engineers, on the REAL engine, the single change to EACH lever — sale £/sqft, build £/sqft, S106/plot, affordable %, developer profit target, and the land price ceiling — that would make the scheme (A) cover a landowner’s guide price and (B) reach a 15% developer margin after paying it, plus a balanced combined route; a lever that can’t get there on its own is shown as ‘not alone’. Crucially it is watermarked throughout as an ILLUSTRATIVE scenario — ‘these are NOT the current, agreed or evidenced figures … must not be sent to a lender, investor or landowner as the deal position’ — so the honest base case (page 1) and the ‘what would it take’ working (page 2) can never be confused. Enter a guide price to target covering it; otherwise the ‘cover the land’ column targets a break-even residual. No engine change; 578 tests pass; the two-page report renders and reconciles."},
@@ -2084,14 +2086,24 @@ function basisOfFigures(data){
   var buildPsf = Math.round(num(sfh.buildPsf) || num(M.buildPsf) || 0);
   lines.push({ k:"Build cost", v:"£" + buildPsf + "/sqft" + (M.buildInclusive
     ? " treated as ALL-IN — covers construction, professional fees, contingency, roads/drainage & SuDS; finance is charged on the build cost."
-    : " (construction only; professional fees, contingency, roads & SuDS are added as separate lines).") + " BCIS-range benchmark for the scheme type — confirm with a QS cost plan. Set deliberately on the CAUTIOUS side: a national housebuilder often builds cheaper, so a keener build rate would INCREASE the residual land value — this is a floor, not a stretch." });
+    : " (construction only; professional fees, contingency, roads & SuDS are added as separate lines).") + " BCIS-range benchmark for the scheme type — confirm with a QS cost plan. Set deliberately on the CAUTIOUS side: a national housebuilder often builds cheaper, so a keener build rate would INCREASE the residual land value — this is a floor, not a stretch."
+    // v10.145 — reconcile the two cost bases (deal-audit finding: "£250 all-in vs £175 construction
+    // looks inconsistent"). State plainly they're the SAME cost on different bases so no one adds
+    // fees/contingency on top of an all-in rate.
+    + (M.buildInclusive ? " Note on bases: an ALL-IN rate reads higher than a pure construction rate quoted elsewhere (BCIS construction-only for houses is typically ~£175–210/sqft) because it also carries fees, contingency and external works. They are the SAME cost expressed two ways, not a discrepancy — never add a separate fees or contingency line on top of an all-in rate (that double-counts and understates the land value)." : "") });
 
   // Finance
   if(num(M.finance) > 0) lines.push({ k:"Finance", v:"S-curve / peak-debt basis: build × " + (num(M.financePeakDebtPct) || "?") + "% peak debt × " + (num(sfh.finRate) || 12) + "% pa × " + (num(M.financeProgYears) || "?") + " yrs × 0.6 average utilisation = " + fmt(num(M.finance)) + ". Reflects a phased programme where sales receipts recycle capital (peak debt « total build). The " + (num(sfh.finRate) || 12) + "% rate is deliberately conservative — senior development debt is typically ~8-9%, so a keener rate would raise the residual. Set ‘Programme (years)’ and ‘Peak debt %’ to your funding plan, or forward-fund." });
 
   // S106
   var s106pu = num(sfh.s106pu);
-  lines.push({ k:"S106 / CIL", v:fmt(s106pu) + "/plot — " + (s106pu > 0 && sfh.s106pu !== "" ? "as entered" : "policy-typical assumption") + " (Education, Highways & cycleways, Health, Open space, Sport/community, Monitoring). Replace with the actual s106 heads of terms and the LPA’s CIL rate." });
+  // v10.145 — strategic-site S106 flag (deal-audit finding: £15k/unit "feels light" on a large
+  // strategic site until education, highways, drainage, utilities, BNG, health, community and
+  // strategic transport are properly costed). Warn when the per-plot figure looks thin at scale.
+  var s106Units = num(M.totalUnits) || num((data.planning||{}).units) || 0;
+  var s106Light = s106Units >= 500 && s106pu > 0 && s106pu < 20000;
+  lines.push({ k:"S106 / CIL", v:fmt(s106pu) + "/plot — " + (s106pu > 0 && sfh.s106pu !== "" ? "as entered" : "policy-typical assumption") + " (Education, Highways & cycleways, Health, Open space, Sport/community, Monitoring). Replace with the actual s106 heads of terms and the LPA’s CIL rate."
+    + (s106Light ? " ⚠ Looks LIGHT for a strategic site of " + s106Units.toLocaleString() + " homes: large allocations routinely carry higher obligations once education (new school), off-site highways, drainage/utilities, 10% Biodiversity Net Gain (30-yr maintenance), health, community and strategic transport are costed — obtain a proper S106/CIL schedule before relying on this figure." : "") });
 
   // Developer profit
   var profitPct = Math.round((num(sfh.profitPct) || 17.5) * 10) / 10;
@@ -2352,6 +2364,46 @@ function assumePlanningConsented(deal){ return assumeFlags(deal).planning; }
 function assumeDDComplete(deal){        return assumeFlags(deal).dd; }
 function assumeConstraintsClear(deal){  return assumeFlags(deal).constraints; }
 function assumeRisksMitigated(deal){    return assumeFlags(deal).risks; }
+
+// ── Pre-consent (risk-adjusted) land value ───────────────────────────────────
+// The figure BOARD-facing outputs (Dashboard, Exit, one-pager) should LEAD with
+// when planning is NOT yet consented. The worked residual (RLV) is the land value
+// AT consent — a ceiling, not today's value. This mirrors the Land Appraisal
+// "Today — pre-consent" tile exactly (todayValue = max(agricultural floor,
+// consented RLV × planning-probability factor)) so every screen agrees on one
+// number instead of each re-deriving it. Reported by a deal audit: the board
+// screens made the consented upside look like today's value unless read carefully.
+function preConsentLandValue(deal){
+  var l = (deal && deal.land) || {};
+  var planStatusRaw = (deal && deal.planning && deal.planning.status) || l.planningStatus || "";
+  var s = String(planStatusRaw).toLowerCase();
+  var planTier;
+  if(!planStatusRaw) planTier = "unknown";
+  else if(/full|granted|consented|detailed|approved/.test(s)) planTier = "full";
+  else if(/outline/.test(s)) planTier = "outline";
+  else if(/allocated|local plan|emerging|draft plan/.test(s)) planTier = "allocated";
+  else if(/refused|withdrawn|stalled|recovery/.test(s)) planTier = "stalled";
+  else if(/none|unallocated|speculative|hope|green/.test(s)) planTier = "speculative";
+  else planTier = "unknown";
+  var probFactor = ({full:0.95, outline:0.70, allocated:0.45, speculative:0.18, stalled:0.30, unknown:0.25})[planTier] || 0.25;
+  var tierLabel  = ({full:"Full planning permission", outline:"Outline planning", allocated:"Allocated in Local Plan", speculative:"No planning — hope value only", stalled:"Stalled / refused — recovery scenario", unknown:"Planning status not stated"})[planTier];
+  var cm = (typeof calcDealMetrics === "function") ? calcDealMetrics(deal) : {};
+  var consentedRlv = Math.max(0, num(cm.rlv));
+  var acresVal = num(l.acres);
+  var agriPerAcre = (l.agriValPerAcre !== undefined && l.agriValPerAcre !== "") ? num(l.agriValPerAcre) : 15000;
+  var agriValue = Math.max(0, acresVal * agriPerAcre);
+  var todayValue = Math.max(agriValue, consentedRlv * probFactor);
+  // "Consented" when planning principle is secured (full OR outline — outline is a real
+  // consent, big risk passed) OR Assumption Mode is toggled on. Only genuinely unconsented
+  // sites (allocated / speculative / stalled / unknown) lead board outputs with the pre-consent
+  // figure. Matches the one-pager's existing planning-risk banner gate (/full|outline/).
+  var isConsented = (planTier === "full" || planTier === "outline") || (typeof assumePlanningConsented === "function" && assumePlanningConsented(deal));
+  return {
+    planTier: planTier, tierLabel: tierLabel, probFactor: probFactor,
+    consentedRlv: consentedRlv, agriValue: agriValue, todayValue: todayValue,
+    isConsented: isConsented
+  };
+}
 function ukRegionFor(data){
   var c = (typeof dealCityKey === "function") ? dealCityKey(data) : "";
   if(UK_REGION_BY_CITY[c]) return UK_REGION_BY_CITY[c];

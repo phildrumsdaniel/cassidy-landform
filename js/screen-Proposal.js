@@ -94,6 +94,13 @@ function buildViabilityScenario(data, cityHint){
   data = data || {};
   function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
   if(typeof computeSFHMetrics!=="function") return "";
+  // v10.146 — Page 2 is the DE-RISKED case: it assumes planning consent is secured and due
+  // diligence, constraints and risks are all resolved, then shows the scheme-economics levers that
+  // would make it stack. This is the deliberate counterpoint to page 1 (which now leads with
+  // today's at-risk, pre-consent position), so we compute on a clone with Assumption Mode fully ON.
+  // The residual math already runs on the consented-scheme basis; the flags make the assumption
+  // explicit and keep it consistent if any risk-adjusted helper is added later.
+  try{ var _dd=JSON.parse(JSON.stringify(data)); _dd._assume={planning:true,dd:true,constraints:true,risks:true}; data=_dd; }catch(e){}
   var SF=computeSFHMetrics(data);
   var gdv=num(SF.gdv), dev=num(SF.devCost), rlv=num(SF.rlv), units=num(SF.totalUnits), avgSqft=num(SF.avgSqft);
   if(!(gdv>0&&units>0)) return "";
@@ -145,14 +152,19 @@ function buildViabilityScenario(data, cityHint){
   return '<div class="pg" style="page-break-before:always">'+
     '<div class="top"><div><div class="brand" style="color:#B05A35">Cassidy Group · Illustrative viability scenario — NOT the real appraisal</div>'+
       '<h1>Path to viability — what would need to be true</h1>'+
-      '<div class="sub">Page 2 of 2 · scenario only · page 1 is the truthful appraisal</div></div>'+
+      '<div class="sub">Page 2 of 2 · scenario only · assumes consent secured &amp; DD clear · page 1 is the truthful appraisal</div></div>'+
       '<div class="meta">'+(landRef>0?'Guide price £'+fmtN(landRef):'No guide price')+'<br/>Illustrative · v'+esc(typeof CURRENT_VERSION!=="undefined"?CURRENT_VERSION:"")+'</div></div>'+
     // watermark caveat
     '<div style="border:1.5px solid #B05A35;background:#FDF3EE;border-radius:7px;padding:9px 12px;margin-bottom:9px;font-size:9px;color:#8A3A1E;line-height:1.5">'+
       '<b>⚠ Illustrative scenario — these are NOT the current, agreed or evidenced figures.</b> Each shows the single change to one lever that would make the scheme stack, solved on the appraisal engine holding the others fixed. They are targets to test, not facts: confirm each with a QS cost plan, S106 heads of terms and comparable sales before relying on it. <b>This page must not be sent to a lender, investor or landowner as the deal position.</b>'+
     '</div>'+
+    // v10.146 — state the de-risked basis plainly: this page assumes the planning and DD risk on
+    // page 1 is resolved, so it isolates the SCHEME ECONOMICS (the deal-can-it-work question).
+    '<div style="border:1px solid #C9CCE4;background:#F7F8FC;border-radius:7px;padding:8px 11px;margin-bottom:9px;font-size:8.6px;color:#3A3D6A;line-height:1.5">'+
+      '<b>Basis — the de-risked case.</b> This page assumes planning consent is secured and due diligence, site constraints and risks are all resolved. It answers only "<b>if the deal is de-risked, do the scheme economics stack, and what would it take?</b>" — the counterpoint to page 1, which shows today\'s at-risk, pre-consent position. It is not a claim that the planning or DD risk has gone away.'+
+    '</div>'+
     // base recap
-    '<div class="card"><div class="ct">Where it stands today (from page 1)</div><table>'+
+    '<div class="card"><div class="ct">The scheme\'s residual economics (consented basis)</div><table>'+
       '<tr><td>Residual land value (max supportable, at '+(Math.round(profitPct*10)/10)+'% profit)</td><td class="n" style="color:'+(rlv>0?"#1B7A54":"#B05A35")+'">'+(rlv<0?"−":"")+fmt(Math.abs(rlv))+'</td></tr>'+
       (landRef>0?'<tr><td>Landowner guide price</td><td class="n">'+fmt(landRef)+'</td></tr>'+
         '<tr class="s"><td>'+(rlv>=landRef?"Headroom over the guide":"Shortfall vs the guide")+'</td><td class="n" style="color:'+(rlv>=landRef?"#1B7A54":"#B05A35")+'">'+(rlv-landRef<0?"−":"+")+fmt(Math.abs(rlv-landRef))+'</td></tr>'+
@@ -223,6 +235,10 @@ function buildLandOnePager(data, cityHint){
     var headlineRlv=num(EX.chosenRlv);          // the chosen exit's land value — drives the headline KPI & verdict
     var headlineIsCap=EX.basis==="capitalised";
     var headlineIsPlot=EX.basis==="plot";
+    // v10.145 — board-safety (deal-audit finding): on an UNCONSENTED site the residual is the land
+    // value AT consent (a ceiling), not today. The hero KPI now leads with the pre-consent /
+    // risk-adjusted value and shows the consented residual as the ceiling beneath it.
+    var PCV=(typeof preConsentLandValue==="function")?preConsentLandValue(data):{isConsented:true,todayValue:0,consentedRlv:headlineRlv,probFactor:1,tierLabel:""};
     var oAvgSqft=Math.round(num(sf.avgSqft)||0);
     var oBuildPsf=Math.round(num(sf.buildPsf)||0);
     var oBasePsf=Math.round(num(sf.basePsf)||0);
@@ -437,9 +453,13 @@ function buildLandOnePager(data, cityHint){
           // v10.125 — no exit committed → the headline reads as a RANGE across the viable exit
           // routes (possibilities), not a single figure that looks decided. The routes card below
           // breaks the spread out. Once an exit is committed it leads with that route's value.
-          (EX.chosen
-            ? '<div class="kpi"><div class="l">Residual land value · '+esc(EX.basisLabel)+'</div><div class="v" style="color:'+(headlineRlv>0?"#1B7A54":"#B05A35")+'">'+(headlineRlv?((headlineRlv<0?"−":"")+fmt(Math.abs(headlineRlv))):"—")+'</div></div>'
-            : '<div class="kpi"><div class="l">Residual land value · exit not yet decided</div><div class="v" style="color:'+(num(EX.rangeHi)>0?"#1B7A54":"#B05A35")+'">'+(EX.rangeIsSpan?fmt(EX.rangeLo)+' – '+fmt(EX.rangeHi):fmt(EX.rangeHi))+'</div></div>')+
+          // v10.145 — on an UNCONSENTED site the hero leads with the pre-consent (risk-adjusted)
+          // value; the consented residual is shown beneath it as the ceiling "at consent".
+          ((!PCV.isConsented && PCV.consentedRlv>0)
+            ? '<div class="kpi"><div class="l">Land value today · pre-consent</div><div class="v" style="color:'+(PCV.todayValue>0?"#4A4BAE":"#B05A35")+'">'+fmt(PCV.todayValue)+'</div><div style="font-size:6.8px;color:#9298BC;margin-top:1px;line-height:1.2">'+Math.round(PCV.probFactor*100)+'% planning prob · ceiling at consent '+fmt(PCV.consentedRlv)+'</div></div>'
+            : (EX.chosen
+              ? '<div class="kpi"><div class="l">Residual land value · '+esc(EX.basisLabel)+'</div><div class="v" style="color:'+(headlineRlv>0?"#1B7A54":"#B05A35")+'">'+(headlineRlv?((headlineRlv<0?"−":"")+fmt(Math.abs(headlineRlv))):"—")+'</div></div>'
+              : '<div class="kpi"><div class="l">Residual land value · exit not yet decided</div><div class="v" style="color:'+(num(EX.rangeHi)>0?"#1B7A54":"#B05A35")+'">'+(EX.rangeIsSpan?fmt(EX.rangeLo)+' – '+fmt(EX.rangeHi):fmt(EX.rangeHi))+'</div></div>'))+
           '<div class="kpi"><div class="l">'+(askL>0?"Margin (all-in)":"Target profit")+'</div><div class="v" style="color:'+(askL>0?(marginAllIn>=15?"#1B7A54":marginAllIn>=12?"#9A7B3E":"#B05A35"):"#1B1D46")+'">'+(askL>0?pct(marginAllIn):(Math.round(oProfitPct*10)/10)+"%")+'</div></div>'+
         '</div>'+
         // v10.112 — Exit routes: the land value under each exit, side by side, with the chosen route
@@ -464,15 +484,12 @@ function buildLandOnePager(data, cityHint){
         // so a reviewer reads the RLV as the value AT consent (years away, at risk), not today's
         // value. Pre-empts the single biggest question on a promotion play.
         (function(){
-          var consented=/full|outline/.test(String(planStatus).toLowerCase());
-          if(consented || !(oRlv>0)) return '';
+          // v10.145 — gate on the same helper that drives the hero so the two agree.
+          if(PCV.isConsented || !(oRlv>0)) return '';
           var t2=(typeof projectTimeline==="function")?projectTimeline(data):null;
-          var g2=(typeof landValueGuide==="function")?landValueGuide(data):null;
-          var hopeLo=0,hopeHi=0;
-          if(g2 && g2.bands){ var hb=g2.bands.filter(function(b){return /hope|strategic|greenbelt/i.test(b.label);})[0]; if(hb){ var a2=g2.acres||acres; hopeLo=hb.lo*a2; hopeHi=hb.hi*a2; } }
           return '<div style="margin:2px 0 9px;border:1px solid #C8A24A;border-left:5px solid #C8A24A;border-radius:7px;padding:9px 12px;background:#FDF9EF">'+
             '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#8A6A2E;font-weight:800;margin-bottom:3px">⚑ Planning risk — a promotion play, not a consented site</div>'+
-            '<div style="font-size:9.3px;color:#5A4A2E;line-height:1.5">The <b>'+fmt(oRlv)+'</b> residual is the land value <b>at consent</b> — not today. Current position: <b>'+esc(planStatusLabel)+'</b>'+(hopeHi>0?"; today's strategic / hope value is <b>"+fmt(hopeLo)+'–'+fmt(hopeHi)+'</b>':'')+'. The gap is the <b>promotion upside</b>, earned over '+(t2?('~'+t2.planningYears+' years to consent'):'the planning period')+' at cost and risk. Buy at hope value; the consented residual is the exit, not the entry.</div>'+
+            '<div style="font-size:9.3px;color:#5A4A2E;line-height:1.5">The <b>'+fmt(oRlv)+'</b> residual is the land value <b>at consent</b> — a ceiling, not today. Current position: <b>'+esc(planStatusLabel)+'</b>. Today\'s risk-adjusted value is about <b>'+fmt(PCV.todayValue)+'</b> ('+Math.round(PCV.probFactor*100)+'% planning probability). The gap is the <b>promotion upside</b>, earned over '+(t2?('~'+t2.planningYears+' years to consent'):'the planning period')+' at cost and risk. Buy near today\'s value; the consented residual is the exit, not the entry.</div>'+
           '</div>';
         })()+
         '<div class="cols">'+

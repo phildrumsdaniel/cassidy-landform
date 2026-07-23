@@ -278,6 +278,18 @@ function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi,
         )
       ),
 
+      // v10.145 — board-safety (deal-audit finding): these buyer values are the site's worth
+      // AT consent. On an unconsented site, lead the reader with today's risk-adjusted value so
+      // the consented figures read as the ceiling/exit, not what the land is worth today.
+      (function(){
+        var pcv=(typeof preConsentLandValue==="function")?preConsentLandValue(data):null;
+        if(!pcv || pcv.isConsented || !(pcv.consentedRlv>0)) return null;
+        return e("div",{style:{margin:"0 0 14px",padding:"12px 16px",background:"rgba(154,123,62,0.08)",border:"1px solid rgba(154,123,62,0.45)",borderLeft:"5px solid #9A7B3E",borderRadius:8,fontSize:12,color:"#7A5E24",lineHeight:1.55}},
+          e("div",{style:{fontSize:10,letterSpacing:".12em",textTransform:"uppercase",fontWeight:700,color:"#9A7B3E",marginBottom:3}},"These values are AT consent — not today"),
+          e("div",null,"The buyer values below are what the site is worth ",e("strong",null,"once consented"),". Today, pre-consent, the risk-adjusted land value is about ",e("strong",null,fmt(pcv.todayValue))," (",Math.round(pcv.probFactor*100),"% planning probability). The consented ceiling of ",e("strong",null,fmt(pcv.consentedRlv))," is the exit you promote towards, not the entry price.")
+        );
+      })(),
+
       // ── MULTI-BUYER VALUATION COMPARISON ───────────────────────────────────
       e("div",{style:{background:"#fff",border:"1px solid #DDE0ED",borderRadius:10,padding:"18px 20px",marginBottom:14}},
         e("div",{style:{fontSize:10,fontWeight:800,color:"#2E2F8A",textTransform:"uppercase",letterSpacing:".1em",marginBottom:14}},"Multi-Buyer Valuation — Same Site, Different Values"),

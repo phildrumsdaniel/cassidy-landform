@@ -267,7 +267,15 @@ function renderDashboard(ALL_STAGES, JOURNEYS, at, city, data, effUnits, ey, gdv
               e("div",{style:{fontWeight:700,fontSize:14,color:"#7A5E24"}},"Full consent ASSUMED — not yet achieved"),
               e("div",{style:{fontSize:11,color:"#8A6E34",marginTop:3}},
                 "You've flagged planning risk as "+rlLvl+". The GDV/RLV/margin below are the consented UPSIDE, not today's value — treat this as a promotion play and weigh the risk with a planning scenario in Land Appraisal."
-              )
+              ),
+              // v10.145 — put the actual pre-consent £ figure in the banner, not just words (deal-audit finding).
+              (function(){
+                var pcv=(typeof preConsentLandValue==="function")?preConsentLandValue(data):null;
+                if(!pcv || pcv.isConsented || !(pcv.consentedRlv>0)) return null;
+                return e("div",{style:{fontSize:11,color:"#7A5E24",marginTop:5,fontWeight:600}},
+                  "Today's risk-adjusted land value ≈ "+fmt(pcv.todayValue)+" ("+Math.round(pcv.probFactor*100)+"% planning probability) · consented ceiling "+fmt(pcv.consentedRlv)+"."
+                );
+              })()
             ),
             e("button",{onClick:function(){navTo("land");},style:{padding:"7px 14px",background:"transparent",border:"1px solid #9A7B3E",color:"#9A7B3E",borderRadius:4,fontSize:10,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Weigh planning risk →")
           );
