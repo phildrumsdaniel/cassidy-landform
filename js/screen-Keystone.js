@@ -170,8 +170,22 @@ function renderKeystone(data, setData, up, navTo, user){
       }
     }
     // v10.14 — non-blocking confirm (was native confirm(), which froze the browser).
-    if(hasExisting) confirmToast("Replace the deal currently open with the one Keystone just built?\n\nYour saved portfolio deals are untouched.", doBuild, {confirmLabel:"Replace deal"});
-    else doBuild();
+    function afterLocationCheck(){
+      if(hasExisting) confirmToast("Replace the deal currently open with the one Keystone just built?\n\nYour saved portfolio deals are untouched.", doBuild, {confirmLabel:"Replace deal"});
+      else doBuild();
+    }
+    // v10.150 — POSTCODE / LOCATION GATE. AI brief extraction is non-deterministic: the exact same
+    // source can yield a postcode on one run and a blank on the next, and a blank silently prices the
+    // deal on UK NATIONAL AVERAGES — which swung a headline RLV by ~33% (£163m → £109m) on identical
+    // re-runs. Postcode/location is the biggest single driver of the valuation, so if it doesn't
+    // resolve to a local market, block and make the user confirm before building on national averages.
+    var mkCheck = (typeof keystoneMarketKey === "function") ? keystoneMarketKey(brief.town || brief.city || brief.location || "", brief.postcode) : {key:"x"};
+    var resolvesLoc = !!(mkCheck.key && typeof MKT !== "undefined" && MKT[mkCheck.key]);
+    if(!resolvesLoc){
+      confirmToast("⚠ No resolvable postcode / location.\n\nKeystone can't match \""+(brief.town||brief.city||brief.location||"this location")+"\" to a local market and no postcode was extracted, so it would price this deal on UK NATIONAL AVERAGES. Location is the biggest driver of the valuation — this can swing the residual land value by tens of millions vs the correct local figures (a missed postcode swung one Staplehurst run from £163m to £109m).\n\nAdd the site postcode in the ‘Confirm the postcode’ box above, then build. Or build now on national averages (clearly flagged in the deal)?", afterLocationCheck, {confirmLabel:"Build on national averages"});
+      return;
+    }
+    afterLocationCheck();
   }
 
   // ── v10.45 — Complete the deal with AI: research the area's per-type new-build prices & rents,
@@ -436,6 +450,37 @@ function renderKeystone(data, setData, up, navTo, user){
           })
         )
       ) : null,
+      // v10.150 — CONFIRM THE POSTCODE before building. Location is the biggest driver of the
+      // valuation and AI extraction can miss it; this shows the extracted postcode, lets you correct
+      // it inline (written back into the brief), and turns red when it won't resolve to a local market.
+      (function(){
+        if(!(k.brief||"").trim()) return null;
+        var bo; try{ bo=JSON.parse(k.brief||"{}"); }catch(e){ return null; }   // invalid JSON handled at build
+        var briefPc=String(bo.postcode||"").trim();
+        var briefTown=String(bo.town||bo.city||bo.location||"").trim();
+        var mk=(typeof keystoneMarketKey==="function")?keystoneMarketKey(briefTown, briefPc):{key:"",flag:""};
+        var resolves=!!(mk.key && typeof MKT!=="undefined" && MKT[mk.key]);
+        var marketName=(resolves && typeof _keystoneTitle==="function")?_keystoneTitle(mk.key):"";
+        function setBriefPostcode(pc){
+          var o; try{ o=JSON.parse(k.brief||"{}"); }catch(e){ return; }
+          o.postcode=String(pc||"").toUpperCase();
+          setK({brief:JSON.stringify(o,null,2)});
+        }
+        return e("div",{style:{border:"1px solid "+(resolves?"#2D7A65":"#B05A35"),borderLeft:"4px solid "+(resolves?"#2D7A65":"#B05A35"),background:resolves?"rgba(45,122,101,0.05)":"#FDF3EE",borderRadius:8,padding:"12px 14px",marginBottom:12}},
+          e("div",{style:{fontSize:12,fontWeight:800,color:resolves?"#1d5446":"#B05A35",marginBottom:5}},
+            resolves?("📍 Location resolves to "+marketName+" — local pricing will be used"):"⚠ Confirm the postcode — location does NOT resolve to a local market"),
+          e("div",{style:{fontSize:11,color:"#5A4A3E",lineHeight:1.55,marginBottom:8}},
+            resolves
+              ? "Pricing, build cost and yield use this local market; the sale £/sqft still uses the postcode's own Land Registry value where available. Correct it here if it's wrong."
+              : "Postcode / location is the single biggest driver of the valuation. Without a resolvable location Keystone falls back to UK NATIONAL AVERAGES (≈£300/sqft sale, £215/sqft build, 4.75% yield) — which can swing the residual land value by tens of millions vs the correct local figures. Enter the site postcode before building."),
+          e("div",{style:{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}},
+            e("label",{style:{fontSize:10,fontWeight:700,color:"#7278A0",textTransform:"uppercase",letterSpacing:".05em"}},"Site postcode"),
+            e("input",{value:briefPc,placeholder:"e.g. TN12 0AB (outcode TN12 is enough)",onChange:function(ev){ setBriefPostcode(ev.target.value); },
+              style:{padding:"7px 10px",border:"1px solid "+(resolves?"#DDE0ED":"#B05A35"),borderRadius:6,fontSize:13,fontWeight:700,textTransform:"uppercase",fontFamily:"DM Mono,monospace,DM Sans",minWidth:190}}),
+            briefTown && e("span",{style:{fontSize:11,color:"#7278A0"}},"Town: ",e("strong",null,briefTown))
+          )
+        );
+      })(),
       e("div",{style:{display:"flex",gap:10,flexWrap:"wrap"}},
         e("button",{onClick:buildDeal,disabled:!(k.brief||"").trim(),style:{padding:"9px 18px",background:(k.brief||"").trim()?"#2D7A65":"#9AA",border:"none",color:"#fff",borderRadius:6,fontSize:13,fontWeight:700,cursor:(k.brief||"").trim()?"pointer":"not-allowed",fontFamily:"DM Sans,sans-serif"}},"🏗 Build deal & load it"),
         // v10.45 — one click: research area prices/rents by type, apply them, feed rents into
