@@ -349,10 +349,22 @@ function renderRLV(city, data, m, navTo, setData, up, user){
         "Landform doesn't yet know which city or postcode this site is in, so it's using UK-average defaults for build cost, sale PSF, and yield benchmarks. Any references to 'Manchester' or other northern markets below should be ignored — they're the technical fallback, not your actual market. ",
         e("strong",null,"Fix: "),"enter the postcode in the search box below (the outcode like TN12 is enough), or set the city in Land Appraisal."
       ),
-      rCityKnown && e("div",{style:{padding:"8px 14px",background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.3)",borderRadius:6,fontSize:11,color:"#1d5446",lineHeight:1.6,marginBottom:14}},
-        "📍 Market data: ",e("strong",null,cityName(rCity)),
-        " · BTR rent benchmark: £"+rm.btr+"/mo · Build cost typical: £"+rm.build+"/sqft · Yield: "+(rm.yield*100).toFixed(2)+"%"
-      ),
+      rCityKnown && (function(){
+        // v10.147 — when the benchmark market is the NEAREST anchor with data (not the site's own
+        // town — e.g. TN12 Staplehurst resolving to Tunbridge Wells), say so plainly and name the
+        // real locality, so the benchmark isn't read as the site's own market. (Deal-audit finding.)
+        var siteTown=String((data.land&&data.land.city)||"").trim();
+        var sitePc=String((data.land&&data.land.postcode)||(r&&r.postcode)||"").trim().toUpperCase();
+        var benchName=cityName(rCity);
+        var mismatch=siteTown && benchName && siteTown.toLowerCase().indexOf(benchName.toLowerCase())<0 && benchName.toLowerCase().indexOf(siteTown.toLowerCase())<0;
+        return e("div",{style:{padding:"8px 14px",background:"rgba(45,122,101,0.08)",border:"1px solid rgba(45,122,101,0.3)",borderRadius:6,fontSize:11,color:"#1d5446",lineHeight:1.6,marginBottom:14}},
+          "📍 Market benchmark: ",e("strong",null,benchName),
+          " · BTR rent: £"+rm.btr+"/mo · Build typical: £"+rm.build+"/sqft · Yield: "+(rm.yield*100).toFixed(2)+"%",
+          mismatch && e("div",{style:{marginTop:5,fontSize:10.5,color:"#7A5E24",lineHeight:1.55}},
+            "⚠ "+benchName+" is the NEAREST market with benchmark data — your site is in "+siteTown+(sitePc?" ("+sitePc+")":"")+", which can price differently. The sale £/sqft uses this postcode's own Land Registry value where available; verify rents, yield and build against LOCAL comparables (e.g. "+siteTown+" and neighbouring villages), and confirm the Local Planning Authority separately — the postal town is often not the council that sets affordable / S106 / CIL policy."
+          )
+        );
+      })(),
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Land Registry Price Search"),
         e("div",{style:{display:"flex",gap:12,alignItems:"flex-end",marginBottom:12}},

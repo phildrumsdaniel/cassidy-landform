@@ -106,7 +106,10 @@ function buildViabilityScenario(data, cityHint){
   if(!(gdv>0&&units>0)) return "";
   var profitPct=numOr((data.sfh&&data.sfh.profitPct),17.5);
   var guide=num(data.land&&data.land.price);
-  var basePsf=Math.round((units>0&&avgSqft>0)?gdv/(units*avgSqft):0);
+  // v10.147 — use the OPEN-MARKET base £/sqft (the same SF.basePsf the one-pager shows), not a
+  // GDV-blended figure. gdv/(units×avgSqft) blends in the affordable discount, so it read ~£416
+  // while the one-pager showed £444 — the same scheme, two different numbers. Reconciled to one.
+  var basePsf=Math.round(num(SF.basePsf)||((units>0&&avgSqft>0)?gdv/(units*avgSqft):0));
   var buildPsf=Math.round(num(SF.buildPsf)||numOr(data.sfh&&data.sfh.buildPsf,0));
   var s106pu=Math.round(numOr(data.sfh&&data.sfh.s106pu,8000));
   var ahPct=Math.round(numOr((data.planning&&data.planning.ahPct)||(data.planning&&data.planning.afhPct)||(data.sfh&&data.sfh.ahPct),0));
@@ -134,13 +137,22 @@ function buildViabilityScenario(data, cityHint){
     return { cover: (landRef>0? solve(mutate,lo,hi,rlvOf,landRef) : null),
              margin: solve(mutate,lo,hi,marginAt,15) };
   }
-  var sSale=both(mSale, basePsf*0.6, basePsf*2.2);
-  var sBuild=both(mBuild, Math.max(60,buildPsf*0.35), buildPsf*1.05);
-  var sS106=both(mS106, 0, Math.max(s106pu*3,45000));
-  var sAh=ahLive?both(mAh, 0, ahPct):{cover:null,margin:null};
-  var sProfit=both(mProfit, 5, Math.max(profitPct, 30));
-  // combined balanced route to 15% margin (sale +up to 10%, build −up to 12%, AH −up to 15pts)
-  var tC=solve(function(d,t){ mSale(d,Math.round(basePsf*(1+0.10*t))); mBuild(d,Math.round(buildPsf*(1-0.12*t))); if(ahLive)mAh(d,Math.max(0,ahPct-15*t)); }, 0, 1, marginAt, 15);
+  // v10.147 — the scenario only makes sense against a LAND PRICE to solve for. With no guide price
+  // there is no target, and "to a 15% margin" would solve a LOWER sale price (because margin at £0
+  // land already beats 15%) — which reads backwards, as if cutting the sale price were a route to
+  // viability. So the solver only runs when a guide price is entered; otherwise page 2 shows a
+  // clear "enter a guide price" prompt instead of the lever table.
+  var hasGuide=landRef>0;
+  var sSale={cover:null,margin:null}, sBuild={cover:null,margin:null}, sS106={cover:null,margin:null}, sAh={cover:null,margin:null}, sProfit={cover:null,margin:null}, tC=null;
+  if(hasGuide){
+    sSale=both(mSale, basePsf*0.6, basePsf*2.2);
+    sBuild=both(mBuild, Math.max(60,buildPsf*0.35), buildPsf*1.05);
+    sS106=both(mS106, 0, Math.max(s106pu*3,45000));
+    sAh=ahLive?both(mAh, 0, ahPct):{cover:null,margin:null};
+    sProfit=both(mProfit, 5, Math.max(profitPct, 30));
+    // combined balanced route to 15% margin (sale +up to 10%, build −up to 12%, AH −up to 15pts)
+    tC=solve(function(d,t){ mSale(d,Math.round(basePsf*(1+0.10*t))); mBuild(d,Math.round(buildPsf*(1-0.12*t))); if(ahLive)mAh(d,Math.max(0,ahPct-15*t)); }, 0, 1, marginAt, 15);
+  }
   var marginNowAtGuide=(gdv>0)?((gdv-dev-landRef)/gdv*100):0;
 
   function fmtLever(v,unit,better){ if(v==null) return '<span style="color:#9298BC">not alone</span>'; return '<b style="color:#1B7A54">'+(unit==="£sqft"?"£"+Math.round(v):(unit==="£plot"?"£"+fmtN(Math.round(v)):(unit==="%"?(Math.round(v*10)/10)+"%":Math.round(v))))+'</b>'; }
@@ -171,7 +183,8 @@ function buildViabilityScenario(data, cityHint){
         '<tr><td>Developer margin at the guide price</td><td class="n" style="color:'+(marginNowAtGuide>=15?"#1B7A54":marginNowAtGuide>=12?"#9A7B3E":"#B05A35")+'">'+pct(marginNowAtGuide)+'</td></tr>'
         :'<tr><td colspan="2" style="color:#9A7B3E;font-size:8.5px">Enter a landowner guide price on the Land / Board Proposal stage to model what makes the scheme COVER it at a viable margin. Until then, the "cover the land" column targets a break-even (nil) residual.</td></tr>')+
     '</table></div>'+
-    // the lever table
+    // the lever table — shown only when a guide price is set (v10.147); otherwise a prompt
+    (hasGuide ? (
     '<div class="card"><div class="ct">What would make it stack — each lever solved on the engine</div>'+
       '<div style="font-size:8px;color:#6A6F97;margin-bottom:5px">Any ONE change below reaches the target on its own (others held fixed). "Cover the land" = residual ≥ the guide price; "15% margin" = a 15% developer margin after paying the guide price.</div>'+
       '<table><tr><td style="color:#8A90B4;font-size:7.2px;text-transform:uppercase;font-weight:700">Lever</td><td class="n" style="color:#8A90B4;font-size:7.2px;text-transform:uppercase;font-weight:700">Now</td><td class="n" style="color:#8A90B4;font-size:7.2px;text-transform:uppercase;font-weight:700">To cover the land</td><td class="n" style="color:#8A90B4;font-size:7.2px;text-transform:uppercase;font-weight:700">To a 15% margin</td></tr>'+
@@ -185,7 +198,10 @@ function buildViabilityScenario(data, cityHint){
       '<div style="font-size:9px;color:#3A3D6A;margin-top:6px;line-height:1.45"><b>Balanced route to a 15% margin:</b> '+
         (tC!=null? ('sale £'+Math.round(basePsf*(1+0.10*tC))+'/sqft <b>+</b> build £'+Math.round(buildPsf*(1-0.12*tC))+'/sqft'+(ahLive?' <b>+</b> affordable '+Math.round(Math.max(0,ahPct-15*tC))+'%':'')+' — together reach 15% at the guide price.')
           : 'even a combined push (sale +10%, build −12%'+(ahLive?', affordable −15pts':'')+') falls short — it needs a step-change in values, a lower land basis, or grant support.')+'</div>'+
-    '</div>'+
+    '</div>')
+    : ('<div class="card"><div class="ct">What would make it stack</div>'+
+       '<div style="font-size:9px;color:#8A3A1E;background:#FDF3EE;border:1px solid #E0B9A6;border-radius:6px;padding:10px 12px;line-height:1.55"><b>Enter a landowner guide price to solve this scenario.</b> The path to viability works backwards from the price you would pay for the land — without a guide price there is no target to solve against, and a lower sale price would look like a route to viability when it is not. Add the guide price on the Land Appraisal / Board Proposal stage and re-open this report; the solver then shows exactly what each lever (sale, build, S106, affordable, profit) must reach to cover that price at a 15% developer margin.</div>'+
+       '</div>'))+
     '<div class="foot">Illustrative scenario generated in Landform on '+esc(new Date().toLocaleDateString("en-GB"))+'. The figures on this page are engine-solved targets, not evidence. Page 1 is the appraisal on the actual inputs. Cassidy Group · v'+esc(typeof CURRENT_VERSION!=="undefined"?CURRENT_VERSION:"")+'.</div>'+
   '</div>';
 }

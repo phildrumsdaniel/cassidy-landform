@@ -399,7 +399,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
                 {l:"Sales Period",v:salesMths+" mths"},
                 {l:"Programme",v:progMths+" mths"},
                 {l:"Peak Debt (est)",v:fmt(peakDebt)},
-                {l:"Finance Cost (est)",v:fmt(finCost),s:true},
+                {l:"Finance — upper est",v:fmt(finCost),s:true},
                 {l:"Profit on Cost",v:tcF>0?pct((gdvF-tcF)/tcF*100):"—",c:gdvF>tcF?"#2D7A65":"#B05A35",big:true},
                 {l:"Margin on GDV",v:gdvF>0?pct(marginF):"—",c:marginF>=15?"#2D7A65":"#B05A35",big:true},
                 {l:"Approx IRR",v:irrVal?irrVal+"%":"—",c:irrColor,big:true},
@@ -409,6 +409,17 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
                   e("div",{style:{fontSize:item.big?22:14,fontWeight:800,color:item.c||"#2E2F8A"}},item.v)
                 );
               })
+            ),
+            // v10.147 — reconcile the THREE finance figures on this screen so a reader knows which
+            // to trust. They use three different debt assumptions on purpose; label them plainly.
+            e("div",{style:{fontSize:10.5,color:"#5A4A2E",background:"rgba(154,123,62,0.08)",border:"1px solid rgba(154,123,62,0.35)",borderRadius:6,padding:"9px 12px",marginBottom:12,lineHeight:1.55}},
+              e("strong",null,"Three finance figures — which is which. "),
+              "The appraisal above charges ",e("strong",null,fmt(num(DM.finance))),
+              " (the engine's S-curve peak-debt basis — this is the one in Total Dev Cost and the residual). ",
+              e("strong",null,"‘Finance — upper est’ "+fmt(finCost)),
+              " is a crude screening upper bound: peak debt (~65% of cost) held across the WHOLE ",progMths,"-month programme with no recycling — deliberately pessimistic, not the appraisal figure. ",
+              "The ",e("strong",null,"phased S-curve cashflow below"),
+              " models debt actually recycling as homes sell, so its ‘Total Interest’ is lower again. Use the engine figure (",fmt(num(DM.finance)),") for the appraisal; the other two bracket it."
             ),
             // PHASED S-CURVE CASHFLOW
       e("div",{style:S.card},
@@ -460,7 +471,7 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
 
           return e("div",null,
             e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}},
-              [{l:"Peak Debt",v:fmt(peakDebt2),c:"#B05A35"},{l:"Total Interest",v:fmt(totalInt),c:"#9A7B3E"},
+              [{l:"Peak Debt",v:fmt(peakDebt2),c:"#B05A35"},{l:"Total Interest (phased)",v:fmt(totalInt),c:"#9A7B3E"},
                {l:"Net Profit (after finance)",v:fmt(finalProfit),c:finalProfit>0?"#2D7A65":"#B05A35"},{l:"S-Curve IRR",v:scIRR?scIRR+"%":"—",c:scIRR&&scIRR>=15?"#2D7A65":"#B05A35"}
               ].map(function(item){
                 return e("div",{key:item.l,style:{background:"#fff",border:"1px solid #DDE0ED",borderTop:"3px solid "+item.c,borderRadius:8,padding:12,textAlign:"center"}},
