@@ -1102,8 +1102,11 @@ var JOURNEYS = {
         "Complete the core appraisal (site, house mix / units and a GDV) first so the reports have figures to present. Current: GDV ",e("b",null,gdvV>0?fmt(gdvV):"—"),", ",e("b",null,unitsV||0)," homes."),
       e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(258px,1fr))",gap:14}},
         REPORT_DOCS.map(function(d){
-          return e("div",{key:d.id,onClick:function(){navTo(d.id);},
-            style:{background:"#fff",border:"1px solid #DDE0ED",borderLeft:"4px solid #4A4BAE",borderRadius:10,padding:"16px 18px",cursor:"pointer",boxShadow:"0 1px 4px rgba(46,47,138,0.05)",display:"flex",flexDirection:"column"}},
+          // v10.148 — semantic <button> (was a clickable div) so keyboard, screen readers and
+          // automation see it as an actionable control. type:"button" avoids form submission;
+          // the button defaults (centre text, native font/appearance) are reset to match the card.
+          return e("button",{key:d.id,type:"button",onClick:function(){navTo(d.id);},"aria-label":"Open "+d.label,
+            style:{background:"#fff",border:"1px solid #DDE0ED",borderLeft:"4px solid #4A4BAE",borderRadius:10,padding:"16px 18px",cursor:"pointer",boxShadow:"0 1px 4px rgba(46,47,138,0.05)",display:"flex",flexDirection:"column",textAlign:"left",width:"100%",font:"inherit",fontFamily:"DM Sans,sans-serif",appearance:"none",WebkitAppearance:"none"}},
             e("div",{style:{fontSize:26,marginBottom:8}},d.icon),
             e("div",{style:{fontSize:15,fontWeight:800,color:"#2E2F8A",marginBottom:5}},d.label),
             e("div",{style:{fontSize:12,color:"#7278A0",lineHeight:1.5,marginBottom:12,flex:1}},d.desc),
