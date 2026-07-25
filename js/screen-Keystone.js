@@ -202,10 +202,15 @@ function renderKeystone(data, setData, up, navTo, user){
     var pc = (deal.land && deal.land.postcode) || "";
     var typeList = sfh0.mix.filter(function(r){ return num(r.count) > 0; }).map(function(r){ return r.type; })
       .filter(function(v, i, a){ return v && a.indexOf(v) === i; });
-    var sys = "You are a UK new-build residential valuer. Output STRICT JSON only — no prose, no markdown fences. Figures are indicative and to be verified.";
+    // v10.160 — research CURRENT market prices AND rents at build time, using the same accurate
+    // basis as the Capitalisation stage's rent research (v10.159): current Rightmove/Zoopla asking
+    // figures for NEW-BUILD in the postcode, new-build premium reflected, priced as HOUSES — so the
+    // deal comes out of Keystone with realistic rents already fed into capitalisation, not the
+    // conservative table baseline. (Rents were reading low because this asked for "typical achieved".)
+    var sys = "You are a UK new-build residential valuer. Base every figure on what is ACTUALLY on the market RIGHT NOW — current Rightmove / Zoopla listings for new or nearly-new stock in THIS postcode area, not national averages or older/cheaper stock. New-build commands a premium; reflect it and do NOT round down. Output STRICT JSON only — no prose or markdown. Figures are indicative and to be verified against live listings.";
     var prompt = "For NEW-BUILD homes in " + ((typeof cityName === "function" ? cityName(sfhCity) : sfhCity) || "the area") + " (" + (pc || "postcode unknown") +
-      "), give typical achieved SALE PRICE and MONTHLY RENT for each of these house types: " + typeList.join(", ") +
-      ". Reflect the REAL local market — a larger/detached home often sells at a LOWER £/sqft than a smaller semi. " +
+      "), give the CURRENT market SALE PRICE and current MONTHLY ASKING RENT for each of these house types: " + typeList.join(", ") +
+      ". Reflect the REAL local market from CURRENT listings — a larger/detached home often sells at a LOWER £/sqft than a smaller semi. Price and rent these as HOUSES: a 3-bed or 4-bed house rents well ABOVE a flat of the same bed count. Rents = the MEDIAN of current asking rents (achieved is typically only ~2-3% below). " +
       "Output JSON exactly in this shape: {\"types\":[{\"type\":\"<name as given>\",\"beds\":<number>,\"sqft\":<number>,\"salePrice\":<number £>,\"rentPcm\":<number £>}]}. Numbers only — no £ signs or commas.";
     try{
       var res = await callAI(user, "keystone", sys, prompt);
