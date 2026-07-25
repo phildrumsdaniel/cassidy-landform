@@ -1898,9 +1898,14 @@ function renderProposal(city, data, gdv, lc, up, user){
       :ccVerdict==="CAUTION"?'<span class="pill a">CAUTION'+(ccScore?" · "+ccScore+"/100":"")+'</span>'
       :ccVerdict==="AVOID"?'<span class="pill r">AVOID'+(ccScore?" · "+ccScore+"/100":"")+'</span>'
       :'<span class="pill" style="color:#7278A0;border-color:#DDE0ED">To assess</span>';
+    // v10.161 — the no-land-price line must not read as a green light when the residual is negative.
+    // The model RESERVES the target profit and solves for the land value; if that residual is nil or
+    // negative the scheme does NOT support a land payment — say so, don't just say "meets the margin".
     var verdictLine = (boardAskLand>0
         ? (boardMargin>=15?"Strong margin after land":boardMargin>=12?"Viable margin after land":"Marginal at the land price")
-        : "Meets the "+pct(boardMargin)+" target margin on modelled assumptions")+
+        : (rlvV>0
+            ? ("Reserves the "+pct(boardMargin)+" target margin and supports up to "+fmt(rlvV)+" of land")
+            : ("Reserves the "+pct(boardMargin)+" target margin, but the residual land value is "+(rlvV<0?"−"+fmt(Math.abs(rlvV)):"nil")+" — the scheme does NOT support a land payment as modelled")))+
       (ccVerdict==="AVOID"?" · high planning risk":ccVerdict==="CAUTION"?" · planning risk to manage":"");
 
     // Map block: real OSM embed when geocoded, else the indicative plan carries it.
