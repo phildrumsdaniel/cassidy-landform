@@ -46,6 +46,47 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
       });
     }
 
+    // v10.162 — LIVE rents via a data ENDPOINT you own (source-agnostic). A static app can't hold an
+    // API key or fetch licensed/gov data itself, so this POSTs the site to a webhook you configure —
+    // an Apps Script web app, a Zapier zap, or any serverless function — and fills the fields from the
+    // JSON reply. What the endpoint looks up (VOA/ONS official medians, a paid rent API, or a
+    // web-search agent) is YOUR config, swappable without a redeploy. Falls back to the AI estimate.
+    //   Request  (POST, JSON): { postcode, localAuthority, town, beds:[1,2,3,4], scheme:"houses"|"flats" }
+    //   Response (JSON):        { rent1, rent2, rent3, rent4, source, asOf }   (£/month; source is shown)
+    // The endpoint must be CORS-enabled and return JSON synchronously (Apps Script does this natively).
+    function rentsEndpointUrl(){ try{ return (localStorage.getItem("cassidy_rents_endpoint")||"").trim(); }catch(e){ return ""; } }
+    function fetchRentsViaEndpoint(){
+      var url=rentsEndpointUrl();
+      if(!url){ if(typeof notify==="function") notify("Add your rents data endpoint URL first (the ⚙ box below), then click again. It should return JSON {rent1,rent2,rent3,rent4,source}."); return; }
+      var town=(typeof cityName==="function"?cityName(city):city)||"the area";
+      var pc=((l.postcode||rlvD.postcode||"")+"").toUpperCase();
+      var la=((data.planning&&data.planning.lpa)||l.localAuthority||l.lpa||"")+"";
+      var schemeIsHouses=!!((s2&&s2.mix&&s2.mix.length)||(data&&data.assetType==="sfh"));
+      up("capitalise","_aiRentBusy",true);
+      if(typeof notify==="function") notify("Fetching live rents for "+town+" from your data endpoint…");
+      // Content-Type text/plain (body is JSON) avoids a CORS preflight — so a Google Apps Script web
+      // app works as the endpoint without extra config; proper serverless functions accept it too.
+      fetch(url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({postcode:pc,localAuthority:la,town:town,beds:[1,2,3,4],scheme:schemeIsHouses?"houses":"flats"})})
+        .then(function(r){ return r.json(); })
+        .then(function(obj){
+          if(!obj || !(num(obj.rent1)>0||num(obj.rent2)>0||num(obj.rent3)>0||num(obj.rent4)>0)) throw new Error("endpoint returned no rents");
+          setData(function(prev){
+            var c=Object.assign({},prev.capitalise||{});
+            if(num(obj.rent1)>0)c.rent1=String(Math.round(num(obj.rent1)));
+            if(num(obj.rent2)>0)c.rent2=String(Math.round(num(obj.rent2)));
+            if(num(obj.rent3)>0)c.rent3=String(Math.round(num(obj.rent3)));
+            if(num(obj.rent4)>0)c.rent4=String(Math.round(num(obj.rent4)));
+            c.rentSource=obj.source?("live: "+String(obj.source).slice(0,80)):"live data endpoint";
+            c._aiRentBusy=false;
+            return Object.assign({},prev,{capitalise:c});
+          });
+          if(typeof notify==="function") notify("✓ Rents updated from your live endpoint"+(obj.source?(" ("+String(obj.source).slice(0,60)+")"):"")+". Verify against a specific listing before relying on it.");
+        }).catch(function(err){
+          up("capitalise","_aiRentBusy",false);
+          if(typeof notify==="function") notify("Couldn't fetch from the rents endpoint ("+((err&&err.message)||err)+"). Check the URL is a CORS-enabled endpoint returning JSON {rent1..4}, or use the 🤖 AI estimate button.");
+        });
+    }
+
     // ── Bedroom mix input (default from SFH mix if available) ─────────────
     // v9.38 — Improved derivation: handle 1-bed apartment, 4-bed semi, 5-bed detached,
     // executive variants, bungalows. Previously the catch-all fell to 2-bed by default,
@@ -812,11 +853,28 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
           "They often read BELOW current new-build asking rents — which understates the rental / forward-fund value. Click ",e("b",null,"‘AI: research & fill area rents’")," below for figures based on current listings, then verify against live Rightmove / Zoopla."
         ),
         // v10.56 — one-click AI rent research → fills the 1/2/3/4-bed fields with real local rents
-        e("div",{style:{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:12}},
+        // v10.162 — plus a LIVE endpoint button (your own data source via a webhook you configure).
+        e("div",{style:{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:8}},
           e("button",{onClick:aiFillRents, disabled:!!cap._aiRentBusy,
             style:{padding:"8px 14px",background:cap._aiRentBusy?"#9AAAB4":"#2D7A65",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:700,cursor:cap._aiRentBusy?"wait":"pointer",fontFamily:"DM Sans,sans-serif"}},
             cap._aiRentBusy?"⏳ Researching…":"🤖 AI: research & fill area rents"),
-          e("span",{style:{fontSize:10,color:"#9298BC",flex:"1 1 200px",lineHeight:1.5}},"Pulls typical local new-build rents for 1/2/3/4-bed into the fields below (they stay editable). Indicative — verify against live Rightmove/Zoopla listings.")
+          e("button",{onClick:fetchRentsViaEndpoint, disabled:!!cap._aiRentBusy,
+            title:"POSTs this site (postcode, LA, beds) to a data endpoint you configure and fills the fields from its JSON reply. Point it at VOA/ONS official data, a paid rent API, or a web-search agent.",
+            style:{padding:"8px 14px",background:cap._aiRentBusy?"#9AAAB4":"#4A4BAE",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:700,cursor:cap._aiRentBusy?"wait":"pointer",fontFamily:"DM Sans,sans-serif"}},
+            "🔗 Fetch live rents (my endpoint)"),
+          e("span",{style:{fontSize:10,color:"#9298BC",flex:"1 1 180px",lineHeight:1.5}},"AI = model estimate. ‘My endpoint’ = live data from a source YOU own (official VOA/ONS, a paid API, or an agent). Both stay editable — verify a specific unit before relying on it.")
+        ),
+        // v10.162 — configure the rents data endpoint (Apps Script / Zapier / serverless returning JSON).
+        // Held in the browser (not the deal) so it's set once for all deals. Contract in the code comment.
+        e("details",{style:{marginBottom:12,fontSize:11}},
+          e("summary",{style:{cursor:"pointer",color:"#4A4BAE",fontWeight:700,fontSize:10.5,letterSpacing:".03em"}},"⚙ Live-rents data endpoint (set once)"),
+          e("div",{style:{padding:"8px 2px 2px",display:"flex",flexDirection:"column",gap:5}},
+            e("input",{type:"text",defaultValue:rentsEndpointUrl(),placeholder:"https://…  endpoint that returns JSON {rent1,rent2,rent3,rent4,source}",
+              onChange:function(ev){ try{ localStorage.setItem("cassidy_rents_endpoint",(ev.target.value||"").trim()); }catch(e){} },
+              style:{width:"100%",padding:"7px 9px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:11,fontFamily:"DM Mono,monospace,DM Sans"}}),
+            e("div",{style:{fontSize:9.5,color:"#9298BC",lineHeight:1.55}},
+              "The ‘🔗 Fetch live rents’ button POSTs ",e("code",null,"{postcode, localAuthority, town, beds, scheme}")," here and expects ",e("code",null,"{rent1,rent2,rent3,rent4,source}")," back (£/month). Use a Google Apps Script web app, a Zapier zap, or any serverless function that looks up your source — VOA/ONS official medians (free, citable), a licensed rent API, or a web-search agent — and returns JSON. Must be CORS-enabled. Nothing is sent until you click the button.")
+          )
         ),
         // v9.52 — Scheme-type banner + affordable-rent discount radio buttons.
         (function(){
