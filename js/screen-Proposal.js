@@ -1814,7 +1814,7 @@ function renderProposal(city, data, gdv, lc, up, user){
   var exBuyers=[
     {label:"Pension / Sovereign Wealth Fund",buyers:"Aviva, L&G Capital, LGIM, Pension SuperFund, CPP, GIC Singapore",basis:"Long income capitalised at ~4.5%",value:vPension,appetite:aPen},
     {label:"Registered Provider / Housing Association",buyers:"L&Q, Clarion, Sovereign, VIVID, Platform, Midland Heart, Places for People",basis:"Affordable transfer at ~52% of OMV, grant-backed",value:vRpHa,appetite:aRp},
-    {label:"National Housebuilder",buyers:"Barratt Redrow, Persimmon, Vistry, Taylor Wimpey, Bellway",basis:"Residual — GDV less build, fees, finance, ~17.5% profit",value:vHousebuilder,appetite:aHb},
+    {label:"National Housebuilder",buyers:"Barratt Redrow, Persimmon, Vistry, Taylor Wimpey, Bellway",basis:"Residual — GDV less build, fees, finance, ~"+(Math.round((num(M.profitPctTarget)||17.5)*10)/10)+"% profit",value:vHousebuilder,appetite:aHb},
     {label:"BTR Institutional Fund",buyers:"Grainger, Legal & General, M&G, Invesco, Patrizia, Cortland",basis:"NOI capitalised at "+pct(exDealY*100)+" less dev cost & margin",value:vBtrFund,appetite:aBtr},
     {label:"PBSA / Student Fund",buyers:"Unite, Empiric, Scape, Student Roost, Harrison Street, Blackstone",basis:"Student NOI capitalised at ~6.0% less dev cost & margin",value:vPbsaFund,appetite:aPbsa}
   ].sort(function(a,b){return b.value-a.value;});
@@ -2046,7 +2046,7 @@ function renderProposal(city, data, gdv, lc, up, user){
             apRow("Section 106 / planning obligations","",s106V>0?fmt(s106V):"To confirm")+
             apRow("Fees, contingency &amp; finance","","included")+
             apRow("Developer profit",boardAskLand>0?"margin on GDV, after land":"target margin on GDV, at the residual land value",isFinite(boardMargin)&&boardMargin?pct(boardMargin):"—")+
-            apRowSum("Supportable residual land value","on consent",rlvV>0?fmt(rlvV):"—")+
+            apRowSum("Supportable residual land value","on consent",(isFinite(rlvV)&&rlvV<0)?'<span style="color:#B05A35">−'+fmt(Math.abs(rlvV))+'</span>':(rlvV>0?fmt(rlvV):"—"))+
             (ask>0?apRow("Guide price","current",fmt(ask)):"")+
             (headroom>0?apRowSum("Indicative headroom to residual value","",'<span style="color:#2D7A65">'+fmt(headroom)+'</span>'):"")+
           '</table></div>'+
@@ -2054,7 +2054,7 @@ function renderProposal(city, data, gdv, lc, up, user){
             '<li><b>Scheme size —</b> ~'+esc(acres||"—")+' acres at ~'+(density||"—")+' homes/acre ≈ <b>'+(units?units.toLocaleString():"—")+' homes</b> (density set on the Keystone stage; trimmed for net developable area, constraints and open space).</li>'+
             '<li><b>Gross Development Value —</b> the '+(units?units.toLocaleString():"")+' homes valued at their sale prices'+(ahPct?', blended across the '+(100-ahPct)+'% open-market / '+ahPct+'% affordable split — affordable valued at its realisable transfer value, not full open market':'')+' = <b>'+fmt(gdvV)+'</b>'+((units&&gdvV)?' (≈'+fmt(gdvV/units)+' per home blended)':'')+'.</li>'+
             '<li><b>Development cost —</b> build &amp; infrastructure '+(buildTot>0?fmt(buildTot):'per the cost plan')+', Section 106 '+(s106V>0?fmt(s106V):'to confirm')+', plus professional fees, contingency and development finance.</li>'+
-            '<li><b>Residual land value —</b> GDV less all development costs less the target developer profit = <b>'+(rlvV>0?fmt(rlvV):'—')+'</b> — the maximum land price the scheme can support at target return, on consent.</li>'+
+            '<li><b>Residual land value —</b> GDV less all development costs less the target developer profit = <b>'+((isFinite(rlvV)&&rlvV<0)?'<span style="color:#B05A35">−'+fmt(Math.abs(rlvV))+'</span>':(rlvV>0?fmt(rlvV):'—'))+'</b> — the maximum land price the scheme can support at target return, on consent.</li>'+
             '<li><b>Developer margin —</b> '+(isFinite(boardMargin)&&boardMargin?pct(boardMargin):'—')+(boardAskLand>0?' of GDV at the '+fmt(boardAskLand)+' land price.':' of GDV — the target margin, taken at the residual land value (a land price above the RLV reduces it).')+'</li>'+
           '</ul></div></section>'+
         // 05 exit routes & yield sensitivity
@@ -2536,7 +2536,7 @@ function renderProposal(city, data, gdv, lc, up, user){
     e("div",{style:Object.assign({},S.card,{background:"linear-gradient(160deg,#1E1F5C,#26286e)",color:"#EDEEFB",border:"none"})},
       e("div",{style:{fontSize:10,letterSpacing:".15em",textTransform:"uppercase",color:"#C9A227",fontWeight:700,marginBottom:10}},"Preview — headline figures"),
       e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:1,background:"rgba(255,255,255,0.12)",border:"1px solid rgba(255,255,255,0.14)",borderRadius:8,overflow:"hidden"}},
-        [["Gross Dev. Value",gdvV>0?fmt(gdvV):"—"],["New homes",units?units.toLocaleString():"—"],["Guide price",ask>0?fmt(ask):"—"],["Residual land value",rlvV>0?fmt(rlvV):"—"],["Dev margin"+(boardAskLand>0?"":" (target)"),isFinite(boardMargin)&&boardMargin?pct(boardMargin):"—"],["Planning",planStatus]].map(function(it){
+        [["Gross Dev. Value",gdvV>0?fmt(gdvV):"—"],["New homes",units?units.toLocaleString():"—"],["Guide price",ask>0?fmt(ask):"—"],["Residual land value",(isFinite(rlvV)&&rlvV<0)?"−"+fmt(Math.abs(rlvV)):(rlvV>0?fmt(rlvV):"—")],["Dev margin"+(boardAskLand>0?"":" (target)"),isFinite(boardMargin)&&boardMargin?pct(boardMargin):"—"],["Planning",planStatus]].map(function(it){
           return e("div",{key:it[0],style:{background:"rgba(14,15,40,0.4)",padding:"12px 14px"}},
             e("div",{style:{fontSize:18,fontWeight:800,color:"#fff",fontFamily:"Georgia,serif"}},it[1]),
             e("div",{style:{fontSize:9,color:"#AEB2E4",marginTop:4,textTransform:"uppercase",letterSpacing:".04em"}},it[0]));

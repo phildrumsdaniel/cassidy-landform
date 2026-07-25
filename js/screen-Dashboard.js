@@ -299,6 +299,32 @@ function renderDashboard(ALL_STAGES, JOURNEYS, at, city, data, effUnits, ey, gdv
         );
       })(),
 
+      // v10.158 — PLANNING CONSISTENCY cross-check (forensic-audit finding: the planning stage,
+      // constraint verdict, risk level and Dashboard banner can disagree — e.g. status "Outline
+      // consent" while the Constraint Check rates the site AVOID and risk is only "Medium"). These
+      // are set by separate AI calls that don't cross-validate, so rather than silently pick one, we
+      // SURFACE the contradiction so it's checked before the consented figures are relied on.
+      (function(){
+        var pl = data.planning || {};
+        var status = String(pl.status||"").toLowerCase();
+        var statusClaimsConsent = /outline|full|granted|consented|approved|detailed/.test(status) && !/refus|withdraw|none|unallocated|pre-?app/.test(status);
+        var rlLvl = String(pl.riskLevel||"").toLowerCase();
+        var cc = (data.constraintCheck && data.constraintCheck.results) || {};
+        var ccVerdict = String(cc.verdict||"").toUpperCase();
+        var contradicts = statusClaimsConsent && (rlLvl==="high" || ccVerdict==="AVOID");
+        var benignRiskVsAvoid = ccVerdict==="AVOID" && (rlLvl==="low" || rlLvl==="medium");
+        if(!contradicts && !benignRiskVsAvoid) return null;
+        var bits=[];
+        if(statusClaimsConsent) bits.push("Planning Status says ‘"+(pl.status||status)+"’ (a consent secured)");
+        if(ccVerdict) bits.push("the Constraint Check rates the site "+ccVerdict);
+        if(rlLvl) bits.push("planning risk is "+rlLvl);
+        return e("div",{style:{margin:"6px 0 14px",padding:"12px 16px",background:"rgba(176,90,53,0.08)",border:"1px solid #B05A35",borderLeft:"5px solid #B05A35",borderRadius:8,fontSize:12,color:"#7A2E1A",lineHeight:1.55}},
+          e("div",{style:{fontSize:10,letterSpacing:".12em",textTransform:"uppercase",fontWeight:800,color:"#B05A35",marginBottom:3}},"⚠ Planning position looks inconsistent across stages"),
+          e("div",null, bits.join(" · ")+". "+(statusClaimsConsent?"A site with a real consent would not normally rate AVOID or high planning risk — the stated status may be optimistic (these are set by separate AI passes that don't cross-check). ":"An AVOID constraint verdict usually implies HIGH planning risk, not "+rlLvl+". ")+"Verify the true planning position before relying on the consented figures — the appraisal assumes consent, so if it isn't actually secured these are the upside, not today's value."),
+          e("button",{onClick:function(){navTo("planning");},style:{marginTop:8,padding:"6px 13px",background:"transparent",border:"1px solid #B05A35",color:"#B05A35",borderRadius:4,fontSize:10,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Reconcile on Planning →")
+        );
+      })(),
+
       // Reconciliation note: explain why RLV's margin and Dashboard's margin look different
       gdv>0 && tc>0 && num((data.land&&data.land.price)||0) > 0 && e("div",{style:{margin:"6px 0 14px",padding:"10px 14px",background:"rgba(74,75,174,0.05)",border:"1px solid rgba(74,75,174,0.2)",borderRadius:6,fontSize:11,color:"#3A3D6A",lineHeight:1.6}},
         e("strong",{style:{color:"#1E1F5C"}},"ℹ Why does this differ from the RLV stage? "),

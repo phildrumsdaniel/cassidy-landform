@@ -316,6 +316,16 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
           grantInc > 0 && grantToRlv <= 0 && e("div", { style:{ fontSize:10.5, color:"#1B7A54", marginTop:5, lineHeight:1.5 } },
             grantMode === "rp" ? ("Affordable grant (AHP) of "+fmt(grantInc)+" is passed to a Registered Provider to fund the affordable homes — neutral to this land value and to margin.")
                                : ("Affordable grant (AHP) of "+fmt(grantInc)+" is treated as developer-margin upside — the land is priced WITHOUT it (not capitalised into the land). Switch to a competitive land bid on the Grants page to add it to the land value.")),
+          // v10.157 — when NO grant is modelled but the scheme is affordable-heavy, surface the grant
+          // ELIGIBILITY ASSUMPTION here (reported: a non-stacking deal was flagged eligible on the Grants
+          // page but the appraisal showed nothing about grant). Indicative — a real prompt to model it.
+          !(grantInc > 0) && (function(){
+            var ge = (typeof grantEligibilityFor === "function") ? grantEligibilityFor(effData) : null;
+            if(!ge || !ge.eligible) return null;
+            return e("div", { style:{ fontSize:10.5, color:"#8A6A2E", background:"rgba(154,123,62,0.08)", border:"1px solid rgba(154,123,62,0.3)", borderRadius:5, padding:"7px 9px", marginTop:6, lineHeight:1.5 } },
+              e("b", null, "◐ Grant not modelled — may be AHP-eligible. "),
+              "With "+ge.affordableHomes+" affordable homes this scheme is indicatively eligible for ~"+fmt(ge.indicativeAhp)+" of Homes England AHP grant (≈£"+Math.round(ge.perHome/1000)+"k/home). It isn't in the figures above; under the default treatment it's margin upside (roughly +"+(Math.round(ge.marginUpliftPts*10)/10)+" pts on GDV) — which can turn a marginal scheme viable. Model it on the Grants stage (needs a Registered Provider partner + Homes England). Indicative.");
+          })(),
           e("div", { style:{ fontSize:10.5, color:"#9298BC", marginTop:5, lineHeight:1.5 } }, "The most the land is worth to us at "+(Math.round(profitPct*10)/10)+"% profit — "+fmt(rlvPerPlot)+"/plot"+(acres > 0 ? " · "+fmt(rlvPerAcre)+"/acre" : "")+".")
         ),
         // The land test
