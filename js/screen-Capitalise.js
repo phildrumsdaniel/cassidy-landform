@@ -20,8 +20,13 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
       var pc=((l.postcode||rlvD.postcode||"")+"").toUpperCase();
       up("capitalise","_aiRentBusy",true);
       if(typeof notify==="function") notify("Researching "+town+" market rents…");
-      var sys="You are a UK lettings valuer. Output STRICT JSON only — no prose, no markdown fences. Figures are indicative and to be verified against live listings.";
-      var prompt="Give typical CURRENT achieved MONTHLY market rents (£ per month) to let a NEW-BUILD home in "+town+" ("+(pc||"postcode unknown")+"). Reflect the REAL local market for this specific area, not a national average. Output EXACTLY this JSON: {\"rent1\":<1-bed>,\"rent2\":<2-bed>,\"rent3\":<3-bed>,\"rent4\":<4-bed>}. Whole numbers only — no £ signs or commas.";
+      // v10.159 — rents were reading LOW vs a fresh listings search. Two causes fixed here:
+      // (1) the prompt asked for "typical ACHIEVED" rents (which skew below what's advertised) and
+      //     didn't anchor on CURRENT Rightmove/Zoopla asking rents for NEW-BUILD in the postcode;
+      // (2) it wasn't scheme-aware — a 3/4-bed HOUSE rents well above a flat of the same beds.
+      var schemeIsHouses = !!((s2 && s2.mix && s2.mix.length) || (data && data.assetType === "sfh"));
+      var sys="You are a UK lettings valuer pricing NEW-BUILD homes to let. Base every figure on what is ACTUALLY being advertised RIGHT NOW on Rightmove and Zoopla for THIS postcode area — current ASKING rents for new / nearly-new stock, NOT a national average and NOT older cheaper stock. New-build commands a premium over the general market; reflect it. Do not round down or be cautious — give the realistic current market figure. Output STRICT JSON only, no prose or markdown.";
+      var prompt="Current MONTHLY ASKING rents (£/month) to let a NEW-BUILD "+(schemeIsHouses?"HOUSE (family home)":"home")+" in "+town+" ("+(pc||"postcode unknown")+"). Use the MEDIAN of CURRENT Rightmove / Zoopla listings for new or recent new-build in this postcode area (asking rents — achieved is typically only ~2-3% below asking). "+(schemeIsHouses?"These are HOUSES, not flats — a 3-bed or 4-bed house rents well above a flat of the same bed count, so price them as houses. ":"")+"Give one figure per size. Output EXACTLY this JSON: {\"rent1\":<1-bed>,\"rent2\":<2-bed>,\"rent3\":<3-bed>,\"rent4\":<4-bed>}. Whole numbers only — no £ signs or commas.";
       callAI(user,"capitalise",sys,prompt).then(function(res){
         var a=res.indexOf("{"), b=res.lastIndexOf("}");
         var obj=JSON.parse((a>=0&&b>a)?res.substring(a,b+1):res);
@@ -798,6 +803,13 @@ function renderCapitalise(LiveMarketBanner, city, data, setData, up, user){
 
         e("div",{style:{fontSize:10,color:"#7278A0",marginBottom:8}},
           "Rents auto-populated from "+rentSourceLabel+" at 100% of the local market. Adjust to match your scheme, or research real local rents with AI. Area rent: 1-bed £"+rent1+"/mo, 2-bed £"+rent2+", 3-bed £"+rent3+", 4-bed £"+rent4+"/mo."
+        ),
+        // v10.159 — nudge when the rents are the conservative market-table BASELINE (not AI-researched
+        // or verified): it often reads below current new-build asking rents, which understates the
+        // capitalised / forward-fund value. Reported: Landform rents came in lower than a live search.
+        (cap.rentSource !== "AI market research" && !(_vRents && _vRents.label)) && e("div",{style:{fontSize:10.5,color:"#8A6A2E",background:"rgba(154,123,62,0.08)",border:"1px solid rgba(154,123,62,0.3)",borderRadius:5,padding:"7px 9px",marginBottom:8,lineHeight:1.5}},
+          e("b",null,"◐ These are a conservative area baseline (market table). "),
+          "They often read BELOW current new-build asking rents — which understates the rental / forward-fund value. Click ",e("b",null,"‘AI: research & fill area rents’")," below for figures based on current listings, then verify against live Rightmove / Zoopla."
         ),
         // v10.56 — one-click AI rent research → fills the 1/2/3/4-bed fields with real local rents
         e("div",{style:{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:12}},
