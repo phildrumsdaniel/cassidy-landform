@@ -300,7 +300,12 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
           e("div", { style:S.cardTitle }, "2 · The appraisal"),
           e("div", { style:{ display:"flex", justifyContent:"space-between", padding:"4px 0", fontSize:13, fontWeight:700, color:"#2E2F8A", borderBottom:"2px solid #DDE0ED", marginBottom:4 } },
             e("span", null, homes.toLocaleString()+" homes sold"), e("span", null, fmt(gdv))),
-          costRow("Build ("+buildSqft.toLocaleString()+" sqft @ £"+effBuildPsf+")", num(M.buildCost)),
+          // v10.168 — show the EFFECTIVE build rate that actually produces this cost (buildCost ÷ sqft),
+          // not the scheme-level £/sqft. When the house-type rows carry their own build rates (e.g.
+          // £168–199 across terrace→detached), the scheme rate (e.g. £250) is NOT what's used — the
+          // label used to print it and overstate the rate a board would quote. Now it reads the real
+          // blended rate and matches the £ figure.
+          costRow("Build ("+buildSqft.toLocaleString()+" sqft @ £"+(buildSqft>0?Math.round(num(M.buildCost)/buildSqft):effBuildPsf)+"/sqft)", num(M.buildCost)),
           num(M.fees) > 0 && costRow("Professional fees", num(M.fees)),
           num(M.contingency) > 0 && costRow("Contingency", num(M.contingency)),
           costRow("Finance ("+(num(M.financeProgYears)||"?")+"yr · peak "+(num(M.financePeakDebtPct)||"?")+"% · "+finRate+"% pa, S-curve)", num(M.finance)),
