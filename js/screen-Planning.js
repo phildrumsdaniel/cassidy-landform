@@ -130,7 +130,10 @@ function renderPlanning(at, data, navTo, setData, setJourney, units, up, user){
           // v9.18 — Affordable Housing % field now shown for ALL scheme types (was BTR-only)
           // Also writes to BOTH ahPct AND afhPct so any reader of either name gets the value
           e(Inp,{label:"Affordable Housing %",type:"number",value:p.ahPct||p.afhPct||"",onChange:function(v){
-            setData(function(prev){return Object.assign({},prev,{planning:Object.assign({},prev.planning||{},{ahPct:v,afhPct:v})});});
+            // v10.167 — go through up() so the change PROPAGATES to sfh.ahPct / tenure.ahPct (and the
+            // legacy planning.afhPct) via the shared-field groups, instead of a raw setData that only
+            // wrote the planning object — which let Planning & Viability drift from the Quick Appraisal.
+            up("planning","ahPct",v);
           },placeholder:at==="sfh"?"30":"25"}),
           // v9.18 — S106 per unit field — clearer than total when units change
           e(Inp,{label:"S106 / CIL per Unit (£)",type:"number",value:p.s106pu||"",onChange:function(v){up("planning","s106pu",v);},placeholder:"8000"}),

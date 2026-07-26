@@ -324,6 +324,49 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
         );
       })(),
 
+      // v10.169 — Services & externals costing per developable acre and per plot, ALWAYS visible.
+      // Reported by Phil: the "Auto-cost build/type" button fills BCIS *construction-only* house
+      // rates (~£165–200/sqft) while the all-in toggle stays ON — which zeros roads (£/plot),
+      // drainage/SuDS/site-infra (£53k/developable acre), professional fees and contingency. The
+      // services then silently drop out of the cost and the land value reads high. This surface
+      // shows what those externals actually cost by acreage and per plot, and warns when an
+      // "all-in" rate is too low to genuinely contain them (use ~£250 all-in, or untick the box).
+      (function(){
+        if(!(totalUnits>0)) return e("div",null);
+        var totSqft = houseCalcs.reduce(function(a,h){return a+h.sqft*h.count;},0);
+        var avgSqft = totSqft>0 ? totSqft/totalUnits : 0;
+        var infraPerAcre = 53000;
+        var infraPerPlot = sAcres>0 ? (sAcres*infraPerAcre)/totalUnits : 0;
+        var svcPerPlot = roads + infraPerPlot;                          // roads/sewers + drainage/SuDS/infra
+        var svcPsf = avgSqft>0 ? svcPerPlot/avgSqft : 0;
+        var feeContPsf = sBuild*((sFeesPct+sCont)/100);                 // pro fees + contingency, per sqft
+        // Weighted BCIS construction-only benchmark for THIS mix (no fees/externals).
+        var benchPsf = houseCalcs.reduce(function(a,h){return a + (typeof typicalBuildPsf==="function"?typicalBuildPsf(h.type,{city:sfhCity,tier1:!!s.tier1Build}):sBuild)*h.count;},0)/totalUnits;
+        var honestAllInPsf = Math.round(benchPsf + benchPsf*((sFeesPct+sCont)/100) + svcPsf);
+        // A rate marked all-in but sitting at/below the construction-only benchmark isn't really
+        // all-in — the services & fees are being zeroed with nothing standing in for them.
+        var understated = buildInclusive && sBuild <= benchPsf + 12 && svcPsf > 0;
+        var acreBit = sAcres>0
+          ? "£"+infraPerAcre.toLocaleString()+"/developable acre × "+sAcres+" ac = £"+Math.round(sAcres*infraPerAcre).toLocaleString()
+          : "£"+infraPerAcre.toLocaleString()+"/developable acre (enter Site Area to resolve)";
+        return e("div",{style:{margin:"-8px 0 14px",padding:"12px 14px",background:"rgba(243,244,248,0.6)",border:"1px solid #E0E2EC",borderRadius:6,fontSize:11,color:"#3A3D6A",lineHeight:1.6}},
+          e("div",{style:{fontWeight:700,marginBottom:4,fontSize:12}},"🚧 Services & externals — costed by acreage"),
+          e("div",null,
+            "Roads & sewers (S38/S104) £"+Math.round(roads).toLocaleString()+"/plot + drainage, SuDS & site infrastructure "+acreBit+
+            (sAcres>0?" ≈ ":" — ")+
+            (sAcres>0?"£"+Math.round(svcPerPlot).toLocaleString()+"/plot (≈ £"+Math.round(svcPsf)+"/sqft) across "+totalUnits+" homes.":"add Site Area for a £/plot figure.")
+          ),
+          understated
+            ? e("div",{style:{marginTop:8,padding:"9px 12px",background:"rgba(176,90,53,0.09)",border:"1px solid rgba(176,90,53,0.4)",borderRadius:6,color:"#B05A35",fontWeight:600}},
+                "⚠ Your build rate £"+Math.round(sBuild)+"/sqft is marked all-in, but that's the BCIS construction-only level for this mix (≈ £"+Math.round(benchPsf)+"/sqft). With the toggle on, services (≈ £"+Math.round(svcPsf)+"/sqft) plus fees & contingency (≈ £"+Math.round(feeContPsf)+"/sqft) are being zeroed with nothing replacing them. A genuine all-in rate here is ≈ £"+honestAllInPsf+"/sqft — set that (or ~£250), or untick the all-in box to add these as explicit lines."
+              )
+            : (buildInclusive
+                ? e("div",{style:{marginTop:6,fontSize:10,color:"#7278A0"}},"All-in toggle is on, so these are assumed inside your £"+Math.round(sBuild)+"/sqft build rate (≈ £"+honestAllInPsf+"/sqft is a genuine all-in level for this mix). Untick the box to add them as separate lines.")
+                : e("div",{style:{marginTop:6,fontSize:10,color:"#7278A0"}},"All-in toggle is off, so these are added below as explicit Roads & Sewers and Site Infra & SuDS lines.")
+              )
+        );
+      })(),
+
       LiveMarketBanner(),
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Site Details"),
@@ -589,18 +632,36 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
               );
             })
           ),
-          !isRent && e("div",{style:{marginTop:12,padding:"11px 13px",background:"rgba(45,122,101,0.06)",border:"1px solid rgba(45,122,101,0.3)",borderRadius:7,display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:10,alignItems:"center"}},
-            e("div",{style:{fontSize:12,color:"#3A3D6A",lineHeight:1.6,flex:1,minWidth:240}},
-              e("strong",{style:{color:"#1B7A54"}},"Optimised mix (same land): "),
-              opt.optimised.units.toLocaleString()+" homes · GDV "+fmt(opt.optimised.gdv)+" · ",
-              e("strong",null,fmt(opt.optimised.surplus)+" for land + profit"),
-              " — ",
-              e("strong",{style:{color:opt.uplift>=0?"#1B7A54":"#B05A35"}},(opt.uplift>=0?"+":"−")+fmt(Math.abs(opt.uplift))+" ("+Math.round(opt.upliftPct)+"%)"),
-              " vs your current "+opt.current.units.toLocaleString()+" ("+fmt(opt.current.surplus)+")."
-            ),
-            opt.uplift>10000 && e("button",{onClick:function(){ up("sfh","mix",opt.optimised.mix); if(typeof notify==="function") notify("Applied the optimised mix — "+opt.optimised.units.toLocaleString()+" homes, "+fmt(opt.optimised.surplus)+" for land + profit."); },
-              style:{padding:"9px 15px",background:"#2D7A65",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"Apply optimised mix →")
-          ),
+          // v10.170 — the summary + Apply button now render in BOTH modes. Rent mode reports
+          // gross ANNUAL MARKET RENT and rent per acre (income), not sale surplus.
+          !isRent
+            ? e("div",{style:{marginTop:12,padding:"11px 13px",background:"rgba(45,122,101,0.06)",border:"1px solid rgba(45,122,101,0.3)",borderRadius:7,display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:10,alignItems:"center"}},
+                e("div",{style:{fontSize:12,color:"#3A3D6A",lineHeight:1.6,flex:1,minWidth:240}},
+                  e("strong",{style:{color:"#1B7A54"}},"Optimised mix (same land): "),
+                  opt.optimised.units.toLocaleString()+" homes · GDV "+fmt(opt.optimised.gdv)+" · ",
+                  e("strong",null,fmt(opt.optimised.surplus)+" for land + profit"),
+                  " — ",
+                  e("strong",{style:{color:opt.uplift>=0?"#1B7A54":"#B05A35"}},(opt.uplift>=0?"+":"−")+fmt(Math.abs(opt.uplift))+" ("+Math.round(opt.upliftPct)+"%)"),
+                  " vs your current "+opt.current.units.toLocaleString()+" ("+fmt(opt.current.surplus)+")."
+                ),
+                opt.uplift>10000 && e("button",{onClick:function(){ up("sfh","mix",opt.optimised.mix); if(typeof notify==="function") notify("Applied the optimised mix — "+opt.optimised.units.toLocaleString()+" homes, "+fmt(opt.optimised.surplus)+" for land + profit."); },
+                  style:{padding:"9px 15px",background:"#2D7A65",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"Apply optimised mix →")
+              )
+            : e("div",{style:{marginTop:12,padding:"11px 13px",background:"rgba(74,75,174,0.06)",border:"1px solid rgba(74,75,174,0.3)",borderRadius:7,display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:10,alignItems:"center"}},
+                e("div",{style:{fontSize:12,color:"#3A3D6A",lineHeight:1.6,flex:1,minWidth:240}},
+                  e("strong",{style:{color:"#4A4BAE"}},"Rent-optimised mix (same land): "),
+                  opt.optimised.units.toLocaleString()+" homes · ",
+                  e("strong",null,fmt(opt.optimised.rentPa)+"/yr gross rent"),
+                  (opt.optimised.rentPerAcre>0?" · "+fmt(opt.optimised.rentPerAcre)+"/acre·yr":""),
+                  " — ",
+                  e("strong",{style:{color:opt.rentUplift>=0?"#4A4BAE":"#B05A35"}},(opt.rentUplift>=0?"+":"−")+fmt(Math.abs(opt.rentUplift))+"/yr ("+Math.round(opt.rentUpliftPct)+"%)"),
+                  " vs your current "+opt.current.units.toLocaleString()+" ("+fmt(opt.current.rentPa)+"/yr)."
+                ),
+                opt.rentUplift>5000 && e("button",{onClick:function(){ up("sfh","mix",opt.optimised.mix); if(typeof notify==="function") notify("Applied the rent-optimised mix — "+opt.optimised.units.toLocaleString()+" homes, "+fmt(opt.optimised.rentPa)+"/yr gross market rent. Tenure set to private — layer your affordable % back on (it trims rent)."); },
+                  style:{padding:"9px 15px",background:"#4A4BAE",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"Apply rent-optimised mix →")
+              ),
+          isRent && e("div",{style:{marginTop:8,fontSize:10,color:"#9298BC",lineHeight:1.5}},
+            "Gross MARKET rent (private tenure), holding the developable floor area constant — so it maximises rent per acre, not just per home. Applying it sets every row to private; your policy affordable % is layered back on separately and reduces the figure (affordable homes rent at 55–60% of market). Verify rents against live listings."),
           // v10.46 — tunable mix bounds (how concentrated the optimised mix can get per type).
           e("div",{style:{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginTop:10,fontSize:11,color:"#7278A0"}},
             e("span",{style:{fontWeight:700}},"Mix bounds per type:"),

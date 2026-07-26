@@ -36,8 +36,12 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.166";
+var CURRENT_VERSION = "10.170";
 var VERSION_HISTORY = [
+  {v:"10.170", date:"Jul 2026", headline:"The SFH Mix Optimiser's ‘🏠 For rent’ tab is now a REAL rent optimiser — it maximises rental income, not just ranks types. Before, the rent tab only showed a ranking table (rent/mo, gross yield, rent per sqft) with NO optimised-mix output and NO income total — the ‘Optimised mix (same land)’ summary and the ‘Apply’ button rendered in the ‘For sale’ (profit) mode only, so on the rent tab there was nothing to act on. Now the rent tab computes and shows the rent-optimised mix: total homes, GROSS ANNUAL MARKET RENT, rent per acre per year, and the £/yr uplift (and %) versus your current mix — with an ‘Apply rent-optimised mix →’ button. The optimiser reallocates the SAME developable floor area toward the highest rent-per-sqft house types (within your per-type min/max bounds), so it maximises rent PER ACRE, not just per home. Applying it sets rows to private (market) tenure; a caption states the policy affordable % is layered back on separately and trims the figure (affordable homes rent at 55–60% of market), and that rents are area estimates to verify against live listings. Engine: optimiseSfhMix now returns rentPa / rentPerAcre for the current and optimised mixes and the rent uplift, computed from the same areaRentPcm benchmark capitalisation uses. Built at Phil's request for a mix that maximises rental income."},
+  {v:"10.169", date:"Jul 2026", headline:"SFH now SHOWS what services & externals cost by acreage, and warns when an ‘all-in’ build rate is too low to contain them — the trap Phil hit on a 140-home scheme. The ‘Auto-cost build/type’ button fills BCIS *construction-only* house rates (~£165–200/sqft), but if the ‘Build £/sqft is all-in’ toggle is left ON, the model ZEROES roads (£12k/plot, S38/S104), drainage/SuDS/site-infrastructure (£53k/developable acre), professional fees (12%) and contingency (5%) — so those services silently drop out and the residual land value reads high. A new always-visible ‘🚧 Services & externals — costed by acreage’ panel on the SFH stage now spells out the roads £/plot + infra £53k/developable-acre (× the site's acres) = £/plot and ≈ £/sqft, so the by-acreage cost is explicit whether the toggle is on or off. When the all-in toggle is on AND the entered rate sits at/below the construction-only benchmark for the actual house mix, it shows a red warning: the rate is really construction-only, services (≈ £X/sqft) + fees & contingency (≈ £Y/sqft) are being zeroed with nothing replacing them, and a genuine all-in level for this mix is ≈ £Z/sqft (use that or ~£250, or untick the box to add the lines explicitly). No engine-value change — it surfaces the existing £53k/acre + £12k/plot services costing and guards against understating build cost. Flagged by Phil: ‘BCIS rates don't cover the services in real terms if the toggle is on; £250 is what I was advised typical.’"},
+  {v:"10.168", date:"Jul 2026", headline:"Fix: the Quick Appraisal's Build line no longer quotes the wrong £/sqft. It read ‘Build (262,290 sqft @ £250)’ — the SCHEME-level build rate — even when the house-type rows carry their own differentiated rates (e.g. £168 terrace → £199 detached) that the engine actually uses, so the £ figure (the real build cost) reflected the lower blended rate while the LABEL still said £250. A board reader could quote £250 as the build rate when the appraisal is really running ~£182/sqft. The label now shows the EFFECTIVE rate (total build cost ÷ total sqft), so the rate and the £ always agree. Purely the label — the build cost, RLV and margin are unchanged. Flagged by a Maldon deal review."},
+  {v:"10.167", date:"Jul 2026", headline:"Fix: the Affordable Housing % on Planning & Viability now PROPAGATES to the Quick Appraisal, SFH House Mix and Tenure Mix (and vice-versa) — reported: Planning showed 35% while the Quick Appraisal showed 30% for the same deal, which matters because affordable % drives GDV. Cause: the Planning affordable-% input wrote the value with a RAW setData straight to the planning object (planning.ahPct / afhPct), bypassing the shared-field propagation that keeps the figure in sync across stages — so a change made on Planning never reached sfh.ahPct (what the Quick Appraisal reads). It now writes through up() like every other shared input, and the legacy ‘afhPct’ key joins the shared-field group, so editing the affordable % ANYWHERE updates it everywhere and the two pages can't drift. (Existing deals already split will reconcile on next load or the next edit; enter the correct % once and it flows through.) No engine-value change — propagation wiring."},
   {v:"10.166", date:"Jul 2026", headline:"Clarity fix: the SFH House Mix table's ‘Build £’ column is now labelled ‘Build £/sqft’ (and the sale column ‘Sale £/sqft’). The column shows the build RATE per square foot (e.g. £168), exactly like the sale £/sqft beside it — but the header ‘Build £’ read like a total, so a 1-bed (550 sqft) and a 2-bed (720 sqft) both showing £168 looked wrong (‘why do different sizes cost the same to build?’). They don't: £168 is the RATE; the TOTAL build cost is size × rate, so the 720 sqft home costs more to build in total. Build £/sqft legitimately varies little by size — it's driven by house FORM and spec (terrace < semi < detached: ~£168 → £199 here), not bed count — unlike sale price. Relabelling the two rate columns makes that unambiguous. No number change."},
   {v:"10.165", date:"Jul 2026", headline:"Fix: the SFH House Mix ‘Reset £/sqft to base’ and ‘Auto-cost build / type’ buttons now CONFIRM what they did, so they no longer look broken. Reported: clicking ‘Reset £/sqft to base’ appeared to do nothing. It was working — it resets every row to the base sale £/sqft — but with no on-screen message AND rows that were already at the base £/sqft, a correct click had no visible effect, so it read as ‘button not working’. Both buttons now show a confirmation: ‘✓ All N rows reset to £367/sqft (unit prices refreshed)…’ and ‘✓ Build £/sqft set from the benchmark on all N rows…’, so you always see the action land even when the figures don't change. No logic change — feedback only."},
   {v:"10.164", date:"Jul 2026", headline:"Fix: the SFH House Mix ‘Auto-price sale / type’ button's label and tooltip were misleading — it looked broken. The tooltip said it set each row's sale £/sqft to ‘Base Sale £/sqft × the house-type adjustment’, implying it would DIFFERENTIATE the £/sqft by house type. But the per-type sale adjustment (HOUSE_TYPES.adj) is deliberately 1.00 for every house type — sale £/sqft has been FLAT across types since v10.43 (bigger/detached homes don't get an inflated £/sqft; unit prices still vary because floor area does). So clicking it correctly left every row at the base £/sqft — working as designed, not broken, but the copy promised something it doesn't do. It's now labelled ‘💷 Reset £/sqft to base’ with an accurate tooltip: it resets every row to the flat base £/sqft (to push a Base Sale £/sqft change through the mix), does NOT vary £/sqft by type, and OVERWRITES any per-type £/sqft that ‘Complete with AI’ or a manual edit set. To actually differentiate sale prices by type, use ‘Complete with AI’ (researches per-type prices) or enter real comps per row. No engine change. Flagged by direct testing on the Maldon deal."},
@@ -3332,13 +3336,25 @@ function optimiseSfhMix(data, mode, opts){
     var m = computeSFHMetrics(Object.assign({}, data, { sfh: Object.assign({}, sfh, { mix:mix }) }));
     var acres = num(sfh.acres) || num(data.land && data.land.acres) || 0;
     var surplus = num(m.gdv) - num(m.devCost);                    // £ available for LAND + developer PROFIT
-    return { units:num(m.totalUnits), gdv:num(m.gdv), rlv:num(m.rlv), surplus:surplus, surplusPerAcre: acres > 0 ? surplus / acres : 0 };
+    // v10.170 — gross ANNUAL MARKET rent of the mix, so the "For rent" tab can optimise on income,
+    // not just sale surplus. Market rent (private tenure) — the policy affordable % trims this and is
+    // layered on separately. Uses the same area rent benchmark (areaRentPcm) the capitalisation reads.
+    var rentPa = (mix || []).reduce(function(a, r){
+      var info = HOUSE_TYPES[r.type] || { beds:3 };
+      var beds = numOr(r.beds, info.beds || 3);
+      var rpm = (typeof areaRentPcm === "function") ? areaRentPcm(data, beds) : 0;
+      return a + num(r.count) * rpm * 12;
+    }, 0);
+    return { units:num(m.totalUnits), gdv:num(m.gdv), rlv:num(m.rlv), surplus:surplus, surplusPerAcre: acres > 0 ? surplus / acres : 0,
+      rentPa:rentPa, rentPerAcre: acres > 0 ? rentPa / acres : 0 };
   }
   var current = totals(sfh.mix || []);
   var optimised = totals(optMix); optimised.mix = optMix;
   return { mode:mode, types:types, current:current, optimised:optimised,
     uplift: optimised.surplus - current.surplus,
-    upliftPct: current.surplus > 0 ? ((optimised.surplus - current.surplus) / current.surplus * 100) : 0 };
+    upliftPct: current.surplus > 0 ? ((optimised.surplus - current.surplus) / current.surplus * 100) : 0,
+    rentUplift: optimised.rentPa - current.rentPa,
+    rentUpliftPct: current.rentPa > 0 ? ((optimised.rentPa - current.rentPa) / current.rentPa * 100) : 0 };
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -3478,7 +3494,10 @@ var SHARED_FIELD_GROUPS = [
   // page too (it stored its own total and lagged behind a units change).
   [["planning","units"],["land","units"],["rlv","units"],["fin","units"],["tenure","totalUnits"]],
   // ── Affordable housing % ──
-  [["planning","ahPct"],["sfh","ahPct"],["tenure","ahPct"]],
+  // v10.167 — afhPct is a legacy duplicate of ahPct on the planning object (different parts of the
+  // app read one or the other); keep it in the group so a change anywhere syncs both, and Planning &
+  // Viability (which reads p.ahPct||p.afhPct) can't drift from the Quick Appraisal / SFH ahPct.
+  [["planning","ahPct"],["planning","afhPct"],["sfh","ahPct"],["tenure","ahPct"]],
   // ── Sale £/sqft (houses path; different key name per stage) ──
   [["sfh","basePsf"],["rlv","salePsf"]],
   // ── Development cost assumptions (houses / finance cluster only) ──
