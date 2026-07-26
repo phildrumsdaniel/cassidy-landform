@@ -247,6 +247,24 @@ var JOURNEYS = {
   })()); var history=histS[0]; var setHistory=histS[1];
   var showHistS=useState(false); var showHist=showHistS[0]; var setShowHist=showHistS[1];
   var showMoreMenuS=useState(false); var showMoreMenu=showMoreMenuS[0]; var setShowMoreMenu=showMoreMenuS[1];
+  // v10.180 — in-app "name this…" modal, replacing native window.prompt() for the Save / Save As /
+  // Import name step. prompt() is an OS-level dialog that BLOCKS the whole tab and cannot be driven by
+  // an automated / CDP browser session (the click hangs until a human types). This is a normal DOM
+  // modal instead. null = closed; {title,message,name,placeholder,confirmLabel,onConfirm} = open.
+  var nameModalS=useState(null); var nameModal=nameModalS[0]; var setNameModal=nameModalS[1];
+  var nameInputRef=React.useRef(null);
+  React.useEffect(function(){ if(nameModal && nameInputRef.current){ try{ nameInputRef.current.focus(); nameInputRef.current.select(); }catch(e){} } }, [!!nameModal]);
+  function openNameModal(opts){
+    opts=opts||{};
+    setNameModal({ title:opts.title||"Name", message:opts.message||"", name:opts.defaultName||"",
+      placeholder:opts.placeholder||"", confirmLabel:opts.confirmLabel||"Save", onConfirm:opts.onConfirm||function(){} });
+  }
+  function confirmNameModal(){
+    var m=nameModal; if(!m) return;
+    var v=(nameInputRef.current && nameInputRef.current.value!=null) ? nameInputRef.current.value : m.name;
+    setNameModal(null);
+    m.onConfirm(v);
+  }
   // Selected scheme types — multi-select array. Empty = show all stages/fields.
   var schemesS=useState(function(){
     if(data && data.assetType && data.assetType !== "all") return [data.assetType];
@@ -519,14 +537,23 @@ var JOURNEYS = {
     }
   }
   function saveDeal(){
-    // v10.134 — prefer an in-app name (set via the Deal name field on the Dashboard) as the
-    // default, so the Save prompt comes pre-filled with what you already typed — and the deal
-    // can be named without relying on the native prompt (which is clunky on iPad and can't be
-    // driven by an automated browser at all).
-    var autoName=(data.dealName)||(data.land&&data.land.address)||
-      (data.scraper&&data.scraper.result&&data.scraper.result.address)||
-      "Deal "+new Date().toLocaleDateString("en-GB");
-    var name=window.prompt("Name this deal:",autoName)||autoName;
+    // v10.134 — prefer an in-app name (set via the Deal name field on the Dashboard) as the default.
+    // v10.180 — open an IN-APP modal (not window.prompt, which blocks the tab and can't be driven by an
+    // automated/CDP browser). Default name = deal/site name + the current DATE & TIME, so each saved
+    // checkpoint is uniquely stamped without the user typing it. Fully editable in the modal.
+    var base=(data.dealName)||(data.land&&data.land.address)||
+      (data.scraper&&data.scraper.result&&data.scraper.result.address)||"Deal";
+    var now=new Date();
+    var stamp=now.toLocaleDateString("en-GB")+" "+now.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
+    var defaultName=base+" — "+stamp;
+    openNameModal({
+      title:"Save deal / checkpoint",
+      message:"Name this saved checkpoint. Pre-filled with the deal name plus the current date & time — edit if you like.",
+      defaultName:defaultName, placeholder:defaultName, confirmLabel:"Save deal",
+      onConfirm:function(name){ performSave(String(name||"").trim()||defaultName); }
+    });
+  }
+  function performSave(name){
     var effectiveAssetType = schemes.length===1 ? schemes[0] : (data.assetType || "land");
     // v10.73 — update-in-place. Every deal carries a stable local id (_localDealId). Saving an
     // already-saved deal REPLACES its portfolio entry instead of adding a near-identical
@@ -632,18 +659,18 @@ var JOURNEYS = {
       suggestedName = currentName + " — variant " + new Date().toLocaleDateString("en-GB");
     }
 
-    var newName = window.prompt(
-      "💡 Save As New Deal\n\n"+
-      "This creates a copy of the current deal under a new name. The original deal stays unchanged.\n\n"+
-      "Useful for: testing different scheme types (SFH vs PBSA) on the same site, "+
-      "different planning scenarios, or alternative exit strategies.\n\n"+
-      "Name for the new copy:",
-      suggestedName
-    );
-    if(!newName) return;  // user cancelled
-    newName = String(newName).trim();
-    if(!newName) return;
-
+    // v10.180 — in-app modal instead of window.prompt (which blocks the tab / can't be driven by an
+    // automated browser). Default suggestion + current date & time; editable.
+    var now2=new Date();
+    var stamp2=now2.toLocaleDateString("en-GB")+" "+now2.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
+    openNameModal({
+      title:"💡 Save as a new deal",
+      message:"Creates a copy of the current deal under a new name — the original stays unchanged. Useful for testing a different scheme type (SFH vs PBSA), planning scenario or exit on the same site.",
+      defaultName:suggestedName+" — "+stamp2, placeholder:suggestedName, confirmLabel:"Create copy",
+      onConfirm:function(nm){ var t=String(nm||"").trim(); if(t) performSaveDealAs(t, scenario); }
+    });
+  }
+  function performSaveDealAs(newName, scenario){
     // Build a fresh data copy with NEW cloud ID stripped (so backend creates a new row)
     var freshData = JSON.parse(JSON.stringify(data));
     freshData.assetType = schemes.length===1 ? schemes[0] : (freshData.assetType || "land");
@@ -772,19 +799,26 @@ var JOURNEYS = {
 
           var sourceName = imported.dealName || (imported.land && imported.land.city) || "Imported Deal";
           var suggested = "[Imported] " + sourceName;
-          var finalName = window.prompt("Name for the imported deal in your portfolio:", suggested);
-          if(!finalName) return;
-          imported.dealName = finalName.trim();
-          imported.savedAt = new Date().toLocaleString("en-GB");
-
-          // Run migration to bring it up to current version
-          var migrated = migrateLoadedDeal(imported);
-          setData(migrated.data);
-          if(migrated.data && migrated.data.assetType) setSchemes([migrated.data.assetType]);
-          if(migrated.changed) logMigration(migrated);
-          navTo("dashboard");
-          notify("✓ Deal imported. Click 'Save Deal' to add it to your portfolio.");
-          try{ logEvent(user,"DEAL_IMPORTED",{dealName:finalName,fromAccount:imported._importedFromAccount}); }catch(e){}
+          // v10.180 — in-app modal instead of window.prompt (blocks the tab / can't be driven by an
+          // automated browser). Rest of the import runs on confirm.
+          openNameModal({
+            title:"Import deal",
+            message:"Name the imported deal in your portfolio.",
+            defaultName:suggested, placeholder:suggested, confirmLabel:"Import",
+            onConfirm:function(finalName){
+              var t=String(finalName||"").trim(); if(!t) return;
+              imported.dealName = t;
+              imported.savedAt = new Date().toLocaleString("en-GB");
+              // Run migration to bring it up to current version
+              var migrated = migrateLoadedDeal(imported);
+              setData(migrated.data);
+              if(migrated.data && migrated.data.assetType) setSchemes([migrated.data.assetType]);
+              if(migrated.changed) logMigration(migrated);
+              navTo("dashboard");
+              notify("✓ Deal imported. Click 'Save Deal' to add it to your portfolio.");
+              try{ logEvent(user,"DEAL_IMPORTED",{dealName:t,fromAccount:imported._importedFromAccount}); }catch(e){}
+            }
+          });
         }catch(err){
           notify("⚠ Could not import file: "+(err.message||err)+"\n\nMake sure the file is a valid Landform export JSON.");
         }
@@ -2234,6 +2268,20 @@ function loadSiteIntoDeal(site){
       ),
       e("div",{style:{height:3,background:"#DDE0ED"}},
         e("div",{style:{height:"100%",width:((idx+1)/ALL_STAGES.length*100)+"%",background:"linear-gradient(90deg,#4A4BAE,#EDE84A)",transition:"width .4s"}})
+      ),
+      // v10.180 — in-app "name this…" modal (replaces the blocking native window.prompt).
+      nameModal&&e("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(20,22,50,0.45)",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:16},onMouseDown:function(ev){ if(ev.target===ev.currentTarget) setNameModal(null); }},
+        e("div",{style:{background:"#fff",borderRadius:12,padding:22,width:"100%",maxWidth:460,boxShadow:"0 20px 60px rgba(0,0,0,0.32)"}},
+          e("div",{style:{fontSize:16,fontWeight:800,color:"#2E2F8A",marginBottom:6}},nameModal.title),
+          nameModal.message?e("div",{style:{fontSize:12,color:"#7278A0",marginBottom:14,lineHeight:1.5}},nameModal.message):null,
+          e("input",{type:"text",ref:nameInputRef,defaultValue:nameModal.name,placeholder:nameModal.placeholder||"",
+            onKeyDown:function(ev){ if(ev.key==="Enter"){ ev.preventDefault(); confirmNameModal(); } else if(ev.key==="Escape"){ ev.preventDefault(); setNameModal(null); } },
+            style:{width:"100%",padding:"11px 13px",border:"1px solid #C5C8E0",borderRadius:8,fontSize:14,fontFamily:"DM Sans,sans-serif",color:"#2E2F8A",boxSizing:"border-box"}}),
+          e("div",{style:{display:"flex",justifyContent:"flex-end",gap:10,marginTop:18}},
+            e("button",{onClick:function(){ setNameModal(null); },style:{padding:"9px 16px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#7278A0",borderRadius:7,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Cancel"),
+            e("button",{onClick:confirmNameModal,style:{padding:"9px 18px",background:"#2D7A65",border:"none",color:"#fff",borderRadius:7,fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},nameModal.confirmLabel||"Save")
+          )
+        )
       ),
       showHist&&e("div",{style:{position:"fixed",top:58,right:0,width:380,bottom:0,background:"#fff",borderLeft:"1px solid #DDE0ED",boxShadow:"-4px 0 16px rgba(0,0,0,0.08)",zIndex:200,display:"flex",flexDirection:"column",overflowY:"auto"}},
         e("div",{style:{padding:"16px 20px",borderBottom:"1px solid #DDE0ED",display:"flex",justifyContent:"space-between",alignItems:"center"}},
