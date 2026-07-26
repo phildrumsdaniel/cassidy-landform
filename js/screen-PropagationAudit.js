@@ -12,7 +12,13 @@ function renderPropagationAudit(data, setData, up){
         {field:"Acres",                   paths:[["land","acres"], ["sfh","acres"]], canonical:"land.acres"},
         {field:"Asking price (£)",        paths:[["land","price"]]},
         {field:"Scenario land value (£)", paths:[["land","scenarioLandValue"]]},
-        {field:"Planning status",         paths:[["land","planningStatus"], ["planning","status"]], canonical:"land.planningStatus"},
+        // v10.177 — planning.status (Planning & Viability) is the SOLE source of truth for the deal's
+        // planning position. land.planningStatus is an EXTERNAL Placona intel snapshot (what the lookup
+        // returned) which legitimately differs from the edited deal position — auditing them as one
+        // field false-flagged drift (intel "outline" vs the real "none") with no editable input to fix.
+        // The Placona banner now labels that value as unverified external reference; it is deliberately
+        // NOT audited here. Only the real field is tracked.
+        {field:"Planning status",         paths:[["planning","status"]]},
       ]},
       // ── UNITS ────────────────────────────────────────────────
       {group:"Unit count (most common cross-stage gap)", rows:[

@@ -190,7 +190,23 @@ function renderLand(LiveMarketBanner, at, city, data, m, mergeRespectingComplete
         e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:10,fontSize:11}},
           l.county&&e("div",null,e("div",{style:{color:"#7278A0",fontSize:9,textTransform:"uppercase",letterSpacing:".08em",marginBottom:2}},"County"),e("div",{style:{color:"#2E2F8A",fontWeight:600}},l.county)),
           l.localAuthority&&e("div",null,e("div",{style:{color:"#7278A0",fontSize:9,textTransform:"uppercase",letterSpacing:".08em",marginBottom:2}},"Planning Authority"),e("div",{style:{color:"#2E2F8A",fontWeight:600}},l.localAuthority)),
-          l.planningStatus&&e("div",null,e("div",{style:{color:"#7278A0",fontSize:9,textTransform:"uppercase",letterSpacing:".08em",marginBottom:2}},"Planning Status"),e("div",{style:{color:"#2E2F8A",fontWeight:600}},l.planningStatus)),
+          // v10.177 — this Placona value is an EXTERNAL LOOKUP snapshot, NOT the deal's working
+          // planning status (which lives on Planning & Viability as planning.status, the source of
+          // truth). It legitimately differs — the lookup may say "outline" while the real position is
+          // "none". Label it as unverified external intel and, when it differs from the deal's real
+          // status, show the real one, so it can't be mistaken for the deal's planning position.
+          l.planningStatus&&(function(){
+            var realStatus=(data.planning&&data.planning.status)||"";
+            var realLbl=(typeof planningStatusLabelFor==="function")?planningStatusLabelFor(realStatus):(realStatus||"");
+            var differs=realStatus && String(realStatus).toLowerCase()!==String(l.planningStatus).toLowerCase();
+            return e("div",null,
+              e("div",{style:{color:"#7278A0",fontSize:9,textTransform:"uppercase",letterSpacing:".08em",marginBottom:2}},"Planning Status — external lookup"),
+              e("div",{style:{color:"#8A6A2E",fontWeight:600}},l.planningStatus,e("span",{style:{marginLeft:6,fontSize:8.5,fontWeight:700,color:"#9A7B3E",textTransform:"uppercase",letterSpacing:".04em"}},"· unverified intel")),
+              differs
+                ? e("div",{style:{fontSize:9,color:"#B05A35",marginTop:2,lineHeight:1.4}},"⚠ Not the deal's status — Planning & Viability is set to “"+realLbl+"”. The deal uses that; this is only what the external lookup returned.")
+                : e("div",{style:{fontSize:8.5,color:"#9298BC",marginTop:2}},"External reference — the deal uses the Planning Status on Planning & Viability.")
+            );
+          })(),
           l.agent&&e("div",null,e("div",{style:{color:"#7278A0",fontSize:9,textTransform:"uppercase",letterSpacing:".08em",marginBottom:2}},"Agent / Contact"),e("div",{style:{color:"#2E2F8A",fontWeight:600}},l.agent))
         ),
         l.constraintSummary&&e("div",{style:{marginTop:10,paddingTop:10,borderTop:"1px solid #C5C8E0"}},
