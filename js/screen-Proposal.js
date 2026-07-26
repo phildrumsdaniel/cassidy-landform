@@ -2077,7 +2077,19 @@ function renderProposal(city, data, gdv, lc, up, user){
             '<li><b>Development cost —</b> build &amp; infrastructure '+(buildTot>0?fmt(buildTot):'per the cost plan')+', Section 106 '+(s106V>0?fmt(s106V):'to confirm')+', plus professional fees, contingency and development finance.</li>'+
             '<li><b>Residual land value —</b> GDV less all development costs less the target developer profit = <b>'+((isFinite(rlvV)&&rlvV<0)?'<span style="color:#B05A35">−'+fmt(Math.abs(rlvV))+'</span>':(rlvV>0?fmt(rlvV):'—'))+'</b> — the maximum land price the scheme can support at target return, on consent.</li>'+
             '<li><b>Developer margin —</b> '+(isFinite(boardMargin)&&boardMargin?pct(boardMargin):'—')+(boardAskLand>0?' of GDV at the '+fmt(boardAskLand)+' land price.':' of GDV — the target margin, taken at the residual land value (a land price above the RLV reduces it).')+'</li>'+
-          '</ul></div></section>'+
+          '</ul></div>'+
+          // v10.172 — acknowledge AHP grant as UPSIDE to the profit target on the full board proposal
+          // too (mirrors the one-page appraisal, v10.171). Only when the scheme is eligible and grant
+          // isn't already modelled. Board-safe: margin upside, land NOT bid up on unsecured subsidy.
+          (function(){
+            if(num(M.grantIncome)>0 || !(gdvV>0) || typeof grantEligibilityFor!=="function") return '';
+            var ge=grantEligibilityFor(data);
+            if(!ge || !ge.eligible || !(ge.indicativeAhp>0)) return '';
+            var tgt=(isFinite(boardMargin)&&boardMargin)?Math.round(boardMargin*10)/10:17.5;
+            var newP=Math.round((tgt+ge.marginUpliftPts)*10)/10;
+            return '<div class="callout" style="margin-top:13px;border-color:#1B7A54"><b>Affordable-housing grant &mdash; upside to the '+tgt+'% target (not in the figures).</b> This appraisal reserves the '+tgt+'% developer profit target <b>without</b> grant. With '+ge.affordableHomes.toLocaleString()+' affordable homes the scheme is indicatively eligible for <b>~'+fmt(ge.indicativeAhp)+'</b> of Homes England AHP grant (&asymp;&pound;'+Math.round(ge.perHome/1000)+'k/home). Treated as developer-margin upside &mdash; the prudent default, so the land is <b>not</b> bid up on subsidy not yet won &mdash; it adds ~'+(Math.round(ge.marginUpliftPts*10)/10)+' pts, taking the return to <b>~'+newP+'% on GDV</b>; or, held at the '+tgt+'% target, it supports ~'+fmt(ge.indicativeAhp)+' more land. Indicative: AHP is area/tenure-specific and needs a Registered Provider partner + Homes England sign-off &mdash; model it on the Grants stage to bank it (choose a competitive land bid there if it should lift the land value).</div>';
+          })()+
+          '</section>'+
         // 05 exit routes & yield sensitivity
         '<section><div class="sh"><span class="i">05</span><h2>Exit routes &amp; profit sensitivity</h2></div>'+
           '<p class="lead">Estimated developer profit by exit route'+(noi>0?', and across a yield range for an institutional sale':'')+'. Profit = realised value less total development cost ('+fmt(devCostV)+') less land at '+(ask>0?"the "+fmt(ask)+" guide price":"the modelled land value ("+fmt(rlvV)+")")+'. Assumes residential consent is achieved.</p>'+
