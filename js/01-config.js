@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.177";
+var CURRENT_VERSION = "10.178";
 var VERSION_HISTORY = [
+  {v:"10.178", date:"Jul 2026", headline:"Fix: the ‘Total to exit’ figure in the Programme & Timeline section (Board Proposal / one-page appraisal) now reflects a realistic CONSENT↔BUILD OVERLAP on large phased sites, instead of a straight sum. Before, it added ‘planning to consent’ (~7 yrs) and ‘build-out’ (~10 yrs) to give ~17 yrs — assuming NO build can start until the whole site is fully detail-consented. On a strategic/promotion site that's wrong: outline is secured for the WHOLE site, then reserved matters is granted parcel by parcel, so enabling works and the first build phase start once the FIRST reserved-matters approval lands — well before the last parcel is detailed. The two clocks genuinely overlap. Total-to-exit now nets that overlap: it's modelled as the consent-clock time between the first buildable parcel and the last parcel's consent, bounded by how staggered the parcels are (grows with the number of ~300-home delivery phases, ~9 months of concurrent consenting per extra parcel) and by the build window it can overlap. It's status-aware — the first parcel is buildable EARLY when the site already holds outline, and LATE from a cold Local-Plan promotion start (most of that clock is promotion that can't overlap build). The ‘planning to consent’ and ‘build-out programme’ figures are UNCHANGED — only how they combine. A new ‘Less: consent / build overlap (N phases)’ line and note show the reasoning. Single-phase sites and already-fully-consented sites are unaffected (build follows consent — straight sum as before). Example: a ~1,000-home cold-start site reads ~15.2 yrs (7 + 10 − 1.8) instead of ~17. No engine-value change (returns, RLV, margins untouched) — programme/timing only."},
   {v:"10.177", date:"Jul 2026", headline:"Fix: the Placona Intel ‘site data loaded’ widget on Land Appraisal no longer presents its external lookup value as the deal's planning status — and the Propagation Audit no longer false-flags it as drift. Reported: the widget showed ‘PLANNING STATUS: outline’ as a static read-only value, contradicting the real, editable Planning Status on Planning & Viability (planning.status = ‘none’, no consent yet), with no way to fix it because the Placona value isn't an input. Cause: land.planningStatus is an EXTERNAL Placona intel snapshot (what the lookup returned), but it was (a) displayed with the same ‘Planning Status’ label as the deal's real field, and (b) audited as the SAME logical field as planning.status (with land.planningStatus wrongly set as canonical), so a legitimate difference read as unfixable drift. Now: the widget labels it ‘Planning Status — external lookup … · unverified intel’ and, when it differs from the deal's real status, shows the real one (‘⚠ Not the deal's status — Planning & Viability is set to “Unallocated / promotion”. The deal uses that.’). The Propagation Audit tracks planning.status ONLY as the source of truth — land.planningStatus is external reference, deliberately not audited — so the outline-vs-none drift clears. planning.status remains authoritative in every calculation (it already won over the external value); no engine-value change."},
   {v:"10.176", date:"Jul 2026", headline:"The SFH Mix Optimiser's ‘🏠 For rent’ tab can now INTRODUCE house types that aren't in your mix — not just reshuffle the ones you have — when they out-rent your weakest type on rent per sqft (i.e. rent per acre, since the floor area is held constant). So on a detached-heavy mix it proposes e.g. compact 2/3/4-bed terraces (and displaces the low-rent tail), which is where the extra rental income is. How it works: it builds a candidate pool from the house-type library (house forms only — terrace/semi/mews/coach house/townhouse/link-detached/detached, no flats/apartments/conversions, 2-bed+), keeps the best few that clear your current worst type by >2%, and ranks them alongside your existing types; the allocator then fills the top N (≈ your mix's original size) so a stronger new renter can replace a weak existing one rather than every type keeping a floor share (which would just flatten the mix). New types are badged ‘＋ NEW’ in the ranking table, and the summary line names the ones it introduced. The total home count and developable floor area are unchanged — it's a like-for-like reallocation; applying it sets rows to private (market) tenure with your affordable % layered back on separately. Profit (‘💷 For sale’) mode is unchanged — reshuffle only. Requested by Phil for the Maldon 240-home mix. No engine-value change."},
   {v:"10.175", date:"Jul 2026", headline:"Dev Margin now shows BOTH the true (grant-free) margin AND a second margin with the AHP grant applied, side by side, wherever margin is displayed — so the board sees the pure-scheme return and the grant-boosted return at once. Added on the Quick Appraisal margin KPI, the Board Proposal headline tile + the 'Developer profit' appraisal row, the one-page appraisal margin KPI, the SFH residual summary and the Dashboard 'Margin on GDV' tile. The second figure = the true margin + the indicative AHP grant as profit upside (grant £ ÷ GDV, in points), reusing grantEligibilityFor(). Board-safe and non-double-counting: it only appears when the scheme is AHP-eligible (≥10 affordable homes) AND grant isn't already modelled — once you model grant on the Grants stage, the engine's actual margin already reflects it, so the dual retires automatically. No engine-value change; the land value is unchanged. New helper marginGrantUplift(data)."},
@@ -2638,9 +2639,32 @@ function projectTimeline(data){
   var _ps = (typeof planningStatusInfo === "function") ? planningStatusInfo(data) : null;
   var statusLabel = _ps ? _ps.label : (({ full:"Full consent", outline:"Outline consent", allocated:"Allocated in local plan",
     preapp:"Pre-application", "pre-app":"Pre-application", likely:"Likely allocation" })[status] || "Unallocated / promotion");
+
+  // v10.178 — realistic CONSENT↔BUILD-OUT OVERLAP for phased strategic sites. A straight sum
+  // (planningYears + buildYears) assumes the WHOLE site must be fully detail-consented before any build
+  // starts. In practice a large site takes OUTLINE consent for the whole site, then reserved matters
+  // parcel by parcel — enabling works and the first build phase start once the FIRST reserved-matters
+  // approval lands, well before the last parcel is detailed. So the two clocks overlap: the parcel-by-
+  // parcel consenting of later phases runs concurrently with early build. We model the overlap as the
+  // consent-clock time BETWEEN the first buildable parcel and the last parcel's consent, bounded by how
+  // staggered the reserved-matters parcels are (grows with the number of delivery phases) and by the
+  // build window it can overlap. It is status-aware: the first parcel is buildable EARLY when the site
+  // already holds outline, and LATE from a cold promotion start (most of that clock is Local-Plan work
+  // that can't overlap build). Single-phase or already-fully-consented sites get no overlap.
+  var phases = Math.max(1, Math.ceil(units / 300));                          // mirrors the engine's ~300-home phasing
+  var phasedOverlap = phases >= 2 && status !== "full" && planningYears > 0 && buildYears > 0;
+  // fraction of the consent clock reached when the FIRST parcel becomes buildable (outline + first RM):
+  var _firstBuildFrac = ({ outline:0.30, allocated:0.55, preapp:0.70, "pre-app":0.70, likely:0.72 })[status];
+  if(_firstBuildFrac === undefined) _firstBuildFrac = 0.75;                  // cold / unallocated promotion
+  var overlapYears = phasedOverlap ? Math.round(Math.min(
+        planningYears * (1 - _firstBuildFrac),                              // consent clock left AFTER the first parcel is buildable
+        (phases - 1) * 0.75,                                                // reserved-matters stagger — ~9 months per extra parcel
+        buildYears * 0.6                                                    // can only overlap the early-to-mid build window
+      ) * 10) / 10 : 0;
+  var totalYears = Math.round((planningYears + buildYears - overlapYears) * 10) / 10;
   return { units:units, planningMonths:planningMonths, planningYears:planningYears, buildYears:buildYears,
-    totalYears:Math.round((planningYears + buildYears) * 10) / 10, status:status, statusLabel:statusLabel,
-    statusAssumed: _ps ? !!_ps.assumed : false };
+    totalYears:totalYears, overlapYears:overlapYears, phases:phases, phasedOverlap:phasedOverlap,
+    status:status, statusLabel:statusLabel, statusAssumed: _ps ? !!_ps.assumed : false };
 }
 
 // v10.144 — GRANT TREATMENT (Phil + Patric decision, Jul 2026 — see docs/grant-treatment-note.md).
