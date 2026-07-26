@@ -589,6 +589,22 @@ function buildLandOnePager(data, cityHint){
                 '<tr>'+[17.5,20,25,30].map(function(p){ var v=(oGdv-oDev)-oGdv*(p/100)+oGrantToRlv;return '<td class="n" style="font-size:7.4px;color:#6A6F97">'+(v<0?'−':'')+fmt(Math.abs(v))+'</td>'; }).join('')+'</tr></table>'+
             '</div>'
           : '')+
+        // v10.171 — acknowledge AHP grant on the board appraisal as UPSIDE to the profit target,
+        // even when it isn't in the figures. The aim is the 17.5% (or set) target profit; grant is a
+        // lever toward / beyond it. Only shows when the scheme is eligible and grant isn't already
+        // modelled (grant entered on the Grants stage is shown in the RLV table above). Board-safe:
+        // framed as margin upside — the land is NOT bid up on unsecured subsidy (the v10.144 default).
+        (function(){
+          if(oGrantIncome>0 || !(oGdv>0) || typeof grantEligibilityFor!=="function") return '';
+          var ge=grantEligibilityFor(data);
+          if(!ge || !ge.eligible || !(ge.indicativeAhp>0)) return '';
+          var tgt=Math.round(oProfitPct*10)/10;
+          var newP=Math.round((oProfitPct+ge.marginUpliftPts)*10)/10;
+          return '<div style="margin-top:9px;border:1px solid #BFD9CF;border-radius:7px;padding:9px 11px;background:#F5FBF8">'+
+            '<div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#1B7A54;font-weight:800;margin-bottom:4px">Affordable-housing grant &mdash; upside to the '+tgt+'% target (not in the figures)</div>'+
+            '<div style="font-size:8.2px;color:#3D5A4C;line-height:1.55">This appraisal reserves the '+tgt+'% developer profit target <b>without</b> grant. With '+ge.affordableHomes.toLocaleString()+' affordable homes the scheme is indicatively eligible for <b>~'+fmt(ge.indicativeAhp)+'</b> of Homes England AHP grant (&asymp;&pound;'+Math.round(ge.perHome/1000)+'k/home). Treated as developer-margin upside &mdash; the prudent default, so the land is <b>not</b> bid up on subsidy not yet won &mdash; it adds ~'+(Math.round(ge.marginUpliftPts*10)/10)+' pts, taking the return to <b>~'+newP+'% on GDV</b>; or, held at the '+tgt+'% target, it supports ~'+fmt(ge.indicativeAhp)+' more land. Indicative only: AHP is area/tenure-specific and needs a Registered Provider partner + Homes England sign-off &mdash; model it on the Grants stage to bank it (and choose a competitive land bid there if the grant should lift the land value).</div>'+
+          '</div>';
+        })()+
         // v10.68 — two named scenarios side by side: the profit Keystone built at, and the user's
         // override — shown only when they differ, so the board sees both bases explicitly.
         (function(){
