@@ -681,9 +681,12 @@ function buildLandOnePager(data, cityHint){
             '<table>'+
               '<tr><td>Planning to consent</td><td class="n">~'+t.planningYears+' yr'+(t.planningYears===1?'':'s')+' ('+t.planningMonths+' months)</td></tr>'+
               '<tr><td>Build-out programme (incl. sales runoff)</td><td class="n">~'+t.buildYears+' yrs</td></tr>'+
+              ((t.phasedOverlap&&t.overlapYears>0)?'<tr><td style="color:#1B7A54">Less: consent / build overlap ('+t.phases+' phases)</td><td class="n" style="color:#1B7A54">&minus;'+t.overlapYears+' yrs</td></tr>':'')+
               '<tr class="s"><td>Total to exit</td><td class="n">~'+t.totalYears+' yrs</td></tr>'+
             '</table>'+
-            '<div style="font-size:7.5px;color:#9298BC;margin-top:3px;font-style:italic">A forward-fund only starts once the scheme is consented and fundable — the total money-in-to-exit horizon stacks planning on top of the build.</div>'+
+            ((t.phasedOverlap&&t.overlapYears>0)
+              ? '<div style="font-size:7.5px;color:#3D5A4C;margin-top:3px;font-style:italic">Phased delivery (~'+t.phases+' parcels): outline is secured for the whole site, then reserved matters parcel by parcel — enabling works and the first build phase start once the FIRST reserved-matters approval lands, so ~'+t.overlapYears+' yrs of later-parcel consenting run CONCURRENTLY with early build. Total-to-exit nets that overlap rather than stacking the two clocks back-to-back; a forward-fund draws down against the consented parcels as they come forward.</div>'
+              : '<div style="font-size:7.5px;color:#9298BC;margin-top:3px;font-style:italic">A forward-fund only starts once the scheme is consented and fundable — the total money-in-to-exit horizon stacks planning on top of the build.</div>')+
           '</div>';
         })() : '')+
         (typeof basisOfFigures==="function" ? (function(){
