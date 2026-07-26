@@ -428,12 +428,15 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
               });
               up("sfh","mix",nm);
             },title:"Fill each row's build £/sqft from the BCIS-style benchmark for that house type"+(s.tier1Build?" (incl. Tier-1 main-contractor uplift)":"")+(s.haSpecBuild?" + HA low-carbon spec on affordable rows":""),style:{padding:"5px 12px",background:"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",flexShrink:0}},"🧱 Auto-cost build / type"),
-            // v10.32 — Auto-price sale £/sqft of every row from the Base Sale £/sqft × the
-            // per-type sale adjustment (HOUSE_TYPES.adj), refreshing unit price too. This is
-            // the sale-side analogue of "Auto-cost build/type": it lets a user globally correct
-            // an overstated (or understated) base sale assumption. Previously there was no way
-            // to propagate a Base Sale £/sqft change to already-populated rows, because each
-            // row carried a baked-in unit price that the engine prioritises.
+            // v10.32 — reset every row's sale £/sqft to the Base Sale £/sqft, refreshing unit price.
+            // Lets a user push a Base Sale £/sqft change through already-populated rows (each row
+            // carries a baked-in unit price the engine prioritises, so a base change wouldn't reach
+            // them otherwise). v10.164 — the per-type sale adjustment (HOUSE_TYPES.adj) is deliberately
+            // 1.00 for every house type (sale £/sqft is FLAT across types since v10.43 — unit prices
+            // still vary by floor area), so this resets all rows to the flat base. Label/tooltip fixed
+            // to say so: it does NOT differentiate £/sqft by type, and it OVERWRITES any per-type £/sqft
+            // that ‘Complete with AI’ or a manual edit set (reported: the button looked non-functional
+            // because every row stayed at the base £/sqft — which is correct, not broken).
             e("button",{onClick:function(){
               var nm=mix.map(function(r){
                 var inf=HOUSE_TYPES[r.type]||HOUSE_TYPES["3-bed semi"]||{sqft:900,adj:1};
@@ -445,7 +448,7 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
                 return c;
               });
               up("sfh","mix",nm);
-            },title:"Set every row's sale £/sqft from the Base Sale £/sqft (£"+Math.round(basePsf)+") × the house-type adjustment, and refresh unit prices. Use this after changing the Base Sale £/sqft to push the correction through the whole mix.",style:{padding:"5px 12px",background:"#9A7B3E",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",flexShrink:0}},"💷 Auto-price sale / type"),
+            },title:"Reset every row's sale £/sqft to the flat Base Sale £/sqft (£"+Math.round(basePsf)+") and refresh unit prices. Sale £/sqft is FLAT across house types by design — unit prices still vary by floor area. Use this to push a Base Sale £/sqft change through the mix; it does NOT differentiate £/sqft by type, and it OVERWRITES any per-type £/sqft that ‘Complete with AI’ or a manual edit set.",style:{padding:"5px 12px",background:"#9A7B3E",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",flexShrink:0}},"💷 Reset £/sqft to base"),
             // v10.34 — Auto-fill a sensible family-housing mix sized to the scheme TARGET —
             // the site's allocation (brief) units when present, else the density-based capacity.
             // Uses the same balanced distribution as the default mix, summing exactly to target.
