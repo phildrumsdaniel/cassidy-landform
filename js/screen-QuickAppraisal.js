@@ -483,7 +483,7 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
           ["🏠 New-build prices — " + town, g("new build homes for sale " + town + " " + (postcode||"")), "#2D7A65"],
           ["Persimmon / Barratt / Redrow — " + town, g("Persimmon OR Barratt OR Redrow new homes " + town), "#4A4BAE"],
           ["Land Registry sold prices", "https://www.gov.uk/search-house-prices"],
-          ["Local registered providers (affordable buyer)", g("largest housing associations " + town + " Kent registered provider")]
+          ["Local registered providers (affordable buyer)", g("largest housing associations " + town + " registered provider")]
         ];
         var ahHomes = Math.round(homes * (ahPct/100));
         return e("div", { style:Object.assign({}, S.card, { borderLeft:"4px solid #9A7B3E", marginTop:14 }) },
@@ -518,7 +518,7 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
           e("ul", { style:{ margin:0, paddingLeft:16, fontSize:10.5, color:"#7278A0", lineHeight:1.6 } },
             e("li", null, e("b", null, "Sale £/sqft"), ": the £"+effBasePsf+" here is a Land-Registry-derived figure + "+premiumPct+"% new-build premium — check it against actual local new-build launches (links above)."),
             e("li", null, e("b", null, "Floor area basis"), ": houses are priced on GIA (whole internal area) — there is no GIA→NIA deduction (the ~10–15% efficiency loss applies only to flats with communal areas)."),
-            e("li", null, e("b", null, "Affordable"), ": ~"+ahHomes.toLocaleString()+" homes ("+ahPct+"%) would be sold to a registered provider — confirm current appetite (in Kent, e.g. Golding Homes, Clarion, Moat, Southern Housing)."),
+            e("li", null, e("b", null, "Affordable"), ": ~"+ahHomes.toLocaleString()+" homes ("+ahPct+"%) would be sold to a registered provider — confirm current appetite from the RPs active in your area (major national RPs include Clarion, Sanctuary, Places for People and L&Q)."),
             e("li", null, e("b", null, "Assumptions"), ": S106 (£"+fmtN(Math.round(s106pu))+"/plot), the "+(num(M.financeProgYears)||"?")+"-year programme and planning timeline are estimates — replace with the actual heads of terms and programme. The residual land value is the maximum supportable price, not an agreed land value.")
           )
         );
