@@ -36,8 +36,11 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.172";
+var CURRENT_VERSION = "10.175";
 var VERSION_HISTORY = [
+  {v:"10.175", date:"Jul 2026", headline:"Dev Margin now shows BOTH the true (grant-free) margin AND a second margin with the AHP grant applied, side by side, wherever margin is displayed — so the board sees the pure-scheme return and the grant-boosted return at once. Added on the Quick Appraisal margin KPI, the Board Proposal headline tile + the 'Developer profit' appraisal row, the one-page appraisal margin KPI, the SFH residual summary and the Dashboard 'Margin on GDV' tile. The second figure = the true margin + the indicative AHP grant as profit upside (grant £ ÷ GDV, in points), reusing grantEligibilityFor(). Board-safe and non-double-counting: it only appears when the scheme is AHP-eligible (≥10 affordable homes) AND grant isn't already modelled — once you model grant on the Grants stage, the engine's actual margin already reflects it, so the dual retires automatically. No engine-value change; the land value is unchanged. New helper marginGrantUplift(data)."},
+  {v:"10.174", date:"Jul 2026", headline:"Planning Status and Due Diligence status now read as ASSUMPTIONS, not bare facts, tied into the existing Assumption Mode toggle — so a board reader can't mistake an assumed consent (or a bare 'none'/'Unallocated') for the achieved position. When Assumption Mode's planning flag is on, the planning position everywhere (Board Proposal cover + KPI + narrative, one-page appraisal, teaser, IM, RLV — all via projectTimeline.statusLabel and the board proposal's own status label) reads 'Full consent (assumed)', flagged, instead of a definitive status; off, it shows the real entered status. Planning & Viability now carries a 🎭 amber banner under the Planning Status field when planning is assumed, showing the assumed position alongside the entered status. The Due Diligence stage gains the same 🎭 banner when DD is assumed-clear, with the real 'N of M items confirmed' shown beneath, so the checklist can't be taken as the modelled position. Mirrors the established '(assumed)' pattern (Scorecard/Teaser/Dashboard). New helpers planningStatusInfo() / ddStatusInfo(); no engine-value change — labelling and disclosure."},
+  {v:"10.173", date:"Jul 2026", headline:"Affordable Housing % is now a true single source of truth across the whole app. The shared-field propagation group gains the apartment/high-rise key (hra.ahPct) it was missing — the engine, the Land scenario-apply, migration and the Propagation Audit all already treated hra.ahPct as a sibling, but it wasn't in the group, so on an apartment scheme an edit on one page wouldn't reach the HRA stage (and vice-versa). Now editing the affordable % ANYWHERE it appears (Quick Appraisal, Planning & Viability, SFH House Mix, Tenure Mix, and the HRA path) updates it everywhere consistently, and every live input already writes through up() (the propagation path), so nothing bypasses it. The canonical default stays 30% (KEYSTONE_DEFAULTS.affordablePct), so a fresh housing scheme starts at 30 and edits flow from there. No engine-value change — propagation wiring."},
   {v:"10.172", date:"Jul 2026", headline:"The AHP grant upside acknowledgement (v10.171) now also appears on the FULL Board Proposal, not just the one-page appraisal — so both board-facing documents surface an eligible scheme's grant. Directly under the ‘How these figures were derived’ appraisal, when the scheme has ≥10 affordable homes and grant isn't already modelled, a green callout states: the appraisal reserves the target profit (17.5% or as set) WITHOUT grant; with N affordable homes it's indicatively eligible for ~£X of Homes England AHP grant (≈£45k/home); as developer-margin upside (the prudent default — land not bid up on unsecured subsidy) it adds ~Y pts → ~Z% on GDV, or supports ~£X more land at target. Points to the Grants stage to bank it (competitive land bid if it should lift the land value). Same board-safe framing and grantEligibilityFor() source as the one-pager — no engine-value change. Requested by Phil: show it in both the board proposal and one-pager."},
   {v:"10.171", date:"Jul 2026", headline:"The board appraisal (one-page A4) now ACKNOWLEDGES the affordable-housing grant as upside to the profit target, even when it isn't in the figures — so an eligible scheme's grant is visible on the board paper without capitalising unsecured subsidy into the land. Before, grant only appeared on the one-pager once you'd modelled it on the Grants stage; an eligible-but-unmodelled scheme showed nothing. Now, directly under the ‘Target profit → what you can pay for the land’ table, when the scheme has ≥10 affordable homes and grant isn't already modelled, a green note states: the appraisal reserves the 17.5% (or your set) profit target WITHOUT grant; with N affordable homes it's indicatively eligible for ~£X of Homes England AHP grant (≈£45k/home); treated as developer-margin upside (the prudent v10.144 default — the land is NOT bid up on subsidy not yet won) it adds ~Y margin points, taking the return to ~Z% on GDV; OR, held at the target, it supports ~£X more land. Clearly indicative — AHP is area/tenure-specific, needs a Registered Provider partner + Homes England sign-off, and modelling it on the Grants stage (with a competitive-land-bid treatment if it should lift the land value) is how you bank it. Uses the existing grantEligibilityFor() helper — no engine-value change, the residual is unchanged. Built at Phil's request to acknowledge grant in the board proposal, aimed at the 17.5% profit target."},
   {v:"10.170", date:"Jul 2026", headline:"The SFH Mix Optimiser's ‘🏠 For rent’ tab is now a REAL rent optimiser — it maximises rental income, not just ranks types. Before, the rent tab only showed a ranking table (rent/mo, gross yield, rent per sqft) with NO optimised-mix output and NO income total — the ‘Optimised mix (same land)’ summary and the ‘Apply’ button rendered in the ‘For sale’ (profit) mode only, so on the rent tab there was nothing to act on. Now the rent tab computes and shows the rent-optimised mix: total homes, GROSS ANNUAL MARKET RENT, rent per acre per year, and the £/yr uplift (and %) versus your current mix — with an ‘Apply rent-optimised mix →’ button. The optimiser reallocates the SAME developable floor area toward the highest rent-per-sqft house types (within your per-type min/max bounds), so it maximises rent PER ACRE, not just per home. Applying it sets rows to private (market) tenure; a caption states the policy affordable % is layered back on separately and trims the figure (affordable homes rent at 55–60% of market), and that rents are area estimates to verify against live listings. Engine: optimiseSfhMix now returns rentPa / rentPerAcre for the current and optimised mixes and the rent uplift, computed from the same areaRentPcm benchmark capitalisation uses. Built at Phil's request for a mix that maximises rental income."},
@@ -2426,6 +2429,51 @@ function assumeDDComplete(deal){        return assumeFlags(deal).dd; }
 function assumeConstraintsClear(deal){  return assumeFlags(deal).constraints; }
 function assumeRisksMitigated(deal){    return assumeFlags(deal).risks; }
 
+// v10.174 — Planning status & DD status as ASSUMPTIONS, not bare facts. A planning status (or a bare
+// "none"/"Unallocated") shown as definitive on the board proposal can read as an achieved position.
+// These helpers make the status honour Assumption Mode the same way "Planning consented / DD clear"
+// already do: when the flag is ON they return the assumed position suffixed "(assumed)" and flagged;
+// when OFF they return the real entered status, so nothing is inflated. One source, read by the board
+// proposal, Planning & Viability, the one-pager, the teaser and projectTimeline.
+function planningStatusLabelFor(status){
+  return ({ full:"Full consent", outline:"Outline consent", allocated:"Allocated in local plan",
+    pip:"Permission in principle", preapp:"Pre-application", "pre-app":"Pre-application",
+    pre_app:"Pre-application", likely:"Likely allocation" })[String(status||"")] || "Unallocated / promotion";
+}
+function planningStatusInfo(data){
+  data = data || {};
+  var raw = ((data.planning||{}).status) || ((data.land||{}).planningStatus) || "";
+  var assumed = (typeof assumePlanningConsented==="function") && assumePlanningConsented(data);
+  if(assumed) return { raw:raw, assumed:true, label:"Full consent (assumed)", short:"Consented (assumed)" };
+  var l = planningStatusLabelFor(raw);
+  return { raw:raw, assumed:false, label:l, short:l };
+}
+function ddStatusInfo(data){
+  data = data || {};
+  var assumed = (typeof assumeDDComplete==="function") && assumeDDComplete(data);
+  if(assumed) return { assumed:true, label:"DD clear (assumed)", short:"Clear (assumed)" };
+  // Real position: count confirmed items if present.
+  var checked = (data.ddChecked) || (data.dd) || {};
+  var done=0, total=0;
+  try{ Object.keys(checked).forEach(function(k){ total++; if(checked[k]) done++; }); }catch(e){}
+  var label = total>0 ? (done+" of "+total+" items confirmed") : "Not yet started";
+  return { assumed:false, done:done, total:total, label:label, short:label };
+}
+
+// v10.175 — dual developer margin: the scheme's TRUE (grant-free) margin and a second margin with the
+// indicative AHP grant applied as profit upside, so both can be shown side by side wherever margin is
+// displayed. Given a site's own grant-free base margin %, the caller adds `upliftPts` for the second
+// figure. Returns null unless the scheme is grant-eligible AND grant isn't already modelled into the
+// figures (once modelled, the engine's actual margin already reflects it — showing a dual would double-
+// count). Board-safe: grant is upside; the land value is unchanged. Mirrors grantEligibilityFor().
+function marginGrantUplift(data){
+  if(typeof grantEligibilityFor!=="function") return null;
+  var ge = grantEligibilityFor(data);
+  if(!ge || !ge.eligible || !(num(ge.indicativeAhp)>0) || num(ge.appliedGrant)>0) return null;
+  return { upliftPts:num(ge.marginUpliftPts), indicativeAhp:num(ge.indicativeAhp),
+    affordableHomes:num(ge.affordableHomes), perHome:num(ge.perHome) };
+}
+
 // ── Pre-consent (risk-adjusted) land value ───────────────────────────────────
 // The figure BOARD-facing outputs (Dashboard, Exit, one-pager) should LEAD with
 // when planning is NOT yet consented. The worked residual (RLV) is the land value
@@ -2582,10 +2630,15 @@ function projectTimeline(data){
   planningMonths = Math.round(planningMonths);
   var planningYears = Math.round(planningMonths / 12 * 10) / 10;
   buildYears = Math.round(buildYears * 10) / 10;
-  var statusLabel = ({ full:"Full consent", outline:"Outline consent", allocated:"Allocated in local plan",
-    preapp:"Pre-application", "pre-app":"Pre-application", likely:"Likely allocation" })[status] || "Unallocated / promotion";
+  // v10.174 — statusLabel now honours Assumption Mode: when planning is assumed-consented it reads
+  // "Full consent (assumed)" (flagged), so every report that shows TL.statusLabel can't present an
+  // assumed consent as achieved. Off → the real entered status.
+  var _ps = (typeof planningStatusInfo === "function") ? planningStatusInfo(data) : null;
+  var statusLabel = _ps ? _ps.label : (({ full:"Full consent", outline:"Outline consent", allocated:"Allocated in local plan",
+    preapp:"Pre-application", "pre-app":"Pre-application", likely:"Likely allocation" })[status] || "Unallocated / promotion");
   return { units:units, planningMonths:planningMonths, planningYears:planningYears, buildYears:buildYears,
-    totalYears:Math.round((planningYears + buildYears) * 10) / 10, status:status, statusLabel:statusLabel };
+    totalYears:Math.round((planningYears + buildYears) * 10) / 10, status:status, statusLabel:statusLabel,
+    statusAssumed: _ps ? !!_ps.assumed : false };
 }
 
 // v10.144 — GRANT TREATMENT (Phil + Patric decision, Jul 2026 — see docs/grant-treatment-note.md).
@@ -3499,7 +3552,11 @@ var SHARED_FIELD_GROUPS = [
   // v10.167 — afhPct is a legacy duplicate of ahPct on the planning object (different parts of the
   // app read one or the other); keep it in the group so a change anywhere syncs both, and Planning &
   // Viability (which reads p.ahPct||p.afhPct) can't drift from the Quick Appraisal / SFH ahPct.
-  [["planning","ahPct"],["planning","afhPct"],["sfh","ahPct"],["tenure","ahPct"]],
+  // v10.173 — hra.ahPct (apartment/high-rise path) joins the group so an apartment scheme's
+  // affordable % is a single source of truth too — the engine, Land scenario-apply, migration and
+  // the Propagation Audit already treat hra.ahPct as a sibling, but it was missing from the group,
+  // so an edit on one page wouldn't reach the HRA stage (and vice-versa). Now edit-anywhere syncs it.
+  [["planning","ahPct"],["planning","afhPct"],["sfh","ahPct"],["tenure","ahPct"],["hra","ahPct"]],
   // ── Sale £/sqft (houses path; different key name per stage) ──
   [["sfh","basePsf"],["rlv","salePsf"]],
   // ── Development cost assumptions (houses / finance cluster only) ──
