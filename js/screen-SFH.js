@@ -324,6 +324,49 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
         );
       })(),
 
+      // v10.169 — Services & externals costing per developable acre and per plot, ALWAYS visible.
+      // Reported by Phil: the "Auto-cost build/type" button fills BCIS *construction-only* house
+      // rates (~£165–200/sqft) while the all-in toggle stays ON — which zeros roads (£/plot),
+      // drainage/SuDS/site-infra (£53k/developable acre), professional fees and contingency. The
+      // services then silently drop out of the cost and the land value reads high. This surface
+      // shows what those externals actually cost by acreage and per plot, and warns when an
+      // "all-in" rate is too low to genuinely contain them (use ~£250 all-in, or untick the box).
+      (function(){
+        if(!(totalUnits>0)) return e("div",null);
+        var totSqft = houseCalcs.reduce(function(a,h){return a+h.sqft*h.count;},0);
+        var avgSqft = totSqft>0 ? totSqft/totalUnits : 0;
+        var infraPerAcre = 53000;
+        var infraPerPlot = sAcres>0 ? (sAcres*infraPerAcre)/totalUnits : 0;
+        var svcPerPlot = roads + infraPerPlot;                          // roads/sewers + drainage/SuDS/infra
+        var svcPsf = avgSqft>0 ? svcPerPlot/avgSqft : 0;
+        var feeContPsf = sBuild*((sFeesPct+sCont)/100);                 // pro fees + contingency, per sqft
+        // Weighted BCIS construction-only benchmark for THIS mix (no fees/externals).
+        var benchPsf = houseCalcs.reduce(function(a,h){return a + (typeof typicalBuildPsf==="function"?typicalBuildPsf(h.type,{city:sfhCity,tier1:!!s.tier1Build}):sBuild)*h.count;},0)/totalUnits;
+        var honestAllInPsf = Math.round(benchPsf + benchPsf*((sFeesPct+sCont)/100) + svcPsf);
+        // A rate marked all-in but sitting at/below the construction-only benchmark isn't really
+        // all-in — the services & fees are being zeroed with nothing standing in for them.
+        var understated = buildInclusive && sBuild <= benchPsf + 12 && svcPsf > 0;
+        var acreBit = sAcres>0
+          ? "£"+infraPerAcre.toLocaleString()+"/developable acre × "+sAcres+" ac = £"+Math.round(sAcres*infraPerAcre).toLocaleString()
+          : "£"+infraPerAcre.toLocaleString()+"/developable acre (enter Site Area to resolve)";
+        return e("div",{style:{margin:"-8px 0 14px",padding:"12px 14px",background:"rgba(243,244,248,0.6)",border:"1px solid #E0E2EC",borderRadius:6,fontSize:11,color:"#3A3D6A",lineHeight:1.6}},
+          e("div",{style:{fontWeight:700,marginBottom:4,fontSize:12}},"🚧 Services & externals — costed by acreage"),
+          e("div",null,
+            "Roads & sewers (S38/S104) £"+Math.round(roads).toLocaleString()+"/plot + drainage, SuDS & site infrastructure "+acreBit+
+            (sAcres>0?" ≈ ":" — ")+
+            (sAcres>0?"£"+Math.round(svcPerPlot).toLocaleString()+"/plot (≈ £"+Math.round(svcPsf)+"/sqft) across "+totalUnits+" homes.":"add Site Area for a £/plot figure.")
+          ),
+          understated
+            ? e("div",{style:{marginTop:8,padding:"9px 12px",background:"rgba(176,90,53,0.09)",border:"1px solid rgba(176,90,53,0.4)",borderRadius:6,color:"#B05A35",fontWeight:600}},
+                "⚠ Your build rate £"+Math.round(sBuild)+"/sqft is marked all-in, but that's the BCIS construction-only level for this mix (≈ £"+Math.round(benchPsf)+"/sqft). With the toggle on, services (≈ £"+Math.round(svcPsf)+"/sqft) plus fees & contingency (≈ £"+Math.round(feeContPsf)+"/sqft) are being zeroed with nothing replacing them. A genuine all-in rate here is ≈ £"+honestAllInPsf+"/sqft — set that (or ~£250), or untick the all-in box to add these as explicit lines."
+              )
+            : (buildInclusive
+                ? e("div",{style:{marginTop:6,fontSize:10,color:"#7278A0"}},"All-in toggle is on, so these are assumed inside your £"+Math.round(sBuild)+"/sqft build rate (≈ £"+honestAllInPsf+"/sqft is a genuine all-in level for this mix). Untick the box to add them as separate lines.")
+                : e("div",{style:{marginTop:6,fontSize:10,color:"#7278A0"}},"All-in toggle is off, so these are added below as explicit Roads & Sewers and Site Infra & SuDS lines.")
+              )
+        );
+      })(),
+
       LiveMarketBanner(),
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Site Details"),
