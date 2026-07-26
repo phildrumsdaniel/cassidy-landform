@@ -37,6 +37,12 @@ function renderDD(data, setData, user, up){
           )
         )
       ),
+      // v10.174 — when Assumption Mode treats DD as clear, say so here so the real checklist below
+      // (done of total) isn't taken as the modelled position. Mirrors the planning 🎭 banner.
+      (typeof assumeDDComplete==="function" && assumeDDComplete(data)) && e("div",{style:{background:"rgba(154,123,62,0.10)",border:"1px solid rgba(154,123,62,0.45)",borderRadius:8,padding:"11px 15px",marginBottom:16}},
+        e("div",{style:{fontSize:12,fontWeight:800,color:"#9A7B3E",marginBottom:2}},"🎭 Assumption Mode — Due Diligence treated as CLEAR (assumed)"),
+        e("div",{style:{fontSize:11,color:"#7A5E24",lineHeight:1.5}},"Appraisals and the board proposal read ",e("b",null,"“DD clear (assumed)”"),". The checklist below shows the ",e("b",null,"real position ("+done+" of "+total2+" confirmed)"),". This is an illustrative assumption, not the achieved position — toggle it off in Assumption Mode.")
+      ),
       Object.keys(DD).map(function(cat){
         var items=DD[cat];
         var catDone=items.filter(function(item){return checked[item];}).length;

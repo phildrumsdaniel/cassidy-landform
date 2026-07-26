@@ -116,6 +116,13 @@ function renderPlanning(at, data, navTo, setData, setJourney, units, up, user){
           ),
           e(Sel,{label:"Planning Status",value:p.status,onChange:function(v){up("planning","status",v);},
             options:[{value:"",label:"Select..."},{value:"full",label:"Full planning consent"},{value:"outline",label:"Outline consent"},{value:"pip",label:"Permission in Principle (PiP) granted"},{value:"refused_pip",label:"PiP Refused — recovery needed"},{value:"refused_full",label:"Full planning refused — appeal"},{value:"allocated",label:"Local Plan allocation"},{value:"pre_app",label:"Pre-application stage"},{value:"none",label:"None / no planning history"}]}),
+          // v10.174 — when Assumption Mode treats planning as consented, say so here (not just in the
+          // reports) so the entered status can't be mistaken for the modelled position. Mirrors the
+          // Dashboard 🎭 banner; toggle it in Assumption Mode. Shows the real entered status alongside.
+          (typeof assumePlanningConsented==="function" && assumePlanningConsented(data)) && e("div",{style:{gridColumn:"span 2",background:"rgba(154,123,62,0.10)",border:"1px solid rgba(154,123,62,0.45)",borderRadius:8,padding:"10px 14px"}},
+            e("div",{style:{fontSize:11,fontWeight:800,color:"#9A7B3E",marginBottom:2}},"🎭 Assumption Mode — planning treated as CONSENTED (assumed)"),
+            e("div",{style:{fontSize:10.5,color:"#7A5E24",lineHeight:1.5}},"Appraisals and the board proposal read ",e("b",null,"“Full consent (assumed)”"),(p.status?" — the entered status is “"+({full:"Full consent",outline:"Outline consent",pip:"PiP",allocated:"Allocated",pre_app:"Pre-application",none:"None"}[p.status]||p.status)+"”. ":". "),"This is an illustrative assumption, not the achieved position — toggle it off in Assumption Mode for the real planning risk.")
+          ),
           (p.status==="refused_pip"||p.status==="refused_full")&&e("div",{style:{gridColumn:"span 2",background:"rgba(176,90,53,0.08)",border:"1px solid rgba(176,90,53,0.3)",borderRadius:8,padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}},
             e("div",null,
               e("div",{style:{fontSize:12,fontWeight:700,color:"#B05A35",marginBottom:2}},"⚠ Planning has been refused — Recovery Journey available"),

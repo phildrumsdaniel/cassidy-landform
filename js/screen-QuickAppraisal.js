@@ -290,7 +290,10 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
           ? kpi("Worth to us (RLV) · "+QEX.basisLabel, (headlineRlv < 0 ? "−" : "") + fmt(Math.abs(headlineRlv)), headlineRlv > 0 ? "#1B7A54" : "#B05A35")
           : kpi("Worth to us (RLV) · exit not yet decided", (QEX.rangeIsSpan ? fmt(QEX.rangeLo)+" – "+fmt(QEX.rangeHi) : fmt(QEX.rangeHi)), QEX.rangeHi > 0 ? "#1B7A54" : "#B05A35", "range across exit routes — see below")),
         kpi(asking > 0 ? "Asking price" : "Max land @ profit", asking > 0 ? fmt(asking) : ((rlv < 0 ? "−" : "") + fmt(Math.abs(rlv))), asking > 0 ? "#1B1D46" : (rlv >= 0 ? "#1B1D46" : "#B05A35")),
-        kpi(asking > 0 ? "Margin (all-in)" : "Developer profit", asking > 0 ? pct(marginAllIn) : (Math.round(profitPct*10)/10)+"%", asking > 0 ? (marginAllIn >= 15 ? "#1B7A54" : marginAllIn >= 12 ? "#9A7B3E" : "#B05A35") : "#1B1D46")
+        // v10.175 — margin KPI shows the TRUE (grant-free) margin, and — when the scheme is AHP-eligible
+        // and grant isn't yet modelled — the second margin WITH the indicative grant applied as profit
+        // upside, so both read side by side. Board-safe: grant is upside, the land value is unchanged.
+        kpi(asking > 0 ? "Margin (all-in)" : "Developer profit", asking > 0 ? pct(marginAllIn) : (Math.round(profitPct*10)/10)+"%", asking > 0 ? (marginAllIn >= 15 ? "#1B7A54" : marginAllIn >= 12 ? "#9A7B3E" : "#B05A35") : "#1B1D46", (function(){ var mg=(typeof marginGrantUplift==="function")?marginGrantUplift(effData):null; if(!mg) return ""; var b=asking>0?marginAllIn:profitPct; return (Math.round((b+mg.upliftPts)*10)/10)+"% with AHP grant (+"+(Math.round(mg.upliftPts*10)/10)+" pts)"; })())
       ),
 
       // ── APPRAISAL + LAND TEST ────────────────────────────────────────────────

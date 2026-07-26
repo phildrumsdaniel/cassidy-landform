@@ -229,7 +229,11 @@ function buildLandOnePager(data, cityHint){
   var planStatus=p.status||l.planningStatus||"Unallocated";
   // v10.84 — a clean, board-facing status label so an unset / "none" status doesn't print the
   // raw word "none" on the briefing.
-  var planStatusLabel=({full:"Full consent",outline:"Outline consent",allocated:"Allocated in Local Plan",preapp:"Pre-application",likely:"Likely allocation",none:"Unallocated / promotion",unallocated:"Unallocated / promotion"})[String(planStatus).toLowerCase()]||planStatus;
+  // v10.174 — and honour Assumption Mode: assumed-consented reads "Full consent (assumed)" (flagged),
+  // so the one-pager can't present an assumed consent as achieved.
+  var _psi1=(typeof planningStatusInfo==="function")?planningStatusInfo(data):null;
+  var planStatusLabel=_psi1?_psi1.label:(({full:"Full consent",outline:"Outline consent",allocated:"Allocated in Local Plan",preapp:"Pre-application",likely:"Likely allocation",none:"Unallocated / promotion",unallocated:"Unallocated / promotion"})[String(planStatus).toLowerCase()]||planStatus);
+  var planStatusAssumed=_psi1?!!_psi1.assumed:false;
   var lpa=p.lpa||l.localAuthority||"";
   var density=(acres>0&&units>0)?Math.round(units/acres):0;
   function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
@@ -259,6 +263,9 @@ function buildLandOnePager(data, cityHint){
     var oBuildPsf=Math.round(num(sf.buildPsf)||0);
     var oBasePsf=Math.round(num(sf.basePsf)||0);
     var oProfitPct=oGdv>0?oProfit/oGdv*100:0;                 // target profit baked into the RLV
+    // v10.175 — dual margin on the one-pager: the grant-applied margin (true + indicative AHP as
+    // profit upside), shown next to the true figure. Null unless eligible & grant not yet modelled.
+    var _mg1=(typeof marginGrantUplift==="function")?marginGrantUplift(data):null;
     var askL=num(l.price)||ask||0;                            // what the landowner is asking
     var profitAtAsk=askL>0?(oGdv-oDev-askL):oProfit;          // real profit if bought at the asking price
     var marginAtAsk=oGdv>0?(profitAtAsk/oGdv*100):0;
@@ -476,7 +483,7 @@ function buildLandOnePager(data, cityHint){
             : (EX.chosen
               ? '<div class="kpi"><div class="l">Residual land value · '+esc(EX.basisLabel)+'</div><div class="v" style="color:'+(headlineRlv>0?"#1B7A54":"#B05A35")+'">'+(headlineRlv?((headlineRlv<0?"−":"")+fmt(Math.abs(headlineRlv))):"—")+'</div></div>'
               : '<div class="kpi"><div class="l">Residual land value · exit not yet decided</div><div class="v" style="color:'+(num(EX.rangeHi)>0?"#1B7A54":"#B05A35")+'">'+(EX.rangeIsSpan?fmt(EX.rangeLo)+' – '+fmt(EX.rangeHi):fmt(EX.rangeHi))+'</div></div>'))+
-          '<div class="kpi"><div class="l">'+(askL>0?"Margin (all-in)":"Target profit")+'</div><div class="v" style="color:'+(askL>0?(marginAllIn>=15?"#1B7A54":marginAllIn>=12?"#9A7B3E":"#B05A35"):"#1B1D46")+'">'+(askL>0?pct(marginAllIn):(Math.round(oProfitPct*10)/10)+"%")+'</div></div>'+
+          '<div class="kpi"><div class="l">'+(askL>0?"Margin (all-in)":"Target profit")+'</div><div class="v" style="color:'+(askL>0?(marginAllIn>=15?"#1B7A54":marginAllIn>=12?"#9A7B3E":"#B05A35"):"#1B1D46")+'">'+(askL>0?pct(marginAllIn):(Math.round(oProfitPct*10)/10)+"%")+'</div>'+(_mg1?'<div style="font-size:7px;color:#1B7A54;margin-top:1px">'+pct((askL>0?marginAllIn:oProfitPct)+_mg1.upliftPts)+' with AHP grant</div>':'')+'</div>'+
         '</div>'+
         // v10.112 — Exit routes: the land value under each exit, side by side, with the chosen route
         // (from the Exit Strategy stage) highlighted. Appraise all options; commit to one and it leads.
@@ -1771,10 +1778,20 @@ function renderProposal(city, data, gdv, lc, up, user){
   // achieved margin at the entered guide price. Fixes the reviewer's #1 (the "38.3% margin" error).
   var boardAskLand = num((data.land&&data.land.price))||0;
   var boardMargin = boardAskLand>0 ? marginV : (num(M.profitPctTarget)||17.5);
+  // v10.175 — dual margin: boardMargin is the TRUE (grant-free) margin; when the scheme is AHP-eligible
+  // and grant isn't yet modelled, boardMarginGrant is the same margin WITH the indicative grant applied
+  // as profit upside, shown alongside. Board-safe — grant is upside, the land value is unchanged.
+  var _mgB=(typeof marginGrantUplift==="function")?marginGrantUplift(data):null;
+  var boardMarginGrant=_mgB?(boardMargin+_mgB.upliftPts):null;
   var s106V=num(M.s106)||num(p.s106)||0;
   var ask=num(l.price||0);
   var ahPct=num(p.ahPct||p.afhPct||ten.ahPct||0);
-  var planStatus=p.status||l.planningStatus||"Unallocated";
+  // v10.174 — planning position as a human label that honours Assumption Mode: when planning is
+  // assumed-consented it reads "Full consent (assumed)" (flagged), never a bare status presented as
+  // achieved. Off → the real entered status label.
+  var _psiB=(typeof planningStatusInfo==="function")?planningStatusInfo(data):null;
+  var planStatus=_psiB?_psiB.label:(p.status||l.planningStatus||"Unallocated");
+  var planAssumed=_psiB?!!_psiB.assumed:false;
   var lpa=p.lpa||l.localAuthority||"";
   var ccVerdict=(typeof constraintVerdict==="function")?constraintVerdict(data):"";
   var ccScore=(data.constraintCheck&&data.constraintCheck.results&&num(data.constraintCheck.results.score))||0;
@@ -2066,7 +2083,7 @@ function renderProposal(city, data, gdv, lc, up, user){
             apRow("Total build &amp; infrastructure","~"+(units?units.toLocaleString():"—")+" homes",buildTot>0?fmt(buildTot):"To confirm")+
             apRow("Section 106 / planning obligations","",s106V>0?fmt(s106V):"To confirm")+
             apRow("Fees, contingency &amp; finance","","included")+
-            apRow("Developer profit",boardAskLand>0?"margin on GDV, after land":"target margin on GDV, at the residual land value",isFinite(boardMargin)&&boardMargin?pct(boardMargin):"—")+
+            apRow("Developer profit",boardAskLand>0?"margin on GDV, after land":"target margin on GDV, at the residual land value",isFinite(boardMargin)&&boardMargin?(pct(boardMargin)+(boardMarginGrant!=null?' &middot; '+pct(boardMarginGrant)+' with AHP grant':'')):"—")+
             apRowSum("Supportable residual land value","on consent",(isFinite(rlvV)&&rlvV<0)?'<span style="color:#B05A35">−'+fmt(Math.abs(rlvV))+'</span>':(rlvV>0?fmt(rlvV):"—"))+
             (ask>0?apRow("Guide price","current",fmt(ask)):"")+
             (headroom>0?apRowSum("Indicative headroom to residual value","",'<span style="color:#2D7A65">'+fmt(headroom)+'</span>'):"")+
@@ -2569,7 +2586,7 @@ function renderProposal(city, data, gdv, lc, up, user){
     e("div",{style:Object.assign({},S.card,{background:"linear-gradient(160deg,#1E1F5C,#26286e)",color:"#EDEEFB",border:"none"})},
       e("div",{style:{fontSize:10,letterSpacing:".15em",textTransform:"uppercase",color:"#C9A227",fontWeight:700,marginBottom:10}},"Preview — headline figures"),
       e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:1,background:"rgba(255,255,255,0.12)",border:"1px solid rgba(255,255,255,0.14)",borderRadius:8,overflow:"hidden"}},
-        [["Gross Dev. Value",gdvV>0?fmt(gdvV):"—"],["New homes",units?units.toLocaleString():"—"],["Guide price",ask>0?fmt(ask):"—"],["Residual land value",(isFinite(rlvV)&&rlvV<0)?"−"+fmt(Math.abs(rlvV)):(rlvV>0?fmt(rlvV):"—")],["Dev margin"+(boardAskLand>0?"":" (target)"),isFinite(boardMargin)&&boardMargin?pct(boardMargin):"—"],["Planning",planStatus]].map(function(it){
+        [["Gross Dev. Value",gdvV>0?fmt(gdvV):"—"],["New homes",units?units.toLocaleString():"—"],["Guide price",ask>0?fmt(ask):"—"],["Residual land value",(isFinite(rlvV)&&rlvV<0)?"−"+fmt(Math.abs(rlvV)):(rlvV>0?fmt(rlvV):"—")],["Dev margin"+(boardAskLand>0?"":" (target)"),isFinite(boardMargin)&&boardMargin?(pct(boardMargin)+(boardMarginGrant!=null?" · "+pct(boardMarginGrant)+" w/ grant":"")):"—"],["Planning",planStatus]].map(function(it){
           return e("div",{key:it[0],style:{background:"rgba(14,15,40,0.4)",padding:"12px 14px"}},
             e("div",{style:{fontSize:18,fontWeight:800,color:"#fff",fontFamily:"Georgia,serif"}},it[1]),
             e("div",{style:{fontSize:9,color:"#AEB2E4",marginTop:4,textTransform:"uppercase",letterSpacing:".04em"}},it[0]));

@@ -14,12 +14,16 @@ function renderDashboard(ALL_STAGES, JOURNEYS, at, city, data, effUnits, ey, gdv
     // the pre-land surplus as developer profit.
     var dashLandPrice = num((data.land&&data.land.price)||0);
     var dashBeforeLand = gdv>0 && tc>0 && !(dashLandPrice>0) && num(DMd.rlv)>0;
+    // v10.175 — dual margin: the grant-applied margin (true + indicative AHP as profit upside) shown
+    // next to the true margin. Only when a real after-land margin is shown (not the pre-land surplus)
+    // and the scheme is AHP-eligible with grant not yet modelled.
+    var _mgD = (!dashBeforeLand && typeof marginGrantUplift==="function") ? marginGrantUplift(data) : null;
 
     var cards=[
       {l:"GDV",v:gdv>0?fmt(gdv):"—"},
       {l:"Total Dev Cost",v:tc>0&&gdv>0?fmt(tc):"—",sub:dashBeforeLand?"Build + fees + cont + S106 + finance — NO land priced yet":"Build + fees + cont + S106 + finance + land"},
       {l:dashBeforeLand?"Surplus before land":"Profit on Cost",v:gdv>0&&tc>0?fmt(profit):"—",c:profit>0?scM:"#C0C4D8",sub:dashBeforeLand?"GDV − costs — this is LAND + profit, not profit alone":"GDV − all costs incl. land"},
-      {l:dashBeforeLand?"Margin before land":"Margin on GDV",v:gdv>0&&tc>0?pct(margin):"—",c:margin>0?(dashBeforeLand?"#9A7B3E":scM):"#C0C4D8",sub:dashBeforeLand?"before land — not the 17.5% target margin":"Actual margin (after land price)"},
+      {l:dashBeforeLand?"Margin before land":"Margin on GDV",v:gdv>0&&tc>0?(pct(margin)+(_mgD?" · "+pct(margin+_mgD.upliftPts)+" w/ grant":"")):"—",c:margin>0?(dashBeforeLand?"#9A7B3E":scM):"#C0C4D8",sub:dashBeforeLand?"before land — not the 17.5% target margin":(_mgD?"Actual margin · second figure applies the indicative AHP grant":"Actual margin (after land price)")},
       {l:"NOI (pa)",v:!isSFHdash&&noi>0?fmt(noi):"—"},
       {l:"Exit Yield",v:!isSFHdash&&ey>0?(ey*100).toFixed(2)+"%":"—"},
       {l:"Units / Beds",v:effUnits||"—"},
