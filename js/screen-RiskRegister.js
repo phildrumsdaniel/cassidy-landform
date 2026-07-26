@@ -45,12 +45,23 @@ function renderRisks(at, data, setData, up, user){
         setData(function(d){return Object.assign({},d,{risks:updated});});
       }
       function addRisk(){
-        var newRisk={id:Date.now(),cat:"Other",desc:"New risk",rag:"amber",mit:"Mitigation TBC"};
+        var newRisk={id:Date.now(),cat:"",desc:"",rag:"amber",mit:""};
         setData(function(d){
-          var current = Array.isArray(d.risks) ? d.risks : [];
+          var current = (Array.isArray(d.risks) && d.risks.length) ? d.risks : ((typeof riskDefaultsFor==="function")?riskDefaultsFor(d):RISK_DEFAULTS.map(function(x){return Object.assign({},x);}));
           return Object.assign({},d,{risks:current.concat([newRisk])});
         });
       }
+      // v10.179 — delete a risk row. Materialise the defaults first if the deal hasn't persisted its
+      // own risks yet, so deleting a seeded row saves the remaining set (and never resurrects it).
+      function deleteRisk(id){
+        setData(function(d){
+          var current = Array.isArray(d.risks) && d.risks.length ? d.risks : ((typeof riskDefaultsFor==="function")?riskDefaultsFor(d):RISK_DEFAULTS.map(function(x){return Object.assign({},x);}));
+          return Object.assign({},d,{risks:current.filter(function(r){return r && r.id!==id;})});
+        });
+      }
+      // v10.179 — shared field styles for the now-editable category / description / mitigation inputs.
+      var _riskInp={width:"100%",padding:"5px 7px",border:"1px solid #DDE0ED",borderRadius:4,fontSize:11,fontFamily:"DM Sans,sans-serif",color:"#3A3D6A",background:"#fff",boxSizing:"border-box"};
+      var _riskTa=Object.assign({},_riskInp,{lineHeight:1.45,resize:"vertical",minHeight:34,color:"#2E2F8A"});
 
       // Safe builds of summary strings for AIPanel prompt
       var assetType = (typeof at !== "undefined" && at) ? at : "scheme";
@@ -59,7 +70,7 @@ function renderRisks(at, data, setData, up, user){
 
       return e("div",null,
         e("h2",{style:{fontSize:24,fontWeight:800,color:"#2E2F8A",marginBottom:4}},"Risk Register"),
-        e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Live RAG-rated risk tracking with mitigation strategies"),
+        e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:20}},"Live RAG-rated risk tracking with mitigation strategies — click any field to edit; ‘+ Add Risk’ to log a new one, ✕ to remove a row"),
         e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:16}},
           ["red","amber","green"].map(function(rag){
             return e("div",{key:rag,style:{background:"#fff",border:"1px solid "+RC[rag],borderRadius:8,padding:"14px 16px",textAlign:"center"}},
@@ -73,17 +84,25 @@ function renderRisks(at, data, setData, up, user){
             e("span",null,"Risk Register"),
             e("button",{onClick:addRisk,style:{padding:"4px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",color:"#7278A0",borderRadius:4,fontSize:11,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"+ Add Risk")
           ),
+          // v10.179 — column headers so the now-editable fields are labelled.
+          e("div",{style:{display:"grid",gridTemplateColumns:"10px 104px 1fr 76px 1fr 24px",gap:10,padding:"0 0 8px",fontSize:9,color:"#9298BC",textTransform:"uppercase",letterSpacing:".08em",fontWeight:700}},
+            e("span",null,""),e("span",null,"Category"),e("span",null,"Risk"),e("span",null,"RAG"),e("span",null,"Mitigation"),e("span",null,"")
+          ),
           risks.map(function(r,ri){
             // Safe key — fall back to index if id missing
             var safeKey = (r&&r.id) ? r.id : ("risk-"+ri);
-            return e("div",{key:safeKey,style:{display:"grid",gridTemplateColumns:"10px 90px 1fr 80px 1fr",gap:10,padding:"9px 0",borderBottom:"1px solid #DDE0ED",alignItems:"start",fontSize:11}},
-              e("div",{style:{width:8,height:8,borderRadius:"50%",background:RC[r.rag]||"#C8CDE0",marginTop:3,flexShrink:0}}),
-              e("span",{style:{fontWeight:600,color:"#3A3D6A"}},r.cat||"—"),
-              e("span",{style:{color:"#2E2F8A"}},r.desc||"—"),
-              e("select",{value:r.rag||"amber",onChange:function(ev){updateRisk(r.id,"rag",ev.target.value);},style:{padding:"3px 6px",border:"1px solid #DDE0ED",borderRadius:4,fontSize:11,fontFamily:"DM Sans,sans-serif",background:"#fff"}},
+            // v10.179 — category / description / mitigation are now proper editable fields (were
+            // read-only spans, so an added risk couldn't be filled in). Each writes back into the
+            // deal's risk array via updateRisk, exactly like the RAG dropdown. Plus a per-row delete.
+            return e("div",{key:safeKey,style:{display:"grid",gridTemplateColumns:"10px 104px 1fr 76px 1fr 24px",gap:10,padding:"9px 0",borderBottom:"1px solid #DDE0ED",alignItems:"start",fontSize:11}},
+              e("div",{style:{width:8,height:8,borderRadius:"50%",background:RC[r.rag]||"#C8CDE0",marginTop:9,flexShrink:0}}),
+              e("input",{type:"text",value:r.cat||"",placeholder:"Category",onChange:function(ev){updateRisk(r.id,"cat",ev.target.value);},style:Object.assign({},_riskInp,{fontWeight:600})}),
+              e("textarea",{value:r.desc||"",placeholder:"Describe the risk…",rows:2,onChange:function(ev){updateRisk(r.id,"desc",ev.target.value);},style:Object.assign({},_riskTa,{color:"#2E2F8A"})}),
+              e("select",{value:r.rag||"amber",onChange:function(ev){updateRisk(r.id,"rag",ev.target.value);},style:{padding:"5px 6px",border:"1px solid #DDE0ED",borderRadius:4,fontSize:11,fontFamily:"DM Sans,sans-serif",background:"#fff"}},
                 ["red","amber","green"].map(function(v){return e("option",{key:v,value:v},v.charAt(0).toUpperCase()+v.slice(1));})
               ),
-              e("span",{style:{color:"#7278A0",fontSize:10,lineHeight:1.5}},r.mit||"—")
+              e("textarea",{value:r.mit||"",placeholder:"Mitigation…",rows:2,onChange:function(ev){updateRisk(r.id,"mit",ev.target.value);},style:Object.assign({},_riskTa,{color:"#5A5F86"})}),
+              e("button",{onClick:function(){deleteRisk(r.id);},title:"Delete this risk",style:{background:"none",border:"none",color:"#B05A35",fontSize:17,fontWeight:700,cursor:"pointer",padding:0,lineHeight:1,marginTop:6}},"×")
             );
           })
         ),
