@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.175";
+var CURRENT_VERSION = "10.176";
 var VERSION_HISTORY = [
+  {v:"10.176", date:"Jul 2026", headline:"The SFH Mix Optimiser's ‘🏠 For rent’ tab can now INTRODUCE house types that aren't in your mix — not just reshuffle the ones you have — when they out-rent your weakest type on rent per sqft (i.e. rent per acre, since the floor area is held constant). So on a detached-heavy mix it proposes e.g. compact 2/3/4-bed terraces (and displaces the low-rent tail), which is where the extra rental income is. How it works: it builds a candidate pool from the house-type library (house forms only — terrace/semi/mews/coach house/townhouse/link-detached/detached, no flats/apartments/conversions, 2-bed+), keeps the best few that clear your current worst type by >2%, and ranks them alongside your existing types; the allocator then fills the top N (≈ your mix's original size) so a stronger new renter can replace a weak existing one rather than every type keeping a floor share (which would just flatten the mix). New types are badged ‘＋ NEW’ in the ranking table, and the summary line names the ones it introduced. The total home count and developable floor area are unchanged — it's a like-for-like reallocation; applying it sets rows to private (market) tenure with your affordable % layered back on separately. Profit (‘💷 For sale’) mode is unchanged — reshuffle only. Requested by Phil for the Maldon 240-home mix. No engine-value change."},
   {v:"10.175", date:"Jul 2026", headline:"Dev Margin now shows BOTH the true (grant-free) margin AND a second margin with the AHP grant applied, side by side, wherever margin is displayed — so the board sees the pure-scheme return and the grant-boosted return at once. Added on the Quick Appraisal margin KPI, the Board Proposal headline tile + the 'Developer profit' appraisal row, the one-page appraisal margin KPI, the SFH residual summary and the Dashboard 'Margin on GDV' tile. The second figure = the true margin + the indicative AHP grant as profit upside (grant £ ÷ GDV, in points), reusing grantEligibilityFor(). Board-safe and non-double-counting: it only appears when the scheme is AHP-eligible (≥10 affordable homes) AND grant isn't already modelled — once you model grant on the Grants stage, the engine's actual margin already reflects it, so the dual retires automatically. No engine-value change; the land value is unchanged. New helper marginGrantUplift(data)."},
   {v:"10.174", date:"Jul 2026", headline:"Planning Status and Due Diligence status now read as ASSUMPTIONS, not bare facts, tied into the existing Assumption Mode toggle — so a board reader can't mistake an assumed consent (or a bare 'none'/'Unallocated') for the achieved position. When Assumption Mode's planning flag is on, the planning position everywhere (Board Proposal cover + KPI + narrative, one-page appraisal, teaser, IM, RLV — all via projectTimeline.statusLabel and the board proposal's own status label) reads 'Full consent (assumed)', flagged, instead of a definitive status; off, it shows the real entered status. Planning & Viability now carries a 🎭 amber banner under the Planning Status field when planning is assumed, showing the assumed position alongside the entered status. The Due Diligence stage gains the same 🎭 banner when DD is assumed-clear, with the real 'N of M items confirmed' shown beneath, so the checklist can't be taken as the modelled position. Mirrors the established '(assumed)' pattern (Scorecard/Teaser/Dashboard). New helpers planningStatusInfo() / ddStatusInfo(); no engine-value change — labelling and disclosure."},
   {v:"10.173", date:"Jul 2026", headline:"Affordable Housing % is now a true single source of truth across the whole app. The shared-field propagation group gains the apartment/high-rise key (hra.ahPct) it was missing — the engine, the Land scenario-apply, migration and the Propagation Audit all already treated hra.ahPct as a sibling, but it wasn't in the group, so on an apartment scheme an edit on one page wouldn't reach the HRA stage (and vice-versa). Now editing the affordable % ANYWHERE it appears (Quick Appraisal, Planning & Viability, SFH House Mix, Tenure Mix, and the HRA path) updates it everywhere consistently, and every live input already writes through up() (the propagation path), so nothing bypasses it. The canonical default stays 30% (KEYSTONE_DEFAULTS.affordablePct), so a fresh housing scheme starts at 30 and edits flow from there. No engine-value change — propagation wiring."},
@@ -3351,6 +3352,42 @@ function optimiseSfhMix(data, mode, opts){
       rentPcm:Math.round(rentPcm), rentPsfPa: t.sqft > 0 ? (rentPcm * 12 / t.sqft) : 0,
       grossYield: cost > 0 ? (rentPcm * 12 / cost) * 100 : 0 };
   });
+  // v10.176 — RENT mode may also INTRODUCE house types that aren't in the mix, when they beat the
+  // current worst-renting type on rent per sqft (i.e. rent per acre, since the floor area is held
+  // constant). Lets the optimiser propose e.g. compact 2/3-bed terraces to displace a low-rent
+  // detached tail. House FORMS only (no flats/apartments/conversions/executive), the best few that
+  // clear the tail, so the proposed mix stays deliverable. Candidates enter the ranking with count 0
+  // (they don't change the total floor area T); the allocator below can then allocate to them.
+  var introduced = [];
+  if(mode === "rent" && types.length && typeof HOUSE_TYPES !== "undefined"){
+    var present = {}; types.forEach(function(t){ present[t.type] = true; });
+    var worstRentPsf = Math.min.apply(null, types.map(function(t){ return t.rentPsfPa || 0; }));
+    var CAND_RE = /terrace|semi|mews|coach house|link-detached|townhouse|detached|bungalow/i;
+    var EXCLUDE_RE = /apartment|penthouse|conversion|maisonette|duplex|studio|executive/i;
+    var cands = Object.keys(HOUSE_TYPES).filter(function(k){
+      // house forms only, not already in the mix, and 2-bed+ (don't resurrect 1-bed types a user has
+      // deliberately dropped — the ask was compact 2/3-bed terraces).
+      return !present[k] && CAND_RE.test(k) && !EXCLUDE_RE.test(k) && num((HOUSE_TYPES[k]||{}).beds) >= 2;
+    }).map(function(k){
+      var info = HOUSE_TYPES[k];
+      var sqft = num(info.sqft) || 900;
+      var price = Math.round(sqft * basePsf * (info.adj || 1));
+      var bPsf = num(info.build) || schemeBuildPsf;
+      var build = sqft * bPsf;
+      var cost = build + build * feesPct + build * contPct + (build + build * feesPct) * finRate * finMult + s106pu + roadsPu + price * mktgPct;
+      var rentPcm = (typeof areaRentPcm === "function") ? areaRentPcm(data, info.beds) : 0;
+      return { type:k, beds:num(info.beds), sqft:sqft, count:0,
+        salePrice:price, psf: sqft > 0 ? Math.round(price / sqft) : 0,
+        buildPsf:Math.round(bPsf), costToDeliver:Math.round(cost),
+        marginPerPlot:Math.round(price - cost), marginPsf: sqft > 0 ? (price - cost) / sqft : 0,
+        rentPcm:Math.round(rentPcm), rentPsfPa: sqft > 0 ? (rentPcm * 12 / sqft) : 0,
+        grossYield: cost > 0 ? (rentPcm * 12 / cost) * 100 : 0, isNew:true };
+    }).filter(function(c){ return c.rentPsfPa > worstRentPsf * 1.02; });   // must clear the current tail by >2%
+    cands.sort(function(a, b){ return b.rentPsfPa - a.rentPsfPa; });
+    introduced = cands.slice(0, 3);                                        // top 3 new renters — keep it deliverable
+    types = types.concat(introduced);
+  }
+
   var rankKey = mode === "rent" ? "rentPsfPa" : "marginPsf";
   types.sort(function(a, b){ return b[rankKey] - a[rankKey]; });
 
@@ -3358,20 +3395,25 @@ function optimiseSfhMix(data, mode, opts){
   // within [minShare, maxShare] floor-area bounds (greedy: best gets max, worst gets min).
   var T = types.reduce(function(a, t){ return a + t.sqft * t.count; }, 0);
   var n = types.length;
+  // v10.176 — when RENT mode has introduced new types, allocate to only the top `keepN` ranked types
+  // (≈ the mix's original size), so a stronger new renter DISPLACES a weak existing type rather than
+  // every type keeping a floor share (which would just flatten the mix). Types beyond keepN get a 0
+  // allocation but still show in the ranking, so you can see what was dropped and why.
+  var keepN = (mode === "rent" && introduced.length) ? Math.min(n, Math.max(4, n - introduced.length)) : n;
   // v10.46 — tunable bounds (per-type floor-area share). Defaults ~10%–40%; the SFH Mix Optimiser
   // exposes these so Cassidy can match how it actually sells (e.g. allow a 50% dominant type).
-  var maxShare = num(opts.maxPct) > 0 ? num(opts.maxPct) / 100 : Math.max(0.40, 1 / n);
-  var minShare = num(opts.minPct) >= 0 && opts.minPct !== "" && opts.minPct != null ? num(opts.minPct) / 100 : Math.min(0.10, 1 / (n + 1));
-  minShare = Math.max(0, Math.min(minShare, 1 / n));    // feasibility: every type can hold its min
-  maxShare = Math.max(maxShare, 1 / n);                 // feasibility: mix can still sum to 100%
-  var shares = types.map(function(){ return minShare; });
-  var budget = 1 - minShare * n;
-  for(var i = 0; i < n && budget > 1e-9; i++){ var add = Math.min(maxShare - minShare, budget); shares[i] += add; budget -= add; }
+  var maxShare = num(opts.maxPct) > 0 ? num(opts.maxPct) / 100 : Math.max(0.40, 1 / keepN);
+  var minShare = num(opts.minPct) >= 0 && opts.minPct !== "" && opts.minPct != null ? num(opts.minPct) / 100 : Math.min(0.10, 1 / (keepN + 1));
+  minShare = Math.max(0, Math.min(minShare, 1 / keepN));    // feasibility: every KEPT type can hold its min
+  maxShare = Math.max(maxShare, 1 / keepN);                 // feasibility: mix can still sum to 100%
+  var shares = types.map(function(_, idx){ return idx < keepN ? minShare : 0; });
+  var budget = 1 - minShare * keepN;
+  for(var i = 0; i < keepN && budget > 1e-9; i++){ var add = Math.min(maxShare - minShare, budget); shares[i] += add; budget -= add; }
   var optMix = types.map(function(t, i){
     var cnt = Math.max(0, Math.round((shares[i] * T) / (t.sqft || 1)));
     return { type:t.type, beds:String(t.beds), count:String(cnt), sqft:String(t.sqft),
       unitPrice:String(t.salePrice), psf:"", tenure:"private", buildPsf: t.buildPsf ? String(Math.round(t.buildPsf)) : "" };
-  });
+  }).filter(function(r){ return num(r.count) > 0; });        // v10.176 — drop displaced (0-allocation) types from the applied mix
   // v10.61 — reconcile the optimised counts back to the ORIGINAL unit total. Rounding each
   // type's floor-area allocation to whole homes independently drifts the headline total
   // (e.g. 1,800 → 1,789); the scheme's unit count must NOT change just because the mix was
@@ -3405,7 +3447,12 @@ function optimiseSfhMix(data, mode, opts){
   }
   var current = totals(sfh.mix || []);
   var optimised = totals(optMix); optimised.mix = optMix;
+  // v10.176 — which introduced (not-in-your-mix) types actually made it into the applied optimised mix,
+  // so the UI can call them out ("introduces 3-bed terrace, 2-bed mews…").
+  var _optTypes = {}; optMix.forEach(function(r){ _optTypes[r.type] = true; });
+  var introducedApplied = introduced.filter(function(c){ return _optTypes[c.type]; }).map(function(c){ return c.type; });
   return { mode:mode, types:types, current:current, optimised:optimised,
+    introduced: introduced.map(function(c){ return c.type; }), introducedApplied: introducedApplied,
     uplift: optimised.surplus - current.surplus,
     upliftPct: current.surplus > 0 ? ((optimised.surplus - current.surplus) / current.surplus * 100) : 0,
     rentUplift: optimised.rentPa - current.rentPa,
