@@ -613,7 +613,7 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
           ),
           e("div",{style:{fontSize:11,color:"#7278A0",lineHeight:1.6,marginBottom:10}},
             isRent
-              ? "Ranked by rent per sqft — the income-efficient homes for a BTR/forward sale. Rents are area estimates by size; verify against live listings. The 3-bed is usually the sweet spot."
+              ? "Ranked by rent per sqft — the income-efficient homes for a BTR/forward sale. It also proposes house types NOT in your mix (marked ＋ NEW) when they out-rent your weakest type, so a compact terrace can displace a low-rent detached tail. Rents are area estimates by size; verify against live listings."
               : "Ranked by profit per sqft — the land-efficient homes. A 4-bed detached often sells at a LOWER £/sqft than a 3-bed semi, so it makes less per acre. Enter the REAL local sale prices per type in the mix above (or research them below), then apply the optimised mix."),
           e("div",{style:{overflowX:"auto"}},
             e("div",{style:{display:"grid",gridTemplateColumns:gcols,gap:8,padding:"7px 10px",background:"#2E2F8A",borderRadius:"6px 6px 0 0",fontSize:9,color:"#fff",textTransform:"uppercase",letterSpacing:".05em",fontWeight:700,minWidth:420}},
@@ -624,7 +624,8 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
             ),
             opt.types.map(function(t,i){ var top=i===0;
               return e("div",{key:t.type+i,style:{display:"grid",gridTemplateColumns:gcols,gap:8,padding:"7px 10px",borderBottom:"1px solid #EEF",alignItems:"center",minWidth:420,fontSize:12,background:top?"rgba(45,122,101,0.06)":"#fff"}},
-                e("span",{style:{fontWeight:top?800:600,color:"#2E2F8A"}},(top?"⭐ ":"")+t.type),
+                e("span",{style:{fontWeight:top?800:600,color:"#2E2F8A"}},(top?"⭐ ":"")+t.type,
+                  t.isNew?e("span",{title:"Not in your current mix — proposed because it out-rents your weakest type per sqft",style:{marginLeft:6,fontSize:8.5,fontWeight:800,color:"#1B7A54",background:"rgba(45,122,101,0.12)",border:"1px solid rgba(45,122,101,0.35)",borderRadius:4,padding:"1px 5px",verticalAlign:"middle"}},"＋ NEW"):null),
                 e("span",{style:{textAlign:"right",color:"#7278A0"}},t.sqft.toLocaleString()),
                 e("span",{style:{textAlign:"right",color:"#3A3D6A"}},isRent?("£"+fmtN(t.rentPcm)):("£"+t.psf)),
                 e("span",{style:{textAlign:"right",fontWeight:700,color:"#4A4BAE"}},isRent?pct(t.grossYield):fmt(t.marginPerPlot)),
@@ -655,7 +656,8 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
                   (opt.optimised.rentPerAcre>0?" · "+fmt(opt.optimised.rentPerAcre)+"/acre·yr":""),
                   " — ",
                   e("strong",{style:{color:opt.rentUplift>=0?"#4A4BAE":"#B05A35"}},(opt.rentUplift>=0?"+":"−")+fmt(Math.abs(opt.rentUplift))+"/yr ("+Math.round(opt.rentUpliftPct)+"%)"),
-                  " vs your current "+opt.current.units.toLocaleString()+" ("+fmt(opt.current.rentPa)+"/yr)."
+                  " vs your current "+opt.current.units.toLocaleString()+" ("+fmt(opt.current.rentPa)+"/yr).",
+                  (opt.introducedApplied&&opt.introducedApplied.length)?e("span",{style:{display:"block",marginTop:5,color:"#1B7A54",fontWeight:700}},"＋ Introduces "+opt.introducedApplied.join(", ")+" — better rent per sqft than your weakest current type, so they displace part of the low-rent tail."):null
                 ),
                 opt.rentUplift>5000 && e("button",{onClick:function(){ up("sfh","mix",opt.optimised.mix); if(typeof notify==="function") notify("Applied the rent-optimised mix — "+opt.optimised.units.toLocaleString()+" homes, "+fmt(opt.optimised.rentPa)+"/yr gross market rent. Tenure set to private — layer your affordable % back on (it trims rent)."); },
                   style:{padding:"9px 15px",background:"#4A4BAE",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"Apply rent-optimised mix →")
