@@ -469,7 +469,7 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
           ),
           // v9.29 — Single header row with Exit Route column added
           e("div",{style:{display:"grid",gridTemplateColumns:"160px 56px 56px 74px 88px 96px 150px 90px 70px 26px",padding:"8px 12px",background:"#2E2F8A",fontSize:9,color:"#fff",textTransform:"uppercase",letterSpacing:".06em",fontWeight:700,borderBottom:"1px solid #DDE0ED",minWidth:930,gap:7}},
-            e("span",null,"House Type"),e("span",null,"Plots"),e("span",null,"GIA sqft"),e("span",null,"£/sqft"),e("span",null,"Unit £"),e("span",null,"Revenue"),e("span",null,"Tenure / exit route"),e("span",null,"Hold"),e("span",null,"Build £"),e("span",null,"")
+            e("span",null,"House Type"),e("span",null,"Plots"),e("span",null,"GIA sqft"),e("span",null,"Sale £/sqft"),e("span",null,"Unit £"),e("span",null,"Revenue"),e("span",null,"Tenure / exit route"),e("span",null,"Hold"),e("span",null,"Build £/sqft"),e("span",null,"")
           ),
           // v10.103 — measurement basis: enter HABITABLE GIA (RICS), exclude the garage; garage/externals are separate.
           e("div",{style:{padding:"6px 12px",background:"#F7F8FC",borderBottom:"1px solid #EDEFF7",fontSize:9.5,color:"#7278A0",lineHeight:1.5,minWidth:930}},
