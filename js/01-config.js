@@ -36,8 +36,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.169";
+var CURRENT_VERSION = "10.170";
 var VERSION_HISTORY = [
+  {v:"10.170", date:"Jul 2026", headline:"The SFH Mix Optimiser's ‘🏠 For rent’ tab is now a REAL rent optimiser — it maximises rental income, not just ranks types. Before, the rent tab only showed a ranking table (rent/mo, gross yield, rent per sqft) with NO optimised-mix output and NO income total — the ‘Optimised mix (same land)’ summary and the ‘Apply’ button rendered in the ‘For sale’ (profit) mode only, so on the rent tab there was nothing to act on. Now the rent tab computes and shows the rent-optimised mix: total homes, GROSS ANNUAL MARKET RENT, rent per acre per year, and the £/yr uplift (and %) versus your current mix — with an ‘Apply rent-optimised mix →’ button. The optimiser reallocates the SAME developable floor area toward the highest rent-per-sqft house types (within your per-type min/max bounds), so it maximises rent PER ACRE, not just per home. Applying it sets rows to private (market) tenure; a caption states the policy affordable % is layered back on separately and trims the figure (affordable homes rent at 55–60% of market), and that rents are area estimates to verify against live listings. Engine: optimiseSfhMix now returns rentPa / rentPerAcre for the current and optimised mixes and the rent uplift, computed from the same areaRentPcm benchmark capitalisation uses. Built at Phil's request for a mix that maximises rental income."},
   {v:"10.169", date:"Jul 2026", headline:"SFH now SHOWS what services & externals cost by acreage, and warns when an ‘all-in’ build rate is too low to contain them — the trap Phil hit on a 140-home scheme. The ‘Auto-cost build/type’ button fills BCIS *construction-only* house rates (~£165–200/sqft), but if the ‘Build £/sqft is all-in’ toggle is left ON, the model ZEROES roads (£12k/plot, S38/S104), drainage/SuDS/site-infrastructure (£53k/developable acre), professional fees (12%) and contingency (5%) — so those services silently drop out and the residual land value reads high. A new always-visible ‘🚧 Services & externals — costed by acreage’ panel on the SFH stage now spells out the roads £/plot + infra £53k/developable-acre (× the site's acres) = £/plot and ≈ £/sqft, so the by-acreage cost is explicit whether the toggle is on or off. When the all-in toggle is on AND the entered rate sits at/below the construction-only benchmark for the actual house mix, it shows a red warning: the rate is really construction-only, services (≈ £X/sqft) + fees & contingency (≈ £Y/sqft) are being zeroed with nothing replacing them, and a genuine all-in level for this mix is ≈ £Z/sqft (use that or ~£250, or untick the box to add the lines explicitly). No engine-value change — it surfaces the existing £53k/acre + £12k/plot services costing and guards against understating build cost. Flagged by Phil: ‘BCIS rates don't cover the services in real terms if the toggle is on; £250 is what I was advised typical.’"},
   {v:"10.168", date:"Jul 2026", headline:"Fix: the Quick Appraisal's Build line no longer quotes the wrong £/sqft. It read ‘Build (262,290 sqft @ £250)’ — the SCHEME-level build rate — even when the house-type rows carry their own differentiated rates (e.g. £168 terrace → £199 detached) that the engine actually uses, so the £ figure (the real build cost) reflected the lower blended rate while the LABEL still said £250. A board reader could quote £250 as the build rate when the appraisal is really running ~£182/sqft. The label now shows the EFFECTIVE rate (total build cost ÷ total sqft), so the rate and the £ always agree. Purely the label — the build cost, RLV and margin are unchanged. Flagged by a Maldon deal review."},
   {v:"10.167", date:"Jul 2026", headline:"Fix: the Affordable Housing % on Planning & Viability now PROPAGATES to the Quick Appraisal, SFH House Mix and Tenure Mix (and vice-versa) — reported: Planning showed 35% while the Quick Appraisal showed 30% for the same deal, which matters because affordable % drives GDV. Cause: the Planning affordable-% input wrote the value with a RAW setData straight to the planning object (planning.ahPct / afhPct), bypassing the shared-field propagation that keeps the figure in sync across stages — so a change made on Planning never reached sfh.ahPct (what the Quick Appraisal reads). It now writes through up() like every other shared input, and the legacy ‘afhPct’ key joins the shared-field group, so editing the affordable % ANYWHERE updates it everywhere and the two pages can't drift. (Existing deals already split will reconcile on next load or the next edit; enter the correct % once and it flows through.) No engine-value change — propagation wiring."},
@@ -3335,13 +3336,25 @@ function optimiseSfhMix(data, mode, opts){
     var m = computeSFHMetrics(Object.assign({}, data, { sfh: Object.assign({}, sfh, { mix:mix }) }));
     var acres = num(sfh.acres) || num(data.land && data.land.acres) || 0;
     var surplus = num(m.gdv) - num(m.devCost);                    // £ available for LAND + developer PROFIT
-    return { units:num(m.totalUnits), gdv:num(m.gdv), rlv:num(m.rlv), surplus:surplus, surplusPerAcre: acres > 0 ? surplus / acres : 0 };
+    // v10.170 — gross ANNUAL MARKET rent of the mix, so the "For rent" tab can optimise on income,
+    // not just sale surplus. Market rent (private tenure) — the policy affordable % trims this and is
+    // layered on separately. Uses the same area rent benchmark (areaRentPcm) the capitalisation reads.
+    var rentPa = (mix || []).reduce(function(a, r){
+      var info = HOUSE_TYPES[r.type] || { beds:3 };
+      var beds = numOr(r.beds, info.beds || 3);
+      var rpm = (typeof areaRentPcm === "function") ? areaRentPcm(data, beds) : 0;
+      return a + num(r.count) * rpm * 12;
+    }, 0);
+    return { units:num(m.totalUnits), gdv:num(m.gdv), rlv:num(m.rlv), surplus:surplus, surplusPerAcre: acres > 0 ? surplus / acres : 0,
+      rentPa:rentPa, rentPerAcre: acres > 0 ? rentPa / acres : 0 };
   }
   var current = totals(sfh.mix || []);
   var optimised = totals(optMix); optimised.mix = optMix;
   return { mode:mode, types:types, current:current, optimised:optimised,
     uplift: optimised.surplus - current.surplus,
-    upliftPct: current.surplus > 0 ? ((optimised.surplus - current.surplus) / current.surplus * 100) : 0 };
+    upliftPct: current.surplus > 0 ? ((optimised.surplus - current.surplus) / current.surplus * 100) : 0,
+    rentUplift: optimised.rentPa - current.rentPa,
+    rentUpliftPct: current.rentPa > 0 ? ((optimised.rentPa - current.rentPa) / current.rentPa * 100) : 0 };
 }
 
 // ──────────────────────────────────────────────────────────────────────────

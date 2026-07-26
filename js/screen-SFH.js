@@ -632,18 +632,36 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
               );
             })
           ),
-          !isRent && e("div",{style:{marginTop:12,padding:"11px 13px",background:"rgba(45,122,101,0.06)",border:"1px solid rgba(45,122,101,0.3)",borderRadius:7,display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:10,alignItems:"center"}},
-            e("div",{style:{fontSize:12,color:"#3A3D6A",lineHeight:1.6,flex:1,minWidth:240}},
-              e("strong",{style:{color:"#1B7A54"}},"Optimised mix (same land): "),
-              opt.optimised.units.toLocaleString()+" homes · GDV "+fmt(opt.optimised.gdv)+" · ",
-              e("strong",null,fmt(opt.optimised.surplus)+" for land + profit"),
-              " — ",
-              e("strong",{style:{color:opt.uplift>=0?"#1B7A54":"#B05A35"}},(opt.uplift>=0?"+":"−")+fmt(Math.abs(opt.uplift))+" ("+Math.round(opt.upliftPct)+"%)"),
-              " vs your current "+opt.current.units.toLocaleString()+" ("+fmt(opt.current.surplus)+")."
-            ),
-            opt.uplift>10000 && e("button",{onClick:function(){ up("sfh","mix",opt.optimised.mix); if(typeof notify==="function") notify("Applied the optimised mix — "+opt.optimised.units.toLocaleString()+" homes, "+fmt(opt.optimised.surplus)+" for land + profit."); },
-              style:{padding:"9px 15px",background:"#2D7A65",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"Apply optimised mix →")
-          ),
+          // v10.170 — the summary + Apply button now render in BOTH modes. Rent mode reports
+          // gross ANNUAL MARKET RENT and rent per acre (income), not sale surplus.
+          !isRent
+            ? e("div",{style:{marginTop:12,padding:"11px 13px",background:"rgba(45,122,101,0.06)",border:"1px solid rgba(45,122,101,0.3)",borderRadius:7,display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:10,alignItems:"center"}},
+                e("div",{style:{fontSize:12,color:"#3A3D6A",lineHeight:1.6,flex:1,minWidth:240}},
+                  e("strong",{style:{color:"#1B7A54"}},"Optimised mix (same land): "),
+                  opt.optimised.units.toLocaleString()+" homes · GDV "+fmt(opt.optimised.gdv)+" · ",
+                  e("strong",null,fmt(opt.optimised.surplus)+" for land + profit"),
+                  " — ",
+                  e("strong",{style:{color:opt.uplift>=0?"#1B7A54":"#B05A35"}},(opt.uplift>=0?"+":"−")+fmt(Math.abs(opt.uplift))+" ("+Math.round(opt.upliftPct)+"%)"),
+                  " vs your current "+opt.current.units.toLocaleString()+" ("+fmt(opt.current.surplus)+")."
+                ),
+                opt.uplift>10000 && e("button",{onClick:function(){ up("sfh","mix",opt.optimised.mix); if(typeof notify==="function") notify("Applied the optimised mix — "+opt.optimised.units.toLocaleString()+" homes, "+fmt(opt.optimised.surplus)+" for land + profit."); },
+                  style:{padding:"9px 15px",background:"#2D7A65",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"Apply optimised mix →")
+              )
+            : e("div",{style:{marginTop:12,padding:"11px 13px",background:"rgba(74,75,174,0.06)",border:"1px solid rgba(74,75,174,0.3)",borderRadius:7,display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:10,alignItems:"center"}},
+                e("div",{style:{fontSize:12,color:"#3A3D6A",lineHeight:1.6,flex:1,minWidth:240}},
+                  e("strong",{style:{color:"#4A4BAE"}},"Rent-optimised mix (same land): "),
+                  opt.optimised.units.toLocaleString()+" homes · ",
+                  e("strong",null,fmt(opt.optimised.rentPa)+"/yr gross rent"),
+                  (opt.optimised.rentPerAcre>0?" · "+fmt(opt.optimised.rentPerAcre)+"/acre·yr":""),
+                  " — ",
+                  e("strong",{style:{color:opt.rentUplift>=0?"#4A4BAE":"#B05A35"}},(opt.rentUplift>=0?"+":"−")+fmt(Math.abs(opt.rentUplift))+"/yr ("+Math.round(opt.rentUpliftPct)+"%)"),
+                  " vs your current "+opt.current.units.toLocaleString()+" ("+fmt(opt.current.rentPa)+"/yr)."
+                ),
+                opt.rentUplift>5000 && e("button",{onClick:function(){ up("sfh","mix",opt.optimised.mix); if(typeof notify==="function") notify("Applied the rent-optimised mix — "+opt.optimised.units.toLocaleString()+" homes, "+fmt(opt.optimised.rentPa)+"/yr gross market rent. Tenure set to private — layer your affordable % back on (it trims rent)."); },
+                  style:{padding:"9px 15px",background:"#4A4BAE",border:"none",color:"#fff",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"Apply rent-optimised mix →")
+              ),
+          isRent && e("div",{style:{marginTop:8,fontSize:10,color:"#9298BC",lineHeight:1.5}},
+            "Gross MARKET rent (private tenure), holding the developable floor area constant — so it maximises rent per acre, not just per home. Applying it sets every row to private; your policy affordable % is layered back on separately and reduces the figure (affordable homes rent at 55–60% of market). Verify rents against live listings."),
           // v10.46 — tunable mix bounds (how concentrated the optimised mix can get per type).
           e("div",{style:{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginTop:10,fontSize:11,color:"#7278A0"}},
             e("span",{style:{fontWeight:700}},"Mix bounds per type:"),
