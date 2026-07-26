@@ -1,6 +1,50 @@
 var useState = React.useState;
 var useEffect = React.useEffect;
 
+// ── v10.181 — Deal Portfolio FOLDERS (client-side, purely organisational) ────────────────────
+// Folder assignments live in their OWN localStorage key, keyed by the cloud dealId. They NEVER touch
+// the saved deal blob (appraisal, brief, figures) — so nothing is altered, merged or deleted; a deal
+// with no assignment simply reads as "Unfiled". Per-device by design (a cross-device version would
+// need a backend `folder` field on each deal record). Shape:
+//   { assignments: { "<dealId>": "Kent" }, folders: ["Kent","Essex"], collapsed: {"Kent":true}, viewMode:"grouped"|"flat" }
+var DEAL_FOLDERS_KEY = "cassidy_deal_folders";
+function loadDealFolders(){
+  try{
+    var o = JSON.parse(localStorage.getItem(DEAL_FOLDERS_KEY) || "null");
+    if(o && typeof o === "object"){
+      return { assignments:(o.assignments&&typeof o.assignments==="object")?o.assignments:{},
+        folders:Array.isArray(o.folders)?o.folders:[],
+        collapsed:(o.collapsed&&typeof o.collapsed==="object")?o.collapsed:{},
+        viewMode:(o.viewMode==="flat")?"flat":"grouped" };
+    }
+  }catch(e){}
+  return { assignments:{}, folders:[], collapsed:{}, viewMode:"grouped" };
+}
+function saveDealFolders(o){ try{ localStorage.setItem(DEAL_FOLDERS_KEY, JSON.stringify(o)); }catch(e){} }
+function dealFolderFor(dealId){
+  var o = loadDealFolders(); var f = o.assignments[String(dealId)];
+  return (f && String(f).trim()) ? String(f) : "Unfiled";
+}
+// Assign (or clear, when name is blank / "Unfiled") a deal's folder. Adds the folder to the known list
+// if it's new. Returns the updated store. Never reads or writes the deal itself.
+function assignDealFolder(dealId, folderName){
+  var o = loadDealFolders();
+  var name = String(folderName || "").trim();
+  if(!name || name.toLowerCase() === "unfiled"){
+    delete o.assignments[String(dealId)];
+  } else {
+    o.assignments[String(dealId)] = name;
+    if(o.folders.map(function(x){return String(x).toLowerCase();}).indexOf(name.toLowerCase()) < 0) o.folders.push(name);
+  }
+  saveDealFolders(o); return o;
+}
+// All known folder names, alphabetical (case-insensitive), excluding "Unfiled".
+function dealFolderNames(){
+  var o = loadDealFolders();
+  return o.folders.filter(function(f){ return f && String(f).trim() && String(f).toLowerCase()!=="unfiled"; })
+    .sort(function(a,b){ var A=String(a).toLowerCase(),B=String(b).toLowerCase(); return A<B?-1:A>B?1:0; });
+}
+
 // ── App logo — the real Cassidy Group brand artwork lives in BRAND_LOGO_PNG (below).
 // CASSIDY_LOGO_SRC resolves to it so login / sidebar / Board Proposal share one source.
 // (Swap this to a new data-URI when the official "Cassidy Group Ltd" artwork is supplied.)
@@ -36,8 +80,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.180";
+var CURRENT_VERSION = "10.181";
 var VERSION_HISTORY = [
+  {v:"10.181", date:"Jul 2026", headline:"NEW: organise saved deals into FOLDERS on My Portfolio (e.g. Kent, Essex, West Midlands). Each deal card gets a 📁 folder dropdown next to Open / share / delete — pick an existing folder, ‘Unfiled’, or ‘＋ New folder…’ to create one on the fly (in-app text field, not a native prompt). The grid groups cards under collapsible folder headers (folder name + deal count), folders A→Z with ‘Unfiled’ always last, and a top toggle switches between ‘📁 Folders’ (grouped) and ‘▤ All’ (the original flat list). Purely additive & organisational: folder assignments live in their OWN localStorage store keyed by deal id — they NEVER touch the saved deal (appraisal, brief, figures are untouched), never merge or delete a deal, and every existing deal defaults to ‘Unfiled’ and still opens exactly as before via Open →. Note: folders organise the list on THIS device only — they don’t sync across devices yet (that would need a backend field); flagged in the footer. New helpers loadDealFolders / dealFolderFor / assignDealFolder / dealFolderNames."},
   {v:"10.180", date:"Jul 2026", headline:"Fix: ‘Save Deal’ (and Save As / Import) no longer use the native browser prompt() dialog to name the deal — it's now an in-app modal. Reported: the native prompt() is an OS-level dialog that BLOCKS the whole tab and can't be driven by an automated / CDP browser session — the click hangs indefinitely until a human types (reproduced twice). Replaced with a normal in-app modal (a DOM text field, Save / Cancel, Enter to confirm, Esc / click-outside to cancel). The name field is now auto-populated with a sensible default that INCLUDES the current date & time — e.g. ‘Land North of Staplehurst, Kent — 26/07/2026 17:44’ — pre-selected and fully editable, so each saved checkpoint is uniquely stamped without typing the date. The same modal replaces the blocking prompt on ‘Save As New Deal’ and ‘Import Deal’ too (same class of bug). No change to what gets saved — the save/sync logic is unchanged; only how the name is captured."},
   {v:"10.179", date:"Jul 2026", headline:"Fix: the Risk Register's Category, Risk description and Mitigation fields are now properly EDITABLE — the ‘+ Add Risk’ feature was only half-wired. Reported: ‘+ Add Risk’ added a row (Category ‘Other’, ‘New risk’, Amber, ‘Mitigation TBC’) but those three text fields were read-only <span>s with no click handler, so there was no way to actually type in what the risk or its mitigation was — only the Red/Amber/Green dropdown worked. All three are now editable inputs (an input for Category, text areas for Risk and Mitigation) that write straight back into the deal's risk array via the existing updateRisk handler, exactly like the RAG dropdown — for both newly-added risks and the seeded defaults. Added a per-row ✕ Delete so a wrongly-added row can be removed (there was no way before), column headers, and an editability hint. Also hardened: adding or deleting before you've edited anything now materialises the seeded default risks first, so it no longer silently drops the six starter rows. Newly-added rows now start blank (were pre-filled with placeholder text you had to clear). No engine change — the Risk Register stage was partially wired; this completes it."},
   {v:"10.178", date:"Jul 2026", headline:"Fix: the ‘Total to exit’ figure in the Programme & Timeline section (Board Proposal / one-page appraisal) now reflects a realistic CONSENT↔BUILD OVERLAP on large phased sites, instead of a straight sum. Before, it added ‘planning to consent’ (~7 yrs) and ‘build-out’ (~10 yrs) to give ~17 yrs — assuming NO build can start until the whole site is fully detail-consented. On a strategic/promotion site that's wrong: outline is secured for the WHOLE site, then reserved matters is granted parcel by parcel, so enabling works and the first build phase start once the FIRST reserved-matters approval lands — well before the last parcel is detailed. The two clocks genuinely overlap. Total-to-exit now nets that overlap: it's modelled as the consent-clock time between the first buildable parcel and the last parcel's consent, bounded by how staggered the parcels are (grows with the number of ~300-home delivery phases, ~9 months of concurrent consenting per extra parcel) and by the build window it can overlap. It's status-aware — the first parcel is buildable EARLY when the site already holds outline, and LATE from a cold Local-Plan promotion start (most of that clock is promotion that can't overlap build). The ‘planning to consent’ and ‘build-out programme’ figures are UNCHANGED — only how they combine. A new ‘Less: consent / build overlap (N phases)’ line and note show the reasoning. Single-phase sites and already-fully-consented sites are unaffected (build follows consent — straight sum as before). Example: a ~1,000-home cold-start site reads ~15.2 yrs (7 + 10 − 1.8) instead of ~17. No engine-value change (returns, RLV, margins untouched) — programme/timing only."},
