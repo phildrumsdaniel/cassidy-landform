@@ -50,6 +50,23 @@ function renderPortfolio(data, logMigration, navTo, saveDeal, setData, user){
       });
     }
 
+    // ── v10.181 — Portfolio FOLDERS (client-side; organisational only, never touches deal data) ──
+    var folderStore = loadDealFolders();
+    var folderViewMode = folderStore.viewMode;                                  // "grouped" | "flat"
+    var newFolderFor = (data.portfolio && data.portfolio.newFolderFor) || null; // dealId with its "new folder" input open
+    var newFolderText = (data.portfolio && data.portfolio.newFolderText) || "";
+    // Folders are stored in localStorage; bump a rev in portfolio state so the grid re-renders.
+    function bumpFolders(extra){
+      setData(function(prev){ return Object.assign({}, prev, {portfolio:Object.assign({}, prev.portfolio||{}, Object.assign({_folderRev:Date.now()}, extra||{}))}); });
+    }
+    function setDealFolder(dealId, name){ assignDealFolder(dealId, name); bumpFolders({newFolderFor:null, newFolderText:""}); }
+    function openNewFolder(dealId){ bumpFolders({newFolderFor:dealId, newFolderText:""}); }
+    function cancelNewFolder(){ bumpFolders({newFolderFor:null, newFolderText:""}); }
+    function setNewFolderText(v){ setData(function(prev){ return Object.assign({}, prev, {portfolio:Object.assign({}, prev.portfolio||{}, {newFolderText:v})}); }); }
+    function createFolder(dealId){ var t=String(newFolderText||"").trim(); if(!t) return; assignDealFolder(dealId, t); bumpFolders({newFolderFor:null, newFolderText:""}); }
+    function setFolderViewMode(m){ var o=loadDealFolders(); o.viewMode=(m==="flat"?"flat":"grouped"); saveDealFolders(o); bumpFolders(); }
+    function toggleFolderCollapsed(name){ var o=loadDealFolders(); o.collapsed[name]=!o.collapsed[name]; saveDealFolders(o); bumpFolders(); }
+
     function loadCloudDeal(dealId){
       setData(function(prev){
         return Object.assign({},prev,{portfolio:Object.assign({},prev.portfolio||{},{loadingDeal:dealId})});
@@ -181,9 +198,11 @@ function renderPortfolio(data, logMigration, navTo, saveDeal, setData, user){
         e("button",{onClick:function(){navTo("navigator");},style:{padding:"10px 22px",background:"#4A4BAE",border:"none",borderRadius:6,color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Start a New Deal →")
       ),
 
-      // Deals grid
-      cloudDeals.length>0 && e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:14,marginTop:18}},
-        sortedDeals.map(function(deal){
+      // Deals grid — v10.181: grouped-by-folder or flat, with a folder control per card.
+      (function(){
+        if(!(cloudDeals.length>0)) return null;
+
+        function dealCard(deal){
           var schemeIcon = {sfh:"🏡",btr:"🏢",pbsa:"🎓",land:"🔍",property:"🏠",recovery:"⚖"}[deal.scheme] || "◆";
           var schemeLabel = {sfh:"SFH",btr:"BTR",pbsa:"PBSA",land:"Land",property:"Property",recovery:"Recovery"}[deal.scheme] || (deal.scheme||"—").toUpperCase();
           // v9.24 — Per-deal access control: role comes from backend (owner/editor/viewer)
@@ -194,6 +213,10 @@ function renderPortfolio(data, logMigration, navTo, saveDeal, setData, user){
             editor: {label:"EDITOR", bg:"rgba(45,122,101,0.10)",  color:"#2D7A65"},
             viewer: {label:"VIEW",   bg:"rgba(154,123,62,0.10)",  color:"#9A7B3E"}
           }[role] || {label:"VIEW", bg:"#F7F8FC", color:"#7278A0"};
+          var curFolder = dealFolderFor(deal.dealId);
+          var folderOpts = dealFolderNames();
+          if(curFolder!=="Unfiled" && folderOpts.indexOf(curFolder)<0) folderOpts = folderOpts.concat([curFolder]);
+          var editingFolder = (newFolderFor===deal.dealId);
           return e("div",{key:deal.dealId,style:{background:"#fff",border:"1px solid "+(role==="owner"?"#C5C8E0":"#DDE0ED"),borderRadius:10,padding:16,position:"relative",transition:"all .15s"}},
             // Header row
             e("div",{style:{display:"flex",alignItems:"start",gap:10,marginBottom:10}},
@@ -234,14 +257,67 @@ function renderPortfolio(data, logMigration, navTo, saveDeal, setData, user){
                 style:{padding:"7px 10px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:5,color:"#2D7A65",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}
               },"👥"),
               (role==="owner"||role==="editor") && e("button",{onClick:function(){deleteCloudDeal(deal.dealId,deal.dealName);},title:"Delete deal",style:{padding:"7px 10px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:5,color:"#B05A35",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"🗑")
+            ),
+            // v10.181 — Folder control (organisational only; never writes to the deal itself).
+            e("div",{style:{display:"flex",alignItems:"center",gap:6,marginTop:8}},
+              e("span",{style:{fontSize:13,flexShrink:0},title:"Folder"},"📁"),
+              editingFolder
+                ? e("input",{type:"text",autoFocus:true,value:newFolderText,placeholder:"New folder name…",
+                    onChange:function(ev){ setNewFolderText(ev.target.value); },
+                    onKeyDown:function(ev){ if(ev.key==="Enter"){ ev.preventDefault(); createFolder(deal.dealId); } else if(ev.key==="Escape"){ ev.preventDefault(); cancelNewFolder(); } },
+                    style:{flex:1,minWidth:0,padding:"5px 7px",border:"1px solid #C5C8E0",borderRadius:4,fontSize:11,fontFamily:"DM Sans,sans-serif",boxSizing:"border-box"}})
+                : e("select",{value:curFolder,title:"Assign this deal to a folder",onChange:function(ev){ var v=ev.target.value; if(v==="__new__"){ openNewFolder(deal.dealId); } else { setDealFolder(deal.dealId, v); } },
+                    style:{flex:1,minWidth:0,padding:"5px 7px",border:"1px solid #DDE0ED",borderRadius:4,fontSize:11,fontFamily:"DM Sans,sans-serif",background:"#fff",color:"#3A3D6A"}},
+                    [e("option",{key:"__unf",value:"Unfiled"},"Unfiled")]
+                      .concat(folderOpts.map(function(f){ return e("option",{key:f,value:f},f); }))
+                      .concat([e("option",{key:"__new__",value:"__new__"},"＋ New folder…")])
+                  ),
+              editingFolder && e("button",{onClick:function(){ createFolder(deal.dealId); },title:"Create & assign",style:{padding:"5px 9px",background:"#2D7A65",border:"none",borderRadius:4,color:"#fff",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"✓"),
+              editingFolder && e("button",{onClick:cancelNewFolder,title:"Cancel",style:{padding:"5px 9px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:4,color:"#7278A0",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"✕")
             )
           );
-        })
-      ),
+        }
+
+        var gridStyle = {display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:14,marginTop:12};
+
+        var toggle = e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginTop:18,flexWrap:"wrap"}},
+          e("div",{style:{fontSize:11,color:"#7278A0"}}, cloudDeals.length+" deal"+(cloudDeals.length===1?"":"s")+(folderViewMode==="grouped"?" · grouped by folder":"")),
+          e("div",{style:{display:"flex",gap:6}},
+            [["grouped","📁 Folders"],["flat","▤ All"]].map(function(m){ var on=folderViewMode===m[0]; return e("button",{key:m[0],onClick:function(){ setFolderViewMode(m[0]); },style:{padding:"5px 12px",background:on?"#2E2F8A":"#fff",color:on?"#fff":"#3A3D6A",border:"1px solid "+(on?"#2E2F8A":"#DDE0ED"),borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}, m[1]); })
+          )
+        );
+
+        if(folderViewMode==="flat"){
+          return e("div",null, toggle, e("div",{style:gridStyle}, sortedDeals.map(dealCard)));
+        }
+
+        // Grouped — bucket by folder (preserving the most-recent-first order within each), folders A→Z,
+        // Unfiled always LAST. Empty known folders aren't shown as headers (they stay in the picker).
+        var buckets={}; sortedDeals.forEach(function(d){ var f=dealFolderFor(d.dealId); (buckets[f]=buckets[f]||[]).push(d); });
+        var groupNames=Object.keys(buckets).filter(function(n){return n!=="Unfiled";}).sort(function(a,b){ var A=a.toLowerCase(),B=b.toLowerCase(); return A<B?-1:A>B?1:0; });
+        if(buckets["Unfiled"]) groupNames.push("Unfiled");
+        return e("div",null, toggle,
+          e("div",{style:{marginTop:12}},
+            groupNames.map(function(name){
+              var list=buckets[name]; var collapsed=!!folderStore.collapsed[name];
+              return e("div",{key:name,style:{marginBottom:16}},
+                e("div",{onClick:function(){ toggleFolderCollapsed(name); },style:{display:"flex",alignItems:"center",gap:8,padding:"9px 12px",background:name==="Unfiled"?"#F7F8FC":"rgba(74,75,174,0.06)",border:"1px solid "+(name==="Unfiled"?"#DDE0ED":"rgba(74,75,174,0.25)"),borderRadius:8,cursor:"pointer",userSelect:"none"}},
+                  e("span",{style:{fontSize:12,color:"#4A4BAE",width:12,textAlign:"center"}}, collapsed?"▸":"▾"),
+                  e("span",{style:{fontSize:14}}, name==="Unfiled"?"🗂":"📁"),
+                  e("span",{style:{fontSize:13,fontWeight:800,color:"#2E2F8A"}}, name),
+                  e("span",{style:{fontSize:11,color:"#7278A0",fontWeight:600}}, "· "+list.length+" deal"+(list.length===1?"":"s"))
+                ),
+                !collapsed && e("div",{style:gridStyle}, list.map(dealCard))
+              );
+            })
+          )
+        );
+      })(),
 
       // Footer info
       cloudDeals.length>0 && e("div",{style:{marginTop:18,padding:"10px 14px",background:"#F8F8FE",borderLeft:"3px solid #4A4BAE",borderRadius:6,fontSize:11,color:"#3A3D6A",lineHeight:1.6}},
-        e("strong",null,"☁ Cloud-synced. "),"All deals are saved to your account ("+user.email+"). Open this page on any device after logging in — you'll see the same list."
+        e("strong",null,"☁ Cloud-synced. "),"All deals are saved to your account ("+user.email+"). Open this page on any device after logging in — you'll see the same list. ",
+        e("strong",null,"📁 Folders"),' organise this list on this device only (they don’t change the saved deal, and don’t sync across devices yet).'
       ),
 
       // v9.27 — Share Dialog Modal
