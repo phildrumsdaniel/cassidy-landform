@@ -80,8 +80,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.181";
+var CURRENT_VERSION = "10.182";
 var VERSION_HISTORY = [
+  {v:"10.182", date:"Jul 2026", headline:"NEW: an ‘Investability’ scorecard on Financial Modelling that screens the deal against the standard tests each type of capital provider actually runs — with a green/amber/red verdict and the deal's real figure vs a typical threshold for each. Four panels: SENIOR DEBT LENDER (profit-on-cost ≥20%, margin-on-GDV ≥17.5%, a downside stress at GDV −10% & build +10%, indicative facility/equity at 60% LTGDV / 90% LTC); INSTITUTIONAL FORWARD-FUNDER (net initial yield ~4–5.5%, yield-on-cost, and the development spread ≥~1.5 pts — only when rents are modelled); HOUSING ASSOCIATION / RP (affordable-package size ≥10 homes, cost per home, indicative AHP grant); and JV / EQUITY PARTNER (Project IRR ≥~20% over a ~10% pref, profit-on-cost, indicative equity multiple ≥1.5×). It reuses the engine — GDV, dev cost, RLV, margin, the Project IRR from this page's phased cashflow, forward-fund yield, affordable count and grant — so it doesn't invent numbers. When no land price is entered it screens at the residual land value (max supportable) and says so; buying at the full residual legitimately shows a thin lender cushion. Each amber/red panel carries a one-line ‘what would move it into range’. Explicitly a screening aid, not an underwrite — every lender/fund/RP/JV applies its own criteria. New helper financierFit(data, {projectIrr}); renders via renderFinancierFitCard. No engine-value change."},
   {v:"10.181", date:"Jul 2026", headline:"NEW: organise saved deals into FOLDERS on My Portfolio (e.g. Kent, Essex, West Midlands). Each deal card gets a 📁 folder dropdown next to Open / share / delete — pick an existing folder, ‘Unfiled’, or ‘＋ New folder…’ to create one on the fly (in-app text field, not a native prompt). The grid groups cards under collapsible folder headers (folder name + deal count), folders A→Z with ‘Unfiled’ always last, and a top toggle switches between ‘📁 Folders’ (grouped) and ‘▤ All’ (the original flat list). Purely additive & organisational: folder assignments live in their OWN localStorage store keyed by deal id — they NEVER touch the saved deal (appraisal, brief, figures are untouched), never merge or delete a deal, and every existing deal defaults to ‘Unfiled’ and still opens exactly as before via Open →. Note: folders organise the list on THIS device only — they don’t sync across devices yet (that would need a backend field); flagged in the footer. New helpers loadDealFolders / dealFolderFor / assignDealFolder / dealFolderNames."},
   {v:"10.180", date:"Jul 2026", headline:"Fix: ‘Save Deal’ (and Save As / Import) no longer use the native browser prompt() dialog to name the deal — it's now an in-app modal. Reported: the native prompt() is an OS-level dialog that BLOCKS the whole tab and can't be driven by an automated / CDP browser session — the click hangs indefinitely until a human types (reproduced twice). Replaced with a normal in-app modal (a DOM text field, Save / Cancel, Enter to confirm, Esc / click-outside to cancel). The name field is now auto-populated with a sensible default that INCLUDES the current date & time — e.g. ‘Land North of Staplehurst, Kent — 26/07/2026 17:44’ — pre-selected and fully editable, so each saved checkpoint is uniquely stamped without typing the date. The same modal replaces the blocking prompt on ‘Save As New Deal’ and ‘Import Deal’ too (same class of bug). No change to what gets saved — the save/sync logic is unchanged; only how the name is captured."},
   {v:"10.179", date:"Jul 2026", headline:"Fix: the Risk Register's Category, Risk description and Mitigation fields are now properly EDITABLE — the ‘+ Add Risk’ feature was only half-wired. Reported: ‘+ Add Risk’ added a row (Category ‘Other’, ‘New risk’, Amber, ‘Mitigation TBC’) but those three text fields were read-only <span>s with no click handler, so there was no way to actually type in what the risk or its mitigation was — only the Red/Amber/Green dropdown worked. All three are now editable inputs (an input for Category, text areas for Risk and Mitigation) that write straight back into the deal's risk array via the existing updateRisk handler, exactly like the RAG dropdown — for both newly-added risks and the seeded defaults. Added a per-row ✕ Delete so a wrongly-added row can be removed (there was no way before), column headers, and an editability hint. Also hardened: adding or deleting before you've edited anything now materialises the seeded default risks first, so it no longer silently drops the six starter rows. Newly-added rows now start blank (were pre-filled with placeholder text you had to clear). No engine change — the Risk Register stage was partially wired; this completes it."},
@@ -2785,6 +2786,116 @@ function grantToStack(data){
     perHomeToPositive: perHome(gapToPositive),
     perHomeToCoverPrice: perHome(gapToPrice),
     typicalGrantLo: 40000, typicalGrantHi: 130000   // broad indicative AHP/SAHP band (£/home)
+  };
+}
+
+// ── v10.182 — FINANCIER-FIT SCORECARD ────────────────────────────────────────────────────────
+// Screens the CURRENT deal against the standard tests each type of capital provider runs, and returns
+// a green/amber/red verdict per audience with the actual figure vs a typical threshold. Reuses the
+// engine (calcDealMetrics / computeSFHMetrics) — it does NOT invent numbers. It is a SCREENING aid,
+// not an underwrite: real lenders/funds/RPs/JVs apply their own criteria, so thresholds are indicative.
+// opts.projectIrr — pass the Financial-Modelling screen's already-computed monthly-cashflow IRR (so
+// the JV panel's IRR matches that page); omit it and the IRR row reads "model on Financial Modelling".
+function financierFit(data, opts){
+  data = data || {}; opts = opts || {};
+  var M  = (typeof calcDealMetrics === "function") ? calcDealMetrics(data) : {};
+  var SF = (typeof computeSFHMetrics === "function") ? computeSFHMetrics(data) : {};
+  var gdv = num(M.gdv);
+  var dev = num(M.devCost);
+  var units = num(M.units) || num(SF.totalUnits) || 0;
+  var landKnown = num(M.landPrice) > 0;
+  var land = landKnown ? num(M.landPrice) : Math.max(0, num(M.rlv));   // buy-at-residual if no price entered
+  var acq = num(M.totalAcqCosts) || 0;
+  var cost = dev + land + acq;                                          // total project cost incl land + acquisition
+  var profit = landKnown ? num(M.actualProfit) : num(M.profit);        // actual at the price, else the target reserved
+  var marginGdv = gdv > 0 ? (profit / gdv * 100) : 0;
+  var profitOnCost = cost > 0 ? (profit / cost * 100) : 0;
+  // Downside cover — the lender/JV standard stress: GDV −10% and build cost +10%.
+  var sGdv = gdv * 0.9, sDev = dev * 1.1;
+  var sProfit = sGdv - sDev - land - acq;
+  var sMargin = sGdv > 0 ? (sProfit / sGdv * 100) : 0;
+  // Debt sizing — mirrors buildLenderPack (LTGDV 60% / LTC 90%, whichever binds).
+  var facility = Math.max(0, Math.min(gdv * 0.60, cost * 0.90));
+  var equity = Math.max(0, cost - facility);
+  // Forward-fund / institutional.
+  var netRent = num(M.capNetRentPa) || num(SF.capNetRentPa) || 0;
+  var capVal  = num(M.capInvestmentValue) || num(SF.capInvestmentValue) || 0;
+  var exitYield = num(M.capYield) || num(SF.capYield) || 0; if(exitYield > 0 && exitYield < 1) exitYield *= 100;
+  if(!(exitYield > 0) && typeof dealYield === "function"){ exitYield = num(dealYield(data)); }
+  var yieldOnCost = cost > 0 ? (netRent / cost * 100) : 0;
+  var spread = (yieldOnCost > 0 && exitYield > 0) ? (yieldOnCost - exitYield) : 0;
+  // Affordable / RP.
+  var affordable = num(M.affordableHomes) || num(SF.affordableHomes) || 0;
+  var ge = (typeof grantEligibilityFor === "function") ? grantEligibilityFor(data) : null;
+  var grant = num(M.grantIncome) || num(SF.grantIncome) || (ge ? num(ge.indicativeAhp) : 0);
+  var costPerHome = units > 0 ? (dev / units) : 0;
+  // JV / equity.
+  var irr = (opts.projectIrr != null && isFinite(num(opts.projectIrr))) ? num(opts.projectIrr) : null;
+  var equityMultiple = equity > 0 ? ((equity + Math.max(0, profit)) / equity) : 0;   // indicative project MOIC
+
+  function pctStr(x){ return (Math.round(num(x) * 10) / 10) + "%"; }
+  function worst(rows){ var order={red:3,amber:2,green:1}; var w="green"; rows.forEach(function(r){ if(r.rag && order[r.rag] > order[w]) w=r.rag; }); return w; }
+  function money(x){ return (typeof fmt === "function") ? fmt(Math.round(num(x))) : ("£" + Math.round(num(x))); }
+
+  // ── Senior debt lender ──
+  var lenderRows = [
+    { label:"Profit on cost", value:pctStr(profitOnCost), target:"≥ 20%", rag: profitOnCost>=20?"green":profitOnCost>=15?"amber":"red" },
+    { label:"Margin on GDV", value:pctStr(marginGdv), target:"≥ 17.5%", rag: marginGdv>=17.5?"green":marginGdv>=15?"amber":"red" },
+    { label:"Downside cover (GDV −10%, cost +10%)", value:"margin "+pctStr(sMargin), target:"stays profitable", rag: (sProfit>0&&sMargin>=5)?"green":sProfit>0?"amber":"red" },
+    { label:"Indicative facility · developer equity", value:money(facility)+" · "+money(equity), target:"LTGDV ≤ 60% / LTC ≤ 90%", rag:null }
+  ];
+  var lenderRag = worst(lenderRows);
+
+  // ── Institutional forward-funder ──
+  var fundRows, fundRag;
+  if(netRent > 0 && capVal > 0){
+    fundRows = [
+      { label:"Net initial yield (exit)", value:pctStr(exitYield), target:"~4.0–5.5%", rag: (exitYield>=4&&exitYield<=5.5)?"green":(exitYield>=3.5&&exitYield<=6.5)?"amber":"red" },
+      { label:"Yield on cost", value:pctStr(yieldOnCost), target:"> exit yield", rag: yieldOnCost>exitYield?"green":"red" },
+      { label:"Development spread (yield-on-cost − exit)", value:(Math.round(spread*10)/10)+" pts", target:"≥ 1.5 pts", rag: spread>=1.5?"green":spread>=0.75?"amber":"red" },
+      { label:"Forward-fund value", value:money(capVal), target:"", rag:null }
+    ];
+    fundRag = worst(fundRows);
+  } else {
+    fundRows = [ { label:"Rental exit not modelled", value:"—", target:"set rents on Capitalisation to screen a forward-fund", rag:null } ];
+    fundRag = "na";
+  }
+
+  // ── Housing association / RP ──
+  var rpRows = [
+    { label:"Affordable homes (package size)", value:affordable+" home"+(affordable===1?"":"s"), target:"≥ 10 for an RP + grant", rag: affordable>=10?"green":affordable>=1?"amber":"red" },
+    { label:"Cost per home (build+infra)", value:units>0?money(costPerHome):"—", target:"vs local benchmark", rag:null },
+    { label:"Indicative AHP grant", value:grant>0?money(grant):"—", target:"helps the RP's rent-NPV clear", rag:null }
+  ];
+  var rpRag = worst(rpRows);
+
+  // ── JV / equity partner ──
+  var jvRows = [
+    { label:"Project IRR", value:irr!=null?pctStr(irr):"—", target:"≥ 20% (above ~10% pref)", rag: irr==null?null:irr>=20?"green":irr>=15?"amber":"red" },
+    { label:"Profit on cost", value:pctStr(profitOnCost), target:"≥ 20%", rag: profitOnCost>=20?"green":profitOnCost>=15?"amber":"red" },
+    { label:"Equity multiple (indicative)", value:equity>0?(Math.round(equityMultiple*100)/100)+"×":"—", target:"≥ 1.5×", rag: equity<=0?null:equityMultiple>=1.5?"green":equityMultiple>=1.25?"amber":"red" }
+  ];
+  var jvRag = worst(jvRows);
+
+  function verdictFor(rag, g, a, r, na){ return rag==="green"?g:rag==="amber"?a:rag==="na"?(na||"Not modelled"):r; }
+
+  return {
+    landKnown: landKnown, landBasis: land,
+    landBasisLabel: landKnown ? ("at your "+money(land)+" guide price") : ("at the "+money(land)+" residual land value (max supportable)"),
+    panels: [
+      { key:"lender", icon:"🏦", label:"Senior debt lender", rag:lenderRag, rows:lenderRows,
+        verdict: verdictFor(lenderRag,"Fundable","Fundable with conditions","Below lender screen"),
+        fix: lenderRag==="green" ? "" : "Lift profit-on-cost toward 20% (lower land basis, higher sale values, or trim build) so the loan keeps a downside cushion." },
+      { key:"fund", icon:"🏛", label:"Institutional forward-funder", rag:fundRag, rows:fundRows,
+        verdict: verdictFor(fundRag,"Attractive to a fund","Thin funding spread","Below institutional return","Rental exit not modelled"),
+        fix: (fundRag==="green"||fundRag==="na") ? "" : "Widen the gap between yield-on-cost and the exit yield — firmer rents, a keener build cost, or a lower land basis." },
+      { key:"rp", icon:"🏘", label:"Housing association / RP", rag:rpRag, rows:rpRows,
+        verdict: verdictFor(rpRag,"Viable RP package","Small affordable element","No affordable — not an RP deal"),
+        fix: rpRag==="green" ? "" : (affordable<1 ? "No affordable homes modelled — an RP needs a meaningful package (and grant) to engage." : "A larger affordable tranche (and AHP grant) makes a package an RP will take to committee.") },
+      { key:"jv", icon:"🤝", label:"JV / equity partner", rag:jvRag, rows:jvRows,
+        verdict: verdictFor(jvRag,"Attractive to equity","Marginal for equity","Below equity return hurdle"),
+        fix: jvRag==="green" ? "" : "Equity wants IRR ≥ ~20% over the pref — improve the return via land basis, phasing/absorption, or scheme value." }
+    ]
   };
 }
 
