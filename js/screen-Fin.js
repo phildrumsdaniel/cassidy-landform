@@ -73,6 +73,46 @@ function finPhasedCashflow(data, units, gdv, devCostExLand, landOut, buildMonths
           cumSales:cumSales, cumCost:cumCost, landOut:landOut};
 }
 
+// ── v10.182 — Financier-fit / investability scorecard card. Renders financierFit(data) — the deal
+// screened against each capital provider's standard tests — as a four-panel RAG card. Pure render;
+// all logic is in financierFit() (01-config.js).
+function renderFinancierFitCard(fit){
+  if(!fit || !fit.panels) return null;
+  var RAG = {green:"#2D7A65", amber:"#9A7B3E", red:"#B05A35", na:"#9298BC"};
+  function ragBadge(rag, text){
+    return e("span",{style:{fontSize:9,fontWeight:800,padding:"2px 8px",borderRadius:10,color:"#fff",background:RAG[rag]||"#9298BC",letterSpacing:".03em",whiteSpace:"nowrap"}}, text);
+  }
+  return e("div",{style:S.card},
+    e("div",{style:S.cardTitle},"🏦 Investability — who would fund this, and does it screen?"),
+    e("div",{style:{fontSize:11,color:"#7278A0",lineHeight:1.6,marginBottom:12}},
+      "The deal run against the standard tests each type of capital provider uses — ",e("b",null,fit.landBasisLabel),
+      ". Indicative screening only; every lender / fund / RP / JV applies its own criteria."),
+    e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))",gap:12}},
+      fit.panels.map(function(p){
+        return e("div",{key:p.key,style:{border:"1px solid #DDE0ED",borderLeft:"4px solid "+(RAG[p.rag]||"#9298BC"),borderRadius:8,padding:"12px 14px",background:"#fff"}},
+          e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:8}},
+            e("div",{style:{fontSize:12.5,fontWeight:800,color:"#2E2F8A"}}, p.icon+" "+p.label),
+            ragBadge(p.rag, p.verdict)
+          ),
+          e("div",null, p.rows.map(function(row,ri){
+            return e("div",{key:ri,style:{display:"flex",alignItems:"baseline",gap:8,padding:"5px 0",borderTop:ri?"1px solid #F1F2F8":"none"}},
+              e("span",{style:{width:8,height:8,borderRadius:"50%",flexShrink:0,marginTop:4,background:row.rag?RAG[row.rag]:"#E0E2EC"}}),
+              e("div",{style:{flex:1,minWidth:0}},
+                e("div",{style:{fontSize:11,color:"#3A3D6A",fontWeight:600,lineHeight:1.35}}, row.label),
+                row.target?e("div",{style:{fontSize:9,color:"#9298BC",marginTop:1}}, "target: "+row.target):null
+              ),
+              e("div",{style:{fontSize:12,fontWeight:800,color:row.rag?RAG[row.rag]:"#2E2F8A",textAlign:"right",whiteSpace:"nowrap"}}, row.value)
+            );
+          })),
+          p.fix?e("div",{style:{fontSize:9.5,color:"#8A6A2E",background:"rgba(154,123,62,0.08)",borderRadius:5,padding:"6px 8px",marginTop:8,lineHeight:1.45}}, "→ "+p.fix):null
+        );
+      })
+    ),
+    e("div",{style:{fontSize:9.5,color:"#9298BC",marginTop:10,lineHeight:1.5}},
+      "Thresholds are typical market screens (lenders ~60% LTGDV / ~20% profit-on-cost; funds a ~150 bps yield-on-cost spread; RPs a ≥10-home package + grant; equity ~20% IRR over an ~8–10% pref). A red panel isn't a no — it's what to firm up before you approach that capital.")
+  );
+}
+
 // ── renderFin  (params: LiveMarketBanner, at, bc, buildPsf, city, data, ey, gia, gr, lc, m, navTo, units, up, user)
 // Lifted out of Tool; body byte-unchanged. Tool variables passed as explicit
 // params; all other names resolve to globals. Loaded before 05-tool.js.
@@ -504,6 +544,9 @@ e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between
               "The ",e("strong",null,"phased S-curve cashflow below"),
               " models debt actually recycling as homes sell, so its ‘Total Interest’ is lower again. Use the engine figure (",fmt(num(DM.finance)),") for the appraisal; the other two bracket it."
             ),
+            // v10.182 — Investability scorecard: screen the deal against each capital provider's tests.
+            // Pass the IRR just computed above so the JV panel matches this page's Project IRR.
+            (typeof financierFit==="function" && typeof renderFinancierFitCard==="function") ? renderFinancierFitCard(financierFit(data, {projectIrr: irrVal})) : null,
             // PHASED S-CURVE CASHFLOW
       e("div",{style:S.card},
         e("div",{style:S.cardTitle},"Phased Cashflow — S-Curve Distribution"),
