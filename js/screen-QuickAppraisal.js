@@ -211,6 +211,16 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
     return e("div", { key:label, style:{ display:"flex", justifyContent:"space-between", padding:"4px 0", borderBottom:"1px solid #F1F2F8", fontSize:12, color:"#7278A0" } },
       e("span", null, label), e("span", null, "(" + fmt(val) + ")"));
   }
+  // v10.183 — Quick Appraisal now LEADS with the stack verdict + what-to-change, and tucks the full
+  // appraisal / sensitivity / exits behind a toggle (default collapsed). "Too much info — just need if
+  // it stacks and what to change." Detail toggle stored on a transient key (not appraisal data).
+  var showDetail = !!(data && data._qaDetail);
+  function toggleDetail(){ setData(function(prev){ return Object.assign({}, prev, { _qaDetail: !(prev && prev._qaDetail) }); }); }
+  function miniStat(label, value, color){
+    return e("div", { key:label, style:{ minWidth:92 } },
+      e("div", { style:{ fontSize:9, color:"#7278A0", textTransform:"uppercase", letterSpacing:".05em", fontWeight:700 } }, label),
+      e("div", { style:{ fontSize:16, fontWeight:800, color:color || "#2E2F8A", marginTop:2 } }, value));
+  }
   var buildSqft = homes > 0 ? Math.round((num(M.avgSqft) || 0) * homes) : 0;
 
   // ── v10.49 — FORWARD-FUND / CAPITALISATION EXIT ────────────────────────────
@@ -280,6 +290,35 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
     ),
 
     homes > 0 && e("div", null,
+      // ── STACK VERDICT (lead) ──────────────────────────────────────────────────
+      e("div", { style:{ background:vcol+"14", border:"1px solid "+vcol, borderLeft:"5px solid "+vcol, borderRadius:10, padding:"15px 18px", margin:"4px 0 12px" } },
+        e("div", { style:{ fontSize:19, fontWeight:800, color:vcol } }, verdict),
+        e("div", { style:{ fontSize:12.5, color:"#3A3D6A", lineHeight:1.55, marginTop:4 } }, vmsg),
+        e("div", { style:{ display:"flex", gap:20, flexWrap:"wrap", marginTop:12, paddingTop:12, borderTop:"1px solid "+vcol+"3A" } },
+          miniStat("Worth to us (RLV)", (rlv < 0 ? "−" : "") + fmt(Math.abs(rlv)), rlv > 0 ? "#1B7A54" : "#B05A35"),
+          asking > 0 ? miniStat("Asking", fmt(asking), "#2E2F8A") : null,
+          asking > 0 ? miniStat("Headroom", (headroom < 0 ? "−" : "+") + fmt(Math.abs(headroom)), headroom >= 0 ? "#1B7A54" : "#B05A35") : null,
+          miniStat(asking > 0 ? "Margin (all-in)" : "Developer profit", asking > 0 ? pct(marginAllIn) : (Math.round(profitPct*10)/10)+"%", asking > 0 ? (marginAllIn >= 15 ? "#1B7A54" : marginAllIn >= 12 ? "#9A7B3E" : "#B05A35") : "#2E2F8A")
+        )
+      ),
+      // ── WHAT TO CHANGE TO MAKE IT STACK ───────────────────────────────────────
+      e("div", { style:{ background:"rgba(154,123,62,0.09)", border:"1px solid rgba(154,123,62,0.4)", borderRadius:10, padding:"13px 16px", marginBottom:12 } },
+        e("div", { style:{ fontSize:12.5, fontWeight:800, color:"#8A6A2E", marginBottom:5 } }, "🔧 What to change to make it stack"),
+        e("div", { style:{ fontSize:12, color:"#7B6432", lineHeight:1.6 } },
+          stackLine ? stackLine
+            : (rlv > 0 && asking > 0 && marginAllIn >= 15) ? ("It stacks — the land is worth up to "+fmt(rlv)+" to us and you're buying at "+fmt(asking)+" ("+pct(marginAllIn)+" margin). Keep it there by buying at or below "+fmt(Math.max(0, rlv-acqCosts))+".")
+            : (rlv > 0 && asking <= 0) ? ("It stacks at "+(Math.round(profitPct*10)/10)+"% profit — the land is worth up to "+fmt(rlv)+" ("+fmt(rlvPerPlot)+"/plot). Enter the asking price above to test the margin after purchase costs.")
+            : "Adjust the sale £/sqft, build cost, affordable %, S106 or profit target in ‘1 · The land & scheme’ above — every figure updates instantly."),
+        e("div", { style:{ fontSize:10.5, color:"#9298BC", marginTop:6 } }, "Change any input in ‘1 · The land & scheme’ above and this verdict updates live.")
+      ),
+      // ── QUICK ACTIONS + DETAIL TOGGLE (always visible) ────────────────────────
+      e("div", { style:{ display:"flex", gap:10, flexWrap:"wrap", marginBottom:showDetail?14:4 } },
+        e("button", { onClick:openOnePager, style:{ padding:"9px 18px", background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)", border:"none", color:"#fff", borderRadius:6, fontSize:12.5, fontWeight:800, cursor:"pointer", fontFamily:"DM Sans,sans-serif", boxShadow:"0 2px 10px rgba(30,31,92,.25)" } }, "📄 One-page board proposal (PDF)"),
+        e("button", { onClick:function(){ navTo("sfh"); }, style:{ padding:"9px 16px", background:"#fff", border:"1px solid #4A4BAE", color:"#4A4BAE", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "Refine the house mix →"),
+        e("button", { onClick:toggleDetail, style:{ padding:"9px 16px", background:showDetail?"#EEF0FA":"#fff", border:"1px solid #DDE0ED", color:"#3A3D6A", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, showDetail ? "Hide full appraisal ▴" : "Show full appraisal, sensitivity & exits ▾")
+      ),
+
+      showDetail && e("div", null,
       // ── KPI ROW ──────────────────────────────────────────────────────────────
       e("div", { style:{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:10, margin:"4px 0 14px" } },
         kpi("Homes", homes.toLocaleString()),
@@ -391,11 +430,7 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
         );
       })(),
 
-      // ── VERDICT ──────────────────────────────────────────────────────────────
-      e("div", { style:{ marginTop:14, borderRadius:9, padding:"14px 18px", background:vcol, color:"#fff" } },
-        e("div", { style:{ fontSize:16, fontWeight:800 } }, verdict),
-        e("div", { style:{ fontSize:12.5, marginTop:3, opacity:0.96, lineHeight:1.5 } }, vmsg)
-      ),
+      // v10.183 — the verdict now leads the page (above), so it's not repeated here.
 
       // ── EXIT ROUTES — land value by exit (v10.114) ────────────────────────────
       (function(){
@@ -474,12 +509,10 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
         )
       ),
 
+      // v10.183 — one-pager + refine-mix now live in the always-visible action row up top; this row
+      // keeps the deeper report actions (viability scenario, full board paper) with the detail.
       e("div", { style:{ display:"flex", gap:10, flexWrap:"wrap", marginTop:14 } },
-        // One-click one-page board proposal — the SAME A4 PDF as the Board Proposal stage,
-        // generated straight from this page's figures (buildLandOnePager is shared, so identical).
-        e("button", { onClick:openOnePager, style:{ padding:"9px 18px", background:"linear-gradient(135deg,#1E1F5C,#2E2F8A)", border:"none", color:"#fff", borderRadius:6, fontSize:12.5, fontWeight:800, cursor:"pointer", fontFamily:"DM Sans,sans-serif", boxShadow:"0 2px 10px rgba(30,31,92,.25)" } }, "📄 One-page board proposal (PDF)"),
         e("button", { onClick:openOnePagerScenario, title:"Two pages: the truthful appraisal, then an ILLUSTRATIVE ‘what would make it stack’ scenario (build / S106 / sale / affordable % / profit / land) — solved on the engine and watermarked as NOT the real figures.", style:{ padding:"9px 16px", background:"#fff", border:"1.5px solid #B05A35", color:"#8A3A1E", borderRadius:6, fontSize:12, fontWeight:800, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "📄 + Viability scenario"),
-        e("button", { onClick:function(){ navTo("sfh"); }, style:{ padding:"9px 16px", background:"#fff", border:"1px solid #4A4BAE", color:"#4A4BAE", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "Refine the house mix →"),
         e("button", { onClick:function(){ navTo("proposal"); }, style:{ padding:"9px 16px", background:"#fff", border:"1px solid #DDE0ED", color:"#3A3D6A", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "Full board paper →")
       ),
 
@@ -530,7 +563,8 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
             e("li", null, e("b", null, "Assumptions"), ": S106 (£"+fmtN(Math.round(s106pu))+"/plot), the "+(num(M.financeProgYears)||"?")+"-year programme and planning timeline are estimates — replace with the actual heads of terms and programme. The residual land value is the maximum supportable price, not an agreed land value.")
           )
         );
-      })(),
+      })()
+      ),  // ── end of collapsible detail (showDetail) ──
 
       e("div", { style:{ fontSize:10, color:"#9298BC", marginTop:14, lineHeight:1.5, borderTop:"1px solid #EEF0F7", paddingTop:8 } },
         "Indicative rule-of-thumb — not a RICS Red Book valuation. Assumes residential consent can be achieved. Sale and build £/sqft, S106 and finance are best-practice starting points for the area; verify against local comparables and a QS cost plan before commitment.")
