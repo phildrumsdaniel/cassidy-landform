@@ -266,6 +266,16 @@ function buildLandOnePager(data, cityHint){
     // v10.175 — dual margin on the one-pager: the grant-applied margin (true + indicative AHP as
     // profit upside), shown next to the true figure. Null unless eligible & grant not yet modelled.
     var _mg1=(typeof marginGrantUplift==="function")?marginGrantUplift(data):null;
+    // v10.183 — grant intelligence, ALWAYS shown when the scheme carries affordable housing (not only
+    // when eligible/unmodelled): AHP grant per home + total, and the margin WITH grant beside the raw
+    // margin, from the SAME engine as the Grant & Funding stage (grantEligibilityFor → ~£45k/home), so
+    // a reader can immediately see whether grant alone could close a viability gap.
+    var _ge1=(typeof grantEligibilityFor==="function")?grantEligibilityFor(data):null;
+    var _grantShow=!!(_ge1 && num(_ge1.affordableHomes)>0 && num(_ge1.indicativeAhp)>0);
+    var _grantPerHome=_ge1?num(_ge1.perHome):0;
+    var _grantAffHomes=_ge1?num(_ge1.affordableHomes):0;
+    var _grantTotal=_ge1?(num(_ge1.appliedGrant)>0?num(_ge1.appliedGrant):num(_ge1.indicativeAhp)):0;
+    var _grantPts=_ge1?num(_ge1.marginUpliftPts):0;
     var askL=num(l.price)||ask||0;                            // what the landowner is asking
     var profitAtAsk=askL>0?(oGdv-oDev-askL):oProfit;          // real profit if bought at the asking price
     var marginAtAsk=oGdv>0?(profitAtAsk/oGdv*100):0;
@@ -483,8 +493,15 @@ function buildLandOnePager(data, cityHint){
             : (EX.chosen
               ? '<div class="kpi"><div class="l">Residual land value · '+esc(EX.basisLabel)+'</div><div class="v" style="color:'+(headlineRlv>0?"#1B7A54":"#B05A35")+'">'+(headlineRlv?((headlineRlv<0?"−":"")+fmt(Math.abs(headlineRlv))):"—")+'</div></div>'
               : '<div class="kpi"><div class="l">Residual land value · exit not yet decided</div><div class="v" style="color:'+(num(EX.rangeHi)>0?"#1B7A54":"#B05A35")+'">'+(EX.rangeIsSpan?fmt(EX.rangeLo)+' – '+fmt(EX.rangeHi):fmt(EX.rangeHi))+'</div></div>'))+
-          '<div class="kpi"><div class="l">'+(askL>0?"Margin (all-in)":"Target profit")+'</div><div class="v" style="color:'+(askL>0?(marginAllIn>=15?"#1B7A54":marginAllIn>=12?"#9A7B3E":"#B05A35"):"#1B1D46")+'">'+(askL>0?pct(marginAllIn):(Math.round(oProfitPct*10)/10)+"%")+'</div>'+(_mg1?'<div style="font-size:7px;color:#1B7A54;margin-top:1px">'+pct((askL>0?marginAllIn:oProfitPct)+_mg1.upliftPts)+' with AHP grant</div>':'')+'</div>'+
+          '<div class="kpi"><div class="l">'+(askL>0?"Margin (all-in)":"Target profit")+'</div><div class="v" style="color:'+(askL>0?(marginAllIn>=15?"#1B7A54":marginAllIn>=12?"#9A7B3E":"#B05A35"):"#1B1D46")+'">'+(askL>0?pct(marginAllIn):(Math.round(oProfitPct*10)/10)+"%")+'</div>'+(_grantShow?'<div style="font-size:7px;color:#1B7A54;margin-top:1px">'+pct((askL>0?marginAllIn:oProfitPct)+_grantPts)+' with AHP grant</div>':'')+'</div>'+
         '</div>'+
+        // v10.183 — compact GRANT INTELLIGENCE line (shared one-pager template, so it prints on every
+        // deal with affordable housing): AHP grant per home + total, and the raw → grant-assisted margin
+        // side by side, from the same engine as the Grant & Funding stage. Shows if grant closes the gap.
+        (_grantShow?'<div style="margin:1px 0 4px;padding:6px 9px;background:rgba(45,122,101,0.06);border:1px solid rgba(45,122,101,0.28);border-radius:6px;font-size:8px;color:#1B5E4A;line-height:1.45">'+
+          '<b>AHP grant (indicative):</b> ~'+fmt(_grantPerHome)+'/affordable home &times; '+_grantAffHomes.toLocaleString()+' home'+(_grantAffHomes===1?'':'s')+' = <b>'+fmt(_grantTotal)+'</b>. '+
+          'Margin '+pct(askL>0?marginAllIn:oProfitPct)+' &rarr; <b style="color:#1B7A54">'+pct((askL>0?marginAllIn:oProfitPct)+_grantPts)+' with grant</b> (+'+(Math.round(_grantPts*10)/10)+' pts) — whether grant alone can close a viability gap. Same basis as the Grant &amp; Funding stage; needs an RP partner + Homes England sign-off.'+
+        '</div>':'')+
         // v10.112 — Exit routes: the land value under each exit, side by side, with the chosen route
         // (from the Exit Strategy stage) highlighted. Appraise all options; commit to one and it leads.
         (function(){
