@@ -109,7 +109,7 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
       var beds=numOr(row.beds, info.beds||3);
       // v9.40 — Include tenure so we can compute blended GDV with route discounts
       var tenure=row.tenure||"private";
-      var routeDisc=(ROUTE_DISCOUNT[tenure]||ROUTE_DISCOUNT.private).pct;
+              var routeDisc=(tenure==="custom")?(numOr(row.customPct,85)/100):(ROUTE_DISCOUNT[tenure]||ROUTE_DISCOUNT.private).pct;
       var rowRetailGdv=rowSqft*sp*cnt;
       var rowBlendedGdv=rowRetailGdv*routeDisc;
       return{type:row.type,beds:beds,count:cnt,sqft:rowSqft,sp:sp,unitPrice:unitPrice||rowSqft*sp,tenure:tenure,routeDisc:routeDisc,totalGdv:rowRetailGdv,blendedGdv:rowBlendedGdv,build:rowSqft*(num(row.buildPsf)||sBuild)*cnt};
@@ -381,7 +381,9 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
             {value:"ahp_affordable",label:"Affordable Rent (60% MV)"},
             {value:"ahp_so",label:"Shared Ownership (70% MV)"},
             {value:"first_homes",label:"First Homes (70% MV cap)"}
+              {value:"custom",label:"Custom / negotiated %"},
           ]}),
+                        s.ahTenure==="custom" && e(Inp,{label:"Custom AH discount % (of Full Market Value)",type:"number",value:s.ahCustomPct,onChange:function(v){up("sfh","ahCustomPct",v);},placeholder:"e.g. 85"}),
           e(Inp,{
             label: nbInfo
               ? "Base Sale £/sqft — new-build estimate £"+nbInfo.newBuild+" (Land Registry existing £"+nbInfo.existing+" + "+nbInfo.premiumPct+"% new-build premium)"
@@ -570,6 +572,7 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
                 e("option",{value:"ahp_affordable"},"AHP — Affordable Rent (60% MV)"),
                 Object.keys(ROUTE_DISCOUNT).map(function(tk){return e("option",{key:tk,value:tk},ROUTE_DISCOUNT[tk].label+" ("+Math.round(ROUTE_DISCOUNT[tk].pct*100)+"% MV)");})
               ),
+                                     row.tenure==="custom" && e("input",{type:"number",value:numOr(row.customPct,85),min:0,max:100,step:1,onChange:function(ev){updMix(i,"customPct",ev.target.value);},title:"Custom negotiated discount, as % of Full Market Value (e.g. 85 for 85% MV)",placeholder:"e.g. 85",style:Object.assign({},S.select,{fontSize:10,padding:"5px 6px",width:50})}),
               // Hold — legal tenure (leasehold typical for flats, freehold for houses)
               e("select",{value:row.hold||defHold,onChange:function(ev){updMix(i,"hold",ev.target.value);},title:"Legal tenure of the unit",style:Object.assign({},S.select,{fontSize:10,padding:"5px 6px"})},
                 e("option",{value:"freehold"},"Freehold"),
