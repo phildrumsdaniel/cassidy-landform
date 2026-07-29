@@ -1816,7 +1816,8 @@ var ROUTE_DISCOUNT = {
   "dms":             {pct:0.80, label:"Discounted Market Sale",     col:"#9A7B3E", note:"20% discount to open market — local eligibility criteria apply."},
   "rent_to_buy":     {pct:0.85, label:"Rent to Buy",                col:"#9A7B3E", note:"Intermediate rent now, option to buy later — ~85% MV to the provider."},
   "retained_prs":    {pct:0.85, label:"Retained PRS (yield-based)", col:"#B05A35", note:"NOTE: SFH Dev Appraisal uses 85% MV approximation. For exact yield-based value, see Capitalisation."},
-  "btr_operator":    {pct:1.00, label:"BTR operator (full rental value)", col:"#2D7A65", note:"Whole-scheme sale to a BTR operator on a rental model — capitalised at target yield, NO affordable discount (100% of value)."}
+  "btr_operator":    {pct:1.00, label:"BTR operator (full rental value)", col:"#2D7A65", note:"Whole-scheme sale to a BTR operator on a rental model — capitalised at target yield, NO affordable discount (100% of value)."},
+    "custom":        {pct:0.85, label:"Custom / negotiated %",       col:"#B23A48", note:"User-defined discount to Full Market Value — enter the negotiated bulk/package rate directly (e.g. bespoke RP/HA forward-sale deals that don't fit a standard AHP tenure)."}
 };
 
 // ──────────────────────────────────────────────────────────────────────
@@ -1841,7 +1842,7 @@ function sfhAhFactor(data){
   // No per-tenure granularity is captured for the overall AH%, so value the AH
   // units at Affordable Rent (60% MV) as a representative default. A scheme that
   // wants a different AH tenure should tag the mix rows individually instead.
-  var ahDisc = (ROUTE_DISCOUNT[sfh.ahTenure || t.ahTenure] || ROUTE_DISCOUNT.ahp_affordable).pct;
+        var ahDisc = (sfh.ahTenure==="custom") ? (numOr(sfh.ahCustomPct,85)/100) : (ROUTE_DISCOUNT[sfh.ahTenure || t.ahTenure] || ROUTE_DISCOUNT.ahp_affordable).pct;
   var f = Math.min(1, ahPct / 100);
   return (1 - f) + f * ahDisc;
 }
