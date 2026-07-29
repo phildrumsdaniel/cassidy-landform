@@ -380,7 +380,7 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
             {value:"ahp_social",label:"Social Rent (55% MV)"},
             {value:"ahp_affordable",label:"Affordable Rent (60% MV)"},
             {value:"ahp_so",label:"Shared Ownership (70% MV)"},
-            {value:"first_homes",label:"First Homes (70% MV cap)"}
+            {value:"first_homes",label:"First Homes (70% MV cap)"},
               {value:"custom",label:"Custom / negotiated %"},
           ]}),
                         s.ahTenure==="custom" && e(Inp,{label:"Custom AH discount % (of Full Market Value)",type:"number",value:s.ahCustomPct,onChange:function(v){up("sfh","ahCustomPct",v);},placeholder:"e.g. 85"}),
