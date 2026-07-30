@@ -327,16 +327,17 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
     function placonaSiteKey(s){ return ((((s&&s.postcode)||"")+"").trim().toUpperCase())+"|"+((((s&&(s.site_name||s.address_or_location))||"")+"").trim().toLowerCase()); }
     function noteFor(s){ return plNotes[placonaSiteKey(s)] || {}; }
     function crmEngaged(s){ var r=noteFor(s); return !!(stageId(r.status)!=="none" || (r.activity&&r.activity.length) || (r.text&&(""+r.text).trim()) || (r.contact&&(r.contact.name||r.contact.phone||r.contact.email||r.contact.company)) || r.nextAction); }
+    // v10.190 — write through up() (this screen receives `up`, not setData). The earlier CRM helper
+    // called setData, which is undefined here, so every stage/contact/next-action handler threw and
+    // the boxes appeared frozen (only the local dictation draft worked). Now it persists via up().
     function _writeRec(s, mutate){
       var k=placonaSiteKey(s);
-      setData(function(prev){
-        var p=prev.placona||{}; var notes=Object.assign({}, p.notes||{});
-        var rec=Object.assign({}, notes[k]||{});
-        mutate(rec);
-        rec.updated=(new Date()).toLocaleString("en-GB");
-        notes[k]=rec;
-        return Object.assign({}, prev, { placona:Object.assign({}, p, { notes:notes }) });
-      });
+      var notes=Object.assign({}, plNotes);
+      var rec=Object.assign({}, notes[k]||{});
+      mutate(rec);
+      rec.updated=(new Date()).toLocaleString("en-GB");
+      notes[k]=rec;
+      up("placona","notes",notes);
     }
     function updateNote(s, patch){ _writeRec(s, function(rec){ Object.assign(rec, patch); }); }
     function updateContact(s, field, val){ _writeRec(s, function(rec){ rec.contact=Object.assign({}, rec.contact||{}); rec.contact[field]=val; }); }
