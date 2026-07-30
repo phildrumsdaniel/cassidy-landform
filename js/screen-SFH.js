@@ -829,7 +829,7 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
             e("div",{style:{fontSize:12,color:"#7278A0",display:"flex",gap:16,justifyContent:"center",flexWrap:"wrap"}},
               e("span",null,fmt(rlvPu)+" per plot"),
               sAcres>0&&e("span",null,fmt(rlvAcre)+" per acre"),
-              e("span",null,"Margin: "+pct(sMargin)+((function(){ var mg=(typeof marginGrantUplift==="function")?marginGrantUplift(data):null; return mg?" · "+pct(sMargin+mg.upliftPts)+" w/ AHP grant":""; })())),
+              e("span",null,"Margin: "+pct(sMargin)+" / "+fmt(devProfit)+((function(){ var mg=(typeof marginGrantUplift==="function")?marginGrantUplift(data):null; return mg?" · "+pct(sMargin+mg.upliftPts)+" w/ AHP grant":""; })())),
               e("span",{style:{color:sc,fontWeight:700}},viable?"✓ Viable":(rlv>0?"⚠ Below 15% threshold":"✗ Negative — does not stack"))
             )
           )

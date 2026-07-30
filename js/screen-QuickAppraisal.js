@@ -325,7 +325,10 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
           isFwdExit ? miniStat("Fund pays", fmt(exValue), "#2E2F8A") : null,
           asking > 0 ? miniStat("Asking", fmt(asking), "#2E2F8A") : null,
           asking > 0 ? miniStat("Headroom", (exHeadroom < 0 ? "−" : "+") + fmt(Math.abs(exHeadroom)), exHeadroom >= 0 ? "#1B7A54" : "#B05A35") : null,
-          miniStat(asking > 0 ? "Margin (all-in)" : "Developer profit", asking > 0 ? pct(exMargin) : (Math.round(profitPct*10)/10)+"%", asking > 0 ? (exMargin >= 15 ? "#1B7A54" : exMargin >= 12 ? "#9A7B3E" : "#B05A35") : "#2E2F8A")
+          // v10.186 — show the margin % AND the actual £ profit beside it (e.g. "17.5% / £12.3m").
+          miniStat(asking > 0 ? "Margin (all-in)" : "Developer profit",
+            (asking > 0 ? pct(exMargin) : (Math.round(profitPct*10)/10)+"%") + " / " + fmt(asking > 0 ? exProfit : (isFwdExit ? exValue*(profitPct/100) : profitFig)),
+            asking > 0 ? (exMargin >= 15 ? "#1B7A54" : exMargin >= 12 ? "#9A7B3E" : "#B05A35") : "#2E2F8A")
         )
       ),
       // ── WHAT TO CHANGE TO MAKE IT STACK ───────────────────────────────────────
