@@ -217,11 +217,16 @@ function CrmSiteCard(props){
   var s=props.site, rec=props.rec||{}, H=props.handlers||{};
   var ds=useState(""); var draft=ds[0], setDraft=ds[1];
   var xs=useState(!!props.defaultOpen); var open=xs[0], setOpen=xs[1];
+  var fus=useState({date:"",text:""}); var fuDraft=fus[0], setFuDraft=fus[1];   // v10.192 add-follow-up draft
   var meta=props.stageMeta(rec.status);
   var contact=rec.contact||{}, act=rec.activity||[];
   var name=s.site_name||s.address_or_location||"Site";
   var loc=[s.town,s.county].filter(function(v){return v&&v!=="Not found";}).join(", ");
-  var overdue = rec.nextDue && rec.nextAction && (function(){ try{ return new Date(rec.nextDue) < new Date(new Date().toDateString()); }catch(e){ return false; } })();
+  // v10.192 — follow-ups (migrate the old single next-action/due for display).
+  function fuOverdue(d){ if(!d) return false; try{ return new Date(d) < new Date((new Date()).toDateString()); }catch(e){ return false; } }
+  var followups = Array.isArray(rec.followups) ? rec.followups : (rec.nextAction ? [{ id:"legacy", date:rec.nextDue||"", text:rec.nextAction, done:false }] : []);
+  var openFu = followups.filter(function(f){ return !f.done && (""+(f.text||"")).trim(); }).slice().sort(function(a,b){ var A=a.date||"9999", B=b.date||"9999"; return A<B?-1:A>B?1:0; });
+  var nextFu = openFu[0]||null;
   function fld(label,val,type,ph,onCh){
     return e("div",{key:label,style:{flex:"1 1 130px",minWidth:110}},
       e("label",{style:{fontSize:9,color:"#7278A0",fontWeight:700,textTransform:"uppercase",letterSpacing:".04em",display:"block",marginBottom:2}},label),
@@ -234,20 +239,40 @@ function CrmSiteCard(props){
         e("div",{style:{fontSize:13,fontWeight:800,color:"#2E2F8A"}},name),
         loc?e("div",{style:{fontSize:10,color:"#7278A0"}},loc):null
       ),
-      rec.nextAction?e("span",{style:{fontSize:9,fontWeight:700,padding:"3px 8px",borderRadius:8,background:overdue?"#FBECE7":"#EEF0FA",color:overdue?"#B05A35":"#4A4BAE",whiteSpace:"nowrap"}},(overdue?"⏰ ":"→ ")+rec.nextAction+(rec.nextDue?" ("+rec.nextDue+")":"")):null,
+      nextFu?e("span",{style:{fontSize:9,fontWeight:700,padding:"3px 8px",borderRadius:8,background:fuOverdue(nextFu.date)?"#FBECE7":"#EEF0FA",color:fuOverdue(nextFu.date)?"#B05A35":"#4A4BAE",whiteSpace:"nowrap"}},(fuOverdue(nextFu.date)?"⏰ ":"📅 ")+(nextFu.date?nextFu.date+": ":"")+nextFu.text):null,
       e("span",{style:{fontSize:9,fontWeight:800,padding:"3px 8px",borderRadius:10,color:"#fff",background:meta.col,textTransform:"uppercase",letterSpacing:".03em",whiteSpace:"nowrap"}},meta.label),
       (props.opp!=null)?e("span",{style:{fontSize:11,fontWeight:800,color:props.oppCol(props.opp)}},props.opp+"%"):null,
       props.onOpen?e("button",{onClick:function(ev){ev.stopPropagation();props.onOpen();},style:{padding:"5px 10px",background:"#F0F1FA",border:"1px solid #DDE0ED",borderRadius:5,fontSize:10,fontWeight:700,color:"#4A4BAE",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Open →"):null
     ),
     open?e("div",{style:{padding:"0 14px 14px",borderTop:"1px solid #EEF0F7"}},
-      e("div",{style:{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end",margin:"12px 0"}},
+      e("div",{style:{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end",margin:"12px 0 8px"}},
         e("div",{style:{flex:"0 0 auto"}},
           e("label",{style:{fontSize:9,color:"#7278A0",fontWeight:700,textTransform:"uppercase",display:"block",marginBottom:2}},"Stage"),
           e("select",{value:props.stageId(rec.status),onChange:function(ev){H.onStage&&H.onStage(ev.target.value);},style:{padding:"6px 8px",border:"1px solid "+meta.col,borderRadius:5,fontSize:11,fontWeight:700,color:meta.col,background:"#fff",fontFamily:"DM Sans,sans-serif",cursor:"pointer"}},
             props.stages.map(function(o){return e("option",{key:o.id,value:o.id},o.label);}))
+        )
+      ),
+      // v10.192 — FOLLOW-UPS: dated reminders to chase this site (e.g. after a call). Tick when done.
+      e("div",{style:{fontSize:9,color:"#7278A0",fontWeight:800,textTransform:"uppercase",letterSpacing:".06em",margin:"6px 0 6px"}},"Follow-ups"),
+      followups.length?e("div",{style:{marginBottom:8}}, followups.slice().sort(function(a,b){ var A=a.date||"9999", B=b.date||"9999"; return A<B?-1:A>B?1:0; }).map(function(f,i){
+        var od=!f.done && fuOverdue(f.date);
+        return e("div",{key:f.id||i,style:{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid #F1F2F8"}},
+          e("input",{type:"checkbox",checked:!!f.done,onChange:function(ev){ H.onToggleFollowup&&H.onToggleFollowup(f.id,ev.target.checked); },style:{width:15,height:15,cursor:"pointer",accentColor:"#2D7A65",flexShrink:0}}),
+          f.date?e("span",{style:{fontSize:10,fontWeight:800,color:f.done?"#9298BC":(od?"#B05A35":"#4A4BAE"),whiteSpace:"nowrap"}},(od?"⏰ ":"")+f.date):null,
+          e("span",{style:{flex:1,fontSize:12,color:f.done?"#9298BC":"#2E2F8A",textDecoration:f.done?"line-through":"none",lineHeight:1.4}},f.text),
+          e("button",{onClick:function(){ H.onDelFollowup&&H.onDelFollowup(f.id); },title:"Remove",style:{background:"none",border:"none",color:"#B05A35",fontSize:14,cursor:"pointer",padding:0,lineHeight:1,flexShrink:0}},"×")
+        );
+      })):null,
+      e("div",{style:{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}},
+        e("div",{style:{flex:"0 0 auto"}},
+          e("label",{style:{fontSize:9,color:"#7278A0",fontWeight:700,textTransform:"uppercase",display:"block",marginBottom:2}},"Date"),
+          e("input",{type:"date",value:fuDraft.date,onChange:function(ev){ var v=ev.target.value; setFuDraft(function(d){return Object.assign({},d,{date:v});}); },style:{padding:"6px 8px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:11,fontFamily:"DM Sans,sans-serif",color:"#2E2F8A"}})
         ),
-        fld("Next action",rec.nextAction,"text","e.g. chase agent for the pack",function(v){H.onNext&&H.onNext("nextAction",v);}),
-        fld("Due",rec.nextDue,"date","",function(v){H.onNext&&H.onNext("nextDue",v);})
+        e("div",{style:{flex:"1 1 160px",minWidth:140}},
+          e("label",{style:{fontSize:9,color:"#7278A0",fontWeight:700,textTransform:"uppercase",display:"block",marginBottom:2}},"Follow-up"),
+          e("input",{type:"text",value:fuDraft.text,placeholder:"e.g. call the agent back re: pack",onChange:function(ev){ var v=ev.target.value; setFuDraft(function(d){return Object.assign({},d,{text:v});}); },onKeyDown:function(ev){ if(ev.key==="Enter" && (""+fuDraft.text).trim()){ H.onAddFollowup&&H.onAddFollowup(fuDraft.date,fuDraft.text); setFuDraft({date:"",text:""}); } },style:{width:"100%",padding:"6px 8px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:11,fontFamily:"DM Sans,sans-serif",color:"#2E2F8A",boxSizing:"border-box"}})
+        ),
+        e("button",{onClick:function(){ if((""+fuDraft.text).trim()){ H.onAddFollowup&&H.onAddFollowup(fuDraft.date,fuDraft.text); setFuDraft({date:"",text:""}); } },style:{padding:"6px 14px",background:"#2D7A65",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"+ Add")
       ),
       e("div",{style:{fontSize:9,color:"#7278A0",fontWeight:800,textTransform:"uppercase",letterSpacing:".06em",margin:"4px 0 6px"}},"Contact — agent / vendor"),
       e("div",{style:{display:"flex",gap:10,flexWrap:"wrap"}},
@@ -350,7 +375,7 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
     function stageMeta(raw){ var id=stageId(raw); for(var i=0;i<CRM_STAGES.length;i++){ if(CRM_STAGES[i].id===id) return CRM_STAGES[i]; } return CRM_STAGES[0]; }
     function placonaSiteKey(s){ return ((((s&&s.postcode)||"")+"").trim().toUpperCase())+"|"+((((s&&(s.site_name||s.address_or_location))||"")+"").trim().toLowerCase()); }
     function noteFor(s){ return plNotes[placonaSiteKey(s)] || {}; }
-    function crmEngaged(s){ var r=noteFor(s); return !!(stageId(r.status)!=="none" || (r.activity&&r.activity.length) || (r.text&&(""+r.text).trim()) || (r.contact&&(r.contact.name||r.contact.phone||r.contact.email||r.contact.company)) || r.nextAction); }
+    function crmEngaged(s){ var r=noteFor(s); return !!(stageId(r.status)!=="none" || (r.activity&&r.activity.length) || (r.followups&&r.followups.length) || (r.text&&(""+r.text).trim()) || (r.contact&&(r.contact.name||r.contact.phone||r.contact.email||r.contact.company)) || r.nextAction); }
     // v10.191 — persist CRM edits to the GLOBAL pipeline store (survives leaving the scheme), then
     // bump a per-deal counter so the screen re-renders. (v10.190 fixed the earlier setData crash.)
     function _writeRec(s, mutate){
@@ -366,12 +391,31 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
     function updateNote(s, patch){ _writeRec(s, function(rec){ Object.assign(rec, patch); }); }
     function updateContact(s, field, val){ _writeRec(s, function(rec){ rec.contact=Object.assign({}, rec.contact||{}); rec.contact[field]=val; }); }
     function addActivity(s, text){ var t=(""+(text||"")).trim(); if(!t) return; _writeRec(s, function(rec){ rec.activity=(rec.activity||[]).slice(); rec.activity.unshift({ ts:(new Date()).toLocaleString("en-GB"), text:t }); }); }
+    // v10.192 — FOLLOW-UPS: dated reminders to chase a site (after a call etc.). Each {id,date,text,done}.
+    // Normalise from the v10.189 single next-action/due into the list on first touch, so nothing is lost.
+    function normFollowups(rec){
+      if(Array.isArray(rec.followups)) return rec.followups.slice();
+      if(rec.nextAction) return [{ id:"legacy", date:rec.nextDue||"", text:rec.nextAction, done:false }];
+      return [];
+    }
+    function addFollowup(s, date, text){ var t=(""+(text||"")).trim(); if(!t) return; _writeRec(s, function(rec){ var fu=normFollowups(rec); fu.push({ id:String((new Date()).getTime())+"-"+fu.length, date:(date||""), text:t, done:false }); rec.followups=fu; delete rec.nextAction; delete rec.nextDue; }); }
+    function setFollowup(s, id, patch){ _writeRec(s, function(rec){ rec.followups=normFollowups(rec).map(function(f){ return (String(f.id)===String(id))?Object.assign({},f,patch):f; }); delete rec.nextAction; delete rec.nextDue; }); }
+    function delFollowup(s, id){ _writeRec(s, function(rec){ rec.followups=normFollowups(rec).filter(function(f){ return String(f.id)!==String(id); }); delete rec.nextAction; delete rec.nextDue; }); }
+    // Earliest OPEN (not done) follow-up for a record, for the header chip and the "due" list.
+    function nextOpenFollowup(rec){
+      var open=normFollowups(rec).filter(function(f){ return !f.done && (f.text||"").trim(); });
+      open.sort(function(a,b){ return (a.date||"9999")<(b.date||"9999")?-1:(a.date||"9999")>(b.date||"9999")?1:0; });
+      return open[0]||null;
+    }
+    function _isOverdue(dateStr){ if(!dateStr) return false; try{ return new Date(dateStr) < new Date((new Date()).toDateString()); }catch(e){ return false; } }
     var engagedCount = inbox.filter(crmEngaged).length;
     var crmHandlers = function(s){ return {
       onStage:function(id){ updateNote(s,{status:id}); },
       onContact:function(f,v){ updateContact(s,f,v); },
       onAddActivity:function(t){ addActivity(s,t); },
-      onNext:function(f,v){ updateNote(s, (function(){ var o={}; o[f]=v; return o; })()); }
+      onAddFollowup:function(date,text){ addFollowup(s,date,text); },
+      onToggleFollowup:function(id,done){ setFollowup(s,id,{done:done}); },
+      onDelFollowup:function(id){ delFollowup(s,id); }
     }; };
 
     var COUNTIES=[
@@ -882,19 +926,27 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
             var listSites = boardSites.filter(function(x){ return crmStageF==="all" || stageId(noteFor(x.site).status)===crmStageF; })
               .slice().sort(function(a,b){ var ea=crmEngaged(a.site)?1:0, eb=crmEngaged(b.site)?1:0; if(ea!==eb) return eb-ea; return b.opp.score-a.opp.score; });
             function tabBtn(id,label){ var on=crmView===id; return e("button",{key:id,onClick:function(){up("placona","crmView",id);},style:{padding:"5px 12px",background:on?"#2E2F8A":"#fff",color:on?"#fff":"#3A3D6A",border:"1px solid "+(on?"#2E2F8A":"#DDE0ED"),borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},label); }
-            var overdueN = boardSites.filter(function(x){ var r=noteFor(x.site); if(!(r.nextDue&&r.nextAction)) return false; try{ return new Date(r.nextDue)<new Date(new Date().toDateString()); }catch(e){ return false; } }).length;
+            // v10.192 — aggregate OPEN follow-ups across the pipeline for the "due" list + overdue count.
+            var dueItems=[];
+            boardSites.forEach(function(x){ var s=x.site; var r=noteFor(s);
+              (Array.isArray(r.followups)?r.followups:(r.nextAction?[{id:"legacy",date:r.nextDue||"",text:r.nextAction,done:false}]:[])).forEach(function(f){
+                if(!f.done && (""+(f.text||"")).trim()) dueItems.push({ site:s, f:f, name:(s.site_name||s.address_or_location||"Site") });
+              });
+            });
+            dueItems.sort(function(a,b){ var A=a.f.date||"9999", B=b.f.date||"9999"; return A<B?-1:A>B?1:0; });
+            var overdueN = dueItems.filter(function(d){ return _isOverdue(d.f.date); }).length;
             function boardCard(rec){
               var s=rec.site; var r=noteFor(s); var m=stageMeta(r.status);
               var nm=s.site_name||s.address_or_location||"Site";
               var loc=[s.town,s.county].filter(function(v){return v&&v!=="Not found";}).join(", ");
-              var overdue = r.nextDue && r.nextAction && (function(){try{return new Date(r.nextDue)<new Date(new Date().toDateString());}catch(e){return false;}})();
+              var fu=nextOpenFollowup(r); var od=fu&&_isOverdue(fu.date);
               return e("div",{key:placonaSiteKey(s),style:{background:"#fff",border:"1px solid #E0E2EC",borderRadius:8,padding:"9px 10px",marginBottom:8}},
                 e("div",{onClick:function(){up("placona","selectedSite",s);up("placona","view","detail");},style:{cursor:"pointer"}},
                   e("div",{style:{fontSize:11.5,fontWeight:800,color:"#2E2F8A",lineHeight:1.3}},nm),
                   loc?e("div",{style:{fontSize:9,color:"#7278A0",marginTop:1}},loc):null,
                   e("div",{style:{display:"flex",gap:6,alignItems:"center",marginTop:4,flexWrap:"wrap"}},
                     e("span",{style:{fontSize:10,fontWeight:800,color:oppCol(rec.opp.score||0)}},(rec.opp.score||0)+"%"),
-                    r.nextAction?e("span",{style:{fontSize:8.5,fontWeight:700,padding:"1px 5px",borderRadius:6,background:overdue?"#FBECE7":"#EEF0FA",color:overdue?"#B05A35":"#4A4BAE"}},(overdue?"⏰ ":"→ ")+r.nextAction):null
+                    fu?e("span",{style:{fontSize:8.5,fontWeight:700,padding:"1px 5px",borderRadius:6,background:od?"#FBECE7":"#EEF0FA",color:od?"#B05A35":"#4A4BAE"}},(od?"⏰ ":"📅 ")+(fu.date?fu.date+": ":"")+fu.text):null
                   )
                 ),
                 e("select",{value:stageId(r.status),onChange:function(ev){updateNote(s,{status:ev.target.value});},style:{marginTop:6,width:"100%",padding:"3px 5px",border:"1px solid #DDE0ED",borderRadius:4,fontSize:9.5,fontFamily:"DM Sans,sans-serif",color:"#3A3D6A",background:"#F7F8FC",cursor:"pointer"}},
@@ -904,9 +956,23 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
             return e("div",null,
               e("div",{style:{fontSize:12,color:"#7278A0",marginBottom:12,lineHeight:1.6}},
                 e("b",{style:{color:"#2E2F8A"}},"📋 Land pipeline. "),
-                "Track every opportunity through the pipeline — stage, agent/vendor contact, a dated activity log and your next action. Type or 🎤 dictate each entry. ",
-                (engagedCount>0?("You're tracking "+engagedCount+" of "+inbox.length+" site"+(inbox.length!==1?"s":"")+"."):"Set a stage or add an entry to start tracking a site."),
-                overdueN>0?e("b",{style:{color:"#B05A35"}},(" · ⏰ "+overdueN+" overdue next-action"+(overdueN!==1?"s":""))):null),
+                "Track every opportunity — stage, agent/vendor contact, a dated activity log and dated follow-ups to chase after a call. Type or 🎤 dictate each entry. ",
+                (engagedCount>0?("You're tracking "+engagedCount+" of "+inbox.length+" site"+(inbox.length!==1?"s":"")+"."):"Set a stage or add an entry to start tracking a site.")),
+              // v10.192 — FOLLOW-UPS DUE — every open follow-up across the pipeline, soonest first, ticked
+              // off here or on the card. This is the "what do I need to chase" list.
+              dueItems.length?e("div",{style:{marginBottom:14,padding:"12px 14px",background:overdueN>0?"rgba(176,90,53,0.06)":"rgba(74,75,174,0.05)",border:"1px solid "+(overdueN>0?"rgba(176,90,53,0.35)":"rgba(74,75,174,0.25)"),borderRadius:10}},
+                e("div",{style:{fontSize:11,fontWeight:800,color:overdueN>0?"#B05A35":"#4A4BAE",marginBottom:8,textTransform:"uppercase",letterSpacing:".05em"}},"⏰ Follow-ups due — "+dueItems.length+(overdueN>0?" · "+overdueN+" overdue":"")),
+                dueItems.slice(0,15).map(function(d,i){
+                  var od=_isOverdue(d.f.date);
+                  return e("div",{key:i,style:{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderTop:i?"1px solid #EEF0F7":"none"}},
+                    e("input",{type:"checkbox",checked:false,onChange:function(){ setFollowup(d.site,d.f.id,{done:true}); },title:"Mark done",style:{width:15,height:15,cursor:"pointer",accentColor:"#2D7A65",flexShrink:0}}),
+                    d.f.date?e("span",{style:{fontSize:10,fontWeight:800,color:od?"#B05A35":"#4A4BAE",whiteSpace:"nowrap",minWidth:78}},(od?"⏰ ":"")+d.f.date):e("span",{style:{fontSize:10,color:"#9298BC",minWidth:78}},"no date"),
+                    e("span",{style:{flex:1,minWidth:80,fontSize:12,color:"#2E2F8A",lineHeight:1.4}},d.f.text),
+                    e("span",{onClick:function(){up("placona","selectedSite",d.site);up("placona","view","detail");},style:{fontSize:10,color:"#4A4BAE",fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}},d.name+" →")
+                  );
+                }),
+                dueItems.length>15?e("div",{style:{fontSize:9,color:"#9298BC",marginTop:6}},"+ "+(dueItems.length-15)+" more"):null
+              ):null,
               // controls: view toggle + stage filter + area filter
               e("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}},
                 e("div",{style:{display:"flex",gap:6}}, tabBtn("board","▦ Board"), tabBtn("list","☰ List")),
