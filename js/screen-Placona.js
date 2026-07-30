@@ -210,6 +210,73 @@ function PlaconaDictate(props){
     listening?"⏹ Stop":"🎤 Dictate");
 }
 
+// v10.189 — the CRM card for one site: pipeline stage, contact details, next action + due date, and a
+// dated activity log with dictation. A component (own draft-entry + expand state). Handlers + stage
+// helpers are passed as props so the parent owns the data.
+function CrmSiteCard(props){
+  var s=props.site, rec=props.rec||{}, H=props.handlers||{};
+  var ds=useState(""); var draft=ds[0], setDraft=ds[1];
+  var xs=useState(!!props.defaultOpen); var open=xs[0], setOpen=xs[1];
+  var meta=props.stageMeta(rec.status);
+  var contact=rec.contact||{}, act=rec.activity||[];
+  var name=s.site_name||s.address_or_location||"Site";
+  var loc=[s.town,s.county].filter(function(v){return v&&v!=="Not found";}).join(", ");
+  var overdue = rec.nextDue && rec.nextAction && (function(){ try{ return new Date(rec.nextDue) < new Date(new Date().toDateString()); }catch(e){ return false; } })();
+  function fld(label,val,type,ph,onCh){
+    return e("div",{key:label,style:{flex:"1 1 130px",minWidth:110}},
+      e("label",{style:{fontSize:9,color:"#7278A0",fontWeight:700,textTransform:"uppercase",letterSpacing:".04em",display:"block",marginBottom:2}},label),
+      e("input",{type:type||"text",value:val||"",placeholder:ph||"",onChange:function(ev){onCh(ev.target.value);},style:{width:"100%",padding:"6px 8px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:11,fontFamily:"DM Sans,sans-serif",color:"#2E2F8A",boxSizing:"border-box"}}));
+  }
+  return e("div",{style:{border:"1px solid "+meta.col,borderLeft:"4px solid "+meta.col,borderRadius:10,marginBottom:12,background:"#fff"}},
+    e("div",{onClick:function(){setOpen(!open);},style:{display:"flex",alignItems:"center",gap:9,padding:"11px 14px",cursor:"pointer",flexWrap:"wrap"}},
+      e("span",{style:{fontSize:12,color:meta.col,width:10}},open?"▾":"▸"),
+      e("div",{style:{flex:1,minWidth:120}},
+        e("div",{style:{fontSize:13,fontWeight:800,color:"#2E2F8A"}},name),
+        loc?e("div",{style:{fontSize:10,color:"#7278A0"}},loc):null
+      ),
+      rec.nextAction?e("span",{style:{fontSize:9,fontWeight:700,padding:"3px 8px",borderRadius:8,background:overdue?"#FBECE7":"#EEF0FA",color:overdue?"#B05A35":"#4A4BAE",whiteSpace:"nowrap"}},(overdue?"⏰ ":"→ ")+rec.nextAction+(rec.nextDue?" ("+rec.nextDue+")":"")):null,
+      e("span",{style:{fontSize:9,fontWeight:800,padding:"3px 8px",borderRadius:10,color:"#fff",background:meta.col,textTransform:"uppercase",letterSpacing:".03em",whiteSpace:"nowrap"}},meta.label),
+      (props.opp!=null)?e("span",{style:{fontSize:11,fontWeight:800,color:props.oppCol(props.opp)}},props.opp+"%"):null,
+      props.onOpen?e("button",{onClick:function(ev){ev.stopPropagation();props.onOpen();},style:{padding:"5px 10px",background:"#F0F1FA",border:"1px solid #DDE0ED",borderRadius:5,fontSize:10,fontWeight:700,color:"#4A4BAE",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Open →"):null
+    ),
+    open?e("div",{style:{padding:"0 14px 14px",borderTop:"1px solid #EEF0F7"}},
+      e("div",{style:{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end",margin:"12px 0"}},
+        e("div",{style:{flex:"0 0 auto"}},
+          e("label",{style:{fontSize:9,color:"#7278A0",fontWeight:700,textTransform:"uppercase",display:"block",marginBottom:2}},"Stage"),
+          e("select",{value:props.stageId(rec.status),onChange:function(ev){H.onStage&&H.onStage(ev.target.value);},style:{padding:"6px 8px",border:"1px solid "+meta.col,borderRadius:5,fontSize:11,fontWeight:700,color:meta.col,background:"#fff",fontFamily:"DM Sans,sans-serif",cursor:"pointer"}},
+            props.stages.map(function(o){return e("option",{key:o.id,value:o.id},o.label);}))
+        ),
+        fld("Next action",rec.nextAction,"text","e.g. chase agent for the pack",function(v){H.onNext&&H.onNext("nextAction",v);}),
+        fld("Due",rec.nextDue,"date","",function(v){H.onNext&&H.onNext("nextDue",v);})
+      ),
+      e("div",{style:{fontSize:9,color:"#7278A0",fontWeight:800,textTransform:"uppercase",letterSpacing:".06em",margin:"4px 0 6px"}},"Contact — agent / vendor"),
+      e("div",{style:{display:"flex",gap:10,flexWrap:"wrap"}},
+        fld("Name",contact.name,"text","",function(v){H.onContact&&H.onContact("name",v);}),
+        fld("Company",contact.company,"text","",function(v){H.onContact&&H.onContact("company",v);}),
+        fld("Phone",contact.phone,"tel","",function(v){H.onContact&&H.onContact("phone",v);}),
+        fld("Email",contact.email,"email","",function(v){H.onContact&&H.onContact("email",v);})
+      ),
+      (contact.phone||contact.email)?e("div",{style:{display:"flex",gap:14,marginTop:6}},
+        contact.phone?e("a",{href:"tel:"+contact.phone,style:{fontSize:11,color:"#2D7A65",fontWeight:700,textDecoration:"none"}},"📞 Call"):null,
+        contact.email?e("a",{href:"mailto:"+contact.email,style:{fontSize:11,color:"#4A4BAE",fontWeight:700,textDecoration:"none"}},"✉ Email"):null
+      ):null,
+      e("div",{style:{fontSize:9,color:"#7278A0",fontWeight:800,textTransform:"uppercase",letterSpacing:".06em",margin:"12px 0 6px"}},"Activity log"),
+      e("div",{style:{display:"flex",gap:8,alignItems:"flex-start",marginBottom:8,flexWrap:"wrap"}},
+        e("textarea",{value:draft,placeholder:"Log an interaction — called the agent, viewing booked, offer sent… (type or 🎤 dictate, then Add)",rows:2,onChange:function(ev){setDraft(ev.target.value);},style:{flex:"1 1 220px",minWidth:170,padding:"7px 9px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:12,fontFamily:"DM Sans,sans-serif",color:"#2E2F8A",boxSizing:"border-box",resize:"vertical"}}),
+        e("div",{style:{display:"flex",flexDirection:"column",gap:6}},
+          e(PlaconaDictate,{onAppend:function(t){ setDraft(function(d){ return (d?d+" ":"")+t; }); }}),
+          e("button",{onClick:function(){ var t=(""+draft).trim(); if(t){ H.onAddActivity&&H.onAddActivity(t); setDraft(""); } },style:{padding:"5px 14px",background:"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Add")
+        )
+      ),
+      (rec.text&&(""+rec.text).trim())?e("div",{style:{fontSize:11,color:"#5A5F86",background:"#F7F8FC",borderRadius:6,padding:"7px 9px",marginBottom:8,lineHeight:1.5}},e("b",null,"Note: "),rec.text):null,
+      act.length?e("div",null, act.map(function(a,i){ return e("div",{key:i,style:{borderLeft:"2px solid #E0E2EC",paddingLeft:10,marginBottom:8}},
+        e("div",{style:{fontSize:9,color:"#9298BC",fontWeight:700}},a.ts),
+        e("div",{style:{fontSize:12,color:"#2E2F8A",lineHeight:1.45}},a.text)
+      ); })):e("div",{style:{fontSize:10,color:"#9298BC",fontStyle:"italic"}},"No activity logged yet.")
+    ):null
+  );
+}
+
 function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
     var pl=data.placona||{};
     var inbox=(pl.inbox)||[];
@@ -239,57 +306,48 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
     });
     function oppCol(sc){ return sc>=75?"#2D7A65":sc>=60?"#4A4BAE":sc>=45?"#9A7B3E":"#B05A35"; }
 
-    // v10.188 — per-site NOTES + enquiry status, so you can log land you've viewed / enquired on.
-    // Stored in data.placona.notes keyed by a stable site key (postcode + name), so notes survive a
-    // re-run of the search (which replaces the site objects). Dictate or type — the device keyboard
-    // mic works in the textarea too.
+    // v10.189 — small CRM for land opportunities. Each site carries a record in data.placona.notes,
+    // keyed by a stable site key (postcode + name) so it survives a re-run of the search:
+    //   { status, contact:{name,company,phone,email}, activity:[{ts,text}], nextAction, nextDue, text, updated }
+    // Pipeline stages, a dated activity log, contact details and a next-action/due date — all client-side.
     var plNotes = pl.notes || {};
-    var ENQUIRY = [
-      {id:"none",     label:"Not contacted",       col:"#9298BC"},
-      {id:"enquired", label:"Enquiry made",        col:"#4A4BAE"},
-      {id:"viewed",   label:"Viewed",              col:"#2D7A65"},
-      {id:"offer",    label:"Offer / negotiating", col:"#1B7A54"},
-      {id:"passed",   label:"Passed",              col:"#B05A35"}
+    var CRM_STAGES = [
+      {id:"none",        label:"New / not contacted", col:"#9298BC"},
+      {id:"enquired",    label:"Enquiry made",        col:"#4A4BAE"},
+      {id:"viewing",     label:"Viewing",             col:"#2D7A65"},
+      {id:"offer",       label:"Offer made",          col:"#1B7A54"},
+      {id:"under_offer", label:"Under offer",         col:"#0E7C5A"},
+      {id:"legals",      label:"Legals",              col:"#6B4FA0"},
+      {id:"completed",   label:"Completed",           col:"#1B5E4A"},
+      {id:"lost",        label:"Lost / passed",       col:"#B05A35"}
     ];
-    function enqMeta(id){ for(var i=0;i<ENQUIRY.length;i++){ if(ENQUIRY[i].id===id) return ENQUIRY[i]; } return ENQUIRY[0]; }
+    var _stageLegacy = { none:"none", enquired:"enquired", viewed:"viewing", offer:"offer", passed:"lost" };   // v10.188 → v10.189
+    function stageId(raw){ var id=((raw==null?"none":raw))+""; if(_stageLegacy[id]!==undefined) id=_stageLegacy[id]; return id; }
+    function stageMeta(raw){ var id=stageId(raw); for(var i=0;i<CRM_STAGES.length;i++){ if(CRM_STAGES[i].id===id) return CRM_STAGES[i]; } return CRM_STAGES[0]; }
     function placonaSiteKey(s){ return ((((s&&s.postcode)||"")+"").trim().toUpperCase())+"|"+((((s&&(s.site_name||s.address_or_location))||"")+"").trim().toLowerCase()); }
     function noteFor(s){ return plNotes[placonaSiteKey(s)] || {}; }
-    function siteHasNote(s){ var n=noteFor(s); return !!((n.text&&(""+n.text).trim()) || (n.status&&n.status!=="none")); }
-    function updateNote(s, patch){
+    function crmEngaged(s){ var r=noteFor(s); return !!(stageId(r.status)!=="none" || (r.activity&&r.activity.length) || (r.text&&(""+r.text).trim()) || (r.contact&&(r.contact.name||r.contact.phone||r.contact.email||r.contact.company)) || r.nextAction); }
+    function _writeRec(s, mutate){
       var k=placonaSiteKey(s);
       setData(function(prev){
         var p=prev.placona||{}; var notes=Object.assign({}, p.notes||{});
-        notes[k]=Object.assign({}, notes[k]||{}, patch, { updated:(new Date()).toLocaleString("en-GB") });
+        var rec=Object.assign({}, notes[k]||{});
+        mutate(rec);
+        rec.updated=(new Date()).toLocaleString("en-GB");
+        notes[k]=rec;
         return Object.assign({}, prev, { placona:Object.assign({}, p, { notes:notes }) });
       });
     }
-    function appendNote(s, text){
-      var t=(""+(text||"")).trim(); if(!t) return;
-      var k=placonaSiteKey(s);
-      setData(function(prev){
-        var p=prev.placona||{}; var notes=Object.assign({}, p.notes||{});
-        var cur=(notes[k]&&notes[k].text)||"";
-        notes[k]=Object.assign({}, notes[k]||{}, { text:(cur?cur+" "+t:t), updated:(new Date()).toLocaleString("en-GB") });
-        return Object.assign({}, prev, { placona:Object.assign({}, p, { notes:notes }) });
-      });
-    }
-    // Reusable notes + enquiry-status editor for a site (used in the Notes tab and the site detail view).
-    function notesBlock(s, compact){
-      var n = noteFor(s); var st = n.status || "none"; var meta = enqMeta(st);
-      return e("div",{style:{background:"#FBFBFE",border:"1px solid #E4E6F0",borderRadius:8,padding:compact?"10px 12px":"12px 14px"}},
-        e("div",{style:{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:8}},
-          e("span",{style:{fontSize:11,fontWeight:800,color:"#2E2F8A"}},"📝 My notes & enquiry status"),
-          e("select",{value:st,onChange:function(ev){ updateNote(s,{status:ev.target.value}); },style:{padding:"4px 8px",border:"1px solid "+meta.col,borderRadius:5,fontSize:11,fontWeight:700,color:meta.col,background:"#fff",fontFamily:"DM Sans,sans-serif",cursor:"pointer"}},
-            ENQUIRY.map(function(o){ return e("option",{key:o.id,value:o.id},o.label); })),
-          e(PlaconaDictate,{onAppend:function(t){ appendNote(s,t); }}),
-          n.updated?e("span",{style:{fontSize:9,color:"#9298BC",marginLeft:"auto"}},"updated "+n.updated):null
-        ),
-        e("textarea",{value:n.text||"",placeholder:"Notes on this land — who you spoke to, asking price discussed, viewing arranged, next steps… (type or 🎤 dictate; your phone keyboard mic works here too)",rows:compact?2:3,
-          onChange:function(ev){ updateNote(s,{text:ev.target.value}); },
-          style:{width:"100%",padding:"8px 10px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:12,fontFamily:"DM Sans,sans-serif",color:"#2E2F8A",boxSizing:"border-box",resize:"vertical",lineHeight:1.45}})
-      );
-    }
-    var notedCount = inbox.filter(siteHasNote).length;
+    function updateNote(s, patch){ _writeRec(s, function(rec){ Object.assign(rec, patch); }); }
+    function updateContact(s, field, val){ _writeRec(s, function(rec){ rec.contact=Object.assign({}, rec.contact||{}); rec.contact[field]=val; }); }
+    function addActivity(s, text){ var t=(""+(text||"")).trim(); if(!t) return; _writeRec(s, function(rec){ rec.activity=(rec.activity||[]).slice(); rec.activity.unshift({ ts:(new Date()).toLocaleString("en-GB"), text:t }); }); }
+    var engagedCount = inbox.filter(crmEngaged).length;
+    var crmHandlers = function(s){ return {
+      onStage:function(id){ updateNote(s,{status:id}); },
+      onContact:function(f,v){ updateContact(s,f,v); },
+      onAddActivity:function(t){ addActivity(s,t); },
+      onNext:function(f,v){ updateNote(s, (function(){ var o={}; o[f]=v; return o; })()); }
+    }; };
 
     var COUNTIES=[
       // ── NORTH EAST ENGLAND ───────────────────────────────────────────
@@ -505,7 +563,7 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
     var tabs=[
       {id:"search",label:"Search",icon:"🔍"},
       {id:"inbox", label:"Site Inbox "+(inbox.length>0?"("+inbox.length+")":""),icon:"📥"},
-      {id:"notes", label:"Notes"+(notedCount>0?" ("+notedCount+")":""),icon:"📝"},
+      {id:"notes", label:"Pipeline"+(engagedCount>0?" ("+engagedCount+")":""),icon:"📋"},
     ];
     if(selectedSite) tabs.push({id:"detail",label:"Site Detail",icon:"📋"});
 
@@ -733,7 +791,7 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
                     e("div",{style:{display:"flex",alignItems:"center",gap:6,minWidth:0,flexWrap:"wrap"}},
                       e("div",{style:{fontSize:13,fontWeight:700,color:"#2E2F8A"}},site.site_name||site.address_or_location||"Unknown site"),
                       // v10.188 — enquiry-status badge, so land you've contacted shows at a glance.
-                      (function(){ var nn=noteFor(site); if(!nn.status||nn.status==="none") return null; var mm=enqMeta(nn.status); return e("span",{style:{fontSize:8,fontWeight:800,padding:"2px 6px",borderRadius:8,color:"#fff",background:mm.col,textTransform:"uppercase",letterSpacing:".03em",whiteSpace:"nowrap"}},mm.label); })()
+                      (function(){ var nn=noteFor(site); if(stageId(nn.status)==="none") return null; var mm=stageMeta(nn.status); return e("span",{style:{fontSize:8,fontWeight:800,padding:"2px 6px",borderRadius:8,color:"#fff",background:mm.col,textTransform:"uppercase",letterSpacing:".03em",whiteSpace:"nowrap"}},mm.label); })()
                     ),
                     e("div",{style:{fontSize:10,color:"#7278A0",whiteSpace:"nowrap",marginLeft:8}},
                       site.site_area_acres&&site.site_area_acres!=="Not found"?site.site_area_acres+" acres":"",
@@ -780,43 +838,77 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
         )
       ),
 
-      // ── NOTES TAB ─────────────────────────────────────────────────────────────
+      // ── PIPELINE / CRM TAB ─────────────────────────────────────────────────────
       view==="notes"&&(inbox.length===0
         ? e("div",{style:{textAlign:"center",padding:"60px 20px",color:"#7278A0"}},
-            e("div",{style:{fontSize:32,marginBottom:12}},"📝"),
-            e("div",{style:{fontSize:14,fontWeight:700,color:"#2E2F8A",marginBottom:8}},"No land in your inbox yet"),
-            e("div",{style:{fontSize:12,marginBottom:16}},"Run a Placona search or load from your sheet, then log notes and enquiries here."),
+            e("div",{style:{fontSize:32,marginBottom:12}},"📋"),
+            e("div",{style:{fontSize:14,fontWeight:700,color:"#2E2F8A",marginBottom:8}},"No land in your pipeline yet"),
+            e("div",{style:{fontSize:12,marginBottom:16}},"Run a Placona search or load from your sheet, then track enquiries, contacts and next steps here."),
             e("button",{onClick:function(){up("placona","view","search");},style:{padding:"10px 20px",background:"#4A4BAE",border:"none",borderRadius:6,color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Go to Search")
           )
         : (function(){
-            var notesSorted = oppScored.slice().sort(function(a,b){
-              var ea=siteHasNote(a.site)?1:0, eb=siteHasNote(b.site)?1:0;
-              if(ea!==eb) return eb-ea;                 // sites you've engaged with rise to the top
-              return b.opp.score-a.opp.score;           // then by opportunity score
-            });
+            var crmView = (pl.crmView==="board") ? "board" : "list";
+            var crmStageF = (pl.crmStageFilter||"all")+"";
+            var stageCounts={}; oppScored.forEach(function(x){ var id=stageId(noteFor(x.site).status); stageCounts[id]=(stageCounts[id]||0)+1; });
+            // Pipeline applies the AREA filter (shared with the inbox) but not the score shortlist —
+            // you track ALL your land here, whatever the score.
+            var areaOK=function(x){ return areaFilter==="all" || (((x.site&&x.site.county)||"")+"").trim()===areaFilter; };
+            var boardSites = oppScored.filter(areaOK);
+            var listSites = boardSites.filter(function(x){ return crmStageF==="all" || stageId(noteFor(x.site).status)===crmStageF; })
+              .slice().sort(function(a,b){ var ea=crmEngaged(a.site)?1:0, eb=crmEngaged(b.site)?1:0; if(ea!==eb) return eb-ea; return b.opp.score-a.opp.score; });
+            function tabBtn(id,label){ var on=crmView===id; return e("button",{key:id,onClick:function(){up("placona","crmView",id);},style:{padding:"5px 12px",background:on?"#2E2F8A":"#fff",color:on?"#fff":"#3A3D6A",border:"1px solid "+(on?"#2E2F8A":"#DDE0ED"),borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},label); }
+            var overdueN = boardSites.filter(function(x){ var r=noteFor(x.site); if(!(r.nextDue&&r.nextAction)) return false; try{ return new Date(r.nextDue)<new Date(new Date().toDateString()); }catch(e){ return false; } }).length;
+            function boardCard(rec){
+              var s=rec.site; var r=noteFor(s); var m=stageMeta(r.status);
+              var nm=s.site_name||s.address_or_location||"Site";
+              var loc=[s.town,s.county].filter(function(v){return v&&v!=="Not found";}).join(", ");
+              var overdue = r.nextDue && r.nextAction && (function(){try{return new Date(r.nextDue)<new Date(new Date().toDateString());}catch(e){return false;}})();
+              return e("div",{key:placonaSiteKey(s),style:{background:"#fff",border:"1px solid #E0E2EC",borderRadius:8,padding:"9px 10px",marginBottom:8}},
+                e("div",{onClick:function(){up("placona","selectedSite",s);up("placona","view","detail");},style:{cursor:"pointer"}},
+                  e("div",{style:{fontSize:11.5,fontWeight:800,color:"#2E2F8A",lineHeight:1.3}},nm),
+                  loc?e("div",{style:{fontSize:9,color:"#7278A0",marginTop:1}},loc):null,
+                  e("div",{style:{display:"flex",gap:6,alignItems:"center",marginTop:4,flexWrap:"wrap"}},
+                    e("span",{style:{fontSize:10,fontWeight:800,color:oppCol(rec.opp.score||0)}},(rec.opp.score||0)+"%"),
+                    r.nextAction?e("span",{style:{fontSize:8.5,fontWeight:700,padding:"1px 5px",borderRadius:6,background:overdue?"#FBECE7":"#EEF0FA",color:overdue?"#B05A35":"#4A4BAE"}},(overdue?"⏰ ":"→ ")+r.nextAction):null
+                  )
+                ),
+                e("select",{value:stageId(r.status),onChange:function(ev){updateNote(s,{status:ev.target.value});},style:{marginTop:6,width:"100%",padding:"3px 5px",border:"1px solid #DDE0ED",borderRadius:4,fontSize:9.5,fontFamily:"DM Sans,sans-serif",color:"#3A3D6A",background:"#F7F8FC",cursor:"pointer"}},
+                  CRM_STAGES.map(function(o){return e("option",{key:o.id,value:o.id},o.label);}))
+              );
+            }
             return e("div",null,
-              e("div",{style:{fontSize:12,color:"#7278A0",marginBottom:14,lineHeight:1.6}},
-                e("b",{style:{color:"#2E2F8A"}},"📝 Land notes & enquiry log. "),
-                "Set an enquiry status and jot notes on each site you've looked at — who you spoke to, price discussed, viewings arranged, next steps. Type or 🎤 dictate (your phone keyboard mic works in the box too). ",
-                (notedCount>0?("You've noted "+notedCount+" of "+inbox.length+" site"+(inbox.length!==1?"s":"")+" — noted sites rise to the top."):"Nothing noted yet — the sites you engage with will rise to the top.")),
-              notesSorted.map(function(rec,i){
-                var s=rec.site, opp=rec.opp;
-                var name=s.site_name||s.address_or_location||"Site";
-                var loc=[s.town,s.county].filter(function(v){return v&&v!=="Not found";}).join(", ");
-                var nm=noteFor(s); var meta=enqMeta(nm.status||"none"); var engaged=siteHasNote(s);
-                return e("div",{key:i,style:{border:"1px solid "+(engaged?meta.col:"#DDE0ED"),borderLeft:"4px solid "+(engaged?meta.col:"#E0E2EC"),borderRadius:10,padding:14,marginBottom:12,background:"#fff"}},
-                  e("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:10,flexWrap:"wrap"}},
-                    e("div",{style:{flex:1,minWidth:120}},
-                      e("div",{style:{fontSize:13,fontWeight:800,color:"#2E2F8A"}},name),
-                      loc?e("div",{style:{fontSize:10,color:"#7278A0"}},loc):null
-                    ),
-                    engaged?e("span",{style:{fontSize:9,fontWeight:800,padding:"3px 8px",borderRadius:10,color:"#fff",background:meta.col,textTransform:"uppercase",letterSpacing:".03em"}},meta.label):null,
-                    e("span",{style:{fontSize:11,fontWeight:800,color:oppCol(opp.score||0)}},(opp.score||0)+"%"),
-                    e("button",{onClick:function(){up("placona","selectedSite",s);up("placona","view","detail");},style:{padding:"5px 10px",background:"#F0F1FA",border:"1px solid #DDE0ED",borderRadius:5,fontSize:10,fontWeight:700,color:"#4A4BAE",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Open →")
-                  ),
-                  notesBlock(s, false)
-                );
-              })
+              e("div",{style:{fontSize:12,color:"#7278A0",marginBottom:12,lineHeight:1.6}},
+                e("b",{style:{color:"#2E2F8A"}},"📋 Land pipeline. "),
+                "Track every opportunity through the pipeline — stage, agent/vendor contact, a dated activity log and your next action. Type or 🎤 dictate each entry. ",
+                (engagedCount>0?("You're tracking "+engagedCount+" of "+inbox.length+" site"+(inbox.length!==1?"s":"")+"."):"Set a stage or add an entry to start tracking a site."),
+                overdueN>0?e("b",{style:{color:"#B05A35"}},(" · ⏰ "+overdueN+" overdue next-action"+(overdueN!==1?"s":""))):null),
+              // controls: view toggle + stage filter + area filter
+              e("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}},
+                e("div",{style:{display:"flex",gap:6}}, tabBtn("board","▦ Board"), tabBtn("list","☰ List")),
+                e("span",{style:{width:1,height:18,background:"#DDE0ED"}}),
+                e("span",{style:{fontSize:11,color:"#7278A0",fontWeight:700}},"Stage:"),
+                e("select",{value:crmStageF,onChange:function(ev){up("placona","crmStageFilter",ev.target.value);},style:{padding:"5px 8px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:11,fontFamily:"DM Sans,sans-serif",color:"#2E2F8A",background:"#fff",cursor:"pointer"}},
+                  [e("option",{key:"all",value:"all"},"All stages")].concat(CRM_STAGES.map(function(o){ return e("option",{key:o.id,value:o.id},o.label+(stageCounts[o.id]?" ("+stageCounts[o.id]+")":"")); }))),
+                e("span",{style:{fontSize:11,color:"#7278A0",fontWeight:700}},"📍 Area:"),
+                e("select",{value:areaFilter,onChange:function(ev){up("placona","areaFilter",ev.target.value);},style:{padding:"5px 8px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:11,fontFamily:"DM Sans,sans-serif",color:"#2E2F8A",background:"#fff",cursor:"pointer",maxWidth:180}},
+                  [e("option",{key:"all",value:"all"},"All areas")].concat(inboxCountyList.map(function(c){ return e("option",{key:c,value:c},c+" ("+inboxCounties[c]+")"); })))
+              ),
+              crmView==="board"
+                ? e("div",{style:{display:"flex",gap:12,overflowX:"auto",paddingBottom:8}},
+                    CRM_STAGES.map(function(st){
+                      var col=boardSites.filter(function(x){return stageId(noteFor(x.site).status)===st.id;});
+                      return e("div",{key:st.id,style:{flex:"0 0 212px",minWidth:212,background:"#F7F8FC",borderRadius:8,padding:8,borderTop:"3px solid "+st.col}},
+                        e("div",{style:{fontSize:10,fontWeight:800,color:st.col,textTransform:"uppercase",letterSpacing:".04em",marginBottom:8,display:"flex",justifyContent:"space-between"}},e("span",null,st.label),e("span",null,col.length)),
+                        col.length?col.map(boardCard):e("div",{style:{fontSize:9,color:"#B4B8CE",fontStyle:"italic",padding:"8px 4px"}},"—")
+                      );
+                    })
+                  )
+                : e("div",null, listSites.length? listSites.map(function(rec){
+                    var s=rec.site;
+                    return e(CrmSiteCard,{ key:placonaSiteKey(s), site:s, rec:noteFor(s), stages:CRM_STAGES, stageId:stageId, stageMeta:stageMeta,
+                      opp:(rec.opp.score||0), oppCol:oppCol, handlers:crmHandlers(s),
+                      onOpen:function(){ up("placona","selectedSite",s); up("placona","view","detail"); } });
+                  }) : e("div",{style:{textAlign:"center",padding:"30px",color:"#7278A0",background:"#F7F8FC",border:"1px dashed #DDE0ED",borderRadius:8}},"No sites in this stage / area."))
             );
           })()
       ),
@@ -847,7 +939,7 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
 
         // v10.188 — notes + enquiry status for THIS site, at the top of the detail view so you can log
         // an enquiry / viewing while you're looking at the land.
-        e("div",{style:{marginBottom:14}}, notesBlock(selectedSite, false)),
+        e("div",{style:{marginBottom:14}}, e(CrmSiteCard,{ site:selectedSite, rec:noteFor(selectedSite), stages:CRM_STAGES, stageId:stageId, stageMeta:stageMeta, handlers:crmHandlers(selectedSite), defaultOpen:true })),
 
         // v9.75 — Cassidy Opportunity Score breakdown (transparent pillars)
         (typeof scoreOpportunity==="function") && (function(){
