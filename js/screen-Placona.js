@@ -54,6 +54,12 @@ function _bboxWKT(b){
   var w = b.getWest(), s = b.getSouth(), e2 = b.getEast(), n = b.getNorth();
   return "POLYGON((" + w + " " + s + "," + e2 + " " + s + "," + e2 + " " + n + "," + w + " " + n + "," + w + " " + s + "))";
 }
+// v10.187 — persist the map's last view (centre + zoom) and the site-set it last auto-fitted, at
+// MODULE scope so they survive the component unmounting/remounting (e.g. opening a site's detail view
+// and coming back). Without this the map re-created itself at the default UK-wide view and re-fitted
+// to every pin, so you lost your place. These reset only on a full page reload.
+var _placonaMapView = null;      // { center:[lat,lng], zoom }
+var _placonaFittedSig = null;    // the props.sig we last auto-fitted to
 function PlaconaMap(props){
   var recs = props.recs || [];
   var elRef = React.useRef(null), mapRef = React.useRef(null), markersRef = React.useRef([]);
@@ -92,9 +98,11 @@ function PlaconaMap(props){
 
   useEffect(function(){
     if(typeof L === "undefined" || !elRef.current || mapRef.current) return;
-    var map = L.map(elRef.current, { scrollWheelZoom:false }).setView([53.2, -1.5], 6);
+    // v10.187 — start at the view we left the map at, not the default UK-wide view.
+    var _v = _placonaMapView;
+    var map = L.map(elRef.current, { scrollWheelZoom:false }).setView(_v ? _v.center : [53.2, -1.5], _v ? _v.zoom : 6);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom:18, attribution:"© OpenStreetMap" }).addTo(map);
-    map.on("moveend zoomend", function(){ setZoom(map.getZoom()); refreshRef.current(); });
+    map.on("moveend zoomend", function(){ try{ var c=map.getCenter(); _placonaMapView={ center:[c.lat, c.lng], zoom:map.getZoom() }; }catch(e){} setZoom(map.getZoom()); refreshRef.current(); });
     mapRef.current = map; setReady(true);
     setTimeout(function(){ try{ map.invalidateSize(); }catch(e){} }, 200);
     return function(){ try{ map.remove(); }catch(e){} mapRef.current = null; };
@@ -106,6 +114,10 @@ function PlaconaMap(props){
     markersRef.current.forEach(function(m){ try{ map.removeLayer(m); }catch(e){} });
     markersRef.current = [];
     var bounds = [];
+    // v10.187 — only auto-fit when the SITE SET changes (first load, or an area/score filter change),
+    // NOT on a remount (returning from a site's detail view) — so the map keeps the view you left it at.
+    var doFit = (props.sig !== _placonaFittedSig);
+    if(doFit) _placonaFittedSig = props.sig;
     recs.forEach(function(rec){
       var site = rec.site || rec, opp = rec.opp || { score:0 };
       placonaGeocode(site, function(ll){
@@ -128,7 +140,7 @@ function PlaconaMap(props){
         mk.addTo(map);
         markersRef.current.push(mk);
         bounds.push(ll);
-        try{ map.fitBounds(bounds, { padding:[34,34], maxZoom:11 }); }catch(e){}
+        if(doFit){ try{ map.fitBounds(bounds, { padding:[34,34], maxZoom:11 }); }catch(e){} }
       });
     });
   }, [props.sig, ready]);
@@ -187,7 +199,18 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
     var oppScored=inbox.map(function(s){ return {site:s, opp:(typeof scoreOpportunity==="function")?scoreOpportunity(s):{score:0,confidence:0,band:""}}; })
       .sort(function(a,b){ return b.opp.score-a.opp.score; });
     var oppMin=num(pl.minScore)||0;
-    var oppShown=oppScored.filter(function(x){ return x.opp.score>=oppMin; });
+    // v10.187 — AREA filter for the inbox. The inbox can hold lots of land across the country; let the
+    // user narrow it to a county. Counties are taken from the sites actually in the inbox (site.county),
+    // with a count each, so the dropdown only offers areas that have sites.
+    var areaFilter=(pl.areaFilter||"all")+"";
+    var inboxCounties={};
+    oppScored.forEach(function(x){ var c=(((x.site&&x.site.county)||"")+"").trim(); if(c && c!=="Not found") inboxCounties[c]=(inboxCounties[c]||0)+1; });
+    var inboxCountyList=Object.keys(inboxCounties).sort();
+    var oppShown=oppScored.filter(function(x){
+      if(x.opp.score<oppMin) return false;
+      if(areaFilter!=="all" && (((x.site&&x.site.county)||"")+"").trim()!==areaFilter) return false;
+      return true;
+    });
     function oppCol(sc){ return sc>=75?"#2D7A65":sc>=60?"#4A4BAE":sc>=45?"#9A7B3E":"#B05A35"; }
 
     var COUNTIES=[
@@ -572,9 +595,17 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
             e("button",{onClick:function(){up("placona","inbox",[]);},
               style:{padding:"5px 12px",background:"none",border:"1px solid #DDE0ED",borderRadius:4,color:"#B05A35",fontSize:10,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Clear all")
           ),
-          e("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:12,padding:"8px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:6}},
+          e("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:12,padding:"8px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:6,flexWrap:"wrap"}},
+            // v10.187 — Area filter: narrow the inbox to a county (options are the counties actually
+            // present, with counts). Changing it re-fits the map to that area.
+            e("span",{style:{fontSize:11,color:"#7278A0",fontWeight:700}},"📍 Area:"),
+            e("select",{value:areaFilter,onChange:function(ev){up("placona","areaFilter",ev.target.value);},style:{padding:"5px 8px",border:"1px solid #DDE0ED",borderRadius:5,fontSize:11,fontFamily:"DM Sans,sans-serif",color:"#2E2F8A",background:"#fff",maxWidth:220,cursor:"pointer"}},
+              [e("option",{key:"all",value:"all"},"All areas ("+inbox.length+")")].concat(inboxCountyList.map(function(c){ return e("option",{key:c,value:c},c+" ("+inboxCounties[c]+")"); }))
+            ),
+            areaFilter!=="all"&&e("button",{onClick:function(){up("placona","areaFilter","all");},title:"Clear the area filter",style:{padding:"4px 8px",background:"none",border:"1px solid #DDE0ED",borderRadius:4,fontSize:10,color:"#7278A0",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"✕ clear"),
+            e("span",{style:{width:1,height:18,background:"#DDE0ED"}}),
             e("span",{style:{fontSize:11,color:"#7278A0",fontWeight:700}},"Shortlist: score ≥"),
-            e("input",{type:"range",min:0,max:90,step:5,value:oppMin,onChange:function(ev){up("placona","minScore",Number(ev.target.value));},style:{flex:1,accentColor:"#2D7A65"}}),
+            e("input",{type:"range",min:0,max:90,step:5,value:oppMin,onChange:function(ev){up("placona","minScore",Number(ev.target.value));},style:{flex:1,minWidth:110,accentColor:"#2D7A65"}}),
             e("span",{style:{fontSize:13,fontWeight:800,color:oppCol(oppMin),minWidth:38,textAlign:"right"}},oppMin+"%")
           ),
           // v9.93 — MAP of the shortlisted sites (pins from postcode, coloured by score)
@@ -593,6 +624,12 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
               onSelect:function(site){ up("placona","selectedSite",site); up("placona","view","detail"); }
             }),
             !pl.hideMap && e("div",{style:{fontSize:9,color:"#9A7B3E",marginTop:4,fontStyle:"italic"}},"Pins are placed from each site's postcode (add postcodes for exact positions; without one a site sits at its region's centre).")
+          ),
+          // v10.187 — nothing matches the current area / score filter (but the inbox isn't empty).
+          oppShown.length===0 && e("div",{style:{textAlign:"center",padding:"32px 20px",color:"#7278A0",background:"#F7F8FC",border:"1px dashed #DDE0ED",borderRadius:8}},
+            e("div",{style:{fontSize:13,fontWeight:700,color:"#2E2F8A",marginBottom:4}},"No sites match the current filter"),
+            e("div",{style:{fontSize:11,marginBottom:12}},(areaFilter!=="all"?"Area ‘"+areaFilter+"’":"")+((areaFilter!=="all"&&oppMin>0)?" and ":"")+(oppMin>0?"score ≥ "+oppMin+"%":"")+" leaves none of your "+inbox.length+" sites."),
+            e("button",{onClick:function(){up("placona","areaFilter","all");up("placona","minScore",0);},style:{padding:"7px 14px",background:"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Reset filters")
           ),
           // Site cards (ranked)
           oppShown.map(function(rec,si){
