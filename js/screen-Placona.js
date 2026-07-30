@@ -315,6 +315,49 @@ function loadPlaconaWS(){
 }
 function savePlaconaWS(ws){ try{ localStorage.setItem(PLACONA_WS_KEY, JSON.stringify({ inbox:ws.inbox||[], notes:ws.notes||{} })); }catch(e){} }
 
+// v10.193 — CLOUD SYNC of the pipeline, so it follows you across devices (like your saved deals). Needs
+// two backend actions (placona_crm_save / placona_crm_load) — see docs/placona-crm-sync.gs. localStorage
+// stays the working copy (instant + offline); the cloud is the cross-device backup. Merge is per-record
+// last-write-wins by updatedTs; the inbox is unioned by site key. Signed out / offline → local only.
+var _placonaCrmSynced = false;      // fetch the cloud copy once per session
+var _placonaSaveTimer = null;       // debounce cloud saves
+function placonaCrmCloudLoad(userId, cb){
+  if(!userId || typeof WEBHOOK==="undefined"){ cb(null); return; }
+  fetch(WEBHOOK+"?action=placona_crm_load&userId="+encodeURIComponent(userId))
+    .then(function(r){ return r.ok?r.json():null; })
+    .then(function(d){
+      var ws=null;
+      if(d && d.status==="ok"){
+        if(d.workspace && typeof d.workspace==="object") ws=d.workspace;
+        else if(d.payload){ try{ ws=JSON.parse(d.payload); }catch(e){} }
+      }
+      cb(ws);
+    })
+    .catch(function(){ cb(null); });
+}
+function placonaCrmCloudSave(userId, ws){
+  if(!userId || typeof WEBHOOK==="undefined") return;
+  try{
+    fetch(WEBHOOK, { method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify({ action:"placona_crm_save", userId:userId, payload:JSON.stringify({ inbox:ws.inbox||[], notes:ws.notes||{} }) }) }).catch(function(){});
+  }catch(e){}
+}
+function placonaCrmScheduleSave(userId){
+  if(!userId) return;
+  if(_placonaSaveTimer){ try{ clearTimeout(_placonaSaveTimer); }catch(e){} }
+  _placonaSaveTimer = setTimeout(function(){ _placonaSaveTimer=null; placonaCrmCloudSave(userId, loadPlaconaWS()); }, 1500);
+}
+function mergePlaconaWS(localWs, cloudWs, keyFn){
+  var notes=Object.assign({}, localWs.notes||{}), cn=cloudWs.notes||{};
+  Object.keys(cn).forEach(function(k){
+    var ln=notes[k];
+    notes[k] = (!ln) ? cn[k] : (((cn[k].updatedTs||0) >= (ln.updatedTs||0)) ? cn[k] : ln);
+  });
+  var seen={}, inbox=[];
+  (cloudWs.inbox||[]).concat(localWs.inbox||[]).forEach(function(s){ var k=keyFn(s); if(k&&!seen[k]){ seen[k]=1; inbox.push(s); } });
+  return { inbox:inbox, notes:notes };
+}
+
 function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
     var pl=data.placona||{};                       // ephemeral UI state (view, filters, selected site)
     // v10.191 — the pipeline (inbox + CRM notes) is GLOBAL, in its own store, so it survives leaving a
@@ -328,7 +371,24 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
     }
     var inbox=_ws.inbox||[];
     function bumpPlacona(){ up("placona","_rev",(new Date()).getTime()); }   // trigger a re-render after a global write
-    function setInbox(arr){ var ws=loadPlaconaWS(); ws.inbox=arr||[]; savePlaconaWS(ws); bumpPlacona(); }
+    function setInbox(arr){ var ws=loadPlaconaWS(); ws.inbox=arr||[]; savePlaconaWS(ws); placonaCrmScheduleSave(user&&user.userId); bumpPlacona(); }
+    // v10.193 — once per session, pull this account's pipeline from the cloud and merge it in, so the
+    // CRM you filled out on another device shows up here too. If the cloud is empty, seed it from this
+    // device. Signed out → stays local-only.
+    if(user && user.userId && !_placonaCrmSynced){
+      _placonaCrmSynced = true;
+      placonaCrmCloudLoad(user.userId, function(cloudWs){
+        if(cloudWs && ((cloudWs.notes&&Object.keys(cloudWs.notes).length) || (cloudWs.inbox&&cloudWs.inbox.length))){
+          var merged = mergePlaconaWS(loadPlaconaWS(), cloudWs, placonaSiteKey);
+          savePlaconaWS(merged);
+          placonaCrmCloudSave(user.userId, merged);          // push the union back so both sides converge
+          up("placona","_rev",(new Date()).getTime());        // re-render with the merged pipeline
+        } else {
+          var lw=loadPlaconaWS();
+          if((lw.notes&&Object.keys(lw.notes).length) || (lw.inbox&&lw.inbox.length)) placonaCrmCloudSave(user.userId, lw);  // seed the cloud
+        }
+      });
+    }
     var running=pl.running||false;
     var lastRun=pl.lastRun||"";
     var error=pl.error||"";
@@ -385,8 +445,9 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
       var rec=Object.assign({}, notes[k]||{});
       mutate(rec);
       rec.updated=(new Date()).toLocaleString("en-GB");
+      rec.updatedTs=(new Date()).getTime();   // v10.193 — for last-write-wins cloud merge across devices
       notes[k]=rec;
-      ws.notes=notes; savePlaconaWS(ws); bumpPlacona();
+      ws.notes=notes; savePlaconaWS(ws); placonaCrmScheduleSave(user&&user.userId); bumpPlacona();
     }
     function updateNote(s, patch){ _writeRec(s, function(rec){ Object.assign(rec, patch); }); }
     function updateContact(s, field, val){ _writeRec(s, function(rec){ rec.contact=Object.assign({}, rec.contact||{}); rec.contact[field]=val; }); }
@@ -957,7 +1018,8 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
               e("div",{style:{fontSize:12,color:"#7278A0",marginBottom:12,lineHeight:1.6}},
                 e("b",{style:{color:"#2E2F8A"}},"📋 Land pipeline. "),
                 "Track every opportunity — stage, agent/vendor contact, a dated activity log and dated follow-ups to chase after a call. Type or 🎤 dictate each entry. ",
-                (engagedCount>0?("You're tracking "+engagedCount+" of "+inbox.length+" site"+(inbox.length!==1?"s":"")+"."):"Set a stage or add an entry to start tracking a site.")),
+                (engagedCount>0?("You're tracking "+engagedCount+" of "+inbox.length+" site"+(inbox.length!==1?"s":"")+"."):"Set a stage or add an entry to start tracking a site."),
+                (user&&user.userId)?e("span",{style:{color:"#2D7A65",fontWeight:700}}," ☁ Synced to your account — on all your devices."):e("span",{style:{color:"#9A7B3E"}}," (Sign in to sync across your devices.)")),
               // v10.192 — FOLLOW-UPS DUE — every open follow-up across the pipeline, soonest first, ticked
               // off here or on the card. This is the "what do I need to chase" list.
               dueItems.length?e("div",{style:{marginBottom:14,padding:"12px 14px",background:overdueN>0?"rgba(176,90,53,0.06)":"rgba(74,75,174,0.05)",border:"1px solid "+(overdueN>0?"rgba(176,90,53,0.35)":"rgba(74,75,174,0.25)"),borderRadius:10}},
