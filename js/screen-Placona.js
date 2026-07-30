@@ -184,6 +184,32 @@ function PlaconaMap(props){
 
 // ── renderPlacona  (params: data, loadSiteIntoDeal, up, user) (setToast inside loadSiteIntoDeal stays in Tool — cosmetic)
 // Lifted out of Tool; body byte-unchanged. Loaded before 05-tool.js.
+// v10.188 — dictation button (Web Speech API). Speaks → text appended to a site note. Falls back to
+// nothing when unsupported (any textarea still accepts the device keyboard's own mic dictation).
+function PlaconaDictate(props){
+  var ls = useState(false), listening = ls[0], setListening = ls[1];
+  var recRef = React.useRef(null);
+  var SR = (typeof window !== "undefined") && (window.SpeechRecognition || window.webkitSpeechRecognition);
+  if(!SR) return null;
+  function toggle(){
+    if(listening){ try{ recRef.current && recRef.current.stop(); }catch(e){} setListening(false); return; }
+    var rec; try{ rec = new SR(); }catch(e){ return; }
+    rec.lang = "en-GB"; rec.interimResults = false; rec.continuous = true;
+    rec.onresult = function(ev){
+      var t = "";
+      for(var i = ev.resultIndex; i < ev.results.length; i++){ if(ev.results[i].isFinal) t += ev.results[i][0].transcript; }
+      if(t && props.onAppend) props.onAppend(t.trim());
+    };
+    rec.onend = function(){ setListening(false); };
+    rec.onerror = function(){ setListening(false); };
+    recRef.current = rec;
+    try{ rec.start(); setListening(true); }catch(e){ setListening(false); }
+  }
+  return e("button",{onClick:toggle,title:listening?"Stop dictation":"Dictate — speak your note",
+    style:{padding:"5px 11px",background:listening?"#B05A35":"#2D7A65",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",flexShrink:0}},
+    listening?"⏹ Stop":"🎤 Dictate");
+}
+
 function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
     var pl=data.placona||{};
     var inbox=(pl.inbox)||[];
@@ -212,6 +238,58 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
       return true;
     });
     function oppCol(sc){ return sc>=75?"#2D7A65":sc>=60?"#4A4BAE":sc>=45?"#9A7B3E":"#B05A35"; }
+
+    // v10.188 — per-site NOTES + enquiry status, so you can log land you've viewed / enquired on.
+    // Stored in data.placona.notes keyed by a stable site key (postcode + name), so notes survive a
+    // re-run of the search (which replaces the site objects). Dictate or type — the device keyboard
+    // mic works in the textarea too.
+    var plNotes = pl.notes || {};
+    var ENQUIRY = [
+      {id:"none",     label:"Not contacted",       col:"#9298BC"},
+      {id:"enquired", label:"Enquiry made",        col:"#4A4BAE"},
+      {id:"viewed",   label:"Viewed",              col:"#2D7A65"},
+      {id:"offer",    label:"Offer / negotiating", col:"#1B7A54"},
+      {id:"passed",   label:"Passed",              col:"#B05A35"}
+    ];
+    function enqMeta(id){ for(var i=0;i<ENQUIRY.length;i++){ if(ENQUIRY[i].id===id) return ENQUIRY[i]; } return ENQUIRY[0]; }
+    function placonaSiteKey(s){ return ((((s&&s.postcode)||"")+"").trim().toUpperCase())+"|"+((((s&&(s.site_name||s.address_or_location))||"")+"").trim().toLowerCase()); }
+    function noteFor(s){ return plNotes[placonaSiteKey(s)] || {}; }
+    function siteHasNote(s){ var n=noteFor(s); return !!((n.text&&(""+n.text).trim()) || (n.status&&n.status!=="none")); }
+    function updateNote(s, patch){
+      var k=placonaSiteKey(s);
+      setData(function(prev){
+        var p=prev.placona||{}; var notes=Object.assign({}, p.notes||{});
+        notes[k]=Object.assign({}, notes[k]||{}, patch, { updated:(new Date()).toLocaleString("en-GB") });
+        return Object.assign({}, prev, { placona:Object.assign({}, p, { notes:notes }) });
+      });
+    }
+    function appendNote(s, text){
+      var t=(""+(text||"")).trim(); if(!t) return;
+      var k=placonaSiteKey(s);
+      setData(function(prev){
+        var p=prev.placona||{}; var notes=Object.assign({}, p.notes||{});
+        var cur=(notes[k]&&notes[k].text)||"";
+        notes[k]=Object.assign({}, notes[k]||{}, { text:(cur?cur+" "+t:t), updated:(new Date()).toLocaleString("en-GB") });
+        return Object.assign({}, prev, { placona:Object.assign({}, p, { notes:notes }) });
+      });
+    }
+    // Reusable notes + enquiry-status editor for a site (used in the Notes tab and the site detail view).
+    function notesBlock(s, compact){
+      var n = noteFor(s); var st = n.status || "none"; var meta = enqMeta(st);
+      return e("div",{style:{background:"#FBFBFE",border:"1px solid #E4E6F0",borderRadius:8,padding:compact?"10px 12px":"12px 14px"}},
+        e("div",{style:{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:8}},
+          e("span",{style:{fontSize:11,fontWeight:800,color:"#2E2F8A"}},"📝 My notes & enquiry status"),
+          e("select",{value:st,onChange:function(ev){ updateNote(s,{status:ev.target.value}); },style:{padding:"4px 8px",border:"1px solid "+meta.col,borderRadius:5,fontSize:11,fontWeight:700,color:meta.col,background:"#fff",fontFamily:"DM Sans,sans-serif",cursor:"pointer"}},
+            ENQUIRY.map(function(o){ return e("option",{key:o.id,value:o.id},o.label); })),
+          e(PlaconaDictate,{onAppend:function(t){ appendNote(s,t); }}),
+          n.updated?e("span",{style:{fontSize:9,color:"#9298BC",marginLeft:"auto"}},"updated "+n.updated):null
+        ),
+        e("textarea",{value:n.text||"",placeholder:"Notes on this land — who you spoke to, asking price discussed, viewing arranged, next steps… (type or 🎤 dictate; your phone keyboard mic works here too)",rows:compact?2:3,
+          onChange:function(ev){ updateNote(s,{text:ev.target.value}); },
+          style:{width:"100%",padding:"8px 10px",border:"1px solid #DDE0ED",borderRadius:6,fontSize:12,fontFamily:"DM Sans,sans-serif",color:"#2E2F8A",boxSizing:"border-box",resize:"vertical",lineHeight:1.45}})
+      );
+    }
+    var notedCount = inbox.filter(siteHasNote).length;
 
     var COUNTIES=[
       // ── NORTH EAST ENGLAND ───────────────────────────────────────────
@@ -427,6 +505,7 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
     var tabs=[
       {id:"search",label:"Search",icon:"🔍"},
       {id:"inbox", label:"Site Inbox "+(inbox.length>0?"("+inbox.length+")":""),icon:"📥"},
+      {id:"notes", label:"Notes"+(notedCount>0?" ("+notedCount+")":""),icon:"📝"},
     ];
     if(selectedSite) tabs.push({id:"detail",label:"Site Detail",icon:"📋"});
 
@@ -651,7 +730,11 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
                 // Main content
                 e("div",{style:{flex:1,padding:"12px 14px"}},
                   e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}},
-                    e("div",{style:{fontSize:13,fontWeight:700,color:"#2E2F8A"}},site.site_name||site.address_or_location||"Unknown site"),
+                    e("div",{style:{display:"flex",alignItems:"center",gap:6,minWidth:0,flexWrap:"wrap"}},
+                      e("div",{style:{fontSize:13,fontWeight:700,color:"#2E2F8A"}},site.site_name||site.address_or_location||"Unknown site"),
+                      // v10.188 — enquiry-status badge, so land you've contacted shows at a glance.
+                      (function(){ var nn=noteFor(site); if(!nn.status||nn.status==="none") return null; var mm=enqMeta(nn.status); return e("span",{style:{fontSize:8,fontWeight:800,padding:"2px 6px",borderRadius:8,color:"#fff",background:mm.col,textTransform:"uppercase",letterSpacing:".03em",whiteSpace:"nowrap"}},mm.label); })()
+                    ),
                     e("div",{style:{fontSize:10,color:"#7278A0",whiteSpace:"nowrap",marginLeft:8}},
                       site.site_area_acres&&site.site_area_acres!=="Not found"?site.site_area_acres+" acres":"",
                       site.estimated_units&&site.estimated_units!=="Not found"?" · "+site.estimated_units+" units":""
@@ -697,6 +780,47 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
         )
       ),
 
+      // ── NOTES TAB ─────────────────────────────────────────────────────────────
+      view==="notes"&&(inbox.length===0
+        ? e("div",{style:{textAlign:"center",padding:"60px 20px",color:"#7278A0"}},
+            e("div",{style:{fontSize:32,marginBottom:12}},"📝"),
+            e("div",{style:{fontSize:14,fontWeight:700,color:"#2E2F8A",marginBottom:8}},"No land in your inbox yet"),
+            e("div",{style:{fontSize:12,marginBottom:16}},"Run a Placona search or load from your sheet, then log notes and enquiries here."),
+            e("button",{onClick:function(){up("placona","view","search");},style:{padding:"10px 20px",background:"#4A4BAE",border:"none",borderRadius:6,color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Go to Search")
+          )
+        : (function(){
+            var notesSorted = oppScored.slice().sort(function(a,b){
+              var ea=siteHasNote(a.site)?1:0, eb=siteHasNote(b.site)?1:0;
+              if(ea!==eb) return eb-ea;                 // sites you've engaged with rise to the top
+              return b.opp.score-a.opp.score;           // then by opportunity score
+            });
+            return e("div",null,
+              e("div",{style:{fontSize:12,color:"#7278A0",marginBottom:14,lineHeight:1.6}},
+                e("b",{style:{color:"#2E2F8A"}},"📝 Land notes & enquiry log. "),
+                "Set an enquiry status and jot notes on each site you've looked at — who you spoke to, price discussed, viewings arranged, next steps. Type or 🎤 dictate (your phone keyboard mic works in the box too). ",
+                (notedCount>0?("You've noted "+notedCount+" of "+inbox.length+" site"+(inbox.length!==1?"s":"")+" — noted sites rise to the top."):"Nothing noted yet — the sites you engage with will rise to the top.")),
+              notesSorted.map(function(rec,i){
+                var s=rec.site, opp=rec.opp;
+                var name=s.site_name||s.address_or_location||"Site";
+                var loc=[s.town,s.county].filter(function(v){return v&&v!=="Not found";}).join(", ");
+                var nm=noteFor(s); var meta=enqMeta(nm.status||"none"); var engaged=siteHasNote(s);
+                return e("div",{key:i,style:{border:"1px solid "+(engaged?meta.col:"#DDE0ED"),borderLeft:"4px solid "+(engaged?meta.col:"#E0E2EC"),borderRadius:10,padding:14,marginBottom:12,background:"#fff"}},
+                  e("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:10,flexWrap:"wrap"}},
+                    e("div",{style:{flex:1,minWidth:120}},
+                      e("div",{style:{fontSize:13,fontWeight:800,color:"#2E2F8A"}},name),
+                      loc?e("div",{style:{fontSize:10,color:"#7278A0"}},loc):null
+                    ),
+                    engaged?e("span",{style:{fontSize:9,fontWeight:800,padding:"3px 8px",borderRadius:10,color:"#fff",background:meta.col,textTransform:"uppercase",letterSpacing:".03em"}},meta.label):null,
+                    e("span",{style:{fontSize:11,fontWeight:800,color:oppCol(opp.score||0)}},(opp.score||0)+"%"),
+                    e("button",{onClick:function(){up("placona","selectedSite",s);up("placona","view","detail");},style:{padding:"5px 10px",background:"#F0F1FA",border:"1px solid #DDE0ED",borderRadius:5,fontSize:10,fontWeight:700,color:"#4A4BAE",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Open →")
+                  ),
+                  notesBlock(s, false)
+                );
+              })
+            );
+          })()
+      ),
+
       // ── DETAIL TAB ──────────────────────────────────────────────────────────
       view==="detail"&&selectedSite&&e("div",null,
         e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}},
@@ -720,6 +844,10 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
             },"🚀 Load into Landform — Pre-fill All Fields")
           )
         ),
+
+        // v10.188 — notes + enquiry status for THIS site, at the top of the detail view so you can log
+        // an enquiry / viewing while you're looking at the land.
+        e("div",{style:{marginBottom:14}}, notesBlock(selectedSite, false)),
 
         // v9.75 — Cassidy Opportunity Score breakdown (transparent pillars)
         (typeof scoreOpportunity==="function") && (function(){
