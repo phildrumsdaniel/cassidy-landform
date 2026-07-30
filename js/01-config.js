@@ -45,6 +45,32 @@ function dealFolderNames(){
     .sort(function(a,b){ var A=String(a).toLowerCase(),B=String(b).toLowerCase(); return A<B?-1:A>B?1:0; });
 }
 
+// ── v10.194 — REMINDERS: open follow-ups from the Placona pipeline (cassidy_placona_ws) that need
+// actioning — overdue, due today, or undated — surfaced app-wide so opening Landform reminds you what
+// to chase (e.g. an enquiry to follow up). Reads the global pipeline store directly (no deal needed).
+function placonaDueFollowups(){
+  var out = { dueCount:0, overdue:0, open:0, items:[] };
+  var ws = null; try{ ws = JSON.parse(localStorage.getItem("cassidy_placona_ws")||"null"); }catch(e){}
+  if(!ws || !ws.notes || typeof ws.notes !== "object") return out;
+  var today = new Date((new Date()).toDateString());
+  var d0 = new Date(); var todayStr = d0.getFullYear()+"-"+("0"+(d0.getMonth()+1)).slice(-2)+"-"+("0"+d0.getDate()).slice(-2);
+  Object.keys(ws.notes).forEach(function(k){
+    var rec = ws.notes[k] || {};
+    var name = ((k.split("|")[1])||"").trim();   // site name lives in the key (postcode|name)
+    var fus = Array.isArray(rec.followups) ? rec.followups : (rec.nextAction ? [{ date:rec.nextDue||"", text:rec.nextAction, done:false }] : []);
+    fus.forEach(function(f){
+      if(f.done || !(""+(f.text||"")).trim()) return;
+      out.open++;
+      var overdue = false, due = false;
+      if(!f.date){ due = true; }
+      else { try{ var fd = new Date(f.date); if(fd < today){ overdue = true; due = true; } else if(f.date === todayStr){ due = true; } }catch(e){ due = true; } }
+      if(due){ out.dueCount++; if(overdue) out.overdue++; out.items.push({ date:f.date||"", text:f.text, overdue:overdue, name:name }); }
+    });
+  });
+  out.items.sort(function(a,b){ var A=a.date||"0000", B=b.date||"0000"; return A<B?-1:A>B?1:0; });
+  return out;
+}
+
 // ── App logo — the real Cassidy Group brand artwork lives in BRAND_LOGO_PNG (below).
 // CASSIDY_LOGO_SRC resolves to it so login / sidebar / Board Proposal share one source.
 // (Swap this to a new data-URI when the official "Cassidy Group Ltd" artwork is supplied.)
@@ -80,8 +106,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.193";
+var CURRENT_VERSION = "10.194";
 var VERSION_HISTORY = [
+  {v:"10.194", date:"Jul 2026", headline:"NEW: opening Landform now REMINDS YOU of land follow-ups that need chasing. If your Placona pipeline has any open follow-ups that are overdue, due today, or undated, a banner appears at the top of whatever stage you're on — ‘⏰ N land follow-up(s) to action · M overdue’ — listing the next few (soonest first, overdue flagged) with a ‘View follow-ups →’ button that jumps straight to the Pipeline, and a ‘Dismiss’ for the session. So an enquiry you meant to follow up isn't forgotten just because you didn't open Placona. It reads the same cross-device pipeline store the CRM uses (so it reflects follow-ups added on any device, once v10.193 sync is deployed), needs no deal open, and stays hidden while you're already on the Placona screen (the ‘Follow-ups due’ panel there already covers it). New helper placonaDueFollowups(). No engine change."},
   {v:"10.193", date:"Jul 2026", headline:"The Placona land pipeline / CRM now SYNCS ACROSS YOUR DEVICES when you're signed in — fill out a site's stage, contacts, notes and follow-ups on one device and they show up on the others, the same way your saved deals do. localStorage stays the instant working copy (and the offline fallback); the cloud is the cross-device backup. On opening Placona it pulls your account's pipeline once and merges it in (per-record last-write-wins by timestamp; the site inbox is unioned), and every edit saves back to your account (debounced). A ‘☁ Synced to your account’ note shows on the Pipeline when you're signed in. REQUIRES a one-time backend step: add two actions (placona_crm_save / placona_crm_load) to your Google Apps Script Web App — a ready-to-paste snippet ships in docs/placona-crm-sync.gs (same ~2-minute deploy as the deal sync). Until that's deployed it silently stays per-device as before. Signed-out / offline → local only. This is the single-user version; a fully team-shared pipeline with per-record merge is a further step. No engine change."},
   {v:"10.192", date:"Jul 2026", headline:"The Placona CRM now has proper FOLLOW-UPS — dated reminders to chase a site after a call. On each opportunity you can add as many follow-ups as you like, each with a date and a note (‘call the agent back re: the pack’), and tick them off when done. The soonest open follow-up shows as a chip on the card (⏰ red once overdue), and a new ‘⏰ Follow-ups due’ panel at the top of the Pipeline lists every open follow-up across all your land, soonest first, with overdue ones flagged and counted — tick them off there or jump straight to the site. This replaces the single ‘next action / due date’ from v10.189 (which migrates into the follow-ups list automatically, so nothing is lost). Stored in the same global pipeline store, so follow-ups persist across schemes. No engine change."},
   {v:"10.191", date:"Jul 2026", headline:"Fix: the Placona land pipeline now STAYS when you leave a scheme. Before, the inbox of sites and all your CRM details (stage, contacts, activity log, next actions) lived inside the current deal — so starting a New Deal, or switching to another scheme, wiped them. Placona is a scouting tool that spans schemes, so the pipeline now lives in its OWN store, independent of any single deal: leave a scheme, create a new one, or switch deals and your land + all its CRM details are still there. Existing notes/inbox on your current deal migrate across automatically the first time you open Placona. (Only ephemeral UI state — which tab you're on, the filters, the selected site — stays per-deal.) Client-side on this device for now; a team-shared version is the same backend step as the folders. No engine change."},
