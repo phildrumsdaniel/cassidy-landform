@@ -516,7 +516,7 @@ function buildLandOnePager(data, cityHint){
             : (EX.chosen
               ? '<div class="kpi"><div class="l">Residual land value · '+esc(EX.basisLabel)+'</div><div class="v" style="color:'+(headlineRlv>0?"#1B7A54":"#B05A35")+'">'+(headlineRlv?((headlineRlv<0?"−":"")+fmt(Math.abs(headlineRlv))):"—")+'</div></div>'
               : '<div class="kpi"><div class="l">Residual land value · exit not yet decided</div><div class="v" style="color:'+(num(EX.rangeHi)>0?"#1B7A54":"#B05A35")+'">'+(EX.rangeIsSpan?fmt(EX.rangeLo)+' – '+fmt(EX.rangeHi):fmt(EX.rangeHi))+'</div></div>'))+
-          '<div class="kpi"><div class="l">'+(askL>0?"Margin (all-in)":"Target profit")+'</div><div class="v" style="color:'+(askL>0?(marginAllIn>=15?"#1B7A54":marginAllIn>=12?"#9A7B3E":"#B05A35"):"#1B1D46")+'">'+(askL>0?pct(marginAllIn):(Math.round(oProfitPct*10)/10)+"%")+'</div>'+(_grantShow?'<div style="font-size:7px;color:#1B7A54;margin-top:1px">'+pct((askL>0?marginAllIn:oProfitPct)+_grantPts)+' with AHP grant</div>':'')+'</div>'+
+          '<div class="kpi"><div class="l">'+(askL>0?"Margin (all-in)":"Target profit")+'</div><div class="v" style="color:'+(askL>0?(marginAllIn>=15?"#1B7A54":marginAllIn>=12?"#9A7B3E":"#B05A35"):"#1B1D46")+'">'+(askL>0?pct(marginAllIn):(Math.round(oProfitPct*10)/10)+"%")+' / '+fmt(askL>0?profitAllIn:oProfit)+'</div>'+(_grantShow?'<div style="font-size:7px;color:#1B7A54;margin-top:1px">'+pct((askL>0?marginAllIn:oProfitPct)+_grantPts)+' with AHP grant</div>':'')+'</div>'+
         '</div>'+
         // v10.183 — compact GRANT INTELLIGENCE line (shared one-pager template, so it prints on every
         // deal with affordable housing): AHP grant per home + total, and the raw → grant-assisted margin
@@ -1821,6 +1821,9 @@ function renderProposal(city, data, gdv, lc, up, user){
   // achieved margin at the entered guide price. Fixes the reviewer's #1 (the "38.3% margin" error).
   var boardAskLand = num((data.land&&data.land.price))||0;
   var boardMargin = boardAskLand>0 ? marginV : (num(M.profitPctTarget)||17.5);
+  // v10.186 — the actual £ profit that pairs with boardMargin (actual after-land profit at a guide
+  // price; the target profit £ otherwise), so the margin can be shown as "% / £profit".
+  var boardProfitGbp = boardAskLand>0 ? num(M.actualProfit) : num(M.profit);
   // v10.175 — dual margin: boardMargin is the TRUE (grant-free) margin; when the scheme is AHP-eligible
   // and grant isn't yet modelled, boardMarginGrant is the same margin WITH the indicative grant applied
   // as profit upside, shown alongside. Board-safe — grant is upside, the land value is unchanged.
@@ -2126,7 +2129,7 @@ function renderProposal(city, data, gdv, lc, up, user){
             apRow("Total build &amp; infrastructure","~"+(units?units.toLocaleString():"—")+" homes",buildTot>0?fmt(buildTot):"To confirm")+
             apRow("Section 106 / planning obligations","",s106V>0?fmt(s106V):"To confirm")+
             apRow("Fees, contingency &amp; finance","","included")+
-            apRow("Developer profit",boardAskLand>0?"margin on GDV, after land":"target margin on GDV, at the residual land value",isFinite(boardMargin)&&boardMargin?(pct(boardMargin)+(boardMarginGrant!=null?' &middot; '+pct(boardMarginGrant)+' with AHP grant':'')):"—")+
+            apRow("Developer profit",boardAskLand>0?"margin on GDV, after land":"target margin on GDV, at the residual land value",isFinite(boardMargin)&&boardMargin?(pct(boardMargin)+' / '+fmt(boardProfitGbp)+(boardMarginGrant!=null?' &middot; '+pct(boardMarginGrant)+' with AHP grant':'')):"—")+
             apRowSum("Supportable residual land value","on consent",(isFinite(rlvV)&&rlvV<0)?'<span style="color:#B05A35">−'+fmt(Math.abs(rlvV))+'</span>':(rlvV>0?fmt(rlvV):"—"))+
             (ask>0?apRow("Guide price","current",fmt(ask)):"")+
             (headroom>0?apRowSum("Indicative headroom to residual value","",'<span style="color:#2D7A65">'+fmt(headroom)+'</span>'):"")+
@@ -2629,7 +2632,7 @@ function renderProposal(city, data, gdv, lc, up, user){
     e("div",{style:Object.assign({},S.card,{background:"linear-gradient(160deg,#1E1F5C,#26286e)",color:"#EDEEFB",border:"none"})},
       e("div",{style:{fontSize:10,letterSpacing:".15em",textTransform:"uppercase",color:"#C9A227",fontWeight:700,marginBottom:10}},"Preview — headline figures"),
       e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:1,background:"rgba(255,255,255,0.12)",border:"1px solid rgba(255,255,255,0.14)",borderRadius:8,overflow:"hidden"}},
-        [["Gross Dev. Value",gdvV>0?fmt(gdvV):"—"],["New homes",units?units.toLocaleString():"—"],["Guide price",ask>0?fmt(ask):"—"],["Residual land value",(isFinite(rlvV)&&rlvV<0)?"−"+fmt(Math.abs(rlvV)):(rlvV>0?fmt(rlvV):"—")],["Dev margin"+(boardAskLand>0?"":" (target)"),isFinite(boardMargin)&&boardMargin?(pct(boardMargin)+(boardMarginGrant!=null?" · "+pct(boardMarginGrant)+" w/ grant":"")):"—"],["Planning",planStatus]].map(function(it){
+        [["Gross Dev. Value",gdvV>0?fmt(gdvV):"—"],["New homes",units?units.toLocaleString():"—"],["Guide price",ask>0?fmt(ask):"—"],["Residual land value",(isFinite(rlvV)&&rlvV<0)?"−"+fmt(Math.abs(rlvV)):(rlvV>0?fmt(rlvV):"—")],["Dev margin"+(boardAskLand>0?"":" (target)"),isFinite(boardMargin)&&boardMargin?(pct(boardMargin)+" / "+fmt(boardProfitGbp)+(boardMarginGrant!=null?" · "+pct(boardMarginGrant)+" w/ grant":"")):"—"],["Planning",planStatus]].map(function(it){
           return e("div",{key:it[0],style:{background:"rgba(14,15,40,0.4)",padding:"12px 14px"}},
             e("div",{style:{fontSize:18,fontWeight:800,color:"#fff",fontFamily:"Georgia,serif"}},it[1]),
             e("div",{style:{fontSize:9,color:"#AEB2E4",marginTop:4,textTransform:"uppercase",letterSpacing:".04em"}},it[0]));
