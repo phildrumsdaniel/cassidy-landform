@@ -105,14 +105,40 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
   var marginAllIn = gdv > 0 ? (profitAllIn / gdv * 100) : 0;
   var headroom = rlv - allInLand;
 
-  // Verdict — on the margin AFTER buying the land (incl. purchase costs).
+  // ── v10.184 — EXIT-AWARE headline ─────────────────────────────────────────────
+  // When a specific exit is committed on the Exit Strategy stage, the Quick Appraisal reflects THAT
+  // exit — its land value, margin and headroom — not the default build-to-sell. Phil's case: an HA /
+  // institutional FORWARD-FUND (the finished rented scheme sold to a fund/HA at a net initial yield),
+  // where the land value is the capitalised residual and the margin is on the fund's investment value.
+  var capNetRentPa = num(M.capNetRentPa);
+  var capMktRentPerUnitPa = num(M.capMarketRentPerUnitPa);
+  var capD = data.capitalise || {};
+  var capYieldPct = num(capD.targetYield); if(capYieldPct > 0 && capYieldPct < 1) capYieldPct *= 100;
+  if(!(capYieldPct > 0)) capYieldPct = 4.75;
+  capYieldPct = Math.max(3.5, Math.min(7, capYieldPct));   // respect the yield set on Capitalisation
+  var isFwdExit = QEX.chosen && QEX.basis === "capitalised";     // HA / institutional forward-fund
+  var isHaBulk  = QEX.chosen && QEX.basis === "ha_bulk";
+  var exBasisLabel = QEX.basisLabel || "open-market plot sales";
+  // Land value / value / profit / margin / headroom on the CHOSEN exit (capIV/capProfitAllIn/
+  // capMarginAllIn are function declarations below — hoisted, so callable here).
+  var exRlv      = QEX.chosen ? num(headlineRlv) : rlv;
+  var exValue    = isFwdExit ? capIV(capYieldPct) : gdv;         // what the buyer pays on this exit
+  var exProfit   = isFwdExit ? capProfitAllIn(capYieldPct) : profitAllIn;
+  var exMargin   = isFwdExit ? capMarginAllIn(capYieldPct) : marginAllIn;
+  var exHeadroom = exRlv - allInLand;
+  var exRlvPerPlot = homes > 0 ? exRlv / homes : 0;
+  var exWord = isFwdExit ? ("the forward-fund exit at "+capYieldPct.toFixed(2)+"% net yield")
+             : isHaBulk ? "the bulk HA / fund sale"
+             : (QEX.chosen ? ("the "+exBasisLabel+" exit") : "build-to-sell at target profit");
+
+  // Verdict — on the CHOSEN exit's land value & margin, after buying the land (incl. purchase costs).
   var verdict, vcol, vmsg;
   if(homes <= 0){ verdict = "Enter the land size"; vcol = "#7278A0"; vmsg = "Add the site's acreage below and Quick Appraisal will size a scheme and value it."; }
-  else if(rlv <= 0){ verdict = "✗ Doesn't stack"; vcol = "#B05A35"; vmsg = "At these costs and "+(Math.round(profitPct*10)/10)+"% developer profit the residual land value is negative — the scheme can't support any land payment as modelled. Try a higher sale £/sqft, lower build cost, or a lower affordable %."; }
-  else if(asking <= 0){ verdict = "◐ Enter the asking price"; vcol = "#4A4BAE"; vmsg = "This land is worth up to "+fmt(rlv)+" to us ("+fmt(rlvPerPlot)+"/plot) at "+(Math.round(profitPct*10)/10)+"% profit. Enter what the landowner wants to see the headroom and margin."; }
-  else if(marginAllIn >= 15){ verdict = "✓ Worth pursuing"; vcol = "#1B7A54"; vmsg = "At the "+fmt(asking)+" asking price (plus "+fmt(acqCosts)+" purchase costs) the scheme returns a "+pct(marginAllIn)+" margin. The land is worth up to "+fmt(rlv)+" to us — "+fmt(headroom)+" of headroom."; }
-  else if(marginAllIn >= 12){ verdict = "⚠ Marginal — negotiate"; vcol = "#9A7B3E"; vmsg = "At "+fmt(asking)+" the all-in margin is only "+pct(marginAllIn)+". The land is worth up to "+fmt(rlv)+" to us at target profit — aim to buy nearer "+fmt(Math.max(0, rlv-acqCosts))+"."; }
-  else { verdict = "✗ Overpriced as asked"; vcol = "#B05A35"; vmsg = "The "+fmt(asking)+" asking (all-in "+fmt(allInLand)+") exceeds the "+fmt(rlv)+" the land is worth to us. Margin is just "+pct(marginAllIn)+". Pursue only near "+fmt(Math.max(0, rlv-acqCosts))+" or below."; }
+  else if(exRlv <= 0){ verdict = "✗ Doesn't stack"; vcol = "#B05A35"; vmsg = "On "+exWord+" the residual land value is "+(exRlv < 0 ? "−"+fmt(Math.abs(exRlv)) : "nil")+" — the scheme can't support a land payment as modelled."+(isFwdExit ? " Try a keener (lower) yield, higher rents, or a lower build cost." : " Try a higher sale £/sqft, lower build cost, or a lower affordable %."); }
+  else if(asking <= 0){ verdict = "◐ Enter the asking price"; vcol = "#4A4BAE"; vmsg = "On "+exWord+", this land is worth up to "+fmt(exRlv)+" to us ("+fmt(exRlvPerPlot)+"/plot). Enter what the landowner wants to see the headroom and margin."; }
+  else if(exMargin >= 15){ verdict = "✓ Worth pursuing"; vcol = "#1B7A54"; vmsg = "On "+exWord+", at the "+fmt(asking)+" asking price (plus "+fmt(acqCosts)+" purchase costs) the scheme returns a "+pct(exMargin)+" margin. The land is worth up to "+fmt(exRlv)+" to us — "+fmt(exHeadroom)+" of headroom."; }
+  else if(exMargin >= 12){ verdict = "⚠ Marginal — negotiate"; vcol = "#9A7B3E"; vmsg = "On "+exWord+", at "+fmt(asking)+" the margin is only "+pct(exMargin)+". The land is worth up to "+fmt(exRlv)+" to us — aim to buy nearer "+fmt(Math.max(0, exRlv-acqCosts))+"."; }
+  else { verdict = "✗ Overpriced as asked"; vcol = "#B05A35"; vmsg = "On "+exWord+", the "+fmt(asking)+" asking (all-in "+fmt(allInLand)+") exceeds the "+fmt(exRlv)+" the land is worth to us. Margin is just "+pct(exMargin)+". Pursue only near "+fmt(Math.max(0, exRlv-acqCosts))+" or below."; }
 
   // "What makes it stack" — solve the engine for the sale/build £/sqft that reaches a 15% margin.
   var marginNow = gdv > 0 ? ((gdv - devCost - allInLand) / gdv * 100) : 0;
@@ -229,12 +255,8 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
   // ⇒ more profit, so a 3.8% exit is worth far more than a 6% one. The user picks the yield
   // across the 3.8%–6% range; the table shows the spread. Rent is derived by the engine from the
   // scheme's own market values (computeSFHMetrics: capNetRentPa), so it can't diverge.
-  var capNetRentPa = num(M.capNetRentPa);
-  var capMktRentPerUnitPa = num(M.capMarketRentPerUnitPa);
-  var capD = data.capitalise || {};
-  var capYieldPct = num(capD.targetYield); if(capYieldPct > 0 && capYieldPct < 1) capYieldPct *= 100;
-  if(!(capYieldPct > 0)) capYieldPct = 4.75;
-  capYieldPct = Math.max(3.5, Math.min(7, capYieldPct));   // v10.114 — respect the yield set on the Capitalisation page (no 4.5% floor); sanity-clamp only
+  // v10.184 — capNetRentPa / capYieldPct are now defined once, higher up (the exit-aware headline
+  // uses them), so they're not re-declared here.
   function capIV(y){ return y > 0 ? capNetRentPa / (y/100) : 0; }                        // investment value the fund pays
   function capProfitAllIn(y){ return capIV(y) - devCost - allInLand; }                   // actual profit given the land cost
   function capMaxLand(y){ var iv = capIV(y); return iv - devCost - iv*(profitPct/100); } // max land at target profit
@@ -293,23 +315,34 @@ function renderQuickAppraisal(city, data, navTo, setData, up, user){
       // ── STACK VERDICT (lead) ──────────────────────────────────────────────────
       e("div", { style:{ background:vcol+"14", border:"1px solid "+vcol, borderLeft:"5px solid "+vcol, borderRadius:10, padding:"15px 18px", margin:"4px 0 12px" } },
         e("div", { style:{ fontSize:19, fontWeight:800, color:vcol } }, verdict),
+        // v10.184 — badge the exit this appraisal is on, so it's unambiguous the figures reflect the
+        // committed exit (e.g. HA / institutional forward-fund), not build-to-sell.
+        QEX.chosen && e("div", { style:{ fontSize:10.5, fontWeight:800, color:"#4A4BAE", textTransform:"uppercase", letterSpacing:".05em", margin:"2px 0 2px" } },
+          "Exit: "+exBasisLabel+(isFwdExit ? " · "+capYieldPct.toFixed(2)+"% net yield · rent "+fmt(capNetRentPa)+"/yr" : "")),
         e("div", { style:{ fontSize:12.5, color:"#3A3D6A", lineHeight:1.55, marginTop:4 } }, vmsg),
         e("div", { style:{ display:"flex", gap:20, flexWrap:"wrap", marginTop:12, paddingTop:12, borderTop:"1px solid "+vcol+"3A" } },
-          miniStat("Worth to us (RLV)", (rlv < 0 ? "−" : "") + fmt(Math.abs(rlv)), rlv > 0 ? "#1B7A54" : "#B05A35"),
+          miniStat(isFwdExit ? "Worth to us (fwd-fund)" : "Worth to us (RLV)", (exRlv < 0 ? "−" : "") + fmt(Math.abs(exRlv)), exRlv > 0 ? "#1B7A54" : "#B05A35"),
+          isFwdExit ? miniStat("Fund pays", fmt(exValue), "#2E2F8A") : null,
           asking > 0 ? miniStat("Asking", fmt(asking), "#2E2F8A") : null,
-          asking > 0 ? miniStat("Headroom", (headroom < 0 ? "−" : "+") + fmt(Math.abs(headroom)), headroom >= 0 ? "#1B7A54" : "#B05A35") : null,
-          miniStat(asking > 0 ? "Margin (all-in)" : "Developer profit", asking > 0 ? pct(marginAllIn) : (Math.round(profitPct*10)/10)+"%", asking > 0 ? (marginAllIn >= 15 ? "#1B7A54" : marginAllIn >= 12 ? "#9A7B3E" : "#B05A35") : "#2E2F8A")
+          asking > 0 ? miniStat("Headroom", (exHeadroom < 0 ? "−" : "+") + fmt(Math.abs(exHeadroom)), exHeadroom >= 0 ? "#1B7A54" : "#B05A35") : null,
+          miniStat(asking > 0 ? "Margin (all-in)" : "Developer profit", asking > 0 ? pct(exMargin) : (Math.round(profitPct*10)/10)+"%", asking > 0 ? (exMargin >= 15 ? "#1B7A54" : exMargin >= 12 ? "#9A7B3E" : "#B05A35") : "#2E2F8A")
         )
       ),
       // ── WHAT TO CHANGE TO MAKE IT STACK ───────────────────────────────────────
       e("div", { style:{ background:"rgba(154,123,62,0.09)", border:"1px solid rgba(154,123,62,0.4)", borderRadius:10, padding:"13px 16px", marginBottom:12 } },
         e("div", { style:{ fontSize:12.5, fontWeight:800, color:"#8A6A2E", marginBottom:5 } }, "🔧 What to change to make it stack"),
         e("div", { style:{ fontSize:12, color:"#7B6432", lineHeight:1.6 } },
-          stackLine ? stackLine
-            : (rlv > 0 && asking > 0 && marginAllIn >= 15) ? ("It stacks — the land is worth up to "+fmt(rlv)+" to us and you're buying at "+fmt(asking)+" ("+pct(marginAllIn)+" margin). Keep it there by buying at or below "+fmt(Math.max(0, rlv-acqCosts))+".")
-            : (rlv > 0 && asking <= 0) ? ("It stacks at "+(Math.round(profitPct*10)/10)+"% profit — the land is worth up to "+fmt(rlv)+" ("+fmt(rlvPerPlot)+"/plot). Enter the asking price above to test the margin after purchase costs.")
+          // v10.184 — exit-aware levers. On the forward-fund exit the levers are YIELD and RENTS, not
+          // sale £/sqft — a keener yield or higher rents lift what the fund pays (and the land value).
+          isFwdExit
+            ? ((exRlv > 0 && (asking <= 0 || exMargin >= 15))
+                ? ("On the forward-fund exit it stacks — at "+capYieldPct.toFixed(2)+"% net yield on "+fmt(capNetRentPa)+"/yr net rent the fund pays "+fmt(exValue)+", so the land is worth up to "+fmt(exRlv)+". A KEENER yield or HIGHER rents lift it further; set both on the Capitalisation stage.")
+                : ("On the forward-fund exit the levers are the YIELD and the RENTS: a keener (lower) net yield and higher achievable rents both raise what the fund pays. It's "+capYieldPct.toFixed(2)+"% on "+fmt(capNetRentPa)+"/yr now — push the rents to the top of the market range and tighten the yield on the Capitalisation stage. Build cost and affordable % also move it."))
+          : stackLine ? stackLine
+            : (exRlv > 0 && asking > 0 && exMargin >= 15) ? ("It stacks — the land is worth up to "+fmt(exRlv)+" to us and you're buying at "+fmt(asking)+" ("+pct(exMargin)+" margin). Keep it there by buying at or below "+fmt(Math.max(0, exRlv-acqCosts))+".")
+            : (exRlv > 0 && asking <= 0) ? ("It stacks — the land is worth up to "+fmt(exRlv)+" ("+fmt(exRlvPerPlot)+"/plot). Enter the asking price above to test the margin after purchase costs.")
             : "Adjust the sale £/sqft, build cost, affordable %, S106 or profit target in ‘1 · The land & scheme’ above — every figure updates instantly."),
-        e("div", { style:{ fontSize:10.5, color:"#9298BC", marginTop:6 } }, "Change any input in ‘1 · The land & scheme’ above and this verdict updates live.")
+        e("div", { style:{ fontSize:10.5, color:"#9298BC", marginTop:6 } }, isFwdExit ? "Set the exit yield and rents on the Capitalisation stage; this forward-fund verdict updates live." : "Change any input in ‘1 · The land & scheme’ above and this verdict updates live.")
       ),
       // ── QUICK ACTIONS + DETAIL TOGGLE (always visible) ────────────────────────
       e("div", { style:{ display:"flex", gap:10, flexWrap:"wrap", marginBottom:showDetail?14:4 } },
