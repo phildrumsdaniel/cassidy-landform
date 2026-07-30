@@ -479,6 +479,29 @@ function buildLandOnePager(data, cityHint){
         '<div class="top"><div><div class="brand">Cassidy Group · Land appraisal — one-page briefing</div>'+
           '<h1>'+esc(addr)+'</h1><div class="sub">'+esc(siteSub||"—")+(acres>0?' · <b>'+esc(acres)+' acres</b>':'')+'</div></div>'+
           '<div class="meta">'+((typeof BRAND_LOGO_PNG!=="undefined"&&BRAND_LOGO_PNG&&typeof cassidyLogoSrc==="function")?'<img src="'+cassidyLogoSrc()+'" alt="Cassidy Group Ltd" style="height:30px;width:auto;max-width:170px;display:block;margin:0 0 5px auto"/>':'')+(lpa?esc(lpa)+'<br/>':'')+esc(planStatusLabel||"Unallocated / promotion")+'<br/>Indicative · v'+esc(typeof CURRENT_VERSION!=="undefined"?CURRENT_VERSION:"")+'</div></div>'+
+        // v10.185 — EXIT SNAPSHOT banner: an at-a-glance line stating WHICH exit this appraisal is on
+        // and its headline economics, so a team member instantly gets "forward-fund" vs "build-to-sell".
+        // Adapts to the committed exit (dealExit), so the ONE PDF button produces the right snapshot.
+        (function(){
+          var y = (typeof dealYield==="function") ? num(dealYield(data)) : 0;
+          var fundPays = (oCapNetRent>0 && y>0) ? oCapNetRent/(y/100) : num(EX.capValue);
+          var landStr = (headlineRlv<0?"−":"")+fmt(Math.abs(headlineRlv));
+          var title, line, bd, bg, col;
+          if(headlineIsCap){
+            title="Forward-fund appraisal"; bd="#2D7A65"; bg="#EAF4F0"; col="#1B5E4A";
+            line="Rented investment — the finished scheme let and sold to a fund / housing association at a <b>"+(y>0?y.toFixed(2)+"% net initial yield":"set yield")+"</b>. Net rent <b>"+fmt(oCapNetRent)+"/yr</b> &rarr; the fund pays <b>"+fmt(fundPays)+"</b> &rarr; supports land of <b>"+landStr+"</b>"+(oUnits?" across "+esc(oUnits.toLocaleString())+" homes":"")+".";
+          } else if(EX.basis==="ha_bulk"){
+            title="Bulk sale to a housing association / fund"; bd="#4A4BAE"; bg="#EEF0FA"; col="#33367A";
+            line="The whole scheme sold in one transaction to a HA / fund at a bulk discount. GDV <b>"+fmt(oGdv)+"</b> &rarr; supports land of <b>"+landStr+"</b>"+(oUnits?" across "+esc(oUnits.toLocaleString())+" homes":"")+" at "+(Math.round(oProfitPct*10)/10)+"% profit.";
+          } else {
+            title="Build-to-sell appraisal"; bd="#4A4BAE"; bg="#EEF0FA"; col="#33367A";
+            line=(oUnits?"<b>"+esc(oUnits.toLocaleString())+" homes</b> sold on the open market":"Open-market plot sales")+". GDV <b>"+fmt(oGdv)+"</b> &rarr; supports land of <b>"+landStr+"</b> at "+(Math.round(oProfitPct*10)/10)+"% profit"+(EX.chosen?"":" (no exit committed — showing the build-to-sell basis)")+".";
+          }
+          return '<div style="margin:2px 0 8px;padding:8px 12px;background:'+bg+';border:1px solid '+bd+';border-left:4px solid '+bd+';border-radius:7px">'+
+            '<div style="font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:'+bd+'">📊 '+title+'</div>'+
+            '<div style="font-size:9px;color:'+col+';line-height:1.5;margin-top:2px">'+line+'</div>'+
+          '</div>';
+        })()+
         '<div class="kpis">'+
           '<div class="kpi"><div class="l">Homes</div><div class="v">'+(oUnits?oUnits.toLocaleString():"—")+'</div></div>'+
           '<div class="kpi"><div class="l">GDV</div><div class="v">'+(oGdv>0?fmt(oGdv):"—")+'</div></div>'+
