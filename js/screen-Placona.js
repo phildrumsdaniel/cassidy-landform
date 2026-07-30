@@ -277,9 +277,33 @@ function CrmSiteCard(props){
   );
 }
 
+// v10.191 — the Placona land pipeline (inbox of sites + CRM notes) lives in its OWN global localStorage
+// store, NOT in the current deal — so it's a cross-scheme scouting workspace: leaving a scheme, starting
+// a New Deal, or switching deals never wipes it. (Only ephemeral UI state — current view, filters,
+// selected site — stays per-deal.) Reset only on a full sign-out/clear of the browser.
+var PLACONA_WS_KEY = "cassidy_placona_ws";
+function loadPlaconaWS(){
+  try{ var o=JSON.parse(localStorage.getItem(PLACONA_WS_KEY)||"null");
+    if(o&&typeof o==="object") return { inbox:Array.isArray(o.inbox)?o.inbox:[], notes:(o.notes&&typeof o.notes==="object")?o.notes:{} };
+  }catch(e){}
+  return { inbox:[], notes:{} };
+}
+function savePlaconaWS(ws){ try{ localStorage.setItem(PLACONA_WS_KEY, JSON.stringify({ inbox:ws.inbox||[], notes:ws.notes||{} })); }catch(e){} }
+
 function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
-    var pl=data.placona||{};
-    var inbox=(pl.inbox)||[];
+    var pl=data.placona||{};                       // ephemeral UI state (view, filters, selected site)
+    // v10.191 — the pipeline (inbox + CRM notes) is GLOBAL, in its own store, so it survives leaving a
+    // scheme / New Deal / switching deals. One-time migration: if the global store is empty but this
+    // deal carries a pre-v10.191 placona inbox/notes, seed the global store from it.
+    var _ws = loadPlaconaWS();
+    if(!(_ws.inbox&&_ws.inbox.length) && !(_ws.notes&&Object.keys(_ws.notes).length)){
+      if((pl.inbox&&pl.inbox.length) || (pl.notes&&Object.keys(pl.notes).length)){
+        _ws = { inbox: pl.inbox||[], notes: pl.notes||{} }; savePlaconaWS(_ws);
+      }
+    }
+    var inbox=_ws.inbox||[];
+    function bumpPlacona(){ up("placona","_rev",(new Date()).getTime()); }   // trigger a re-render after a global write
+    function setInbox(arr){ var ws=loadPlaconaWS(); ws.inbox=arr||[]; savePlaconaWS(ws); bumpPlacona(); }
     var running=pl.running||false;
     var lastRun=pl.lastRun||"";
     var error=pl.error||"";
@@ -310,7 +334,7 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
     // keyed by a stable site key (postcode + name) so it survives a re-run of the search:
     //   { status, contact:{name,company,phone,email}, activity:[{ts,text}], nextAction, nextDue, text, updated }
     // Pipeline stages, a dated activity log, contact details and a next-action/due date — all client-side.
-    var plNotes = pl.notes || {};
+    var plNotes = _ws.notes || {};   // v10.191 — CRM notes from the global pipeline store, not the deal
     var CRM_STAGES = [
       {id:"none",        label:"New / not contacted", col:"#9298BC"},
       {id:"enquired",    label:"Enquiry made",        col:"#4A4BAE"},
@@ -327,17 +351,17 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
     function placonaSiteKey(s){ return ((((s&&s.postcode)||"")+"").trim().toUpperCase())+"|"+((((s&&(s.site_name||s.address_or_location))||"")+"").trim().toLowerCase()); }
     function noteFor(s){ return plNotes[placonaSiteKey(s)] || {}; }
     function crmEngaged(s){ var r=noteFor(s); return !!(stageId(r.status)!=="none" || (r.activity&&r.activity.length) || (r.text&&(""+r.text).trim()) || (r.contact&&(r.contact.name||r.contact.phone||r.contact.email||r.contact.company)) || r.nextAction); }
-    // v10.190 — write through up() (this screen receives `up`, not setData). The earlier CRM helper
-    // called setData, which is undefined here, so every stage/contact/next-action handler threw and
-    // the boxes appeared frozen (only the local dictation draft worked). Now it persists via up().
+    // v10.191 — persist CRM edits to the GLOBAL pipeline store (survives leaving the scheme), then
+    // bump a per-deal counter so the screen re-renders. (v10.190 fixed the earlier setData crash.)
     function _writeRec(s, mutate){
       var k=placonaSiteKey(s);
-      var notes=Object.assign({}, plNotes);
+      var ws=loadPlaconaWS();
+      var notes=Object.assign({}, ws.notes||{});
       var rec=Object.assign({}, notes[k]||{});
       mutate(rec);
       rec.updated=(new Date()).toLocaleString("en-GB");
       notes[k]=rec;
-      up("placona","notes",notes);
+      ws.notes=notes; savePlaconaWS(ws); bumpPlacona();
     }
     function updateNote(s, patch){ _writeRec(s, function(rec){ Object.assign(rec, patch); }); }
     function updateContact(s, field, val){ _writeRec(s, function(rec){ rec.contact=Object.assign({}, rec.contact||{}); rec.contact[field]=val; }); }
@@ -501,7 +525,7 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
       .then(function(d){
         up("placona","loadingSheet",false);
         if(d.status==="ok"&&d.sites&&d.sites.length>0){
-          up("placona","inbox",d.sites);
+          setInbox(d.sites);
           up("placona","view","inbox");
         } else {
           up("placona","error","No sites in the Google Sheet inbox yet. Run a search first.");
@@ -535,7 +559,7 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
           var merged=existing.concat(d.sites.filter(function(ns){
             return !existing.some(function(es){return es.site_name===ns.site_name;});
           }));
-          up("placona","inbox",merged);
+          setInbox(merged);
           up("placona","view","inbox");
           up("placona","error","");
         } else {
@@ -730,7 +754,7 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
           // Inbox header + shortlist threshold
           e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,flexWrap:"wrap",gap:8}},
             e("div",{style:{fontSize:12,fontWeight:700,color:"#2E2F8A"}},oppShown.length+" of "+inbox.length+" site"+(inbox.length!==1?"s":"")+" — ranked by Cassidy Opportunity Score"),
-            e("button",{onClick:function(){up("placona","inbox",[]);},
+            e("button",{onClick:function(){setInbox([]);},
               style:{padding:"5px 12px",background:"none",border:"1px solid #DDE0ED",borderRadius:4,color:"#B05A35",fontSize:10,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Clear all")
           ),
           e("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:12,padding:"8px 12px",background:"#F7F8FC",border:"1px solid #DDE0ED",borderRadius:6,flexWrap:"wrap"}},
@@ -824,7 +848,7 @@ function renderPlacona(data, loadSiteIntoDeal, up, user, navTo){
                     onClick:function(ev){
                       ev.stopPropagation();
                       var newInbox=inbox.filter(function(s2){return s2!==site;});
-                      up("placona","inbox",newInbox);
+                      setInbox(newInbox);
                       // Also delete from sheet if has _row
                       if(site._row){
                         fetch(WEBHOOK+"?action=placona_delete&row="+site._row).catch(function(){});
