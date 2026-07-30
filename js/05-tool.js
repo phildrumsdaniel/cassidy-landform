@@ -2162,7 +2162,10 @@ function loadSiteIntoDeal(site){
         padding:"0 16px"
       }},
         // ── LEFT ZONE — locked in place ─────────────────────────────────────
-        e("div",{className:"lf-topbar-left"},
+        // v10.195 — desktop guard: constrain this zone so a LONG deal name truncates
+        // (ellipsis) instead of expanding full-width and shoving the actions off-screen.
+        // The mobile @media rules carry !important, so they still win on small screens.
+        e("div",{className:"lf-topbar-left",style:{display:"flex",alignItems:"center",gap:8,minWidth:0,flexShrink:1,overflow:"hidden"}},
           isMobile&&e("button",{
             onClick:function(){setMobileMenuOpen(function(o){return !o;});},
             style:{display:"flex",flexDirection:"column",justifyContent:"center",gap:5,padding:"8px 10px",background:"#F0F1FA",border:"1px solid #DDE0ED",borderRadius:7,cursor:"pointer",flexShrink:0,width:40,height:40}
@@ -2176,7 +2179,7 @@ function loadSiteIntoDeal(site){
           // site address; falls back to a neutral label for an unstarted deal.
           (function(){
             var schemeName = data.dealName || (data.land&&data.land.address) || data.masterAddress || "New scheme";
-            return e("div",{className:"lf-stage-mobile-title",style:{display:"flex",flexDirection:"column",justifyContent:"center",lineHeight:1.12,minWidth:0}},
+            return e("div",{className:"lf-stage-mobile-title",style:{display:"flex",flexDirection:"column",justifyContent:"center",lineHeight:1.12,minWidth:0,maxWidth:isMobile?undefined:340}},
               e("span",{title:schemeName,style:{fontSize:isMobile?12.5:15,fontWeight:800,color:"#2E2F8A",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},schemeName),
               e("span",{style:{fontSize:isMobile?9.5:11,fontWeight:600,color:"#7278A0",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},curStage.label)
             );
@@ -2187,7 +2190,7 @@ function loadSiteIntoDeal(site){
               var msg = "Landform v"+CURRENT_VERSION+"\n\nRecent updates:\n\n";
               VERSION_HISTORY.slice(0,5).forEach(function(v){
                 msg += "v"+v.v+" — "+v.headline+(v.affectsCalc?" (calc-affecting)":"")+"\n";
-                v.changes.forEach(function(c){msg += "  • "+c+"\n";});
+                (v.changes||[]).forEach(function(c){msg += "  • "+c+"\n";});
                 msg += "\n";
               });
               notify(msg);
@@ -2198,7 +2201,10 @@ function loadSiteIntoDeal(site){
         ),
 
         // ── ACTIONS ZONE — horizontally scrollable on mobile ────────────────
-        e("div",{className:"lf-topbar-actions"},
+        // v10.195 — desktop guard: take the remaining width and scroll horizontally if the
+        // buttons don't all fit, so the action menu stays reachable instead of overflowing
+        // off the right edge (mobile keeps its own !important rules).
+        e("div",{className:"lf-topbar-actions",style:{display:"flex",alignItems:"center",gap:8,minWidth:0,flex:"1 1 auto",overflowX:"auto",overflowY:"hidden"}},
           e("label",{
             title:"Upload Relevant Files — Excel, CSV, PDF or text files are analysed and extracted into your deal",
             style:{padding:isMobile?"8px 10px":"6px 14px",background:"#F0F1FA",border:"1px solid #DDE0ED",color:"#2E2F8A",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,display:"inline-flex",alignItems:"center",gap:5,flexShrink:0}
