@@ -247,6 +247,8 @@ var JOURNEYS = {
   })()); var history=histS[0]; var setHistory=histS[1];
   var showHistS=useState(false); var showHist=showHistS[0]; var setShowHist=showHistS[1];
   var showMoreMenuS=useState(false); var showMoreMenu=showMoreMenuS[0]; var setShowMoreMenu=showMoreMenuS[1];
+  // v10.194 — follow-ups reminder: dismissed for this session only, so it re-appears next time you open.
+  var fuRemS=useState(false); var fuReminderDismissed=fuRemS[0]; var setFuReminderDismissed=fuRemS[1];
   // v10.180 — in-app "name this…" modal, replacing native window.prompt() for the Save / Save As /
   // Import name step. prompt() is an OS-level dialog that BLOCKS the whole tab and cannot be driven by
   // an automated / CDP browser session (the click hangs until a human types). This is a normal DOM
@@ -2317,6 +2319,21 @@ function loadSiteIntoDeal(site){
         )
       ),
       e("div",{style:{flex:1,padding:"28px 32px",maxWidth:1000,width:"100%"}},
+        // v10.194 — land follow-ups reminder: when you open Landform, if there are follow-ups to action
+        // (overdue / due today / undated), a banner reminds you and jumps to the pipeline. Reads the
+        // global Placona store, so it shows on any stage. Hidden on the Placona stage itself (redundant).
+        (stage!=="placona" && !fuReminderDismissed && typeof placonaDueFollowups==="function") ? (function(){
+          var du=placonaDueFollowups(); if(!du.dueCount) return null;
+          var top=du.items.slice(0,3);
+          return e("div",{style:{margin:"0 0 16px",padding:"12px 16px",borderRadius:10,background:du.overdue>0?"rgba(176,90,53,0.08)":"rgba(74,75,174,0.07)",border:"1px solid "+(du.overdue>0?"rgba(176,90,53,0.4)":"rgba(74,75,174,0.35)"),display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}},
+            e("div",{style:{flex:1,minWidth:220}},
+              e("div",{style:{fontSize:13,fontWeight:800,color:du.overdue>0?"#B05A35":"#4A4BAE",marginBottom:2}},"⏰ "+du.dueCount+" land follow-up"+(du.dueCount!==1?"s":"")+" to action"+(du.overdue>0?" · "+du.overdue+" overdue":"")),
+              e("div",{style:{fontSize:11,color:"#5A5F86",lineHeight:1.5}}, top.map(function(it){ return (it.overdue?"⏰ ":"")+(it.date?it.date+" — ":"")+it.text+(it.name?" ("+it.name+")":""); }).join("   ·   ")+(du.dueCount>top.length?"   · +"+(du.dueCount-top.length)+" more":""))
+            ),
+            e("button",{onClick:function(){ up("placona","view","notes"); navTo("placona"); },style:{padding:"8px 16px",background:"#4A4BAE",border:"none",borderRadius:6,color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"View follow-ups →"),
+            e("button",{onClick:function(){ setFuReminderDismissed(true); },title:"Dismiss until next time you open Landform",style:{padding:"7px 11px",background:"none",border:"1px solid #DDE0ED",borderRadius:6,color:"#7278A0",fontSize:12,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Dismiss")
+          );
+        })() : null,
         (typeof AssumptionBanner==="function")&&AssumptionBanner(data, up),
         renderStage()
       ),
