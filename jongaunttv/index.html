@@ -94,6 +94,10 @@ input[type=file]{display:none;}
       <span class="nav-label" style="color:#C0392B;font-weight:700;">Home</span>
       <div style="width:16px;height:2px;background:#C0392B;border-radius:2px;"></div>
     </button>
+    <button class="nav-btn" onclick="showTab('shows')" id="nav-shows">
+      <span class="nav-icon">📺</span>
+      <span class="nav-label" style="color:#8B9AB0;">Shows</span>
+    </button>
     <button class="nav-btn" onclick="showTab('episodes')" id="nav-episodes">
       <span class="nav-icon">▶</span>
       <span class="nav-label" style="color:#8B9AB0;">Episodes</span>
@@ -168,6 +172,19 @@ function joinFree(btn) {
   span.textContent = "✓ Member";
   btn.replaceWith(span);
 }
+
+// ── GREAT BRITISH MEDIA — NETWORK ─────────────────────────────
+const NETWORK = { name:"Great British Media", tag:"A British content factory · Free speech, no filter" };
+const SHOWS = [
+  {name:"Jon Gaunt TV", cat:"Current Affairs", status:"live", desc:"Current affairs, live and unfiltered — Jon takes on Westminster, the media and the news of the day. The flagship of the network."},
+  {name:"Whatever Happened to Them?", cat:"Interviews", status:"soon", icon:"🎤", desc:"Faded celebrities revisited — where are they now?"},
+  {name:"Great British Sporting Moments", cat:"Sport", status:"soon", icon:"⚽", desc:"The moments that made British sport."},
+  {name:"Greatest Ever Brits", cat:"History", status:"soon", icon:"🇬🇧", desc:"The people who shaped Britain, ranked and debated."},
+  {name:"History's Worst Criminals", cat:"True Crime", status:"soon", icon:"🔍", desc:"True crime from Britain and beyond."},
+  {name:"How to Run the Country", cat:"Politics", status:"soon", icon:"🏛️", desc:"Jon's no-nonsense guide to fixing Britain."},
+  {name:"Music History · Iconic Records", cat:"Music", status:"soon", icon:"🎸", desc:"The stories behind the records that mattered."},
+  {name:"Personal Finance", cat:"Money", status:"soon", icon:"💷", desc:"Straight-talking money advice for real life."},
+];
 
 let adIdx = 0;
 function adBanner() {
@@ -552,13 +569,68 @@ function renderSendView(stage="landing") {
   </div>`;
 }
 
+// ── SHOWS (NETWORK HUB) ────────────────────────────────────────
+function statusBadge(status) {
+  return status==="live"
+    ? `<span style="background:#C0392B;color:#fff;font-size:9px;font-weight:800;letter-spacing:0.05em;padding:2px 8px;border-radius:4px;white-space:nowrap;">● LIVE</span>`
+    : `<span style="background:#243B55;color:#8B9AB0;font-size:9px;font-weight:800;letter-spacing:0.05em;padding:2px 8px;border-radius:4px;white-space:nowrap;">COMING SOON</span>`;
+}
+
+function renderShows() {
+  const flagship = SHOWS.find(s=>s.status==="live");
+  const soon = SHOWS.filter(s=>s.status!=="live");
+  return `<div class="screen" style="padding-bottom:20px;">
+    <div style="background:linear-gradient(180deg,#1A2D42,#0D1B2A);padding:22px 16px 18px;border-bottom:1px solid #2E3F55;text-align:center;">
+      <div style="width:64px;height:64px;border-radius:50%;margin:0 auto 12px;background:linear-gradient(135deg,#F0A500,#e69500);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(240,165,0,0.4);">
+        <svg viewBox="0 0 28 24" width="36" height="31" fill="none" stroke="#1a0e00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/><path d="M23 8a5.5 5.5 0 0 1 0 8"/><path d="M25.6 5.5a9 9 0 0 1 0 13"/></svg>
+      </div>
+      <div style="color:#fff;font-weight:900;font-size:19px;letter-spacing:0.5px;line-height:1.1;">GREAT BRITISH <span style="color:#F0A500;">MEDIA</span></div>
+      <div style="color:#8B9AB0;font-size:12px;margin-top:5px;">${NETWORK.tag}</div>
+    </div>
+    <div style="padding:16px 14px 0;">
+      <div style="color:#8B9AB0;font-size:11px;font-weight:700;letter-spacing:0.1em;margin-bottom:10px;">THE FLAGSHIP</div>
+      <div onclick="showTab('home')" style="background:linear-gradient(135deg,#1E2F44,#243B55);border:1px solid #C0392B;border-radius:14px;padding:16px;margin-bottom:18px;cursor:pointer;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+          <div style="width:46px;height:46px;border-radius:50%;background:#C0392B;color:#fff;font-weight:900;font-size:18px;text-align:center;line-height:46px;flex-shrink:0;">JG</div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="color:#fff;font-weight:800;font-size:16px;">Jon Gaunt TV</span>
+              ${statusBadge("live")}
+            </div>
+            <div style="color:#8B9AB0;font-size:12px;margin-top:2px;">${flagship.cat} · live 3× a week</div>
+          </div>
+        </div>
+        <div style="color:rgba(255,255,255,0.8);font-size:13px;line-height:1.5;margin-bottom:12px;">${flagship.desc}</div>
+        <div style="background:#C0392B;color:#fff;border-radius:8px;padding:11px;text-align:center;font-weight:700;font-size:14px;">Enter show →</div>
+      </div>
+      <div style="color:#8B9AB0;font-size:11px;font-weight:700;letter-spacing:0.1em;margin-bottom:10px;">MORE SHOWS — COMING SOON</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+        ${soon.map(s=>`<div style="background:#1E2F44;border-radius:12px;border:1px solid #2E3F55;padding:13px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:9px;">
+            <div style="width:34px;height:34px;border-radius:9px;background:#243B55;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;">${s.icon}</div>
+            ${statusBadge("soon")}
+          </div>
+          <div style="color:#fff;font-weight:700;font-size:12.5px;line-height:1.25;margin-bottom:3px;">${s.name}</div>
+          <div style="color:#8B9AB0;font-size:11px;line-height:1.4;">${s.desc}</div>
+        </div>`).join("")}
+      </div>
+      <div style="background:linear-gradient(135deg,#1a0e00,#2d1a00);border:2px solid #F0A500;border-radius:14px;padding:16px;margin-bottom:14px;">
+        <div style="color:#F0A500;font-weight:900;font-size:15px;margin-bottom:4px;">☕ One membership. Every show.</div>
+        <div style="color:rgba(255,255,255,0.75);font-size:12px;line-height:1.5;margin-bottom:12px;">Gaunty's Coffee Club unlocks members-only content across the whole Great British Media network.</div>
+        <a href="https://www.buymeacoffee.com/Jongaunt" target="_blank" style="display:block;background:linear-gradient(90deg,#F0A500,#e69500);color:#1a0e00;border-radius:10px;padding:13px;text-align:center;font-weight:800;font-size:14px;">Join the Coffee Club →</a>
+      </div>
+      <div style="text-align:center;color:#8B9AB0;font-size:11px;margin-bottom:8px;">New formats dropping through the year · Batch-made in Britain</div>
+    </div>
+  </div>`;
+}
+
 // ── NAV & ROUTING ──────────────────────────────────────────────
 let currentTab = "home";
 let currentFilter = "All";
 
 function showTab(tab) {
   currentTab = tab;
-  const nav = ["home","episodes","books","shop","sendview"];
+  const nav = ["home","shows","episodes","books","shop","sendview"];
   nav.forEach(t => {
     const btn = document.getElementById("nav-"+t);
     if(!btn) return;
@@ -580,6 +652,7 @@ function showTab(tab) {
   content.scrollTop = 0;
   adIdx = 0;
   if(tab==="home") content.innerHTML = renderHome();
+  else if(tab==="shows") content.innerHTML = renderShows();
   else if(tab==="episodes") content.innerHTML = renderEpisodes(currentFilter);
   else if(tab==="books") content.innerHTML = renderBooks();
   else if(tab==="shop") content.innerHTML = renderShop();
