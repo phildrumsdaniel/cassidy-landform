@@ -57,7 +57,7 @@ function renderPropagationAudit(data, setData, up){
       {group:"Build cost £/sqft", rows:[
         {field:"RLV buildPsf",            paths:[["rlv","buildPsf"]]},
         {field:"SFH base build",          paths:[["sfh","buildPsf"]]},
-        {field:"HRA buildPsf",            paths:[["hra","buildPsf"]]},
+        {field:"HRA build £/sqft (bcp)",  paths:[["hra","bcp"]]},   // v10.196 — HRA build cost is hra.bcp; the old "hra.buildPsf" row tracked a field nothing writes (always empty). HRA build is deliberately not cross-linked (apartment vs house rates differ), so this is a standalone display of the real field.
         {field:"Fin buildPsf",            paths:[["fin","buildPsf"]]},
       ]},
       // ── SALE PSF ────────────────────────────────────────────

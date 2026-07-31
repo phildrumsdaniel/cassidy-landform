@@ -106,8 +106,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.195";
+var CURRENT_VERSION = "10.196";
 var VERSION_HISTORY = [
+  {v:"10.196", date:"Jul 2026", headline:"Full-tool calculation & propagation audit — a batch of correctness fixes (engine values verified to reconcile to the penny). PROPAGATION: the apartment/high-rise (HRA) path now shares three DEAL-LEVEL assumptions it was wrongly excluded from — Developer profit %, Finance rate % and S106/CIL per unit — so editing any of them on Financial Modelling / SFH / RLV now reaches the HRA stage too (the app's own Propagation Audit already treated them as siblings, so the stages could silently disagree). ENGINE: (1) the forward-fund / capitalised residual now carries the AHP grant on the same basis as the plot-sales and HA-bulk routes — under the 'competitive land bid' grant treatment it was understated by exactly the grant. (2) A scheme typed 'land' / 'property' / 'recovery' that carries a house mix now shows its forward-fund value (it was computed then discarded as £0). (3) The generic (BTR / no-mix) residual now honours a user-entered 0% (0% profit/fees/etc. was silently reverting to the default). (4) AHP grant now counts affordable homes defined by per-row tenure when no overall affordable % is set (was reading 0 affordable → £0 grant). SFH HOUSE MIX screen: site infrastructure (£53k/acre) is now charged on the NET DEVELOPABLE area, matching the engine — it was charging the whole title, so a site with surplus land showed an RLV below the one-pager / Dashboard for the same deal. Plus: removed a stale '4.5% institutional floor' note (the floor was retired in v10.119; the yield you set is respected, clamped 3.5–7%) and fixed a Propagation Audit row that tracked a non-existent HRA build field. No change to a correctly-set-up SFH deal's headline residual — these close edge cases and cross-stage drift. (Three cross-screen basis questions — the board-proposal vs one-pager after-land margin, the Exit buyer cards, and the Capitalisation forward-fund stack — are flagged separately for a decision, as they change board-facing figures.)"},
   {v:"10.195", date:"Jul 2026", headline:"Fix: the top action menu (Upload / Analyse / Flowchart / Save / Export / New Deal / Sign out) was being pushed off the right edge of the screen and hidden on desktop when a deal had a LONG name — the header's title zone had no width limit on desktop (only on mobile), so a long deal name (e.g. an auto-stamped ‘Cassidy 15% Profit — John Baker Counter (246 units, …) — 29/07/2026’) expanded full-width and shoved the buttons off-screen. Now the title zone truncates with an ellipsis (hover to see the full name) and the action zone takes the remaining width and scrolls horizontally if needed, so the whole menu stays reachable at any deal-name length. Also hardened the ‘what’s new’ version popup so it no longer errors on newer changelog entries. No engine change — header layout only."},
   {v:"10.194", date:"Jul 2026", headline:"NEW: opening Landform now REMINDS YOU of land follow-ups that need chasing. If your Placona pipeline has any open follow-ups that are overdue, due today, or undated, a banner appears at the top of whatever stage you're on — ‘⏰ N land follow-up(s) to action · M overdue’ — listing the next few (soonest first, overdue flagged) with a ‘View follow-ups →’ button that jumps straight to the Pipeline, and a ‘Dismiss’ for the session. So an enquiry you meant to follow up isn't forgotten just because you didn't open Placona. It reads the same cross-device pipeline store the CRM uses (so it reflects follow-ups added on any device, once v10.193 sync is deployed), needs no deal open, and stays hidden while you're already on the Placona screen (the ‘Follow-ups due’ panel there already covers it). New helper placonaDueFollowups(). No engine change."},
   {v:"10.193", date:"Jul 2026", headline:"The Placona land pipeline / CRM now SYNCS ACROSS YOUR DEVICES when you're signed in — fill out a site's stage, contacts, notes and follow-ups on one device and they show up on the others, the same way your saved deals do. localStorage stays the instant working copy (and the offline fallback); the cloud is the cross-device backup. On opening Placona it pulls your account's pipeline once and merges it in (per-record last-write-wins by timestamp; the site inbox is unioned), and every edit saves back to your account (debounced). A ‘☁ Synced to your account’ note shows on the Pipeline when you're signed in. REQUIRES a one-time backend step: add two actions (placona_crm_save / placona_crm_load) to your Google Apps Script Web App — a ready-to-paste snippet ships in docs/placona-crm-sync.gs (same ~2-minute deploy as the deal sync). Until that's deployed it silently stays per-device as before. Signed-out / offline → local only. This is the single-user version; a fully team-shared pipeline with per-record merge is a further step. No engine change."},
@@ -2256,7 +2257,7 @@ function basisOfFigures(data){
     var aiRents = cap.rentSource === "AI market research";
     lines.push({ k:"Rents & yield", v:"Net rent " + fmt(num(M.capNetRentPa)) + "/yr" + (aiRents
       ? " — per-bed rents from AI market research of local new-build lettings"
-      : " — from area market data (run the AI rent research to localise)") + ", capitalised at a " + (Math.round(y * 10) / 10) + "% net initial yield (4.5% institutional floor). Drives the pension / forward-fund exit." });
+      : " — from area market data (run the AI rent research to localise)") + ", capitalised at a " + (Math.round(y * 10) / 10) + "% net initial yield (the yield set on the Capitalisation stage; sanity-clamped 3.5–7%). Drives the pension / forward-fund exit." });
   }
 
   // Areas basis (GIA / NIA) — v10.100, expanded v10.103 with the RICS garage / external-works rule.
@@ -3447,7 +3448,12 @@ function computeSFHMetrics(data){
   // RESIDUAL (what you can pay for the land) — not to developer profit or marketing — so it can
   // make an otherwise-negative RLV stack. Set grants.grantPerAffHome (£/affordable home) to use it.
   var _ahForGrant = num(sfh.ahPct) || num((data.planning || {}).ahPct) || num((data.planning || {}).afhPct) || num((data.tenure || {}).ahPct) || 0;
-  var affordableHomes = Math.round(totalUnits * _ahForGrant / 100);
+  // v10.196 — when the affordable homes are defined by PER-ROW tenure (the hasNonPrivate path that
+  // already drives the GDV discount) but no overall ahPct is set, fall back to counting the affordable
+  // (non-private) rows — otherwise a per-row-tenure scheme reads 0 affordable homes for grant, so the
+  // AHP grant (and, under 'land' treatment, the residual) was silently £0.
+  var _affFromRows = rows.reduce(function(a, r){ return a + ((r.tenure && r.tenure !== "private") ? num(r.count) : 0); }, 0);
+  var affordableHomes = _ahForGrant > 0 ? Math.round(totalUnits * _ahForGrant / 100) : _affFromRows;
   // v10.92 — grant funds only ADDITIONAL affordable. The S106-required affordable is a planning
   // obligation, so it is NOT grant-eligible. Use an explicit grant-eligible (additional) count
   // when set; else fall back to the affordable count (indicative — additionality is confirmed by
@@ -3509,7 +3515,11 @@ function computeSFHMetrics(data){
   var capInvestmentValue = (capYield > 0 && capNetRentPa > 0) ? capNetRentPa / capYield : 0;
   // Same development cost stack; developer profit taken on the investment value.
   var capProfit = capInvestmentValue * (numOr(sfh.profitPct, 17.5) / 100);
-  var capRlv = capInvestmentValue > 0 ? capInvestmentValue - sfhDevCost - capProfit : 0;
+  // v10.196 — the capitalised/forward-fund residual now carries grantToRlv too, so it is on the SAME
+  // basis as the plot-sales (sfhGrossRlv, above) and HA-bulk (dealExit.haBulkRlv) routes. Before, only
+  // the plot and HA-bulk routes added the grant, so under the 'land' (competitive-bid) treatment the
+  // forward-fund exit understated supportable land by exactly the grant — a cross-route inconsistency.
+  var capRlv = capInvestmentValue > 0 ? capInvestmentValue - sfhDevCost - capProfit + grantToRlv : 0;
 
   return {rows:rows,totalUnits:totalUnits,avgSqft:totalUnits>0?totalSqft/totalUnits:0,retailGdv:retailGdv,blendedGdv:effectiveBlended,gdv:effectiveBlended,ahFactor:ahFactor,buildCost:buildCost,hasNonPrivate:hasNonPrivate,basePsf:basePsf,buildPsf:buildPsf,
     acres:sfhAcres,netDensity:netDensity,netDevelopableAcres:netDevelopableAcres,surplusAcres:surplusAcres,buildInclusive:buildInclusive,fees:sfhFees,contingency:sfhContingency,finance:sfhFinance,s106:sfhS106,roads:sfhRoads,infra:sfhInfra,marketing:sfhMarketing,profit:sfhProfit,devCost:sfhDevCost,rlv:sfhGrossRlv,
@@ -3831,13 +3841,18 @@ var SHARED_FIELD_GROUPS = [
   [["sfh","basePsf"],["rlv","salePsf"]],
   // ── Development cost assumptions (houses / finance cluster only) ──
   [["sfh","buildPsf"],["fin","buildPsf"],["rlv","buildPsf"]],
-  [["sfh","profitPct"],["fin","profitPct"],["rlv","profitPct"]],
-  [["sfh","finRate"],["fin","finRate"],["rlv","finRate"]],
+  // v10.196 — hra.profitPct/finRate/s106pu join their groups so the apartment/high-rise (HRA) path
+  // shares these DEAL-LEVEL assumptions too. computeHRAMetrics reads h.profitPct/h.finRate/h.s106pu,
+  // and the Propagation Audit + auto-fix already treated them as siblings — but the shared groups
+  // omitted them, so an edit on Financial Modelling / SFH never reached the HRA stage (and the audit
+  // couldn't flag the divergence). Now edit-anywhere syncs the apartment path like every other stage.
+  [["sfh","profitPct"],["fin","profitPct"],["rlv","profitPct"],["hra","profitPct"]],
+  [["sfh","finRate"],["fin","finRate"],["rlv","finRate"],["hra","finRate"]],
   // v10.9 — professional fees % (previously not shared, so the Financial Modelling
   // input never reached the SFH/RLV appraisal, which stayed on its hard-coded 10%).
   [["sfh","feesPct"],["fin","feesPct"],["rlv","feesPct"]],
   [["sfh","contingency"],["fin","contingency"],["rlv","contingency"]],
-  [["sfh","s106pu"],["fin","s106pu"],["planning","s106pu"],["rlv","s106pu"]],
+  [["sfh","s106pu"],["fin","s106pu"],["planning","s106pu"],["rlv","s106pu"],["hra","s106pu"]],
   [["sfh","buildInclusive"],["fin","buildInclusive"],["rlv","buildInclusive"]],
   // ── Exit / capitalisation yield (stored as a % on each stage) — two-way ──
   // v10.155 — the Exit stage's own "Target Exit Yield" box (exit.exitYield) was NOT in this group,
@@ -4090,20 +4105,23 @@ function calcDealMetrics(data){
     buildCost = (at === "sfh" && sfhMetrics.buildCost > 0) ? sfhMetrics.buildCost : units * avgSqft * buildPsf;
   }
 
-  var feesPct = num(f.feesPct || 12);
+  // v10.196 — numOr (not num(x||default)) so a user-entered 0 is honoured (0% fees/profit/etc.),
+  // matching the SFH engine. `num(x || default)` treats a real 0 as falsy and substitutes the default,
+  // so a stress test with 0% profit silently reverted to 17.5% on the generic (BTR/no-mix) path.
+  var feesPct = numOr(f.feesPct, 12);
   var fees = buildCost * (feesPct / 100);
 
-  var contPct = num(f.contingencyPct || f.contingency || 5);
+  var contPct = numOr(f.contingencyPct, numOr(f.contingency, 5));
   var contingency = buildCost * (contPct / 100);
 
-  var s106pu = num(f.s106pu || p.s106pu || 8000);
+  var s106pu = numOr(f.s106pu, numOr(p.s106pu, 8000));
   var s106 = num(p.s106) || (units * s106pu);
 
-  var finRate = num(f.finRate || 7.5);
+  var finRate = numOr(f.finRate, 7.5);
   // Simple finance: % of (build + fees) — flagged as 'screening estimate' in UI
   var finance = (buildCost + fees) * (finRate / 100);
 
-  var profitPctTarget = num(f.profitPct || f.marginPct || 17.5);
+  var profitPctTarget = numOr(f.profitPct, numOr(f.marginPct, 17.5));
   var profit = gdv * (profitPctTarget / 100);
 
   // ── ACQUISITION COSTS (toggle in RLV stage) ─────────────────────────
@@ -4224,15 +4242,20 @@ function calcDealMetrics(data){
     // ── Capitalisation / forward-fund exit (SFH) — sell the scheme as a rented
     // investment. Affordable is an income effect (lower rent), NOT a capital haircut
     // on the developer, so the profit here can differ materially from build-to-sell. ──
-    capInvestmentValue: (at === "sfh") ? (sfhMetrics.capInvestmentValue || 0) : 0,
-    capNetRentPa: (at === "sfh") ? (sfhMetrics.capNetRentPa || 0) : 0,
-    capYield: (at === "sfh") ? (sfhMetrics.capYield || 0) : 0,
-    capRlv: (at === "sfh") ? (sfhMetrics.capRlv || 0) : 0,
+    // v10.196 — expose the forward-fund figures for ANY non-BTR/PBSA scheme with a house mix
+    // (matching the GDV/cost-stack gating above), not only assetType==="sfh". Before, a 'land' /
+    // 'property' / 'recovery' journey carrying a house mix computed a correct build-to-sell RLV but
+    // reported £0 forward-fund value (the sfhMetrics.capRlv was computed then discarded) — the same
+    // "land journey must reconcile" class of bug v10.114 fixed for the residual.
+    capInvestmentValue: (at !== "btr" && at !== "pbsa") ? (sfhMetrics.capInvestmentValue || 0) : 0,
+    capNetRentPa: (at !== "btr" && at !== "pbsa") ? (sfhMetrics.capNetRentPa || 0) : 0,
+    capYield: (at !== "btr" && at !== "pbsa") ? (sfhMetrics.capYield || 0) : 0,
+    capRlv: (at !== "btr" && at !== "pbsa") ? (sfhMetrics.capRlv || 0) : 0,
     // Developer profit under each exit at the actual land price (sell vs capitalise):
     sellProfit: (gdv > 0) ? (gdv - devCost - landPrice) : 0,
     sellMarginPct: (gdv > 0) ? ((gdv - devCost - landPrice) / gdv) * 100 : 0,
-    capProfit: (at === "sfh" && sfhMetrics.capInvestmentValue > 0) ? (sfhMetrics.capInvestmentValue - devCost - landPrice) : 0,
-    capMarginPct: (at === "sfh" && sfhMetrics.capInvestmentValue > 0) ? ((sfhMetrics.capInvestmentValue - devCost - landPrice) / sfhMetrics.capInvestmentValue) * 100 : 0,
+    capProfit: (at !== "btr" && at !== "pbsa" && sfhMetrics.capInvestmentValue > 0) ? (sfhMetrics.capInvestmentValue - devCost - landPrice) : 0,
+    capMarginPct: (at !== "btr" && at !== "pbsa" && sfhMetrics.capInvestmentValue > 0) ? ((sfhMetrics.capInvestmentValue - devCost - landPrice) / sfhMetrics.capInvestmentValue) * 100 : 0,
     // Acquisition (only populated if toggle on)
     includeAcqCosts: includeAcq,
     sdlt: sdlt, agentFees: agentFees, legalFees: legalFees, landFinance: landFinance,
