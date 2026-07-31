@@ -1820,10 +1820,14 @@ function renderProposal(city, data, gdv, lc, up, user){
   // land value when no guide price is set (what the scheme makes buying land at the RLV), else the
   // achieved margin at the entered guide price. Fixes the reviewer's #1 (the "38.3% margin" error).
   var boardAskLand = num((data.land&&data.land.price))||0;
-  var boardMargin = boardAskLand>0 ? marginV : (num(M.profitPctTarget)||17.5);
-  // v10.186 — the actual £ profit that pairs with boardMargin (actual after-land profit at a guide
-  // price; the target profit £ otherwise), so the margin can be shown as "% / £profit".
-  var boardProfitGbp = boardAskLand>0 ? num(M.actualProfit) : num(M.profit);
+  // v10.197 — board margin now uses the SAME all-in basis as the one-page appraisal (afterLandMargin:
+  // profit after the guide price AND its acquisition costs, grant excluded from the base) so the two
+  // board documents can't print different after-land margins for the same deal. Previously this used the
+  // engine's M.marginPct / M.actualProfit, which only deducts acquisition costs when the RLV toggle is on
+  // (and folds grant in) — a different basis from the one-pager's, hence the discrepancy.
+  var _alB = (typeof afterLandMargin==="function") ? afterLandMargin(data) : {marginPct:marginV, profit:num(M.actualProfit)};
+  var boardMargin = boardAskLand>0 ? num(_alB.marginPct) : (num(M.profitPctTarget)||17.5);
+  var boardProfitGbp = boardAskLand>0 ? num(_alB.profit) : num(M.profit);
   // v10.175 — dual margin: boardMargin is the TRUE (grant-free) margin; when the scheme is AHP-eligible
   // and grant isn't yet modelled, boardMarginGrant is the same margin WITH the indicative grant applied
   // as profit upside, shown alongside. Board-safe — grant is upside, the land value is unchanged.

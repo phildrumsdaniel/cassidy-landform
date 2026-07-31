@@ -106,8 +106,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.196";
+var CURRENT_VERSION = "10.197";
 var VERSION_HISTORY = [
+  {v:"10.197", date:"Jul 2026", headline:"Audit part 2 — the board-facing documents now show the SAME figures for the same deal. (1) The full Board Proposal and the one-page appraisal could print DIFFERENT developer margins after land — the one-pager always deducts the guide price's purchase costs (SDLT + agent), while the Board Proposal used the engine's figure, which only deducts them when the RLV 'net-to-vendor' toggle is on (and folded grant into the base). Both now use ONE shared basis (afterLandMargin): profit after the guide price AND its acquisition costs, with the AHP grant shown as a separate '→ X% with grant' upside — so the two board documents can't disagree. (2) The Exit Strategy buyer cards recomputed each buyer's land bid with hard-coded margins (National Housebuilder 17.5%, BTR fund 8%) and a flat cost proxy that OMITTED contingency, S106, roads, infrastructure and marketing — so 'a housebuilder will pay £X for the land' overstated the engine's own residual sitting right beside it. The Housebuilder card now reads the engine's open-market plot-sales residual and the BTR/forward-fund card reads the engine's capitalised residual (the same full cost stack as every other screen), for any scheme with a house mix. The Registered Provider (affordable transfer price), PBSA and pension long-income cards are genuinely different bases and are unchanged. (3) Reviewed the Capitalisation 'Forward Funding Stack' — it deliberately has its own editable cost sliders and a labelled 'profit on cost' basis as an advanced rental-hold what-if, and its forward-fund VALUE already matches the engine, so it's left as-is by design. No change to the residual land value engine — this makes the board/exit screens read the one engine consistently. New helpers landAcqCostsFor() / afterLandMargin()."},
   {v:"10.196", date:"Jul 2026", headline:"Full-tool calculation & propagation audit — a batch of correctness fixes (engine values verified to reconcile to the penny). PROPAGATION: the apartment/high-rise (HRA) path now shares three DEAL-LEVEL assumptions it was wrongly excluded from — Developer profit %, Finance rate % and S106/CIL per unit — so editing any of them on Financial Modelling / SFH / RLV now reaches the HRA stage too (the app's own Propagation Audit already treated them as siblings, so the stages could silently disagree). ENGINE: (1) the forward-fund / capitalised residual now carries the AHP grant on the same basis as the plot-sales and HA-bulk routes — under the 'competitive land bid' grant treatment it was understated by exactly the grant. (2) A scheme typed 'land' / 'property' / 'recovery' that carries a house mix now shows its forward-fund value (it was computed then discarded as £0). (3) The generic (BTR / no-mix) residual now honours a user-entered 0% (0% profit/fees/etc. was silently reverting to the default). (4) AHP grant now counts affordable homes defined by per-row tenure when no overall affordable % is set (was reading 0 affordable → £0 grant). SFH HOUSE MIX screen: site infrastructure (£53k/acre) is now charged on the NET DEVELOPABLE area, matching the engine — it was charging the whole title, so a site with surplus land showed an RLV below the one-pager / Dashboard for the same deal. Plus: removed a stale '4.5% institutional floor' note (the floor was retired in v10.119; the yield you set is respected, clamped 3.5–7%) and fixed a Propagation Audit row that tracked a non-existent HRA build field. No change to a correctly-set-up SFH deal's headline residual — these close edge cases and cross-stage drift. (Three cross-screen basis questions — the board-proposal vs one-pager after-land margin, the Exit buyer cards, and the Capitalisation forward-fund stack — are flagged separately for a decision, as they change board-facing figures.)"},
   {v:"10.195", date:"Jul 2026", headline:"Fix: the top action menu (Upload / Analyse / Flowchart / Save / Export / New Deal / Sign out) was being pushed off the right edge of the screen and hidden on desktop when a deal had a LONG name — the header's title zone had no width limit on desktop (only on mobile), so a long deal name (e.g. an auto-stamped ‘Cassidy 15% Profit — John Baker Counter (246 units, …) — 29/07/2026’) expanded full-width and shoved the buttons off-screen. Now the title zone truncates with an ellipsis (hover to see the full name) and the action zone takes the remaining width and scrolls horizontally if needed, so the whole menu stays reachable at any deal-name length. Also hardened the ‘what’s new’ version popup so it no longer errors on newer changelog entries. No engine change — header layout only."},
   {v:"10.194", date:"Jul 2026", headline:"NEW: opening Landform now REMINDS YOU of land follow-ups that need chasing. If your Placona pipeline has any open follow-ups that are overdue, due today, or undated, a banner appears at the top of whatever stage you're on — ‘⏰ N land follow-up(s) to action · M overdue’ — listing the next few (soonest first, overdue flagged) with a ‘View follow-ups →’ button that jumps straight to the Pipeline, and a ‘Dismiss’ for the session. So an enquiry you meant to follow up isn't forgotten just because you didn't open Placona. It reads the same cross-device pipeline store the CRM uses (so it reflects follow-ups added on any device, once v10.193 sync is deployed), needs no deal open, and stays hidden while you're already on the Placona screen (the ‘Follow-ups due’ panel there already covers it). New helper placonaDueFollowups(). No engine change."},
@@ -2775,6 +2776,35 @@ function grantTreatmentMode(data){
 }
 function grantToRlvAmt(data, grantIncome){ return grantTreatmentMode(data) === "land" ? (num(grantIncome) || 0) : 0; }
 function grantToProfitAmt(data, grantIncome){ var m = grantTreatmentMode(data); return (m === "land" || m === "margin") ? (num(grantIncome) || 0) : 0; }
+
+// v10.197 — LAND ACQUISITION COSTS + the ONE "developer margin after land" the board documents share.
+// The one-page appraisal already computes an "all-in" margin — profit after paying the guide price AND
+// its purchase costs (SDLT on non-resi bands + ~1.5% agent) — but the full Board Proposal headline used
+// the engine's actualProfit (which only deducts acquisition costs when the RLV toggle is on, and folds
+// grant into the base). So the same screen printed two different after-land margins for one deal.
+// afterLandMargin() is that single figure, so every board-facing doc reads it identically. Grant stays a
+// SEPARATE upside (marginGrantUplift), matching the one-pager's "→ X% with grant" line — not in the base.
+function landAcqCostsFor(price){
+  price = num(price);
+  if(price <= 0) return { sdlt:0, agent:0, total:0 };
+  var sdlt = 0;
+  if(price > 250000) sdlt = (price - 250000) * 0.05 + (250000 - 150000) * 0.02;   // 2% 150-250k, 5% above
+  else if(price > 150000) sdlt = (price - 150000) * 0.02;
+  var agent = price * 0.015;                                                        // ~1.5% agent/introducer
+  return { sdlt:sdlt, agent:agent, total:sdlt + agent };
+}
+// Returns the after-land developer profit £ and margin % on the SAME basis as the one-pager: at a set
+// guide/asking price, profit = GDV − dev cost − guide price − its acquisition costs (grant excluded from
+// the base). With no guide price it falls back to the target profit at the residual land value.
+function afterLandMargin(data){
+  var M = (typeof calcDealMetrics === "function") ? calcDealMetrics(data) : {};
+  var gdv = num(M.gdv), dev = num(M.devCost);
+  var ask = num(data && data.land && data.land.price);
+  if(!(ask > 0)) return { hasAsk:false, profit:num(M.profit), marginPct:num(M.profitPctTarget) || 17.5, acqTotal:0, gdv:gdv };
+  var acq = landAcqCostsFor(ask);
+  var profit = gdv - dev - ask - acq.total;
+  return { hasAsk:true, profit:profit, marginPct:gdv > 0 ? (profit / gdv) * 100 : 0, acqTotal:acq.total, acq:acq, gdv:gdv };
+}
 
 // v10.157 — grant ELIGIBILITY ASSUMPTION for the appraisals. Reported: a scheme (Maldon) that
 // doesn't stack was flagged AHP-eligible on the Grants stage, but the appraisals showed nothing

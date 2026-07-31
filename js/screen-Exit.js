@@ -59,11 +59,19 @@ function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi,
         description:"Will pay for land with planning, take build risk, sell on open market",
         valuationMethod:"Residual — GDV minus build, fees, finance, profit margin (18-22%)",
         calc:function(){
-          // Housebuilder pays residual after their margin
+          // v10.197 — for a houses scheme, a national housebuilder's land bid IS the open-market
+          // plot-sales residual the engine already computes (dealExit.plotRlv / computeSFHMetrics.rlv) —
+          // the SAME full cost stack (S-curve finance, contingency, S106, roads, infra, marketing) as
+          // every other screen. Use it so this card can't overstate the land vs the committed-exit RLV
+          // shown alongside. The old flat proxy (build×1.08, single-period finance, no contingency/
+          // S106/roads/infra) is kept only as a fallback for a non-houses scheme with no mix.
+          if(typeof dealExit==="function" && typeof computeSFHMetrics==="function" && computeSFHMetrics(data).totalUnits>0){
+            return Math.max(0, num(dealExit(data).plotRlv));
+          }
           var hbGdv=gdv>0?gdv:(units2*(num(data.rlv&&data.rlv.avgSqft||850))*(num(data.rlv&&data.rlv.salePsf||estSalePsfFromRent(cityMkt.btr)||280)));
           var hbBuild=buildCostTotal*1.08; // with fees
           var hbFinance=hbBuild*finRate2;
-          var hbProfit=hbGdv*0.175; // 20% target
+          var hbProfit=hbGdv*0.175;
           return Math.max(0,hbGdv-hbBuild-hbFinance-hbProfit);
         },
         metrics:function(val){return[
@@ -92,13 +100,19 @@ function renderExit(at, city, data, ey, gdv, hot, hotL, lc, m, memo, memoL, noi,
         description:"Forward fund or forward purchase of entire scheme at a yield. Wants 150+ units in city centres.",
         valuationMethod:"Income capitalisation — NOI / target yield. Yield is king.",
         calc:function(){
-          // BTR fund values on yield
+          // v10.197 — for a houses scheme, the forward-fund land bid IS the engine's capitalised
+          // residual (dealExit.capRlv): net rent ÷ the net-initial yield, less the SAME full dev-cost
+          // stack and the developer's profit taken on the investment value. Use it so the forward-fund
+          // card reconciles with the Capitalisation page / one-pager instead of using a hard-coded 8%
+          // margin and a flat cost proxy. Fallback proxy kept for a pure-apartment scheme (no house mix).
+          if(typeof dealExit==="function" && typeof computeSFHMetrics==="function" && computeSFHMetrics(data).totalUnits>0){
+            return Math.max(0, num(dealExit(data).capRlv));
+          }
           var noiVal=noi>0?noi:(units2*cityMkt.btr*12*0.72); // 72% NRI after voids/costs
           var btrYield=dealY; // v9.53 — single net initial yield (Cap override or area benchmark)
           var btrVal=noiVal/btrYield;
-          // Less: construction cost + developer profit they want
           var devCost=buildCostTotal*(1+finRate2+0.08); // build + finance + fees
-          var devProfit=btrVal*0.08; // 8% developer margin on forward fund
+          var devProfit=btrVal*0.08;
           return Math.max(0,btrVal-devCost-devProfit);
         },
         metrics:function(val){
