@@ -172,12 +172,20 @@ function renderFin(LiveMarketBanner, at, bc, buildPsf, city, data, ey, gia, gr, 
     // roads, infra, disposal + any acquisition costs) + land, so the cost table and the
     // profit/margin below it reconcile. Legacy formula only as a fallback when the engine
     // can't appraise the scheme.
+    // v10.198 — Financial Modelling now shows the profit/margin AFTER land AND its acquisition costs
+    // (SDLT + agent) on the SAME all-in basis as the board documents (afterLandMargin), so this page
+    // can't show a higher margin than the Board Proposal / one-pager for the same deal. The acquisition
+    // cost is always charged when a land price is entered (not only when the RLV net-to-vendor toggle is
+    // on), the cost table below includes it, and Total Dev Cost is built from the engine's pure dev cost
+    // + land + that acquisition line so everything still foots.
+    var _acqFin = (typeof landAcqCostsFor==="function" && lc>0) ? num(landAcqCostsFor(lc).total) : 0;
+    var _alF = (typeof afterLandMargin==="function") ? afterLandMargin(data) : null;
     var tc4 = (DM.gdv>0)
-      ? (DM.totalCost + lc)
+      ? (num(DM.devCost) + lc + _acqFin)
       : (effBuildCost + lc + s106fin + effBuildCost*0.12 + effBuildCost*(finContPct/100) + (effBuildCost+lc)*(finRatePct/100) + lc*0.05);
 
-    var profit2 = DM.actualProfit !== 0 ? DM.actualProfit : (gdv2-tc4);
-    var margin2 = DM.marginPct !== 0 ? DM.marginPct : (gdv2>0?(profit2/gdv2)*100:0);
+    var profit2 = (_alF && _alF.hasAsk) ? num(_alF.profit) : (DM.actualProfit !== 0 ? DM.actualProfit : (gdv2-tc4));
+    var margin2 = (_alF && _alF.hasAsk) ? num(_alF.marginPct) : (DM.marginPct !== 0 ? DM.marginPct : (gdv2>0?(profit2/gdv2)*100:0));
     var roc = DM.roc !== 0 ? DM.roc : (tc4>0?(profit2/tc4)*100:0);
     var rlv = DM.rlv || (gdv2>0 ? gdv2 - tc4 - gdv2*(DM.profitPctTarget/100) : 0);
     var totalBuild = effBuildCost;
@@ -209,7 +217,7 @@ function renderFin(LiveMarketBanner, at, bc, buildPsf, city, data, ey, gia, gr, 
           .concat(DM.roads>0?[["Roads & Sewers",DM.roads]]:[])
           .concat(DM.infra>0?[["Site infra & SuDS",DM.infra]]:[])
           .concat(DM.marketing>0?[["Disposal & marketing",DM.marketing]]:[])
-          .concat(DM.totalAcqCosts>0?[["Acquisition (SDLT/legal/agent/finance)",DM.totalAcqCosts]]:[])
+          .concat(_acqFin>0?[["Acquisition (SDLT + agent, on the land price)",_acqFin]]:[])
       : [["Land",lc],["Build ("+finSqft.toLocaleString()+" sqft @ £"+finBuildPsf+"/sqft)",effBuildCost],["S106/CIL allowance (£"+fmtN(finS106Pu)+"/unit)",s106fin],["Contingency ("+finContPct+"%)",effBuildCost*(finContPct/100)],["Prof Fees ("+numOr(f.feesPct,12)+"%)",effBuildCost*(numOr(f.feesPct,12)/100)],["Finance ("+finRatePct+"%)",(effBuildCost+lc)*(finRatePct/100)],["SDLT (5%)",lc*0.05]];
 
     // v9.97 — scenarios scale the scheme's OWN valuation basis: a for-sale scheme scales

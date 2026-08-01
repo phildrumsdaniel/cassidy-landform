@@ -1,71 +1,87 @@
 /**
- * Placona CRM — cross-device sync (v10.193)
+ * Placona CRM — cross-device sync  (v10.193 client; backend snippet tailored to the
+ * "Cassidy Landform Backend" Apps Script, v10.198)
  * ──────────────────────────────────────────────────────────────────────────
- * Add this to your existing Landform Apps Script Web App (the same one that
- * powers Save Deal / list_deals / placona_run). It gives each signed-in user a
- * single cloud copy of their Placona pipeline so it follows them across devices.
+ * This gives each signed-in user ONE cloud copy of their Placona land pipeline
+ * (stage, contacts, notes, follow-ups, inbox) so it follows them across devices,
+ * exactly like Save Deal already does. localStorage stays the instant working
+ * copy + offline fallback; this is the cross-device backup.
  *
- * Two actions (matching what the app already calls in v10.193):
- *   • placona_crm_load  — GET  ?action=placona_crm_load&userId=<id>
- *                         → { status:"ok", payload:"<json string>" }   (payload may be "")
- *   • placona_crm_save  — POST body JSON { action:"placona_crm_save", userId:<id>, payload:"<json>" }
- *                         → { status:"ok" }
+ * It is written to match your existing backend's conventions — `respond()`,
+ * `getOrCreateSheet(name, headers)` and the `handleX(params)` pattern — so it drops
+ * straight in. THREE steps, ~2 minutes:
  *
- * The app sends/receives `payload` = JSON.stringify({ inbox:[...], notes:{...} }).
- * Storage: a sheet tab called "PlaconaCRM" with columns  userId | payload | updated
- * (one row per user, upserted). Deploy the Web App as usual after adding this.
+ *   STEP 1 — paste the two handler functions below anywhere in Code.gs
+ *            (e.g. just under handleDeleteDeal).
  *
- * WIRING: route the two actions in your existing doGet(e) / doPost(e) — see the
- * examples at the bottom. No other change to the app is needed.
+ *   STEP 2 — add ONE line to doGet(e), next to the other placona_* routes
+ *            (your doGet has: placona_run / placona_read / placona_delete / placona_import):
+ *
+ *              if (action === "placona_crm_load") return respond(handlePlaconaCrmLoad(e.parameter));
+ *
+ *   STEP 3 — add ONE line to doPost(e), next to the placona_* routes there
+ *            (your doPost has: placona_run / placona_import):
+ *
+ *              if (data.action === "placona_crm_save") return respond(handlePlaconaCrmSave(data));
+ *
+ *   Then RE-DEPLOY: Deploy ▸ Manage deployments ▸ (your Web App) ▸ Edit ▸
+ *   Version: New version ▸ Deploy. (The Web App URL does not change.)
+ *
+ * The client sends:
+ *   • load  — GET  ?action=placona_crm_load&userId=<id>      → { status:"ok", payload:"<json>" }
+ *   • save  — POST { action:"placona_crm_save", userId, payload:"<json>" }  → { status:"ok" }
+ * where payload = JSON.stringify({ inbox:[...], notes:{...} }).
+ *
+ * Storage: a sheet tab "PlaconaCRM" with columns  userId | payload | updated
+ * (one row per user, upserted) — created automatically on first save.
  */
 
-function placonaCrm_sheet_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sh = ss.getSheetByName("PlaconaCRM");
-  if (!sh) { sh = ss.insertSheet("PlaconaCRM"); sh.appendRow(["userId", "payload", "updated"]); }
-  return sh;
-}
-
-function placonaCrm_save_(userId, payload) {
-  if (!userId) return { status: "error", message: "missing userId" };
-  var sh = placonaCrm_sheet_();
-  var last = Math.max(sh.getLastRow(), 1);
-  var ids = sh.getRange(1, 1, last, 1).getValues();
+// STEP 1 — paste these two functions ─────────────────────────────────────────
+function handlePlaconaCrmSave(data) {
+  var userId = String((data && data.userId) || "").trim();
+  if (!userId) return { status: "error", message: "Missing userId" };
+  var payload = String((data && data.payload) || "");
+  var sh = getOrCreateSheet("PlaconaCRM", ["userId", "payload", "updated"]);
+  var values = sh.getDataRange().getValues();
   var row = -1;
-  for (var i = 1; i < ids.length; i++) { if (String(ids[i][0]) === String(userId)) { row = i + 1; break; } }
+  for (var i = 1; i < values.length; i++) {
+    if (String(values[i][0]) === userId) { row = i + 1; break; }
+  }
   var now = new Date();
-  // A cell holds up to ~50,000 chars — ample for a text pipeline. If you ever hit that, chunk the
-  // payload across extra columns exactly like the deal save does.
-  if (row === -1) sh.appendRow([userId, payload || "", now]);
-  else { sh.getRange(row, 2).setValue(payload || ""); sh.getRange(row, 3).setValue(now); }
+  // A single cell holds ~50,000 chars — ample for a text pipeline. If you ever
+  // hit that, chunk the payload across extra columns like handleSaveDeal does.
+  if (row === -1) sh.appendRow([userId, payload, now]);
+  else { sh.getRange(row, 2).setValue(payload); sh.getRange(row, 3).setValue(now); }
   return { status: "ok" };
 }
 
-function placonaCrm_load_(userId) {
-  if (!userId) return { status: "error", message: "missing userId" };
-  var sh = placonaCrm_sheet_();
-  var data = sh.getDataRange().getValues();
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === String(userId)) return { status: "ok", payload: String(data[i][1] || "") };
+function handlePlaconaCrmLoad(data) {
+  var userId = String((data && data.userId) || "").trim();
+  if (!userId) return { status: "error", message: "Missing userId" };
+  var sh = getOrCreateSheet("PlaconaCRM", ["userId", "payload", "updated"]);
+  var values = sh.getDataRange().getValues();
+  for (var i = 1; i < values.length; i++) {
+    if (String(values[i][0]) === userId) {
+      return { status: "ok", payload: String(values[i][1] || "") };
+    }
   }
-  return { status: "ok", payload: "" };   // no record yet — the app then seeds it from this device
+  return { status: "ok", payload: "" };   // no record yet — the app seeds it from this device
 }
 
-/* ── WIRING (add these two branches to your existing router) ────────────────
+/* ── STEP 2 — in doGet(e), beside the other placona_* routes ──────────────────
 
-  // In doGet(e):
-  //   if (e.parameter.action === "placona_crm_load")
-  //     return json_(placonaCrm_load_(e.parameter.userId));
+     if (action === "placona_run")    return respond(handlePlaconaRun(e.parameter));
+     if (action === "placona_read")   return respond(handlePlaconaRead(e.parameter));
+     if (action === "placona_delete") return respond(handlePlaconaDelete(e.parameter));
+     if (action === "placona_import") return respond(handlePlaconaImport(e.parameter));
++    if (action === "placona_crm_load") return respond(handlePlaconaCrmLoad(e.parameter));   // ← ADD
 
-  // In doPost(e):
-  //   var body = JSON.parse((e.postData && e.postData.contents) || "{}");
-  //   if (body.action === "placona_crm_save")
-  //     return json_(placonaCrm_save_(body.userId, body.payload));
+   ── STEP 3 — in doPost(e), beside the placona_* routes there ─────────────────
 
-  // json_ is your existing JSON responder; if you don't have one:
-  //   function json_(obj){
-  //     return ContentService.createTextOutput(JSON.stringify(obj))
-  //       .setMimeType(ContentService.MimeType.JSON);
-  //   }
+     if (data.action === "placona_run")    return respond(handlePlaconaRun(data));
+     if (data.action === "placona_import") return respond(handlePlaconaImport(data));
++    if (data.action === "placona_crm_save") return respond(handlePlaconaCrmSave(data));     // ← ADD
 
-────────────────────────────────────────────────────────────────────────── */
+   (The app only POSTs the save and only GETs the load, so one line in each is enough.
+    Adding both actions to both handlers is harmless if you prefer symmetry.)
+────────────────────────────────────────────────────────────────────────────── */
