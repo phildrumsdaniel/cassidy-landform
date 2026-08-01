@@ -26,6 +26,7 @@ function LandownerOutreach(props){
   var gS = useState(null);   var gen = gS[0], setGen = gS[1];        // {email, letter, callScript}
   var bS = useState(false);  var busy = bS[0], setBusy = bS[1];
   var eS = useState("");     var err = eS[0], setErr = eS[1];
+  var sndS = useState("");   var sendState = sndS[0], setSendState = sndS[1];   // "" | sending | sent | error:<msg>
   var accent = "#2E2F8A";
 
   function esc(s){ return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
@@ -66,11 +67,41 @@ function LandownerOutreach(props){
 
   function copy(text){ try{ if(navigator && navigator.clipboard) navigator.clipboard.writeText(text); else if(typeof notify === "function") notify("Copy not available — select the text and copy manually."); }catch(e){} if(typeof notify === "function") notify("Copied to clipboard."); }
 
+  function recipientEmail(){ return ((addressTo === "agent" ? o.agentEmail : o.ownerEmail) || "").trim(); }
+
   function openEmail(){
     if(!gen || !gen.email) return;
-    var to = (addressTo === "agent" ? o.agentEmail : o.ownerEmail) || "";
-    var href = "mailto:" + encodeURIComponent(to) + "?subject=" + encodeURIComponent(gen.email.subject || "") + "&body=" + encodeURIComponent(gen.email.body || "");
+    var href = "mailto:" + encodeURIComponent(recipientEmail()) + "?subject=" + encodeURIComponent(gen.email.subject || "") + "&body=" + encodeURIComponent(gen.email.body || "");
     try{ window.location.href = href; }catch(e){}
+  }
+
+  // v10.209 — SEND the reviewed email straight from the backend (Google Apps Script MailApp). Sends
+  // FROM the deploying account with replies routed to the sender; the user reviews and confirms first.
+  async function doSendEmail(to){
+    setSendState("sending");
+    try{
+      var res = await fetch(WEBHOOK, { method:"POST", headers:{ "Content-Type":"text/plain;charset=utf-8" },
+        body:JSON.stringify({ action:"send_email", token:(typeof WEBHOOK_TOKEN !== "undefined" ? WEBHOOK_TOKEN : ""),
+          userId:(user && user.userId) || "", to:to, subject:(gen.email && gen.email.subject) || "",
+          body:(gen.email && gen.email.body) || "", replyTo:(o.senderEmail || "").trim(),
+          fromName:(o.senderName || (user && user.name) || "Cassidy Group") }) });
+      var j = {}; try{ j = await res.json(); }catch(e){}
+      if(j && j.status === "ok"){
+        setSendState("sent"); setO("emailSentAt", Date.now()); setO("emailSentTo", to);
+        if(typeof notify === "function") notify("✓ Email sent to " + to + ".");
+      } else {
+        setSendState("error:" + ((j && j.message) || "not-deployed"));
+        if(typeof notify === "function") notify("Couldn't send — the 'send_email' backend action isn't deployed yet.\n\nUse ‘Open in email app’ for now, or paste the snippet in docs/landowner-email-send.gs into your Apps Script and redeploy.");
+      }
+    }catch(e){ setSendState("error:network"); if(typeof notify === "function") notify("Couldn't reach the backend to send. Use ‘Open in email app’ instead."); }
+  }
+  function sendEmailNow(){
+    if(!gen || !gen.email) return;
+    var to = recipientEmail();
+    if(!to){ if(typeof notify === "function") notify("Add the recipient's email address first (or use ‘Open in email app’)."); return; }
+    var msg = "Send this email now to " + to + "?\n\nIt sends from your Landform (Google) backend account, with replies going to " + (o.senderEmail || "your address") + ". You've reviewed the draft — this can't be un-sent.";
+    if(typeof confirmToast === "function") confirmToast(msg, function(){ doSendEmail(to); }, { confirmLabel:"Send email" });
+    else doSendEmail(to);
   }
 
   function printLetter(){
@@ -158,11 +189,18 @@ function LandownerOutreach(props){
     gen && e("div", null,
       // EMAIL
       card("✉ Email",
-        e("div", { style:{ fontSize:12, fontWeight:700, color:"#4A4BAE", marginBottom:6 } }, "Subject: " + (gen.email && gen.email.subject || "")),
+        e("div", { style:{ fontSize:12, fontWeight:700, color:"#4A4BAE", marginBottom:6 } }, "To: " + (recipientEmail() || "— add the recipient's email above —") + "   ·   Subject: " + (gen.email && gen.email.subject || "")),
         outBox((gen.email && gen.email.body) || ""),
-        e("div", { style:{ display:"flex", gap:8, marginTop:10, flexWrap:"wrap" } },
-          btn("✉ Open in email app", openEmail, "#2D7A65"),
-          btn("Copy email", function(){ copy("Subject: " + (gen.email && gen.email.subject || "") + "\n\n" + (gen.email && gen.email.body || "")); }, "#4A4BAE"))),
+        e("div", { style:{ display:"flex", gap:8, marginTop:10, flexWrap:"wrap", alignItems:"center" } },
+          e("button", { onClick:sendEmailNow, disabled:sendState === "sending" || !recipientEmail(),
+            style:{ padding:"9px 18px", background:(sendState === "sending" || !recipientEmail()) ? "#8CA79B" : "#2D7A65", border:"none", color:"#fff", borderRadius:6, fontSize:13, fontWeight:800, cursor:(sendState === "sending" || !recipientEmail()) ? "not-allowed" : "pointer", fontFamily:"DM Sans,sans-serif" } },
+            sendState === "sending" ? "📤 Sending…" : "📤 Send email now"),
+          btn("✉ Open in email app", openEmail, "#4A4BAE"),
+          btn("Copy", function(){ copy("Subject: " + (gen.email && gen.email.subject || "") + "\n\n" + (gen.email && gen.email.body || "")); }, "#7278A0"),
+          (o.emailSentAt || sendState === "sent") && e("span", { style:{ fontSize:12, color:"#1B7A54", fontWeight:800 } }, "✓ Sent" + (o.emailSentTo ? " to " + o.emailSentTo : "")),
+          (sendState.indexOf("error") === 0) && e("span", { style:{ fontSize:11, color:"#B05A35" } }, "Send unavailable — use ‘Open in email app’, or deploy the backend snippet.")),
+        e("div", { style:{ fontSize:10.5, color:"#9298BC", marginTop:8, lineHeight:1.5 } },
+          "‘Send email now’ sends it straight from your Landform (Google) backend, with replies going to your address. Needs a one-time backend step — the ‘send_email’ action from docs/landowner-email-send.gs pasted into your Apps Script (same ~2-minute deploy as the deal sync). Until then use ‘Open in email app’, which opens the draft in your own mail client to send.")),
       // LETTER
       card("✉ Letter (for the post)",
         outBox((gen.letter && gen.letter.body) || ""),
