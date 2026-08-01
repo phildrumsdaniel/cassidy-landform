@@ -247,6 +247,15 @@ function LandownerOutreach(props){
 
     // ── OUTREACH LOG ──
     card("🗒 Outreach log",
+      // next follow-up — surfaced on the Dashboard and portfolio card
+      e("div", { style:{ display:"flex", gap:12, alignItems:"flex-end", flexWrap:"wrap", marginBottom:12, paddingBottom:12, borderBottom:"1px solid #EEF0F7" } },
+        e("div", { style:{ flex:"0 0 auto" } },
+          e("label", { style:S.label }, "Next follow-up"),
+          e("input", { type:"date", value:o.followUpDate || "", onChange:function(v){ setO("followUpDate", v.target ? v.target.value : v); }, style:Object.assign({}, S.input, { minWidth:150 }) })),
+        e("div", { style:{ flex:"1 1 220px" } },
+          e("label", { style:S.label }, "Follow-up note"),
+          e("input", { type:"text", value:o.followUpNote || "", onChange:function(ev){ setO("followUpNote", ev.target.value); }, placeholder:"e.g. call the agent back with a revised offer", style:S.input })),
+        (o.followUpDate) && e("button", { onClick:function(){ setO("followUpDate", ""); setO("followUpNote", ""); }, style:{ padding:"8px 12px", background:"transparent", border:"1px solid #DDE0ED", color:"#7278A0", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "Clear")),
       e("div", { style:{ display:"flex", gap:8, alignItems:"flex-end", flexWrap:"wrap", marginBottom:10 } },
         e("div", { style:{ flex:"1 1 240px" } },
           e("label", { style:S.label }, "Log a call or note"),

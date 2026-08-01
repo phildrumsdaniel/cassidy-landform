@@ -45,6 +45,21 @@ function dealFolderNames(){
     .sort(function(a,b){ var A=String(a).toLowerCase(),B=String(b).toLowerCase(); return A<B?-1:A>B?1:0; });
 }
 
+// ── v10.211 — LANDOWNER OUTREACH STATUS: derive last-contacted + next-follow-up from a deal's
+// outreach log (data.outreach.log) so the pipeline shows contact status at a glance (Dashboard,
+// portfolio). Reads the deal, no backend needed for the live deal.
+function outreachStatus(data){
+  var o = (data && data.outreach) || {};
+  var log = Array.isArray(o.log) ? o.log : [];
+  var lastTs = 0, lastCh = "", lastNote = "";
+  log.forEach(function(en){ if(num(en && en.ts) > lastTs){ lastTs = num(en.ts); lastCh = (en.channel || ""); lastNote = (en.note || ""); } });
+  if(!lastTs && num(o.emailSentAt) > 0){ lastTs = num(o.emailSentAt); lastCh = "email"; }
+  var fuDate = (o.followUpDate || "") + "", fuOverdue = false, fuDue = false;
+  if(fuDate){ try{ var d0 = new Date((new Date()).toDateString()), fd = new Date(fuDate); if(fd < d0) fuOverdue = true; if(fd <= d0) fuDue = true; }catch(e){} }
+  return { contacted: lastTs > 0, lastTs:lastTs, lastChannel:lastCh, lastNote:lastNote, count:log.length,
+    followUpDate:fuDate, followUpNote:(o.followUpNote || ""), followUpOverdue:fuOverdue, followUpDue:fuDue };
+}
+
 // ── v10.194 — REMINDERS: open follow-ups from the Placona pipeline (cassidy_placona_ws) that need
 // actioning — overdue, due today, or undated — surfaced app-wide so opening Landform reminds you what
 // to chase (e.g. an enquiry to follow up). Reads the global pipeline store directly (no deal needed).
@@ -106,8 +121,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.210";
+var CURRENT_VERSION = "10.211";
 var VERSION_HISTORY = [
+  {v:"10.211", date:"Aug 2026", headline:"Landowner OUTREACH STATUS now shows at a glance — on the Deal Dashboard and the portfolio cards. Set a ‘Next follow-up’ date + note on the Approach-Landowner stage, and the Dashboard leads with a ‘📬 Landowner’ strip: last contacted (how long ago + by email / letter / call, from the outreach log) and the next follow-up (flagged ⏰ overdue in red), with an ‘Outreach →’ jump. The same status appears on each My-Portfolio card so your whole pipeline shows who's been contacted and who's due — no more chasing twice or letting one go cold. New helper outreachStatus(). The Dashboard reads it live (no backend needed); the portfolio cards need the list_deals summary to carry three fields (a ~1-minute backend add — snippet in docs/portfolio-outreach-summary.gs) and degrade gracefully until it's deployed. No engine change."},
   {v:"10.210", date:"Aug 2026", headline:"Approach Landowner: an OUTREACH LOG, and send the email FROM YOUR COMPANY ADDRESS. (1) Every approach is now recorded on the deal in a ‘🗒 Outreach log’ — each email sent, letter prepared for post, and call is timestamped with who it was to and a note; a ‘📞 Log call / note’ box lets you jot the outcome of a phone call (‘open to an option, wants £X, call back in 2 wks’). It's the audit trail so nothing gets chased twice or forgotten. (2) The email now sends FROM your company address — set ‘Send from’ to e.g. phil.daniel@cassidygroupltd.com and the send goes out from it with replies coming back to it. Technically this needs that address to be a verified ‘Send mail as’ alias on the Google account your backend runs on (a one-time Gmail setting), so the backend snippet is upgraded to use GmailApp with the alias (docs/landowner-email-send.gs updated with the setup steps); it uses your company address when it's a valid alias/primary and otherwise falls back to the backend account and tells you which it sent from. No engine change."},
   {v:"10.209", date:"Aug 2026", headline:"The Approach-Landowner email can now be SENT straight from Landform. When the recipient's email is filled in, a ‘📤 Send email now’ button sends the reviewed draft directly through your backend — no copy-paste, no switching apps. It sends FROM your Landform (Google) account with replies routed to your own address, you confirm the send first (it can't be un-sent), and it marks the deal ‘✓ Sent’ with the address and time. REQUIRES a one-time backend step — add the ‘send_email’ action to your Google Apps Script (a ready-to-paste snippet ships in docs/landowner-email-send.gs; the first send authorises the Gmail scope, then it's the same ~2-minute deploy as the deal sync). Until that's deployed, ‘Send email now’ says so and you use ‘Open in email app’ (which drops the pre-filled draft into your own mail client) as before. Sends one email to one landowner on an explicit click — a genuine one-to-one approach, reviewed by you, not a mailshot. No engine change."},
   {v:"10.208", date:"Aug 2026", headline:"NEW: ‘📬 Approach Landowner’ (5. Report) — once the numbers are crunched, turn the deal into a ready approach to the landowner or their agent. Landform drafts, from this deal's own figures and your chosen deal structure (option / promotion / overage / conditional / unconditional), THREE things: a tailored EMAIL (with an ‘open in your email app’ button, pre-filled), a print-ready formal LETTER for the post (your letterhead sign-off + the recipient address, opens as A4 to print or save as PDF), and a CALL BRIEF for a person to phone with (opening, talking points, likely objections with responses, and a close). You set who it's addressed to, the structure, the tone, and whether to indicate a value; everything is REVIEWED and edited by you before it's sent — this is a genuine one-to-one approach for a single identified site, not a mailshot. It also gives a straight recommendation on the best channel order — letter first (strongest cold opener and fully compliant), email as a follow-up, then a HUMAN call — and flags the law honestly: an automated / AI voice call to a landowner who hasn't opted in is restricted under UK PECR (reg 19), so Landform prepares the call for a person rather than auto-dialling, and notes screening against the TPS/CTPS. True automated post (a UK mail API) and click-to-dial are compliant integrations that can be wired on the backend. New screen screen-LandownerOutreach.js. No engine change."},
