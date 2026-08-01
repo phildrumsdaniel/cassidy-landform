@@ -1,4 +1,5 @@
 /**
+ * ⚠ SUPERSEDED — use docs/backend-all-in-one.gs (one file wires everything). Kept for reference.
  * PASSWORD RESET — Apps Script backend add-on for Landform
  * =========================================================
  *

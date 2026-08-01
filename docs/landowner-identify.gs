@@ -1,4 +1,5 @@
 /**
+ * ⚠ SUPERSEDED — use docs/backend-all-in-one.gs (one file wires everything). Kept for reference.
  * Landowner Identifier — optional automated lookups  (v10.213)
  * ──────────────────────────────────────────────────────────────────────────
  * The 🕵 Landowner Identifier works with NO backend (AI research + official links).
