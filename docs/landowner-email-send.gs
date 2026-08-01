@@ -1,4 +1,5 @@
 /**
+ * ⚠ SUPERSEDED — use docs/backend-all-in-one.gs (one file wires everything). Kept for reference.
  * Landowner Outreach — send email  (v10.210)
  * ──────────────────────────────────────────────────────────────────────────
  * Adds a `send_email` action to the "Cassidy Landform Backend" Apps Script so the

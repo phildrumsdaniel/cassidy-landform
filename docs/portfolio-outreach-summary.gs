@@ -1,4 +1,5 @@
 /**
+ * ⚠ SUPERSEDED — use docs/backend-all-in-one.gs (one file wires everything). Kept for reference.
  * Portfolio — landowner outreach status in the deal list  (v10.211)
  * ──────────────────────────────────────────────────────────────────────────
  * OPTIONAL. The Deal Dashboard already shows a deal's landowner-outreach status

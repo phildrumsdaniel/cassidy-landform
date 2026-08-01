@@ -1,4 +1,5 @@
 /**
+ * ⚠ SUPERSEDED — use docs/backend-all-in-one.gs (one file wires everything). Kept for reference.
  * Placona CRM — cross-device sync  (v10.193 client; backend snippet tailored to the
  * "Cassidy Landform Backend" Apps Script, v10.198)
  * ──────────────────────────────────────────────────────────────────────────
