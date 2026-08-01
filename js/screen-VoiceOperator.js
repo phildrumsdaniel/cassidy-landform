@@ -95,11 +95,44 @@ function VoiceOperator(props){
       if(!brief.askingPrice && num(L.price) > 0) brief.askingPrice = num(L.price);
       if(!brief.postcode && L.postcode) brief.postcode = L.postcode;
       if(!brief.address && (L.address || data.dealName)) brief.address = L.address || data.dealName;
-      // 4) build the whole deal through the tested engine
+      // 4) build the whole deal through the tested engine (local, so the completion chain below
+      //    reads a live deal, not stale React state — we commit once at the end)
       setBuildMsg("Building the scheme through the engine…");
       var deal = buildDealFromBrief(brief);
+      var parseJson = function(res){ var a = res.indexOf("{"), b = res.lastIndexOf("}"); return JSON.parse((a >= 0 && b > a) ? res.substring(a, b + 1) : res); };
+
+      // 5) KEYSTONE COMPLETION — price & optimise the house mix from current market listings
+      if(deal.sfh && deal.sfh.mix && deal.sfh.mix.length && typeof applyMarketPricesAndOptimise === "function"){
+        try{
+          setBuildMsg("Researching current market prices & rents…");
+          var sfh0 = deal.sfh, sc = sfh0.city || (deal.land && deal.land.city) || "", pc = (deal.land && deal.land.postcode) || "";
+          var typeList = sfh0.mix.filter(function(r){ return num(r.count) > 0; }).map(function(r){ return r.type; }).filter(function(v, i, a){ return v && a.indexOf(v) === i; });
+          var psys = "You are a UK new-build residential valuer. Base every figure on what is ACTUALLY on the market RIGHT NOW — current Rightmove / Zoopla listings for new or nearly-new stock in THIS postcode area, not national averages. New-build commands a premium; reflect it. Output STRICT JSON only.";
+          var pprompt = "For NEW-BUILD homes in " + (cityName(sc) || "the area") + " (" + (pc || "postcode unknown") + "), give the CURRENT market SALE PRICE and monthly ASKING RENT for each type: " + typeList.join(", ") +
+            ". Price/rent as HOUSES. Output JSON: {\"types\":[{\"type\":\"<name>\",\"beds\":<n>,\"sqft\":<n>,\"salePrice\":<n>,\"rentPcm\":<n>}]}. Numbers only.";
+          var pres = await callAI(user, "keystone", psys, pprompt);
+          var aiTypes = (parseJson(pres).types) || [];
+          var out = applyMarketPricesAndOptimise(deal, aiTypes, { optimise:true });
+          if(out.applied){ deal.sfh = out.data.sfh; deal.capitalise = out.data.capitalise || deal.capitalise; }
+        }catch(e){ /* keep the table baseline if research fails */ }
+      }
+
+      // 6) KEYSTONE JOURNEY FILLERS — add the DD it can (Planning, Exit, Grants, Constraints…)
+      var fillers = (typeof KEYSTONE_JOURNEY_FILLERS !== "undefined") ? KEYSTONE_JOURNEY_FILLERS : [];
+      for(var fi = 0; fi < fillers.length; fi++){
+        var f = fillers[fi];
+        setBuildMsg("Adding due diligence — " + f.label + "… (" + (fi + 1) + " of " + fillers.length + ")");
+        try{
+          var fres = await callAI(user, "keystone", f.sys, f.prompt(deal));
+          var fobj = parseJson(fres);
+          f.apply(deal, fobj);   // mutates the local deal
+        }catch(e){ /* skip this stage, keep going */ }
+      }
+
+      // 7) commit the fully-built, priced, DD-filled deal in one write
+      setBuildMsg("Finishing up…");
       setData(function(prev){ return Object.assign({}, deal, { _raw:prev._raw,
-        keystone:Object.assign({}, prev.keystone || {}, { brief:JSON.stringify(brief, null, 2), source:(prev.keystone && prev.keystone.source) || source, builtJourney:deal.assetType, builtAt:Date.now(), fromVoice:true }) }); });
+        keystone:Object.assign({}, prev.keystone || {}, { brief:JSON.stringify(brief, null, 2), source:(prev.keystone && prev.keystone.source) || source, builtJourney:deal.assetType, builtAt:Date.now(), fromVoice:true, autoCompleted:true }) }); });
       setPhase("done");
     }catch(err){
       setPhase("review");
@@ -143,15 +176,15 @@ function VoiceOperator(props){
 
   // ── DONE ──
   if(phase === "done"){
-    return e("div", { style:{ padding:"24px 20px", maxWidth:640 } },
+    return e("div", { style:{ padding:"24px 20px", maxWidth:660 } },
       e("div", { style:{ fontSize:36, marginBottom:10 } }, "✅"),
       e("h2", { style:{ fontSize:22, fontWeight:800, color:"#1B7A54", marginBottom:6 } }, "Scheme built from your answers"),
-      e("p", { style:{ fontSize:13, color:"#5A5F86", lineHeight:1.6, marginBottom:18 } },
-        "Landform built the deal through the one tested engine. Next, let Keystone complete it — price and optimise the mix, add the due diligence it can, then print the marketing, stakeholder and approach reports."),
+      e("p", { style:{ fontSize:13, color:"#5A5F86", lineHeight:1.6, marginBottom:14 } },
+        "Landform built the deal through the one tested engine, priced the mix from current market listings, and added the due diligence it could — Planning, Exit strategy, Grants and Constraints. Now generate the board, marketing, stakeholder and investor documents on the Reports stage, ready to approach the land agent, the owner and the planners."),
       e("div", { style:{ display:"flex", gap:10, flexWrap:"wrap" } },
-        e("button", { onClick:function(){ navTo("keystone"); }, style:{ padding:"12px 22px", background:"#2D7A65", border:"none", color:"#fff", borderRadius:8, fontSize:14, fontWeight:800, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "🤖 Complete with AI & reports in Keystone →"),
-        e("button", { onClick:function(){ navTo("dashboard"); }, style:{ padding:"12px 22px", background:"#fff", border:"1px solid #4A4BAE", color:"#4A4BAE", borderRadius:8, fontSize:14, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "Go to the Deal Dashboard →"),
-        e("button", { onClick:function(){ setPhase("review"); }, style:{ padding:"12px 18px", background:"transparent", border:"1px solid #DDE0ED", color:"#7278A0", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "↺ Review my answers")));
+        e("button", { onClick:function(){ navTo("reports"); }, style:{ padding:"12px 22px", background:"#2D7A65", border:"none", color:"#fff", borderRadius:8, fontSize:14, fontWeight:800, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "📑 Generate the reports →"),
+        e("button", { onClick:function(){ navTo("dashboard"); }, style:{ padding:"12px 22px", background:"#fff", border:"1px solid #4A4BAE", color:"#4A4BAE", borderRadius:8, fontSize:14, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "Review on the Deal Dashboard →"),
+        e("button", { onClick:function(){ navTo("keystone"); }, style:{ padding:"12px 18px", background:"transparent", border:"1px solid #DDE0ED", color:"#7278A0", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "Open Keystone")));
   }
 
   // ── REVIEW ──
