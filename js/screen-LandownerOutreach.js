@@ -27,10 +27,19 @@ function LandownerOutreach(props){
   var bS = useState(false);  var busy = bS[0], setBusy = bS[1];
   var eS = useState("");     var err = eS[0], setErr = eS[1];
   var sndS = useState("");   var sendState = sndS[0], setSendState = sndS[1];   // "" | sending | sent | error:<msg>
+  var clS = useState("");    var callNote = clS[0], setCallNote = clS[1];      // manual call-log note draft
   var accent = "#2E2F8A";
 
   function esc(s){ return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
   function setO(key, val){ up("outreach", key, val); }
+  // v10.210 — outreach log: an audit trail of what was sent/done for this landowner, on the deal.
+  function addLog(channel, to, note){
+    var entry = { ts:Date.now(), channel:channel, to:to || "", note:note || "" };
+    var log = Array.isArray(o.log) ? o.log.slice() : [];
+    log.unshift(entry);
+    setO("log", log);
+  }
+  function fmtLogTime(ts){ try{ return new Date(ts).toLocaleString("en-GB", { day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" }); }catch(e){ return ""; } }
   var M = (typeof calcDealMetrics === "function") ? calcDealMetrics(data) : {};
   var rlv = num(M.rlv), asking = num(L.price), units = num(M.units), acres = num(L.acres);
   var structure = o.structure || L.dealStructure || "option";
@@ -80,15 +89,17 @@ function LandownerOutreach(props){
   async function doSendEmail(to){
     setSendState("sending");
     try{
+      var fromAddr = (o.senderEmail || "").trim();   // the company address to send FROM (a verified send-as alias on the backend account)
       var res = await fetch(WEBHOOK, { method:"POST", headers:{ "Content-Type":"text/plain;charset=utf-8" },
         body:JSON.stringify({ action:"send_email", token:(typeof WEBHOOK_TOKEN !== "undefined" ? WEBHOOK_TOKEN : ""),
           userId:(user && user.userId) || "", to:to, subject:(gen.email && gen.email.subject) || "",
-          body:(gen.email && gen.email.body) || "", replyTo:(o.senderEmail || "").trim(),
+          body:(gen.email && gen.email.body) || "", from:fromAddr, replyTo:fromAddr,
           fromName:(o.senderName || (user && user.name) || "Cassidy Group") }) });
       var j = {}; try{ j = await res.json(); }catch(e){}
       if(j && j.status === "ok"){
         setSendState("sent"); setO("emailSentAt", Date.now()); setO("emailSentTo", to);
-        if(typeof notify === "function") notify("✓ Email sent to " + to + ".");
+        addLog("email", to, "Email sent" + (j.sentFrom ? " from " + j.sentFrom : (fromAddr ? " from " + fromAddr : "")) + " — “" + ((gen.email && gen.email.subject) || "") + "”");
+        if(typeof notify === "function") notify("✓ Email sent to " + to + (j.sentFrom ? " from " + j.sentFrom : "") + ".");
       } else {
         setSendState("error:" + ((j && j.message) || "not-deployed"));
         if(typeof notify === "function") notify("Couldn't send — the 'send_email' backend action isn't deployed yet.\n\nUse ‘Open in email app’ for now, or paste the snippet in docs/landowner-email-send.gs into your Apps Script and redeploy.");
@@ -122,7 +133,14 @@ function LandownerOutreach(props){
       '<div>Dear ' + esc(o.ownerName || "Sir or Madam") + ',</div>' +
       '<div class="body">' + body + '</div>' +
       '</body></html>';
-    try{ var w = window.open("", "_blank"); w.document.write(html); w.document.close(); }catch(e){ if(typeof notify === "function") notify("Pop-up blocked — allow pop-ups to open the printable letter."); }
+    try{ var w = window.open("", "_blank"); w.document.write(html); w.document.close();
+      addLog("letter", o.ownerName || "", "Letter prepared for post" + (o.recipientPostcode ? " to " + o.recipientPostcode : ""));
+    }catch(e){ if(typeof notify === "function") notify("Pop-up blocked — allow pop-ups to open the printable letter."); }
+  }
+  function logCall(){
+    addLog("call", (addressTo === "agent" ? o.agentName : o.ownerName) || "", (callNote || "").trim() || "Call made");
+    setCallNote("");
+    if(typeof notify === "function") notify("Logged.");
   }
 
   // ── UI ──
@@ -176,8 +194,10 @@ function LandownerOutreach(props){
       e("div", { style:{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))", gap:12, marginTop:4 } },
         field("Your name", "senderName", (user && user.name) || "e.g. Phil Daniel"),
         field("Your role", "senderRole", "e.g. Land & Development Director"),
-        field("Your email", "senderEmail", "for the sign-off"),
-        field("Your phone", "senderPhone", "for the sign-off"))),
+        field("Send from / your email", "senderEmail", "e.g. phil.daniel@cassidygroupltd.com"),
+        field("Your phone", "senderPhone", "for the sign-off")),
+      e("div", { style:{ fontSize:10.5, color:"#9298BC", marginTop:6, lineHeight:1.5 } },
+        "‘Send from’ is the address the email is sent from and replies go to. To send from your company address (e.g. phil.daniel@cassidygroupltd.com) it must be a verified ‘Send mail as’ alias on the Google account your Landform backend runs on — a one-time Gmail setting (see docs/landowner-email-send.gs).")),
 
     // ── GENERATE ──
     e("div", { style:{ display:"flex", gap:12, alignItems:"center", margin:"6px 0 16px", flexWrap:"wrap" } },
@@ -223,6 +243,27 @@ function LandownerOutreach(props){
           e("div", { style:{ display:"flex", gap:8, marginTop:10 } },
             btn("Copy call brief", function(){ var cs = gen.callScript; copy("OPENING: " + (cs.opening || "") + "\n\nPOINTS:\n- " + (cs.points || []).join("\n- ") + "\n\nOBJECTIONS:\n" + (cs.objections || []).map(function(x){ return "Q: " + x.q + "\nA: " + x.a; }).join("\n") + "\n\nCLOSE: " + (cs.close || "")); }, "#4A4BAE")),
           e("div", { style:{ fontSize:10.5, color:"#9298BC", marginTop:10, lineHeight:1.5 } },
-            "For a human caller. Automated / AI voice calls to a landowner who hasn't opted in are restricted (PECR reg 19); if you want click-to-dial or a consented automated call, that's a compliant telephony integration I can scope."))))
+            "For a human caller. Automated / AI voice calls to a landowner who hasn't opted in are restricted (PECR reg 19); if you want click-to-dial or a consented automated call, that's a compliant telephony integration I can scope.")))),
+
+    // ── OUTREACH LOG ──
+    card("🗒 Outreach log",
+      e("div", { style:{ display:"flex", gap:8, alignItems:"flex-end", flexWrap:"wrap", marginBottom:10 } },
+        e("div", { style:{ flex:"1 1 240px" } },
+          e("label", { style:S.label }, "Log a call or note"),
+          e("input", { type:"text", value:callNote, onChange:function(ev){ setCallNote(ev.target.value); },
+            onKeyDown:function(ev){ if(ev.key === "Enter"){ ev.preventDefault(); logCall(); } },
+            placeholder:"e.g. Spoke to the owner — open to an option, wants £X, call back in 2 wks", style:S.input })),
+        e("button", { onClick:logCall, style:{ padding:"9px 16px", background:"#4A4BAE", border:"none", color:"#fff", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "📞 Log call / note")),
+      (Array.isArray(o.log) && o.log.length)
+        ? e("div", { style:{ display:"flex", flexDirection:"column", gap:6 } },
+            o.log.map(function(en, i){
+              var ic = en.channel === "email" ? "✉" : en.channel === "letter" ? "✉📮" : en.channel === "call" ? "📞" : "•";
+              var col = en.channel === "email" ? "#2D7A65" : en.channel === "letter" ? "#9A7B3E" : "#4A4BAE";
+              return e("div", { key:i, style:{ display:"flex", gap:10, alignItems:"baseline", fontSize:12, color:"#3A3D6A", borderLeft:"3px solid " + col, background:"#F7F8FC", borderRadius:"0 6px 6px 0", padding:"7px 10px" } },
+                e("span", { style:{ fontWeight:800, color:col, minWidth:64 } }, ic + " " + (en.channel || "").toUpperCase()),
+                e("span", { style:{ flex:1 } }, (en.note || "") + (en.to ? " · " + en.to : "")),
+                e("span", { style:{ fontSize:10.5, color:"#9298BC", whiteSpace:"nowrap" } }, fmtLogTime(en.ts)));
+            }))
+        : e("div", { style:{ fontSize:12, color:"#9298BC", fontStyle:"italic" } }, "No outreach yet — sending an email, printing a letter or logging a call records it here (saved on the deal)."))
   );
 }
