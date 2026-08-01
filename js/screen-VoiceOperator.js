@@ -438,26 +438,32 @@ function VoiceOperator(props){
     setMessages(hist); setDraft(""); setThinking(true);
     var facts = assembleSiteFacts().join("; ");
     var convoText = hist.map(function(m){ return (m.role === "assistant" ? "Operator" : "Developer") + ": " + m.text; }).join("\n");
-    // 1) update the running brief from the whole conversation, then run the engine → live figures
-    var fig = figures;
-    try{
+    // SPEED: fire the reply and the brief-extraction IN PARALLEL. The reply used to wait for the
+    // extraction (two round-trips back to back); now it uses the figures we already have (they firm up
+    // as you talk) and returns as soon as the reply itself is ready. Extraction refreshes the figures
+    // in the background for the panel and the next turn.
+    var replyP = callAI(user, "keystone", convoSystem(facts, figures),
+      "Conversation so far:\n" + convoText + "\n\nReply as the Operator now — natural, concise, spoken-friendly. Quote the live figures above when they're relevant to what they just said.");
+    (function(){
       var schemaKeys = Object.keys(KEYSTONE_BRIEF_SCHEMA).map(function(f){ return f + ": " + KEYSTONE_BRIEF_SCHEMA[f]; }).join("\n");
       var exSys = "You extract a UK residential development brief as STRICT JSON. Only facts stated or clearly implied in the conversation; numbers as numbers (no £ or commas); omit anything unknown; infer the postcode outcode from any named place.";
       var exPrompt = "Known site facts: " + (facts || "none") + "\n\nConversation:\n" + convoText + "\n\nProduce ONE JSON object using these fields (omit unknowns):\n" + schemaKeys + "\nJSON only.";
-      var exRes = await callAI(user, "keystone", exSys, exPrompt);
-      var merged = Object.assign({}, runningBrief, parseJson(exRes));   // accumulate across turns
-      if(!merged.acres && num(L.acres) > 0) merged.acres = num(L.acres);
-      if(!merged.askingPrice && num(L.price) > 0) merged.askingPrice = num(L.price);
-      if(!merged.postcode && L.postcode) merged.postcode = L.postcode;
-      if(!merged.address && (L.address || data.dealName)) merged.address = L.address || data.dealName;
-      setRunningBrief(merged);
-      var f2 = computeLiveFigures(merged);
-      if(f2){ fig = f2; setFigures(f2); }
-    }catch(e){ /* keep whatever figures we already had */ }
-    // 2) conversational reply, WITH the live figures in context so the operator quotes them
+      callAI(user, "keystone", exSys, exPrompt).then(function(exRes){
+        try{
+          var merged = Object.assign({}, runningBrief, parseJson(exRes));   // accumulate across turns
+          if(!merged.acres && num(L.acres) > 0) merged.acres = num(L.acres);
+          if(!merged.askingPrice && num(L.price) > 0) merged.askingPrice = num(L.price);
+          if(!merged.postcode && L.postcode) merged.postcode = L.postcode;
+          if(!merged.address && (L.address || data.dealName)) merged.address = L.address || data.dealName;
+          setRunningBrief(merged);
+          var f2 = computeLiveFigures(merged);
+          if(f2) setFigures(f2);
+        }catch(e){ /* keep whatever figures we already had */ }
+      }).catch(function(){});
+    })();
+    // conversational reply — awaited on its own, no longer blocked by extraction
     try{
-      var res = await callAI(user, "keystone", convoSystem(facts, fig),
-        "Conversation so far:\n" + convoText + "\n\nReply as the Operator now — natural, concise, spoken-friendly. Quote the live figures above when they're relevant to what they just said.");
+      var res = await replyP;
       var reply = ((res || "").trim()) || "Understood.";
       setMessages(function(m){ return m.concat([{ role:"assistant", text:reply }]); });
       setThinking(false); speak(reply, function(){ if(hfRef.current) (listenRef.current || startHFListen)(); });   // hands-free: listen again after Ronald replies
