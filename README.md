@@ -7,6 +7,22 @@ A web app that takes a property deal from raw land sourcing through to investor 
 **Current version:** v9.8 (Frontend) · v9.5 (Backend, chunked storage)
 **Live URL:** `phildrumsdaniel.github.io/cassidy-landform/`
 **Workflow Atlas:** `phildrumsdaniel.github.io/cassidy-landform/flowchart.html`
+**Litigation tool — Cassidy v Phoenix Email Evidence Scorer:** `phildrumsdaniel.github.io/cassidy-landform/phoenix-cassidy/`
+
+> ### ⚖️ Cassidy v Phoenix — Email Evidence Scorer (`/phoenix-cassidy/`)
+> A self-contained, browser-only workbench for the **Cassidy Group v Phoenix Life** dispute
+> (Project Lock, Wolverhampton — Claim No. CC-2023-BHM-000029). It turns each disclosed email
+> into a signed **Case Impact Score** — positive = *for* Cassidy, negative = *against* — using a
+> deliberately **Cassidy-biased** scoring model (adjustable bias factor, per-issue weights, and an
+> "admission against interest" bonus when a Phoenix-side email helps Cassidy). Features:
+> - **Dashboard** — net case score, a *for/against* case-strength meter, balance-by-issue bars, and the strongest cards on each side.
+> - **Evidence table** — search/filter by issue, stance and sender side; expand any email for its body, keyword hits and *why it scores*; manually re-score any email (saved to the device).
+> - **Import** — drag-drop the team's annotated disclosure CSVs (`Support / Adverse / Neutral`, `Support Score (1–10)`, `Issue Tags`, `Body`, etc. — e.g. *Master_Court_Ready_View*, the per-issue exports); columns auto-detected, big files parsed locally.
+> - **Export** — scored set back out as JSON or CSV.
+>
+> Seeded with the curated key emails (35.msg reliance warning, 33/34.msg status updates, 30.msg
+> missing facility letter, the 24 May 2022 insurance-wrap note, etc.). Runs entirely client-side —
+> nothing is uploaded. It is an **advocacy tool, not neutral legal advice**.
 
 ### Code layout
 

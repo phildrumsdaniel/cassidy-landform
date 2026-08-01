@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cassidy v Phoenix — Email Evidence Scorer</title>
+<meta name="description" content="Biased-toward-Cassidy scoring workbench for the Cassidy Group v Phoenix Life email evidence (Project Lock, Wolverhampton). CC-2023-BHM-000029.">
+<style>
+  :root{
+    --navy:#1E1F5C; --navy-2:#2a2c7a; --gold:#EDE84A; --green:#2D7A65; --bronze:#B05A35;
+    --for:#2D7A65; --for-2:#3a9a80; --against:#c0392b; --against-2:#e05545; --neutral:#8a8ea3;
+    --bg:#0f1030; --panel:#181a44; --panel-2:#1f2255; --line:#2c2f66; --ink:#eef0ff; --muted:#a7abd4;
+    --shadow:0 8px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:linear-gradient(160deg,#0c0d28,#141642 60%,#0c0d28);color:var(--ink);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    min-height:100vh}
+  a{color:var(--gold)}
+  header.app{padding:18px 22px;border-bottom:1px solid var(--line);
+    background:linear-gradient(90deg,var(--navy),var(--navy-2));position:sticky;top:0;z-index:30;
+    box-shadow:var(--shadow)}
+  .brandline{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .logo{width:40px;height:40px;border-radius:9px;background:var(--gold);color:var(--navy);
+    display:grid;place-items:center;font-weight:800;font-size:19px}
+  h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.2px}
+  .sub{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .pill{margin-left:auto;background:rgba(237,232,74,.12);border:1px solid rgba(237,232,74,.4);
+    color:var(--gold);padding:5px 11px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap}
+  nav.tabs{display:flex;gap:4px;padding:10px 16px 0;flex-wrap:wrap;background:var(--navy);
+    border-bottom:1px solid var(--line);position:sticky;top:78px;z-index:29}
+  nav.tabs button{background:transparent;border:0;color:var(--muted);padding:10px 15px;
+    border-radius:9px 9px 0 0;font-size:14px;font-weight:600;cursor:pointer;border-bottom:3px solid transparent}
+  nav.tabs button:hover{color:var(--ink);background:rgba(255,255,255,.04)}
+  nav.tabs button.active{color:var(--gold);border-bottom-color:var(--gold);background:var(--panel)}
+  main{max-width:1240px;margin:0 auto;padding:22px 18px 80px}
+  .view{display:none} .view.active{display:block;animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;
+    box-shadow:var(--shadow)}
+  .grid{display:grid;gap:16px}
+  .kpis{grid-template-columns:repeat(auto-fit,minmax(165px,1fr))}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+  .kpi .n{font-size:30px;font-weight:800;line-height:1.05}
+  .kpi .l{color:var(--muted);font-size:12.5px;margin-top:6px;text-transform:uppercase;letter-spacing:.6px}
+  .kpi.for .n{color:var(--for-2)} .kpi.against .n{color:var(--against-2)}
+  .kpi.net .n{color:var(--gold)}
+  h2.sec{font-size:15px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);
+    margin:26px 0 12px;font-weight:700}
+  .strengthwrap{margin:4px 0 2px}
+  .strengthbar{height:34px;border-radius:10px;overflow:hidden;display:flex;border:1px solid var(--line)}
+  .strengthbar .f{background:linear-gradient(90deg,var(--for),var(--for-2));display:grid;place-items:center;
+    color:#fff;font-weight:700;font-size:13px;min-width:44px}
+  .strengthbar .a{background:linear-gradient(90deg,var(--against-2),var(--against));display:grid;place-items:center;
+    color:#fff;font-weight:700;font-size:13px;min-width:44px}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;color:var(--muted);font-size:12.5px;margin-top:8px}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:middle}
+  .dot.for{background:var(--for-2)} .dot.against{background:var(--against-2)} .dot.neutral{background:var(--neutral)}
+  /* issue bars */
+  .issuerow{display:grid;grid-template-columns:180px 1fr 70px;gap:12px;align-items:center;margin:8px 0}
+  .issuerow .name{font-size:13px;color:var(--ink)}
+  .issuerow .track{height:20px;background:var(--panel-2);border-radius:6px;overflow:hidden;display:flex}
+  .issuerow .track .f{background:var(--for-2)} .issuerow .track .a{background:var(--against-2)}
+  .issuerow .val{text-align:right;font-weight:700;font-size:13px}
+  .mini{color:var(--muted);font-size:12px}
+  table{width:100%;border-collapse:collapse}
+  /* evidence table */
+  .filterbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .filterbar input,.filterbar select{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);
+    padding:9px 11px;border-radius:9px;font-size:13.5px}
+  .filterbar input[type=search]{min-width:230px;flex:1}
+  .btn{background:var(--gold);color:var(--navy);border:0;padding:9px 15px;border-radius:9px;font-weight:700;
+    cursor:pointer;font-size:13.5px}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+  .btn.ghost:hover{background:var(--panel-2)}
+  .btn:hover{filter:brightness(1.05)}
+  .ev{border:1px solid var(--line);border-radius:12px;margin-bottom:10px;overflow:hidden;background:var(--panel)}
+  .ev .head{display:grid;grid-template-columns:64px 1fr auto;gap:12px;align-items:center;padding:12px 14px;
+    cursor:pointer}
+  .ev .head:hover{background:var(--panel-2)}
+  .stance{width:56px;text-align:center;border-radius:8px;padding:8px 4px;font-weight:800;font-size:18px;color:#fff}
+  .stance.support{background:var(--for)} .stance.adverse{background:var(--against)}
+  .stance.neutral{background:var(--neutral)}
+  .stance small{display:block;font-size:9px;font-weight:700;letter-spacing:.5px;opacity:.9}
+  .ev .subj{font-weight:600;font-size:14.5px}
+  .ev .meta{color:var(--muted);font-size:12px;margin-top:3px;display:flex;gap:10px;flex-wrap:wrap}
+  .tag{background:var(--panel-2);border:1px solid var(--line);border-radius:20px;padding:2px 9px;font-size:11px;color:var(--muted)}
+  .cis{text-align:right;min-width:70px}
+  .cis .big{font-size:22px;font-weight:800}
+  .cis.pos .big{color:var(--for-2)} .cis.neg .big{color:var(--against-2)}
+  .ev .body{display:none;padding:0 16px 16px;border-top:1px solid var(--line)}
+  .ev.open .body{display:block}
+  .ev .body h4{margin:14px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--gold)}
+  .bodytext{white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:9px;
+    padding:12px;max-height:280px;overflow:auto;font-size:13px;color:#d7daff}
+  .override{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+  .override select,.override input{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);
+    padding:7px 9px;border-radius:8px;font-size:13px}
+  .drop{border:2px dashed var(--line);border-radius:14px;padding:34px;text-align:center;color:var(--muted);
+    background:var(--panel);transition:.15s}
+  .drop.drag{border-color:var(--gold);background:var(--panel-2);color:var(--ink)}
+  .slider-row{display:grid;grid-template-columns:200px 1fr 60px;gap:14px;align-items:center;margin:14px 0}
+  input[type=range]{width:100%}
+  .prose{max-width:820px}
+  .prose h3{color:var(--gold);margin:22px 0 8px;font-size:16px}
+  .prose p,.prose li{color:#d7daff}
+  .prose ul{padding-left:20px}
+  .prose .who{color:var(--muted);font-size:13px}
+  .badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700}
+  .badge.for{background:rgba(45,122,101,.25);color:var(--for-2);border:1px solid var(--for)}
+  .badge.against{background:rgba(192,57,43,.22);color:var(--against-2);border:1px solid var(--against)}
+  .note{font-size:12.5px;color:var(--muted);margin-top:8px}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;
+    padding:11px 18px;border-radius:10px;font-weight:600;box-shadow:var(--shadow);opacity:0;pointer-events:none;
+    transition:.2s;z-index:60}
+  .toast.show{opacity:1}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:760px){.row2{grid-template-columns:1fr}.issuerow{grid-template-columns:120px 1fr 54px}
+    .ev .head{grid-template-columns:52px 1fr auto}}
+  .disclaimer{font-size:11.5px;color:var(--muted);border-top:1px solid var(--line);margin-top:30px;padding-top:14px}
+</style>
+</head>
+<body>
+<header class="app">
+  <div class="brandline">
+    <div class="logo">C</div>
+    <div>
+      <h1>Cassidy v Phoenix — Email Evidence Scorer</h1>
+      <div class="sub">Project Lock · 829-bed student scheme, Stafford Street, Wolverhampton · <b>CC-2023-BHM-000029</b></div>
+    </div>
+    <div class="pill">Biased toward Cassidy ⚖️</div>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button data-v="dash" class="active">Dashboard</button>
+  <button data-v="evidence">Evidence</button>
+  <button data-v="brief">Case Brief</button>
+  <button data-v="model">Scoring Model</button>
+  <button data-v="import">Import / Export</button>
+</nav>
+
+<main>
+  <!-- DASHBOARD -->
+  <section class="view active" id="dash">
+    <div class="grid kpis" id="kpis"></div>
+
+    <h2 class="sec">Case strength — weighted toward Cassidy</h2>
+    <div class="card">
+      <div class="strengthwrap">
+        <div class="strengthbar" id="strengthbar"></div>
+      </div>
+      <div class="legend">
+        <span><span class="dot for"></span>For Cassidy (supports the claim)</span>
+        <span><span class="dot against"></span>Against Cassidy (helps Phoenix)</span>
+        <span><span class="dot neutral"></span>Neutral / background</span>
+      </div>
+      <div class="note" id="strengthnote"></div>
+    </div>
+
+    <div class="row2" style="margin-top:16px">
+      <div class="card">
+        <h2 class="sec" style="margin-top:0">Balance by issue</h2>
+        <div id="issuebars"></div>
+      </div>
+      <div class="card">
+        <h2 class="sec" style="margin-top:0">Strongest cards</h2>
+        <div style="font-size:12px;color:var(--gold);font-weight:700;letter-spacing:.6px;margin-bottom:6px">TOP FOR CASSIDY</div>
+        <div id="topfor"></div>
+        <div style="font-size:12px;color:var(--against-2);font-weight:700;letter-spacing:.6px;margin:14px 0 6px">TOP AGAINST CASSIDY</div>
+        <div id="topagainst"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- EVIDENCE -->
+  <section class="view" id="evidence">
+    <div class="filterbar">
+      <input type="search" id="q" placeholder="Search subject, sender, body, keywords…">
+      <select id="fIssue"><option value="">All issues</option></select>
+      <select id="fStance">
+        <option value="">All stances</option>
+        <option value="support">For Cassidy</option>
+        <option value="adverse">Against Cassidy</option>
+        <option value="neutral">Neutral</option>
+      </select>
+      <select id="fSide">
+        <option value="">Any sender</option>
+        <option value="cassidy">Cassidy side</option>
+        <option value="phoenix">Phoenix / abrdn side</option>
+        <option value="adviser">Advisers / third parties</option>
+      </select>
+      <select id="sort">
+        <option value="impact">Sort: strongest impact</option>
+        <option value="for">Sort: most for Cassidy</option>
+        <option value="against">Sort: most against Cassidy</option>
+        <option value="date">Sort: date</option>
+      </select>
+      <span class="mini" id="evcount"></span>
+    </div>
+    <div id="evlist"></div>
+  </section>
+
+  <!-- CASE BRIEF -->
+  <section class="view" id="brief">
+    <div class="card prose">
+      <h3>The dispute in one paragraph</h3>
+      <p><b>Cassidy Group Investments Ltd</b> (claimant) sued <b>Phoenix Life Ltd</b> / abrdn (defendant) over
+      <b>“Project Lock”</b> — a proposed institutional forward-funding of an <b>829-bed purpose-built student
+      accommodation scheme at Stafford Street, Wolverhampton</b> (development cashflow ≈ <b>£86.99m</b>). From
+      roughly <b>August 2021 to mid-2022</b> Phoenix and its advisers engaged with Cassidy on terms, indemnities,
+      due diligence, an insurance wrap and a funding facility. Cassidy says it was induced to run up substantial
+      abortive/reliance costs and then Phoenix walked away; Phoenix says the deal was always conditional and
+      Cassidy failed to deliver the deliverables needed to close.</p>
+
+      <h3>Cassidy’s case (why the emails should score “for”)</h3>
+      <ul>
+        <li>Phoenix repeatedly signalled it was <b>keen to close</b> with <b>“no show-stoppers”</b>, keeping Cassidy in the deal.</li>
+        <li>Cassidy <b>flagged its reliance and exposure early</b> (e.g. £1,000,000 LOI to Winvic; ~£2m minimum exposure) — Phoenix knew.</li>
+        <li>Phoenix never produced core finance documents — <b>no facility letter</b> — and let the <b>Ageas / Lime Risk insurance wrap</b> stall.</li>
+        <li>Internal Phoenix/abrdn correspondence suggests they <b>knew the insurance policy would not be accepted</b> yet pressed on.</li>
+        <li>Requirements <b>shifted</b> over ~10 months (“institutional capital-markets approach”, “cashflow not property deal”).</li>
+      </ul>
+
+      <h3>Phoenix’s defence (why some emails score “against”)</h3>
+      <ul>
+        <li>Express <b>“on-risk until funding is finalised”</b> language — nothing was assured until close.</li>
+        <li>Consistent narrative that <b>Cassidy didn’t deliver</b>: no credible Knight Frank Market Demand Report, no audited/workable cashflow model, no signed Sodexo FM agreement, no certified lifecycle costs.</li>
+        <li>Third-party/adviser frustration that <b>Cassidy wasn’t engaging</b> (e.g. refusing face-to-face).</li>
+      </ul>
+
+      <h3>The seven disclosure issues</h3>
+      <p class="who">The evidence team tags every email to one or more of these issues and scores it Support / Adverse / Neutral with a 1–10 strength. The scorer weights each issue (editable on the Scoring Model tab).</p>
+      <ul id="issuelist"></ul>
+
+      <h3>Key people</h3>
+      <ul>
+        <li><b>Cassidy side:</b> Patric Cassidy (director), Sam Rose, Liam Brennan, Guy Hammond (JAG — broker), Anna Swinfield, Phil Daniel.</li>
+        <li><b>Phoenix / abrdn side:</b> Oliver Swallow, Neo Mooki, William Rowley, Chris Palmer, Andrew Dennis, Daniel Zakrzewski.</li>
+        <li><b>Advisers / third parties:</b> Richard Lampert (Eversheds Sutherland), Matthew Duncan (Cadwalader), Fergus Thompson-Yates (NCS), Sodexo (Richard Bolger), Lime Risk (Dave Harry / Paul Rogers), Ageas.</li>
+      </ul>
+      <div class="disclaimer">Working analysis tool for the Cassidy litigation team. Stances/scores are advocacy assessments, not neutral legal advice or a determination of the merits. Full email bodies come from disclosure; treat as confidential and privileged.</div>
+    </div>
+  </section>
+
+  <!-- SCORING MODEL -->
+  <section class="view" id="model">
+    <div class="card prose">
+      <h3>How an email becomes a score</h3>
+      <p>Every email is turned into a signed <b>Case Impact Score (CIS)</b> — positive = helps Cassidy, negative = helps Phoenix:</p>
+      <p style="background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:12px;font-family:monospace;font-size:13px">
+        sign  = +1 (Support) · −1 (Adverse) · 0 (Neutral)<br>
+        base  = sign × supportScore&nbsp;&nbsp;<span class="mini">(strength 1–10)</span><br>
+        bias  = if For →  base × B&nbsp;&nbsp; if Against → base ÷ B<br>
+        CIS   = bias × issueWeight × admissionBonus
+      </p>
+      <p><b>Deliberately biased toward Cassidy.</b> The <b>Cassidy Bias (B)</b> amplifies supporting evidence and discounts adverse evidence. B = 1.0 is objective; higher tilts the whole picture in Cassidy’s favour — exactly the advocacy lens the team asked for. Everything is transparent and adjustable.</p>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h2 class="sec" style="margin-top:0">Bias & bonuses</h2>
+      <div class="slider-row">
+        <label>Cassidy Bias (B)</label>
+        <input type="range" id="sBias" min="1" max="2" step="0.05" value="1.3">
+        <span id="vBias" style="font-weight:700;color:var(--gold)">1.30×</span>
+      </div>
+      <p class="mini">1.00 = neutral · 1.30 = house default · 2.00 = strongly pro-Cassidy</p>
+      <div class="slider-row">
+        <label>“Admission against interest” bonus<br><span class="mini">Phoenix-side email that <i>helps</i> Cassidy</span></label>
+        <input type="range" id="sAdm" min="1" max="2.5" step="0.1" value="1.5">
+        <span id="vAdm" style="font-weight:700;color:var(--gold)">1.5×</span>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h2 class="sec" style="margin-top:0">Issue weights</h2>
+      <div id="issueweights"></div>
+      <div style="margin-top:12px"><button class="btn ghost" id="resetModel">Reset to defaults</button></div>
+    </div>
+  </section>
+
+  <!-- IMPORT -->
+  <section class="view" id="import">
+    <div class="card">
+      <h2 class="sec" style="margin-top:0">Import annotated disclosure CSV</h2>
+      <p class="mini">Drop any of the team’s scored exports — e.g. <i>“Issue 4 Disclosure — Updated Annotated Email Analysis”</i>,
+      <i>Master_Court_Ready_View</i>, <i>GH_Court_Ready_View_explained</i>. The importer auto-detects columns
+      (<code>Support / Adverse / Neutral</code>, <code>Support Score (1–10)</code>, <code>Issue Tags</code>, <code>Keyword Hits</code>,
+      <code>Body</code>/<code>Full Email Body</code>, <code>From</code>, <code>Subject</code>, <code>Issue Relevance Explanation</code>).</p>
+      <div class="drop" id="drop">
+        <div style="font-size:34px">📄⚖️</div>
+        <p><b>Drop a .csv file here</b> or</p>
+        <input type="file" id="file" accept=".csv,.json" style="display:none">
+        <button class="btn" id="pick">Choose file</button>
+        <div class="mini" id="importstatus" style="margin-top:12px"></div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn ghost" id="loadSeed">Reload curated key evidence</button>
+        <button class="btn ghost" id="exportJson">Export scored set (JSON)</button>
+        <button class="btn ghost" id="exportCsv">Export scored set (CSV)</button>
+        <button class="btn ghost" id="clearAll" style="border-color:var(--against)">Clear all data</button>
+      </div>
+      <p class="mini" id="datastat" style="margin-top:12px"></p>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h2 class="sec" style="margin-top:0">Notes</h2>
+      <ul class="mini">
+        <li>Everything runs <b>in your browser</b>. Nothing is uploaded. Your scores auto-save to this device (localStorage).</li>
+        <li>Manual re-scores you make on the Evidence tab override the imported score and are kept on export.</li>
+        <li>Big files (20–30MB Court-Ready exports) parse locally — give it a few seconds.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================ CONFIG ============================ */
+const ISSUES = [
+  {id:"1", name:"Indemnity", def:"Indemnity deed / who bears abortive costs", w:1.2},
+  {id:"2", name:"Misrepresentation & Timeline", def:"Shifting representations, the 10-month timeline", w:1.5},
+  {id:"3", name:"Reliance & Inducement", def:"Cassidy relying on Phoenix, being induced to spend", w:1.3},
+  {id:"4", name:"Fees, Costs & Conduct", def:"Advisory/legal fees, DD costs, conduct of workstreams", w:1.0},
+  {id:"5", name:"Cassidy’s Losses (Quantum)", def:"Abortive/reliance losses and damages", w:1.4},
+  {id:"6", name:"Insurance Wrap", def:"Ageas / Lime Risk policy and its breakdown", w:1.3},
+  {id:"7", name:"Causation / Funding Breakdown", def:"Why the funding collapsed; whose fault", w:1.4},
+];
+const PARTIES = {
+  cassidy:["patric cassidy","sam rose","liam brennan","guy hammond","gh@jag","anna swinfield","phil daniel","cassidygroup","jagcapital"],
+  phoenix:["oliver swallow","neo mooki","william rowley","chris palmer","andrew dennis","daniel zakrzewski","abrdn","phoenix"],
+  adviser:["lampert","eversheds","matthew duncan","cadwalader","fergus","thompson-yates","ncs","sodexo","bolger","lime risk","limerisk","ageas","paul rogers","dave harry","clear group","knight frank","cbre","gleeds"]
+};
+function sideOf(txt){
+  const s=(txt||"").toLowerCase();
+  for(const k of PARTIES.phoenix) if(s.includes(k)) return "phoenix";
+  for(const k of PARTIES.adviser) if(s.includes(k)) return "adviser";
+  for(const k of PARTIES.cassidy) if(s.includes(k)) return "cassidy";
+  return "other";
+}
+
+/* ===================== CURATED SEED EVIDENCE ===================== */
+/* Real key emails from the disclosure analysis (File 1 assessment + Phoenix Disclosure thread). */
+const SEED = [
+  {id:"seed-35", date:"2021-12-31", from:"Patric Cassidy", to:"Oliver Swallow (Phoenix)",
+   subject:"35.msg — Cassidy warns of major risk & urgency", issue:["3","5"], stance:"support", score:9,
+   keywords:"£1,000,000 LOI Winvic; £2,000,000 exposure; urgency; no signed Heads of Terms",
+   body:"Patric Cassidy warns Phoenix that Cassidy have already issued a £1,000,000 LOI to Winvic and face a minimum £2,000,000 exposure without even signed Heads of Terms. Pressing urgency — need to close Jan/Feb or there is no deal.",
+   why:"Strong contemporaneous evidence that Cassidy flagged reliance and exposure early and that Phoenix knew Cassidy was committing real money on the strength of the deal progressing."},
+  {id:"seed-60", date:"2021-12-09", from:"Oliver Swallow (Phoenix)", to:"Patric Cassidy",
+   subject:"60.msg — FW: Wolverhampton Lock Term Sheet", issue:["1","2"], stance:"adverse", score:6,
+   keywords:"signed HoT/Term Sheet; on-risk until funding finalised",
+   body:"Phoenix confirm a signed HoT / Term Sheet is attached and state: “The developer is aware they are on-risk until the funding is finalised.”",
+   why:"Helps Phoenix: clear on-risk / conditionality language supports the argument that nothing was assured until close. (But it also shows Phoenix knew Cassidy was underwriting interim risk.)"},
+  {id:"seed-50", date:"2021-12-10", from:"Phoenix / advisers", to:"Cassidy",
+   subject:"50.msg — Indemnity deed before work starts", issue:["1"], stance:"adverse", score:5,
+   keywords:"indemnity deed; sign before kicking off work",
+   body:"Phoenix push for the indemnity deed to be signed before kicking off work.",
+   why:"Reinforces conditionality and a controlled start — supports Phoenix’s framing that the process was staged and conditional."},
+  {id:"seed-103", date:"2022-01-20", from:"Phoenix / abrdn", to:"Cassidy",
+   subject:"103.msg — FW: Project Lock – Finances (full cashflow breakdown)", issue:["4","5"], stance:"support", score:5,
+   keywords:"£86,990,000 cashflow; land £12.596m; construction £45.168m; insurance wrap £4.007m; OH&P £11.993m",
+   body:"Full high-level breakdown of the Development Cashflow totalling £86,990,000 — Land £12.596m, Construction £45.168m, Insurance wrap £4.007m, Agent fees £1.002m, Bullet/Contingency profit £8.699m, OH&P £11.993m — with questions about how amounts are justified and paid.",
+   why:"Demonstrates active progress and that detailed numbers existed in writing at the time — undercuts any later claim that Cassidy had produced nothing workable."},
+  {id:"seed-33", date:"2022-02-02", from:"Oliver Swallow (Phoenix)", to:"Patric Cassidy",
+   subject:"33.msg — Project Lock status update (VERY IMPORTANT)", issue:["2","7"], stance:"support", score:6,
+   keywords:"institutional capital markets approach; cashflows not value; underwriting interim risk; end of March; no show-stoppers; keen to close",
+   body:"Phoenix say they use an institutional capital-markets approach, fund on cashflows not property value, that Cassidy are underwriting financial and other risks in the interim, and the timeframe shifts to end of March 2022. They list gaps to close (Market Demand Report, design/spec proof, Sodexo LOI + FM Agreement, independently reviewed lifecycle/maintenance plans, audited financial model) — but say they are positive, keen to close, and found no show-stoppers.",
+   why:"Mixed but net-for: Phoenix confirm they were keen to close with no show-stoppers, which supports Cassidy’s reliance case and cuts against a later ‘it was never going to happen’ defence. Also evidences the shifting timeframe."},
+  {id:"seed-30", date:"2022-03-01", from:"Patric Cassidy", to:"Oliver Swallow (Phoenix)",
+   subject:"30.msg — DD fee increase + Phoenix-side missing items", issue:["4","6"], stance:"support", score:8,
+   keywords:"NCS fee +175% to £55,000; no draft Sodexo agreement; no finance documentation; no facility letter; Ageas wording not accepted",
+   body:"Patric states the NCS fee increased by 175% (to £55,000); there is still no draft Sodexo management agreement; Cassidy have not had sight of any finance documentation including a facility letter; board approval was expected the prior week; and the Ageas policy wording is not accepted.",
+   why:"Clear contemporaneous evidence that Phoenix had not produced the core finance documents (a facility letter) Cassidy expected, and that the insurance wrap was unresolved — central to causation and to Cassidy’s losses."},
+  {id:"seed-34", date:"2022-04-11", from:"Oliver Swallow (Phoenix)", to:"Patric Cassidy",
+   subject:"34.msg — RE: KF Market Demand Report (VERY IMPORTANT)", issue:["2","7"], stance:"adverse", score:8,
+   keywords:"10 weeks; requirements not progressed; funding not ready; no credible market demand report; no working cashflow model; cashflow deal not property deal",
+   body:"Responding to Patric suspending work, Phoenix say that after 10 weeks key requirements had not progressed, funding won’t be ready by end of April (late May best estimate), there is no credible Market Demand Report, no independently certified lifecycle costs, no working cashflow model despite repeatedly asking for months, and insurers can’t complete DD without an audited cashflow — “this is a cashflow deal, not a property deal.”",
+   why:"Phoenix’s strongest card: a contemporaneous narrative blaming delay on missing core deliverables, not goalpost-shifting. Damaging to Cassidy’s causation case and must be met head-on."},
+  {id:"seed-49", date:"2022-02-10", from:"Richard Lampert (Eversheds)", to:"Cassidy / Phoenix",
+   subject:"49.msg — Lampert: why won’t Patric meet face to face", issue:["4"], stance:"adverse", score:6,
+   keywords:"won’t sit down face to face; risk this deal won’t happen; won’t put PI reputations on the line",
+   body:"Richard Lampert says he doesn’t understand why Patric won’t sit down face to face, warns there is a risk this deal won’t happen, and says they won’t put PI reputations on the line just for the sake of getting it done.",
+   why:"Third-party adviser frustration that can be read as Cassidy being obstructive — supports Phoenix’s defence on conduct."},
+  {id:"seed-24may", date:"2022-05-24", from:"Chris Palmer (abrdn) → Neo Mooki; William Rowley; Oliver Swallow", to:"Phoenix / abrdn internal",
+   subject:"24 May 2022 note — Phoenix knew Lime Risk would not accept the policy", issue:["6","2"], stance:"support", score:9,
+   keywords:"had the insurance policy since March; know Lime Risk will not accept; disclosure",
+   body:"Internal abrdn/Phoenix note (Chris Palmer to Neo Mooki, William Rowley, Oliver Swallow and others) in which the teams state they have had the insurance policy since March and know Lime Risk will not accept it.",
+   why:"Potential admission against interest: Phoenix/abrdn internally knew from March the insurance wrap would not be accepted, yet kept Cassidy engaged and spending. Strongly supports misrepresentation and the insurance-wrap failure being Phoenix’s responsibility."},
+];
+
+/* ============================ STATE ============================ */
+const LS_DATA="cvp_emails_v1", LS_MODEL="cvp_model_v1", LS_OVR="cvp_overrides_v1";
+let MODEL = load(LS_MODEL) || {bias:1.3, adm:1.5, issueW:Object.fromEntries(ISSUES.map(i=>[i.id,i.w]))};
+let OVERRIDES = load(LS_OVR) || {};   // id -> {stance,score}
+let EMAILS = load(LS_DATA);
+if(!EMAILS || !EMAILS.length){ EMAILS = normalizeSeed(); save(LS_DATA,EMAILS); }
+
+function normalizeSeed(){ return SEED.map(e=>({...e, source:"curated"})); }
+function load(k){ try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;} }
+function save(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
+
+/* ===================== SCORING ENGINE ===================== */
+function effective(e){
+  const o = OVERRIDES[e.id]||{};
+  const stance = o.stance || e.stance || "neutral";
+  const score = (o.score!=null? o.score : (e.score!=null? e.score : 5));
+  return {stance, score, overridden: !!(o.stance||o.score!=null)};
+}
+function cis(e){
+  const {stance,score}=effective(e);
+  const sign = stance==="support"?1: stance==="adverse"?-1:0;
+  if(sign===0) return 0;
+  let base = sign*score;
+  base = sign>0 ? base*MODEL.bias : base/MODEL.bias;
+  // strongest issue weight among tagged issues
+  let iw=1; (e.issue||[]).forEach(id=>{ iw=Math.max(iw, MODEL.issueW[id]||1); });
+  // admission bonus: Phoenix-side sender whose email helps Cassidy
+  let adm=1;
+  if(sign>0 && sideOf(e.from)==="phoenix") adm=MODEL.adm;
+  return base*iw*adm;
+}
+function totals(list){
+  let net=0,f=0,a=0,n=0,sf=0,sa=0;
+  list.forEach(e=>{ const c=cis(e); net+=c;
+    const st=effective(e).stance;
+    if(st==="support"){f++; sf+=c;} else if(st==="adverse"){a++; sa+=Math.abs(c);} else n++;
+  });
+  return {net,f,a,n,sf,sa,total:list.length};
+}
+
+/* ============================ RENDER ============================ */
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+function fmt(x){return (x>=0?"+":"")+x.toFixed(1);}
+function esc(s){return (s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+
+function renderDash(){
+  const t=totals(EMAILS);
+  $("#kpis").innerHTML = `
+    <div class="kpi net"><div class="n">${fmt(t.net)}</div><div class="l">Net case score</div></div>
+    <div class="kpi for"><div class="n">${t.f}</div><div class="l">For Cassidy</div></div>
+    <div class="kpi against"><div class="n">${t.a}</div><div class="l">Against Cassidy</div></div>
+    <div class="kpi"><div class="n">${t.n}</div><div class="l">Neutral</div></div>
+    <div class="kpi"><div class="n">${t.total}</div><div class="l">Emails scored</div></div>`;
+  // strength bar
+  const denom=t.sf+t.sa || 1;
+  const fp=Math.round(t.sf/denom*100), ap=100-fp;
+  $("#strengthbar").innerHTML =
+    `<div class="f" style="width:${fp}%">${fp}%</div><div class="a" style="width:${ap}%">${ap}%</div>`;
+  $("#strengthnote").textContent =
+    `Weighted evidence points ${fp}% for Cassidy / ${ap}% against, at Cassidy Bias ${MODEL.bias.toFixed(2)}× `
+    + `(${t.sf.toFixed(1)} for vs ${t.sa.toFixed(1)} against). Adjust the bias and issue weights on the Scoring Model tab.`;
+  // issue bars
+  $("#issuebars").innerHTML = ISSUES.map(is=>{
+    let f=0,a=0;
+    EMAILS.forEach(e=>{ if((e.issue||[]).includes(is.id)){ const c=cis(e);
+      const st=effective(e).stance; if(st==="support")f+=c; else if(st==="adverse")a+=Math.abs(c);} });
+    const d=f+a||1; const fp=f/d*100, ap=a/d*100;
+    const net=f-a;
+    return `<div class="issuerow"><div class="name">${is.id}. ${is.name}</div>
+      <div class="track"><div class="f" style="width:${fp}%"></div><div class="a" style="width:${ap}%"></div></div>
+      <div class="val" style="color:${net>=0?'var(--for-2)':'var(--against-2)'}">${fmt(net)}</div></div>`;
+  }).join("");
+  // top cards
+  const withC=EMAILS.map(e=>({e,c:cis(e)}));
+  const tf=withC.filter(x=>x.c>0).sort((a,b)=>b.c-a.c).slice(0,4);
+  const ta=withC.filter(x=>x.c<0).sort((a,b)=>a.c-b.c).slice(0,4);
+  const mini=x=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)">
+     <div style="font-weight:600;font-size:13px">${esc(x.e.subject)}</div>
+     <div class="mini">${esc(x.e.from)} · <b style="color:${x.c>=0?'var(--for-2)':'var(--against-2)'}">${fmt(x.c)}</b></div></div>`;
+  $("#topfor").innerHTML = tf.length?tf.map(mini).join(""):'<div class="mini">None yet</div>';
+  $("#topagainst").innerHTML = ta.length?ta.map(mini).join(""):'<div class="mini">None yet</div>';
+}
+
+function issueName(id){const i=ISSUES.find(x=>x.id===id);return i?`${id}. ${i.name}`:id;}
+
+function renderEvidence(){
+  const q=$("#q").value.toLowerCase(), fi=$("#fIssue").value, fs=$("#fStance").value,
+        fside=$("#fSide").value, sort=$("#sort").value;
+  let list=EMAILS.filter(e=>{
+    if(fi && !(e.issue||[]).includes(fi)) return false;
+    if(fs && effective(e).stance!==fs) return false;
+    if(fside && sideOf(e.from)!==fside) return false;
+    if(q){ const hay=(e.subject+" "+e.from+" "+e.to+" "+(e.keywords||"")+" "+(e.body||"")).toLowerCase();
+      if(!hay.includes(q)) return false; }
+    return true;
+  });
+  list.sort((a,b)=>{
+    const ca=cis(a), cb=cis(b);
+    if(sort==="impact") return Math.abs(cb)-Math.abs(ca);
+    if(sort==="for") return cb-ca;
+    if(sort==="against") return ca-cb;
+    if(sort==="date") return (b.date||"").localeCompare(a.date||"");
+    return 0;
+  });
+  $("#evcount").textContent = `${list.length} of ${EMAILS.length} emails`;
+  $("#evlist").innerHTML = list.map(e=>{
+    const {stance,score,overridden}=effective(e); const c=cis(e);
+    const sy = stance==="support"?"✓":stance==="adverse"?"✕":"–";
+    const sl = stance==="support"?"FOR":stance==="adverse"?"AGAINST":"NEUTRAL";
+    return `<div class="ev" data-id="${e.id}">
+      <div class="head">
+        <div class="stance ${stance}">${sy}<small>${sl}</small></div>
+        <div>
+          <div class="subj">${esc(e.subject)}</div>
+          <div class="meta"><span>📧 ${esc(e.from)}</span><span>${e.date||""}</span>
+            ${(e.issue||[]).map(id=>`<span class="tag">Issue ${id}</span>`).join("")}
+            <span class="tag">${sideOf(e.from)}</span>${overridden?'<span class="tag" style="color:var(--gold)">edited</span>':''}</div>
+        </div>
+        <div class="cis ${c>=0?'pos':'neg'}"><div class="big">${fmt(c)}</div><div class="mini">strength ${score}</div></div>
+      </div>
+      <div class="body">
+        ${e.why?`<h4>Why it scores ${sl.toLowerCase()} for Cassidy</h4><p>${esc(e.why)}</p>`:""}
+        ${e.keywords?`<h4>Keyword hits</h4><p class="mini">${esc(e.keywords)}</p>`:""}
+        <h4>Email body</h4><div class="bodytext">${esc(e.body||"(body not imported)")}</div>
+        <div class="override">
+          <span class="mini">Re-score:</span>
+          <select class="ovStance" data-id="${e.id}">
+            <option value="support"${stance==="support"?" selected":""}>For Cassidy</option>
+            <option value="adverse"${stance==="adverse"?" selected":""}>Against Cassidy</option>
+            <option value="neutral"${stance==="neutral"?" selected":""}>Neutral</option>
+          </select>
+          <input type="number" class="ovScore" data-id="${e.id}" min="1" max="10" value="${score}" style="width:64px">
+          <button class="btn ghost ovReset" data-id="${e.id}" style="padding:6px 10px">reset</button>
+          <span class="mini">CIS <b style="color:${c>=0?'var(--for-2)':'var(--against-2)'}">${fmt(c)}</b></span>
+        </div>
+      </div>
+    </div>`;
+  }).join("") || '<div class="card mini">No emails match these filters.</div>';
+  // wire rows
+  $$("#evlist .head").forEach(h=>h.onclick=e=>{
+    if(e.target.closest(".override"))return; h.parentElement.classList.toggle("open");});
+  $$(".ovStance").forEach(s=>s.onchange=e=>setOverride(e.target.dataset.id,{stance:e.target.value}));
+  $$(".ovScore").forEach(s=>s.onchange=e=>setOverride(e.target.dataset.id,{score:+e.target.value}));
+  $$(".ovReset").forEach(s=>s.onclick=e=>{delete OVERRIDES[e.target.dataset.id];save(LS_OVR,OVERRIDES);refresh();});
+}
+function setOverride(id,patch){
+  OVERRIDES[id]={...(OVERRIDES[id]||{}),...patch}; save(LS_OVR,OVERRIDES); refresh();
+}
+
+function renderModel(){
+  $("#sBias").value=MODEL.bias; $("#vBias").textContent=MODEL.bias.toFixed(2)+"×";
+  $("#sAdm").value=MODEL.adm; $("#vAdm").textContent=MODEL.adm.toFixed(1)+"×";
+  $("#issueweights").innerHTML=ISSUES.map(is=>`
+    <div class="slider-row">
+      <label>${is.id}. ${is.name}<br><span class="mini">${is.def}</span></label>
+      <input type="range" min="0.5" max="2" step="0.1" value="${MODEL.issueW[is.id]}" data-iw="${is.id}">
+      <span style="font-weight:700;color:var(--gold)" id="iw-${is.id}">${(MODEL.issueW[is.id]).toFixed(1)}×</span>
+    </div>`).join("");
+  $$("[data-iw]").forEach(s=>s.oninput=e=>{
+    const id=e.target.dataset.iw; MODEL.issueW[id]=+e.target.value;
+    $("#iw-"+id).textContent=(+e.target.value).toFixed(1)+"×"; save(LS_MODEL,MODEL); renderDashIfActive();
+  });
+}
+function renderBrief(){
+  $("#issuelist").innerHTML=ISSUES.map(i=>`<li><b>Issue ${i.id} — ${i.name}:</b> ${i.def}</li>`).join("");
+}
+
+function refresh(){ renderDash(); if($("#evidence").classList.contains("active"))renderEvidence();
+  $("#datastat").textContent=`${EMAILS.length} emails in workspace · ${Object.keys(OVERRIDES).length} manual re-scores.`; }
+function renderDashIfActive(){ renderDash(); }
+
+/* ============================ CSV IMPORT ============================ */
+function parseCSV(text){
+  const rows=[]; let row=[],cur="",inQ=false;
+  for(let i=0;i<text.length;i++){const ch=text[i];
+    if(inQ){ if(ch==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else inQ=false; } else cur+=ch; }
+    else{ if(ch==='"')inQ=true; else if(ch===','){row.push(cur);cur="";}
+      else if(ch==='\n'){row.push(cur);rows.push(row);row=[];cur="";}
+      else if(ch==='\r'){} else cur+=ch; } }
+  if(cur.length||row.length){row.push(cur);rows.push(row);}
+  return rows;
+}
+function col(headers,names){ for(const n of names){
+  const i=headers.findIndex(h=>h.trim().toLowerCase()===n.toLowerCase()); if(i>=0)return i; }
+  // fuzzy contains
+  for(const n of names){ const i=headers.findIndex(h=>h.trim().toLowerCase().includes(n.toLowerCase())); if(i>=0)return i; }
+  return -1;
+}
+function importCSV(text,fname){
+  const rows=parseCSV(text); if(rows.length<2){toast("No rows found");return;}
+  const h=rows[0];
+  const ci={
+    from:col(h,["From_Name","From"]), to:col(h,["To_x","To"]), subject:col(h,["Subject2","Subject"]),
+    kw:col(h,["Keyword Hits"]), tags:col(h,["Issue Tags"]),
+    stance:col(h,["Support / Adverse / Neutral","Support/Adverse/Neutral","Support / Adverse"]),
+    score:col(h,["Support Score (1–10)","Support Score","Support Score (1-10)"]),
+    body:col(h,["Full Email Body","Body"]),
+    why:col(h,["Issue Relevance Explanation","Supporting Documentation Suggestion"]),
+    date:col(h,["Sent_On","Sent","Received","Received_Time"]),
+    eid:col(h,["Email_ID","Email ID"])
+  };
+  if(ci.stance<0 && ci.subject<0){toast("Couldn’t recognise columns");return;}
+  let added=0;
+  const out=rows.slice(1).map((r,idx)=>{
+    if(r.length===1 && !r[0].trim()) return null;
+    const stanceRaw=(ci.stance>=0?r[ci.stance]:"").trim().toLowerCase();
+    let stance="neutral";
+    if(stanceRaw.startsWith("support")||stanceRaw==="for"||stanceRaw==="s")stance="support";
+    else if(stanceRaw.startsWith("adverse")||stanceRaw==="against"||stanceRaw==="a")stance="adverse";
+    else if(stanceRaw.startsWith("neutral")||stanceRaw==="n")stance="neutral";
+    const tags=(ci.tags>=0?r[ci.tags]:"");
+    const issue=[...new Set((tags.match(/issue\s*([0-9]+)/gi)||[]).map(m=>m.replace(/[^0-9]/g,"")))]
+                 .filter(x=>ISSUES.some(i=>i.id===x));
+    added++;
+    return {
+      id:(ci.eid>=0?r[ci.eid]:"")||(fname+"-"+idx),
+      from:ci.from>=0?r[ci.from]:"", to:ci.to>=0?r[ci.to]:"",
+      subject:(ci.subject>=0?r[ci.subject]:"")||"(no subject)",
+      date:(ci.date>=0?(r[ci.date]||"").slice(0,10):""),
+      issue:issue.length?issue:[], stance,
+      score:Math.max(1,Math.min(10, parseInt(ci.score>=0?r[ci.score]:"")||5)),
+      keywords:ci.kw>=0?r[ci.kw]:"", body:ci.body>=0?r[ci.body]:"",
+      why:ci.why>=0?r[ci.why]:"", source:fname
+    };
+  }).filter(Boolean);
+  // merge (replace curated seed on first real import; else append de-duped by id+subject)
+  const isSeedOnly=EMAILS.every(e=>e.source==="curated");
+  if(isSeedOnly) EMAILS=out; else{
+    const seen=new Set(EMAILS.map(e=>e.id+"|"+e.subject));
+    out.forEach(e=>{ if(!seen.has(e.id+"|"+e.subject)) EMAILS.push(e); });
+  }
+  save(LS_DATA,EMAILS); refresh();
+  $("#importstatus").innerHTML=`✅ Imported <b>${added}</b> rows from <b>${esc(fname)}</b>. Workspace now ${EMAILS.length} emails.`;
+  toast(`Imported ${added} emails`);
+}
+
+/* ============================ EXPORT ============================ */
+function exportJSON(){
+  const data=EMAILS.map(e=>({...e, effective:effective(e), cis:+cis(e).toFixed(2)}));
+  dl(JSON.stringify({model:MODEL,emails:data},null,2),"cassidy-v-phoenix-scored.json","application/json");
+}
+function exportCSV(){
+  const head=["Email_ID","Date","From","To","Subject","Issues","Stance","Score","CIS","Keyword Hits","Why","Body"];
+  const lines=[head.join(",")];
+  EMAILS.forEach(e=>{const ef=effective(e);
+    lines.push([e.id,e.date,e.from,e.to,e.subject,(e.issue||[]).join(";"),ef.stance,ef.score,
+      cis(e).toFixed(2),e.keywords,e.why,e.body].map(csvq).join(","));});
+  dl(lines.join("\n"),"cassidy-v-phoenix-scored.csv","text/csv");
+}
+function csvq(v){v=(v==null?"":""+v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+function dl(text,name,type){const b=new Blob([text],{type});const u=URL.createObjectURL(b);
+  const a=document.createElement("a");a.href=u;a.download=name;a.click();URL.revokeObjectURL(u);}
+
+/* ============================ UI WIRING ============================ */
+$("#tabs").onclick=e=>{const b=e.target.closest("button");if(!b)return;
+  $$("#tabs button").forEach(x=>x.classList.remove("active"));b.classList.add("active");
+  $$(".view").forEach(v=>v.classList.remove("active"));$("#"+b.dataset.v).classList.add("active");
+  if(b.dataset.v==="evidence")renderEvidence(); if(b.dataset.v==="model")renderModel();
+  if(b.dataset.v==="dash")renderDash();};
+["q","fIssue","fStance","fSide","sort"].forEach(id=>$("#"+id).oninput=renderEvidence);
+$("#fIssue").innerHTML='<option value="">All issues</option>'+ISSUES.map(i=>`<option value="${i.id}">Issue ${i.id} — ${i.name}</option>`).join("");
+
+$("#sBias").oninput=e=>{MODEL.bias=+e.target.value;$("#vBias").textContent=MODEL.bias.toFixed(2)+"×";save(LS_MODEL,MODEL);renderDash();};
+$("#sAdm").oninput=e=>{MODEL.adm=+e.target.value;$("#vAdm").textContent=MODEL.adm.toFixed(1)+"×";save(LS_MODEL,MODEL);renderDash();};
+$("#resetModel").onclick=()=>{MODEL={bias:1.3,adm:1.5,issueW:Object.fromEntries(ISSUES.map(i=>[i.id,i.w]))};
+  save(LS_MODEL,MODEL);renderModel();renderDash();toast("Model reset");};
+
+$("#pick").onclick=()=>$("#file").click();
+$("#file").onchange=e=>{const f=e.target.files[0];if(f)readFile(f);};
+const drop=$("#drop");
+["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("drag");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("drag");}));
+drop.addEventListener("drop",e=>{const f=e.dataTransfer.files[0];if(f)readFile(f);});
+function readFile(f){$("#importstatus").textContent="Reading "+f.name+"…";
+  const r=new FileReader();
+  r.onload=()=>{ try{
+      if(f.name.toLowerCase().endsWith(".json")){const j=JSON.parse(r.result);
+        if(j.model)MODEL={...MODEL,...j.model}; if(j.emails){EMAILS=j.emails.map(x=>{const{effective,cis,...rest}=x;return rest;});}
+        save(LS_DATA,EMAILS);save(LS_MODEL,MODEL);refresh();$("#importstatus").textContent="✅ JSON loaded ("+EMAILS.length+" emails).";toast("Loaded JSON");
+      } else importCSV(r.result,f.name);
+    }catch(err){$("#importstatus").textContent="⚠️ "+err.message;} };
+  r.readAsText(f);}
+
+$("#loadSeed").onclick=()=>{EMAILS=normalizeSeed();OVERRIDES={};save(LS_DATA,EMAILS);save(LS_OVR,OVERRIDES);refresh();toast("Curated evidence reloaded");};
+$("#exportJson").onclick=exportJSON; $("#exportCsv").onclick=exportCSV;
+$("#clearAll").onclick=()=>{if(confirm("Clear all imported emails, scores and overrides?")){
+  localStorage.removeItem(LS_DATA);localStorage.removeItem(LS_OVR);EMAILS=normalizeSeed();OVERRIDES={};
+  save(LS_DATA,EMAILS);refresh();toast("Cleared — back to curated seed");}};
+
+let toastT;
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(toastT);
+  toastT=setTimeout(()=>t.classList.remove("show"),2200);}
+
+/* ============================ BOOT ============================ */
+renderBrief(); renderModel(); refresh();
+</script>
+</body>
+</html>
