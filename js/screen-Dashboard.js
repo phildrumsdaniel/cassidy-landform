@@ -18,12 +18,19 @@ function renderDashboard(ALL_STAGES, JOURNEYS, at, city, data, effUnits, ey, gdv
     // next to the true margin. Only when a real after-land margin is shown (not the pre-land surplus)
     // and the scheme is AHP-eligible with grant not yet modelled.
     var _mgD = (!dashBeforeLand && typeof marginGrantUplift==="function") ? marginGrantUplift(data) : null;
+    // v10.198 — when a guide/asking price is entered, the "Margin on GDV" / "Profit" tiles now use the
+    // SAME all-in after-land basis as the board documents (afterLandMargin: profit after the land price
+    // AND its acquisition costs), so the Dashboard can't show a higher margin than the Board Proposal /
+    // one-pager for the same deal. Falls back to the engine's figure when no price is set.
+    var _alD = (typeof afterLandMargin==="function") ? afterLandMargin(data) : null;
+    var dashMargin = (_alD && _alD.hasAsk && !dashBeforeLand) ? num(_alD.marginPct) : margin;
+    var dashProfit = (_alD && _alD.hasAsk && !dashBeforeLand) ? num(_alD.profit) : profit;
 
     var cards=[
       {l:"GDV",v:gdv>0?fmt(gdv):"—"},
       {l:"Total Dev Cost",v:tc>0&&gdv>0?fmt(tc):"—",sub:dashBeforeLand?"Build + fees + cont + S106 + finance — NO land priced yet":"Build + fees + cont + S106 + finance + land"},
-      {l:dashBeforeLand?"Surplus before land":"Profit on Cost",v:gdv>0&&tc>0?fmt(profit):"—",c:profit>0?scM:"#C0C4D8",sub:dashBeforeLand?"GDV − costs — this is LAND + profit, not profit alone":"GDV − all costs incl. land"},
-      {l:dashBeforeLand?"Margin before land":"Margin on GDV",v:gdv>0&&tc>0?(pct(margin)+(_mgD?" · "+pct(margin+_mgD.upliftPts)+" w/ grant":"")):"—",c:margin>0?(dashBeforeLand?"#9A7B3E":scM):"#C0C4D8",sub:dashBeforeLand?"before land — not the 17.5% target margin":(_mgD?"Actual margin · second figure applies the indicative AHP grant":"Actual margin (after land price)")},
+      {l:dashBeforeLand?"Surplus before land":"Profit after land",v:gdv>0&&tc>0?fmt(dashProfit):"—",c:dashProfit>0?scM:"#C0C4D8",sub:dashBeforeLand?"GDV − costs — this is LAND + profit, not profit alone":"GDV − all costs incl. land & purchase costs"},
+      {l:dashBeforeLand?"Margin before land":"Margin on GDV",v:gdv>0&&tc>0?(pct(dashMargin)+(_mgD?" · "+pct(dashMargin+_mgD.upliftPts)+" w/ grant":"")):"—",c:dashMargin>0?(dashBeforeLand?"#9A7B3E":scM):"#C0C4D8",sub:dashBeforeLand?"before land — not the 17.5% target margin":(_mgD?"Actual margin after land & purchase costs · second figure applies the indicative AHP grant":"Actual margin after land & purchase costs")},
       {l:"NOI (pa)",v:!isSFHdash&&noi>0?fmt(noi):"—"},
       {l:"Exit Yield",v:!isSFHdash&&ey>0?(ey*100).toFixed(2)+"%":"—"},
       {l:"Units / Beds",v:effUnits||"—"},
