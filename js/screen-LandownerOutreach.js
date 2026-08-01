@@ -40,6 +40,12 @@ function LandownerOutreach(props){
     setO("log", log);
   }
   function fmtLogTime(ts){ try{ return new Date(ts).toLocaleString("en-GB", { day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" }); }catch(e){ return ""; } }
+  // mirror the follow-up to the global store so the app-open reminder can surface it across deals
+  function mirrorFollowup(date, note){
+    if(typeof saveOutreachFollowup !== "function") return;
+    saveOutreachFollowup((typeof dealKeyFor === "function") ? dealKeyFor(data) : (data.dealName || ""),
+      (date ? { date:date, note:note || "", owner:o.ownerName || "", dealName:data.dealName || (L.address || "") } : null));
+  }
   var M = (typeof calcDealMetrics === "function") ? calcDealMetrics(data) : {};
   var rlv = num(M.rlv), asking = num(L.price), units = num(M.units), acres = num(L.acres);
   var structure = o.structure || L.dealStructure || "option";
@@ -251,11 +257,11 @@ function LandownerOutreach(props){
       e("div", { style:{ display:"flex", gap:12, alignItems:"flex-end", flexWrap:"wrap", marginBottom:12, paddingBottom:12, borderBottom:"1px solid #EEF0F7" } },
         e("div", { style:{ flex:"0 0 auto" } },
           e("label", { style:S.label }, "Next follow-up"),
-          e("input", { type:"date", value:o.followUpDate || "", onChange:function(v){ setO("followUpDate", v.target ? v.target.value : v); }, style:Object.assign({}, S.input, { minWidth:150 }) })),
+          e("input", { type:"date", value:o.followUpDate || "", onChange:function(v){ var val = v.target ? v.target.value : v; setO("followUpDate", val); mirrorFollowup(val, o.followUpNote); }, style:Object.assign({}, S.input, { minWidth:150 }) })),
         e("div", { style:{ flex:"1 1 220px" } },
           e("label", { style:S.label }, "Follow-up note"),
-          e("input", { type:"text", value:o.followUpNote || "", onChange:function(ev){ setO("followUpNote", ev.target.value); }, placeholder:"e.g. call the agent back with a revised offer", style:S.input })),
-        (o.followUpDate) && e("button", { onClick:function(){ setO("followUpDate", ""); setO("followUpNote", ""); }, style:{ padding:"8px 12px", background:"transparent", border:"1px solid #DDE0ED", color:"#7278A0", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "Clear")),
+          e("input", { type:"text", value:o.followUpNote || "", onChange:function(ev){ setO("followUpNote", ev.target.value); mirrorFollowup(o.followUpDate, ev.target.value); }, placeholder:"e.g. call the agent back with a revised offer", style:S.input })),
+        (o.followUpDate) && e("button", { onClick:function(){ setO("followUpDate", ""); setO("followUpNote", ""); mirrorFollowup("", ""); }, style:{ padding:"8px 12px", background:"transparent", border:"1px solid #DDE0ED", color:"#7278A0", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "Clear")),
       e("div", { style:{ display:"flex", gap:8, alignItems:"flex-end", flexWrap:"wrap", marginBottom:10 } },
         e("div", { style:{ flex:"1 1 240px" } },
           e("label", { style:S.label }, "Log a call or note"),
