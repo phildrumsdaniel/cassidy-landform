@@ -64,6 +64,7 @@ var ALL_STAGES = [
   {id:"quick",           label:"Quick Appraisal",    icon:"⚡", group:"0. Start", journeys:["all","land","property","sfh","btr","pbsa","recovery","asset"]},
   {id:"keystone",        label:"Keystone — Deal Builder", icon:"🪨", group:"0. Start", journeys:["all","land","property","sfh","btr","pbsa","recovery","asset"]},
   {id:"navigator",       label:"Process Navigator",  icon:"🧭", group:"0. Start",    journeys:["all","land","property","sfh","btr","pbsa","recovery","asset"]},
+  {id:"voice",           label:"Voice Operator",     icon:"🎙", group:"0. Start",    journeys:["all","land","property","sfh","btr","pbsa","recovery","asset"]},
   {id:"assetOptimiser",  label:"Asset Exit Optimiser", icon:"🏛", group:"0. Start",    journeys:["asset","all"]},
   // ── 1. FIND ──────────────────────────────────────────────────────────────
   {id:"placona",     label:"Placona Agent",         icon:"🤖", group:"1. Find",     journeys:["land","sfh","btr","pbsa","all"]},
@@ -1994,6 +1995,7 @@ function loadSiteIntoDeal(site){
     if(stage==="scorecard")return renderScorecard(city, data, gdv, lc, up, user);
     if(stage==="placona")return renderPlacona(data, loadSiteIntoDeal, up, user, navTo);
     if(stage==="keystone")return renderKeystone(data, setData, up, navTo, user);
+    if(stage==="voice")return renderVoiceOperator(data, setData, navTo, user);
     if(stage==="navigator")return renderProcessNavigator(ALL_STAGES, data, exitUnlocksStage, exits, isExitOn, isSchemeOn, navTo, schemes, setFlowAssetType, setSchemes, toggleExit, up);
     if(stage==="assetOptimiser")return renderAssetOptimiser(data, up, user);
     if(stage==="investor")return renderInvestorSuite(data, navTo, saveDeal, up, user);
