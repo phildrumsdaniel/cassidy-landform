@@ -51,6 +51,38 @@ function renderDashboard(ALL_STAGES, JOURNEYS, at, city, data, effUnits, ey, gdv
         e("span",{style:{fontSize:10,color:"#9298BC",lineHeight:1.4}},"Used when you Save · edit any time to rename (re-saving updates the same portfolio card)")
       ),
       LandReconciliationPanel(data, up),
+      // v10.200 — MIXED-USE summary: when the deal is a multi-parcel scheme (data.mixed.parcels),
+      // the Dashboard leads with the BLENDED result (sum of every parcel's own exit) so a mixed deal
+      // isn't siloed on its own stage. Hidden entirely for a normal single-use deal.
+      (function(){
+        var MU = (typeof computeMixedUse==="function") ? computeMixedUse(data) : null;
+        if(!MU || !MU.count) return null;
+        var lp = num(data.land&&data.land.price);
+        var stacks = lp>0 ? MU.headroom>=0 : MU.totalRLV>0;
+        var vcol = stacks ? "#1B7A54" : "#B05A35";
+        function m(n){ return (n<0?"−£":"£")+fmt(Math.abs(n)).replace(/^£/,""); }
+        function t(label,val,col){ return e("div",{style:{background:"#fff",border:"1px solid #E0E2EC",borderRadius:8,padding:"10px 12px"}},
+          e("div",{style:{fontSize:9,color:"#7278A0",textTransform:"uppercase",letterSpacing:".08em",fontWeight:700,marginBottom:4}},label),
+          e("div",{style:{fontSize:16,fontWeight:800,color:col||"#2E2F8A"}},val)); }
+        return e("div",{style:{border:"2px solid "+vcol,borderRadius:12,padding:"16px 18px",marginBottom:14,background:"linear-gradient(135deg,#F8FBF9,#F0F4FF)"}},
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:10}},
+            e("div",{style:{fontSize:13,fontWeight:800,color:"#2E2F8A"}},"🧩 Mixed-use scheme — "+MU.count+" parcels · "+(Math.round(MU.totalAcres*10)/10)+" ac · "+(MU.totalUnits||0).toLocaleString("en-GB")+" units"),
+            e("button",{onClick:function(){navTo("mixed");},style:{padding:"7px 14px",background:"#4A4BAE",border:"none",color:"#fff",borderRadius:6,fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Open Mixed-Use Scheme →")
+          ),
+          e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:10,marginBottom:10}},
+            t("Blended GDV",m(MU.totalGDV)),
+            t("Development cost",m(MU.totalDevCost)),
+            t("Land supported (RLV)",m(MU.totalRLV),MU.totalRLV>=0?"#2D7A65":"#B05A35"),
+            lp>0&&t(stacks?"Headroom":"Short of price",m(MU.headroom),vcol),
+            lp>0&&t("Margin after land",(Math.round(MU.afterLandMarginPct*10)/10)+"%",MU.afterLandMarginPct>=15?"#2D7A65":"#9A7B3E"),
+            MU.hasJv&&t("Cassidy JV share",m(MU.cassidyJvShare),"#9A7B3E")
+          ),
+          e("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+            MU.parcels.map(function(r,ix){ return e("span",{key:ix,style:{fontSize:10,fontWeight:700,color:"#4A4BAE",background:"rgba(74,75,174,0.08)",border:"1px solid rgba(74,75,174,0.22)",borderRadius:5,padding:"3px 8px"}},
+              r.use.toUpperCase()+" "+r.acres+"ac → "+r.exitLabel+" · "+m(r.exitRlv)); })
+          )
+        );
+      })(),
       e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:data.masterReport?8:12}},"Live overview — fill in the stages to see metrics update"),
       // v10.5 — Assumption Mode entry point (present as consented/DD-clear for stakeholders)
       (typeof AssumptionModeCard==="function")&&AssumptionModeCard(data, up),
