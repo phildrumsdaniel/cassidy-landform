@@ -25,20 +25,75 @@ function renderVoiceOperator(data, setData, navTo, user){
   return e(VoiceOperator, { data:data, setData:setData, navTo:navTo, user:user });
 }
 
+// v10.216 — persist the conversation so switching tabs / an auto-reload doesn't lose it.
+var VOICE_STATE_KEY = "cassidy_voice_state";
+function loadVoiceState(){ try{ return JSON.parse(localStorage.getItem(VOICE_STATE_KEY) || "null") || {}; }catch(e){ return {}; } }
+
 function VoiceOperator(props){
   var data = props.data, setData = props.setData, navTo = props.navTo, user = props.user;
-  var pS = useState("idle");   var phase = pS[0], setPhase = pS[1];      // idle | interviewing | review | building | done
-  var iS = useState(0);        var idx = iS[0], setIdx = iS[1];
-  var aS = useState({});       var answers = aS[0], setAnswers = aS[1];
+  var _saved = loadVoiceState();
+  var pS = useState(function(){ var v = _saved.phase; return (v === "converse" || v === "review") ? v : "idle"; });   var phase = pS[0], setPhase = pS[1];      // idle | interviewing | review | building | done
+  var iS = useState(function(){ return _saved.idx || 0; });        var idx = iS[0], setIdx = iS[1];
+  var aS = useState(function(){ return _saved.answers || {}; });   var answers = aS[0], setAnswers = aS[1];
   var lS = useState(false);    var listening = lS[0], setListening = lS[1];
   var vS = useState(true);     var voiceOn = vS[0], setVoiceOn = vS[1];
   var mS = useState("");       var buildMsg = mS[0], setBuildMsg = mS[1];
-  var cS = useState([]);       var messages = cS[0], setMessages = cS[1];   // free-conversation thread [{role,text}]
+  var cS = useState(function(){ return _saved.messages || []; });   var messages = cS[0], setMessages = cS[1];   // free-conversation thread [{role,text}]
   var thS = useState(false);   var thinking = thS[0], setThinking = thS[1];
   var dS = useState("");       var draft = dS[0], setDraft = dS[1];
-  var brS = useState({});      var runningBrief = brS[0], setRunningBrief = brS[1];   // accumulates as the chat goes
-  var fgS = useState(null);    var figures = fgS[0], setFigures = fgS[1];            // live engine read
+  var brS = useState(function(){ return _saved.runningBrief || {}; });   var runningBrief = brS[0], setRunningBrief = brS[1];   // accumulates as the chat goes
+  var fgS = useState(function(){ return _saved.figures || null; });    var figures = fgS[0], setFigures = fgS[1];            // live engine read
+  var vnS = useState(function(){ try{ return localStorage.getItem("cassidy_voice_name") || ""; }catch(e){ return ""; } });
+  var voiceName = vnS[0], setVoiceName = vnS[1];
+  var tkS = useState(0);       var voicesTick = tkS[0], setVoicesTick = tkS[1];      // bumped when the browser's voices load
   var recRef = React.useRef(null);
+
+  // Browser voices load asynchronously — re-render when they arrive so the picker + best-voice work.
+  useEffect(function(){
+    if(typeof window === "undefined" || !window.speechSynthesis) return;
+    var h = function(){ setVoicesTick(function(x){ return x + 1; }); };
+    try{ window.speechSynthesis.onvoiceschanged = h; }catch(e){}
+    try{ window.speechSynthesis.getVoices(); }catch(e){}   // prime it
+    return function(){ try{ window.speechSynthesis.onvoiceschanged = null; }catch(e){} };
+  }, []);
+  function allVoices(){ try{ return (window.speechSynthesis.getVoices() || []).filter(function(v){ return /^en/i.test(v.lang || ""); }); }catch(e){ return []; } }
+  // pick the most natural available voice — prefer en-GB, then neural/natural/Google/premium, then a
+  // male-leaning name (Ronald is a chap). Browser TTS quality is capped by the installed voices; the
+  // Google / "Natural" ones (Chrome/Edge desktop) and Siri voices (Apple) are far less robotic.
+  function bestVoice(){
+    var vs = allVoices(); if(!vs.length) return null;
+    function score(v){
+      var n = (v.name || "").toLowerCase(), lang = (v.lang || "").toLowerCase(), s = 0;
+      if(lang.indexOf("en-gb") === 0) s += 40; else if(lang.indexOf("en") === 0) s += 18;
+      if(/natural|neural|premium|enhanced/.test(n)) s += 34;
+      if(/google/.test(n)) s += 22;
+      if(/\b(daniel|arthur|george|ryan|oliver|male)\b/.test(n)) s += 16;   // male-leaning for "Ronald"
+      if(/siri|serena|sonia|libby|ryan/.test(n)) s += 6;
+      if(/compact|espeak|robot/.test(n)) s -= 30;
+      return s;
+    }
+    return vs.slice().sort(function(a, b){ return score(b) - score(a); })[0] || vs[0];
+  }
+  function currentVoice(){ var vs = allVoices(); var m = voiceName ? vs.filter(function(v){ return v.name === voiceName; })[0] : null; return m || bestVoice(); }
+  function voicePicker(){
+    var vs = allVoices(); if(!vs.length) return null;
+    var cur = currentVoice(), curName = cur ? cur.name : "";
+    return e("label", { style:{ display:"flex", alignItems:"center", gap:6, fontSize:12, color:"#7278A0" } }, "Ronald's voice",
+      e("select", { value:voiceName || curName,
+        onChange:function(ev){ var v = ev.target.value; setVoiceName(v); try{ localStorage.setItem("cassidy_voice_name", v); }catch(e){}
+          var t = allVoices().filter(function(x){ return x.name === v; })[0]; if(t && synth){ try{ synth.cancel(); var u = new SpeechSynthesisUtterance("Hello, I'm Ronald."); u.voice = t; u.rate = 0.97; synth.speak(u); }catch(e){} } },
+        style:{ padding:"5px 8px", border:"1px solid #C5C8E0", borderRadius:6, fontSize:12, fontFamily:"DM Sans,sans-serif", maxWidth:230 } },
+        vs.map(function(v){ return e("option", { key:v.name, value:v.name }, v.name.replace(/\(.*?\)/g, "").trim() + " · " + v.lang); })));
+  }
+
+  // persist the live conversation so a tab switch / auto-reload restores it (cleared once built)
+  useEffect(function(){
+    try{
+      if(phase === "done"){ localStorage.removeItem(VOICE_STATE_KEY); return; }
+      var ph = (phase === "building") ? "converse" : phase;
+      localStorage.setItem(VOICE_STATE_KEY, JSON.stringify({ phase:ph, messages:messages, figures:figures, runningBrief:runningBrief, answers:answers, idx:idx }));
+    }catch(e){}
+  }, [phase, messages, figures, runningBrief, answers, idx]);
 
   function parseJson(res){ var a = res.indexOf("{"), b = res.lastIndexOf("}"); return JSON.parse((a >= 0 && b > a) ? res.substring(a, b + 1) : res); }
   function fmtM(n){ return (typeof fmtCompact === "function") ? fmtCompact(num(n)) : String(Math.round(num(n))); }
@@ -69,7 +124,7 @@ function VoiceOperator(props){
   var L = data.land || {};
   var accent = "#4A4BAE";
 
-  function speak(text){ if(!voiceOn || !synth) return; try{ synth.cancel(); var u = new SpeechSynthesisUtterance(text); u.lang = "en-GB"; u.rate = 1.0; u.pitch = 1.0; synth.speak(u); }catch(e){} }
+  function speak(text){ if(!voiceOn || !synth) return; try{ synth.cancel(); var u = new SpeechSynthesisUtterance(text); var vc = currentVoice(); if(vc){ u.voice = vc; u.lang = vc.lang || "en-GB"; } else { u.lang = "en-GB"; } u.rate = 0.97; u.pitch = 1.0; synth.speak(u); }catch(e){} }
   function stopSpeak(){ try{ synth && synth.cancel(); }catch(e){} }
   function setAns(key, text){ setAnswers(function(a){ var n = Object.assign({}, a); n[key] = text; return n; }); }
   function appendAns(key, text){ setAnswers(function(a){ var n = Object.assign({}, a); n[key] = ((n[key] || "") + " " + text).trim(); return n; }); }
@@ -194,7 +249,7 @@ function VoiceOperator(props){
     return parts.join("; ");
   }
   function convoSystem(facts, fig){
-    var s = "You are the Landform Operator — a sharp, candid UK land & development advisor for Cassidy Group, " +
+    var s = "You are Ronald, the Landform voice operator — a sharp, candid UK land & development advisor for Cassidy Group, " +
       "having a SPOKEN conversation with a developer about a specific site. Be natural and concise — 2 to 4 short " +
       "sentences, because your reply is read aloud. As it flows, do three things: (1) ANSWER their questions with " +
       "practical, numerate UK planning / development / finance knowledge; (2) give a STRAIGHT view on their thinking — " +
@@ -210,7 +265,7 @@ function VoiceOperator(props){
   }
   function startConversation(){
     setPhase("converse");
-    var opener = "Right — tell me about this site. What's your thinking, and what would you like to do with it?";
+    var opener = "Hello, I'm Ronald, your Landform land advisor. Tell me about this site — what's your thinking, and what would you like to do with it?";
     setMessages([{ role:"assistant", text:opener }]);
     setTimeout(function(){ speak(opener); }, 350);
   }
@@ -274,7 +329,7 @@ function VoiceOperator(props){
   // ── IDLE ──
   if(phase === "idle"){
     return e("div", null,
-      e("h2", { style:{ fontSize:24, fontWeight:800, color:accent, marginBottom:4 } }, "🎙 Voice Operator — talk to Landform"),
+      e("h2", { style:{ fontSize:24, fontWeight:800, color:accent, marginBottom:4 } }, "🎙 Ronald — your Landform voice operator"),
       e("p", { style:{ fontSize:12, color:"#7278A0", marginBottom:16, lineHeight:1.6, maxWidth:720 } },
         "Talk to Landform out loud, then it builds, prices and due-diligences the whole scheme. Two ways: have a FREE CONVERSATION — think aloud, ask questions, throw in points and requests and the operator answers, gives its view and folds it all in — or a quick GUIDED interview of set questions. Either way it ends with a finished scheme ready for the board, marketing, stakeholder and approach documents."),
       e("div", { style:{ background:"#F7F8FC", border:"1px solid #DDE0ED", borderRadius:10, padding:"16px 18px", marginBottom:16 } },
@@ -290,7 +345,8 @@ function VoiceOperator(props){
         e("button", { onClick:startConversation, style:{ padding:"14px 26px", background:accent, border:"none", color:"#fff", borderRadius:10, fontSize:16, fontWeight:800, cursor:"pointer", fontFamily:"DM Sans,sans-serif", boxShadow:"0 4px 14px rgba(74,75,174,0.3)" } }, "💬  Start a conversation"),
         e("button", { onClick:startInterview, style:{ padding:"14px 24px", background:"#fff", border:"1px solid #C5C8E0", color:accent, borderRadius:10, fontSize:15, fontWeight:800, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "▶  Quick guided interview"),
         voiceSupported && e("label", { style:{ display:"flex", alignItems:"center", gap:6, fontSize:12, color:"#7278A0", cursor:"pointer" } },
-          e("input", { type:"checkbox", checked:voiceOn, onChange:function(ev){ setVoiceOn(ev.target.checked); }, style:{ width:15, height:15, cursor:"pointer" } }), "Read replies aloud")),
+          e("input", { type:"checkbox", checked:voiceOn, onChange:function(ev){ setVoiceOn(ev.target.checked); }, style:{ width:15, height:15, cursor:"pointer" } }), "Read replies aloud"),
+        voiceSupported && voicePicker()),
       e("div", { style:{ fontSize:11, color:"#9298BC", lineHeight:1.5, maxWidth:660 } },
         e("b", null, "Conversation"), " is the natural one — talk freely, ask it anything, and it answers, evaluates and captures every point. ",
         e("b", null, "Guided"), " walks a fixed set of questions if you'd rather be led.")
@@ -301,19 +357,22 @@ function VoiceOperator(props){
   if(phase === "converse"){
     return e("div", null,
       e("div", { style:{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10, flexWrap:"wrap", gap:8 } },
-        e("h2", { style:{ fontSize:20, fontWeight:800, color:accent, margin:0 } }, "💬 Talking to the Landform operator"),
+        e("h2", { style:{ fontSize:20, fontWeight:800, color:accent, margin:0 } }, "💬 Talking to Ronald"),
         e("div", { style:{ display:"flex", gap:8, alignItems:"center" } },
+          voiceSupported && voicePicker(),
           voiceSupported && e("button", { onClick:function(){ setVoiceOn(!voiceOn); }, title:"Toggle spoken replies",
-            style:{ padding:"4px 9px", background:voiceOn ? "#EDEEF9" : "#F7F8FC", border:"1px solid #DDE0ED", borderRadius:6, fontSize:11, fontWeight:700, color:"#4A4BAE", cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, voiceOn ? "🔊 Speaking" : "🔇 Muted"))),
+            style:{ padding:"4px 9px", background:voiceOn ? "#EDEEF9" : "#F7F8FC", border:"1px solid #DDE0ED", borderRadius:6, fontSize:11, fontWeight:700, color:"#4A4BAE", cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, voiceOn ? "🔊 Speaking" : "🔇 Muted"),
+          e("button", { onClick:function(){ stopSpeak(); stopListen(); setMessages([]); setFigures(null); setRunningBrief({}); try{ localStorage.removeItem("cassidy_voice_state"); }catch(e){} startConversation(); }, title:"Start a fresh conversation",
+            style:{ padding:"4px 9px", background:"#F7F8FC", border:"1px solid #DDE0ED", borderRadius:6, fontSize:11, fontWeight:700, color:"#7278A0", cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "↺ New"))),
       // message thread
       e("div", { style:{ border:"1px solid #DDE0ED", borderRadius:12, background:"#FAFBFF", padding:"14px 14px", marginBottom:12, maxHeight:"46vh", overflowY:"auto", display:"flex", flexDirection:"column", gap:10 } },
         messages.map(function(m, mi){
           var isA = m.role === "assistant";
           return e("div", { key:mi, style:{ alignSelf:isA ? "flex-start" : "flex-end", maxWidth:"82%" } },
-            e("div", { style:{ fontSize:9, fontWeight:800, color:isA ? "#4A4BAE" : "#2D7A65", marginBottom:2, textTransform:"uppercase", letterSpacing:".06em", textAlign:isA ? "left" : "right" } }, isA ? "🎙 Operator" : "You"),
+            e("div", { style:{ fontSize:9, fontWeight:800, color:isA ? "#4A4BAE" : "#2D7A65", marginBottom:2, textTransform:"uppercase", letterSpacing:".06em", textAlign:isA ? "left" : "right" } }, isA ? "🎙 Ronald" : "You"),
             e("div", { style:{ fontSize:14, lineHeight:1.5, color:"#2E2F8A", background:isA ? "#fff" : "#EAF4EF", border:"1px solid " + (isA ? "#E0E2EC" : "#CDE7DB"), borderRadius:10, padding:"9px 13px" } }, m.text));
         }),
-        thinking && e("div", { style:{ alignSelf:"flex-start", fontSize:12, color:"#9298BC", fontStyle:"italic", padding:"4px 6px" } }, "🎙 Operator is thinking…")),
+        thinking && e("div", { style:{ alignSelf:"flex-start", fontSize:12, color:"#9298BC", fontStyle:"italic", padding:"4px 6px" } }, "🎙 Ronald is thinking…")),
       // ── LIVE NUMBERS — the engine run on the facts so far, updating as you talk ──
       (figures && figures.gdv > 0) && e("div", { style:{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center", marginBottom:10, padding:"8px 10px", background:"rgba(45,122,101,0.06)", border:"1px solid rgba(45,122,101,0.28)", borderRadius:8 } },
         e("span", { style:{ fontSize:9.5, fontWeight:800, color:"#1B7A54", textTransform:"uppercase", letterSpacing:".06em" } }, "Live figures"),
@@ -382,7 +441,7 @@ function VoiceOperator(props){
   var cur = VOICE_QS[idx];
   return e("div", null,
     e("div", { style:{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12, flexWrap:"wrap", gap:8 } },
-      e("h2", { style:{ fontSize:20, fontWeight:800, color:accent, margin:0 } }, "🎙 Landform is asking…"),
+      e("h2", { style:{ fontSize:20, fontWeight:800, color:accent, margin:0 } }, "🎙 Ronald is asking…"),
       e("div", { style:{ display:"flex", gap:8, alignItems:"center" } },
         e("span", { style:{ fontSize:11, color:"#7278A0", fontWeight:700 } }, "Question " + (idx + 1) + " of " + VOICE_QS.length),
         voiceSupported && e("button", { onClick:function(){ setVoiceOn(!voiceOn); }, title:"Toggle spoken questions",
