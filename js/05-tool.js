@@ -77,6 +77,7 @@ var ALL_STAGES = [
   {id:"sfh",         label:"SFH House Mix",        icon:"🏡", group:"2. Value",    journeys:["sfh","property","all"]},
   {id:"tenure",      label:"Tenure Mix",           icon:"🏘", group:"2. Value",    journeys:["sfh","btr","property","all"]},
   {id:"hra",         label:"BTR / PBSA Block",     icon:"🏢", group:"2. Value",    journeys:["btr","pbsa","all"]},
+  {id:"mixed",       label:"Mixed-Use Scheme",     icon:"🧩", group:"2. Value",    journeys:["land","sfh","btr","pbsa","all"]},
   {id:"capitalise",  label:"Capitalisation",       icon:"£",  group:"2. Value",    journeys:["land","btr","pbsa","sfh","all"]},
   {id:"grants",      label:"Grant & Funding",      icon:"💷", group:"2. Value",    journeys:["sfh","btr","pbsa","land","all"]},
   // ── 3. DEVELOP ──────────────────────────────────────────────────────────
@@ -1997,6 +1998,7 @@ function loadSiteIntoDeal(site){
     if(stage==="assetOptimiser")return renderAssetOptimiser(data, up, user);
     if(stage==="investor")return renderInvestorSuite(data, navTo, saveDeal, up, user);
     if(stage==="tenure")return renderTenureMix(data, up, user);
+    if(stage==="mixed")return renderMixedUse(data, up, user, navTo);
     if(stage==="capitalise")return renderCapitalise(LiveMarketBanner, city, data, setData, up, user);
     if(stage==="grants")return renderGrants(city, data, gdv, lc, up, user);
     if(stage==="teaser")return renderTeaser(city, data, gdv, lc, up, user);
