@@ -69,7 +69,9 @@ function renderMixedUse(data, up, user, navTo){
       {value:"ha_bulk",      label:"Bulk sale to a HA / fund"} ];
   }
   var PARTNER_OPTS = [ {value:"pension_fund", label:"Pension fund"}, {value:"sovereign", label:"Sovereign wealth fund"},
-    {value:"btr_operator", label:"BTR / PBSA operator"}, {value:"family_office", label:"Family office"} ];
+    {value:"btr_operator", label:"BTR / PBSA operator"}, {value:"ha", label:"Housing association"},
+    {value:"homes_england", label:"Homes England"}, {value:"family_office", label:"Family office"} ];
+  function pctv(x){ return (x == null || isNaN(x)) ? "—" : (x * 100).toFixed(1) + "%"; }
 
   var MU = (typeof computeMixedUse === "function") ? computeMixedUse(data) : null;
   var byId = {}; if(MU) MU.parcels.forEach(function(r){ byId[r.id] = r; });
@@ -126,6 +128,11 @@ function renderMixedUse(data, up, user, navTo){
           !isApt && e(Inp, { label:"Affordable % (→ HA)", type:"number", value:L.affPct, onChange:function(v){ setSfh(i, "affPct", v); }, placeholder:"40" }),
           !isApt && e(Inp, { label:"Sale £/sqft", type:"number", value:L.salePsf, onChange:function(v){ setSfh(i, "salePsf", v); }, placeholder:"340" }),
           !isApt && e(Inp, { label:"Build £/sqft", type:"number", value:L.buildPsf, onChange:function(v){ setSfh(i, "buildPsf", v); }, placeholder:"210" }),
+          // SFH yield — only when the houses exit as a rented investment (HA / pension forward-fund or JV),
+          // where the parcel is valued by capitalisation (rent ÷ yield) rather than plot sales.
+          !isApt && (ex.route === "forward_fund" || ex.route === "jv") && e(Inp, { label:"Net yield % (HA / pension let)", type:"number", value:(p.capitalise && p.capitalise.targetYield), onChange:function(v){ patchParcel(i, { capitalise:Object.assign({}, p.capitalise || {}, { targetYield:v }) }); }, placeholder:"5.0" }),
+          // buyer / fund label for a forward-fund exit (JV has its own partner field below)
+          (ex.route === "forward_fund") && e(Sel, { label:"Buyer / fund", value:ex.jvPartner || "pension_fund", onChange:function(v){ patchExit(i, { jvPartner:v }); }, options:PARTNER_OPTS }),
 
           // BTR/PBSA levers
           isApt && e(Inp, { label:"Storeys", type:"number", value:hra.storeys, onChange:function(v){ setHra(i, "storeys", v); }, placeholder:"6" }),
@@ -136,13 +143,27 @@ function renderMixedUse(data, up, user, navTo){
 
         // JV fields
         (ex.route === "jv") && e("div", { style:{ background:"rgba(154,123,62,0.06)", border:"1px solid rgba(154,123,62,0.25)", borderRadius:8, padding:"10px 12px", marginBottom:12 } },
-          e("div", { style:{ fontSize:11, fontWeight:800, color:"#9A7B3E", marginBottom:8 } }, "🤝 Joint-venture structure (indicative)"),
-          e("div", { style:{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:10 } },
+          e("div", { style:{ fontSize:11, fontWeight:800, color:"#9A7B3E", marginBottom:8 } }, "🤝 Joint-venture waterfall"),
+          e("div", { style:{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:10 } },
             e(Sel, { label:"Partner", value:ex.jvPartner || "pension_fund", onChange:function(v){ patchExit(i, { jvPartner:v }); }, options:PARTNER_OPTS }),
             e(Inp, { label:"Cassidy equity %", type:"number", value:ex.cassidyEquityPct, onChange:function(v){ patchExit(i, { cassidyEquityPct:v }); }, placeholder:"25" }),
             e(Inp, { label:"Promote / carry %", type:"number", value:ex.promotePct, onChange:function(v){ patchExit(i, { promotePct:v }); }, placeholder:"20" }),
-            e(Inp, { label:"Fund pref return %", type:"number", value:ex.prefRate, onChange:function(v){ patchExit(i, { prefRate:v }); }, placeholder:"8" })
-          )
+            e(Inp, { label:"Fund pref return %", type:"number", value:ex.prefRate, onChange:function(v){ patchExit(i, { prefRate:v }); }, placeholder:"8" }),
+            e(Inp, { label:"Hold / build (yrs)", type:"number", value:ex.holdYears, onChange:function(v){ patchExit(i, { holdYears:v }); }, placeholder:r ? String(r.holdYears) : "3" })
+          ),
+          // live waterfall readout (IRRs, multiples, pref, promote)
+          r && r.jv && e("div", { style:{ marginTop:10, display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 } },
+            e("div", { style:{ background:"#fff", border:"1px solid #E8DCC0", borderRadius:6, padding:"8px 10px" } },
+              e("div", { style:{ fontSize:9.5, fontWeight:800, color:"#9A7B3E", marginBottom:3 } }, "CASSIDY"),
+              e("div", { style:{ fontSize:14, fontWeight:800, color:"#1B1D46" } }, "IRR " + pctv(r.jv.cassidyIrr) + " · " + (r.jv.cassidyMultiple || 0).toFixed(2) + "×"),
+              e("div", { style:{ fontSize:10, color:"#7278A0", marginTop:2 } }, "profit " + money(r.jv.cassidyShare) + " on " + money(r.jv.cassidyCapital) + " equity")),
+            e("div", { style:{ background:"#fff", border:"1px solid #E8DCC0", borderRadius:6, padding:"8px 10px" } },
+              e("div", { style:{ fontSize:9.5, fontWeight:800, color:"#9A7B3E", marginBottom:3 } }, "FUND (" + Math.round(r.jv.fundEquityPct) + "% equity)"),
+              e("div", { style:{ fontSize:14, fontWeight:800, color:"#1B1D46" } }, "IRR " + pctv(r.jv.fundIrr) + " · " + (r.jv.fundMultiple || 0).toFixed(2) + "×"),
+              e("div", { style:{ fontSize:10, color:"#7278A0", marginTop:2 } }, "profit " + money(r.jv.fundShare) + " · pref " + money(r.jv.prefPaid) + " + promote paid " + money(r.jv.promotePaid)))
+          ),
+          e("div", { style:{ marginTop:6, fontSize:9.5, color:"#9298BC", lineHeight:1.5 } },
+            "Equity-only development JV: both partners fund equity pro-rata to their %, build over the hold, and split the exit proceeds — return of capital → fund's compounded preferred return → Cassidy's promote → residual by equity share. Set Cassidy equity % low for a classic developer-promote structure.")
         ),
 
         // live per-parcel result
@@ -152,7 +173,7 @@ function renderMixedUse(data, up, user, navTo){
           e("span", null, "Exit value ", e("b", { style:{ color:"#2E2F8A" } }, money(r.exitValue))),
           e("span", null, "Dev cost ", e("b", { style:{ color:"#2E2F8A" } }, money(r.devCost))),
           e("span", null, "Land it supports ", e("b", { style:{ color:r.exitRlv >= 0 ? "#2D7A65" : "#B05A35" } }, money(r.exitRlv))),
-          r.jv && e("span", { style:{ color:"#9A7B3E", fontWeight:700 } }, "· JV: Cassidy " + money(r.jv.cassidyShare) + " / fund " + money(r.jv.fundShare))
+          r.jv && e("span", { style:{ color:"#9A7B3E", fontWeight:700 } }, "· JV: Cassidy IRR " + pctv(r.jv.cassidyIrr) + " (" + (r.jv.cassidyMultiple || 0).toFixed(2) + "×) / fund IRR " + pctv(r.jv.fundIrr))
         )
       );
     }),
@@ -177,7 +198,7 @@ function renderMixedUse(data, up, user, navTo){
           stacks ? (landPrice > 0 ? "✓ The blended scheme stacks at the guide price." : "✓ The parcels support a positive land value.")
                  : (landPrice > 0 ? "✗ The blended scheme is short of the guide price — adjust the parcels, exits or price." : "✗ The parcels don't yet support a positive land value.")),
         e("div", { style:{ marginTop:8, fontSize:10, color:"#9298BC", lineHeight:1.6 } },
-          "Each parcel is priced through the same engine as the single-use journeys; the land value is the sum of what each parcel can pay. JV figures are an indicative static split (equity share + promote over the fund's preferred return) — a full period-by-period waterfall is a later refinement.")
+          "Each parcel is priced through the same engine as the single-use journeys; the land value is the sum of what each parcel can pay. A houses parcel sold to an HA / pension scheme is valued by capitalisation (rent ÷ yield), like the apartment parcels. JV figures come from a period-by-period equity waterfall (return of capital → the fund's compounded preferred return → Cassidy's promote → residual by equity share) with each partner's IRR and equity multiple.")
       );
     })()
   );

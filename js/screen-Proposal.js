@@ -534,7 +534,7 @@ function buildLandOnePager(data, cityHint){
               '<td style="padding:3px 5px;color:#5A5F86">'+esc(r.exitLabel)+'</td>'+
               '<td style="padding:3px 5px;text-align:right;font-family:Georgia,serif">'+fmt(r.exitValue)+'</td>'+
               '<td style="padding:3px 5px;text-align:right;font-family:Georgia,serif;color:'+rc+'">'+(r.exitRlv<0?'−':'')+fmt(Math.abs(r.exitRlv))+'</td>'+
-              '<td style="padding:3px 5px;text-align:right;color:#9A7B3E;font-size:7.4px">'+(r.jv?('Cassidy '+fmt(r.jv.cassidyShare)):'—')+'</td>'+
+              '<td style="padding:3px 5px;text-align:right;color:#9A7B3E;font-size:7.4px">'+(r.jv?('Cassidy IRR '+(r.jv.cassidyIrr!=null?(Math.round(r.jv.cassidyIrr*1000)/10)+'%':'—')+' · '+fmt(r.jv.cassidyShare)):'—')+'</td>'+
             '</tr>';
           }).join('');
           var lp=num(data.land&&data.land.price), rlvc=MU.totalRLV>=0?"#1B7A54":"#B05A35";

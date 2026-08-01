@@ -106,8 +106,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.201";
+var CURRENT_VERSION = "10.202";
 var VERSION_HISTORY = [
+  {v:"10.202", date:"Aug 2026", headline:"Mixed-use deepened: a proper JV IRR waterfall, and houses valued on a yield for an HA / pension exit. (1) JOINT VENTURES now run a period-by-period EQUITY WATERFALL instead of a static split: both partners fund equity pro-rata to their %, build over the hold period, and split the exit proceeds in order — return of capital → the fund's COMPOUNDED preferred return → Cassidy's promote (carried interest) → residual by equity share. Each JV parcel shows CASSIDY'S IRR and equity multiple and the FUND'S IRR and multiple, plus the pref and promote paid; set Cassidy's equity % low for a classic developer-promote structure. New engine irr() (bisection) + jvWaterfall(); the JV panel, the parcel result line, the Dashboard and the board one-pager all show the IRRs. (2) HOUSES ON A RENTED EXIT: an SFH parcel taken to an HA or pension forward-fund (or a JV) is now valued by CAPITALISATION — rent ÷ the net initial yield — exactly like the apartment parcels, with a per-parcel yield input and a buyer/fund selector (pension / sovereign / operator / housing association / Homes England / family office). So a houses parcel let to an HA or pension scheme reads on its yield, not plot sales, and the exit label shows the buyer and the yield (e.g. ‘Forward-fund (pension fund) @ 4.75% yield’). A ‘hold / build (yrs)’ input drives the IRR timeline. No change to single-use deals."},
   {v:"10.201", date:"Aug 2026", headline:"Mixed-use schemes now PRINT on the one-page board appraisal — so a multi-parcel deal produces a board-ready document, not just an on-screen view. When the deal has parcels (data.mixed.parcels), the one-pager (shared by the Quick Appraisal and the Board Proposal) adds a ‘Mixed-use scheme’ table: each parcel with its size, units, its OWN exit route, its exit value, the land it supports, and any JV share — then a blended-total row (acres, units, total exit value / GDV, total land supported, margin after land, Cassidy’s JV share) tested against the guide price. Each parcel is priced through the same engine as the single-use appraisal, so the figures reconcile. Nothing prints for a single-use deal (computeMixedUse returns null). This makes the mixed-use journey end-to-end: build it on the Mixed-Use Scheme stage → see the blend on the Dashboard → print it on the board one-pager. Completes the v10.199/200 mixed-use foundation."},
   {v:"10.200", date:"Aug 2026", headline:"Mixed-use schemes now surface on the DEAL DASHBOARD, so a multi-parcel scheme isn't siloed on its own stage. When a deal has parcels (data.mixed.parcels), the Dashboard leads with a blended mixed-use panel — parcels / acres / units, blended GDV, development cost, land supported (RLV), headroom vs the guide price, margin after land and Cassidy's JV profit share — plus a per-parcel chip row (each parcel's use, acreage, its own exit and the land it supports) and an ‘Open Mixed-Use Scheme →’ button. Hidden entirely for a normal single-use deal (the panel only appears when computeMixedUse returns parcels), so nothing changes for existing deals. Follows v10.199 (the Mixed-Use Scheme builder + engine); surfacing the blended appraisal on the printed board documents is the next step."},
   {v:"10.199", date:"Aug 2026", headline:"NEW: MIXED-USE SCHEMES — one site can now be several use-parcels, each taken to its OWN exit, and summed into one deal. A new ‘🧩 Mixed-Use Scheme’ stage (2. Value) lets you build a scheme out of Houses (SFH), Build-to-Rent and Student (PBSA) parcels — e.g. 3 acres of houses + 1 acre BTR + 1 acre PBSA — and give EACH its own exit route: open-market/plot sales, bulk sale to a Housing Association, an institutional forward-fund, or a JOINT VENTURE with a fund (pension / sovereign / operator / family office). A parcel’s mixed OUTCOME within a use — e.g. 40% of the houses sold to an HA, 60% private — is set with its Affordable %, which splits the house mix by tenure. Every parcel is priced through the SAME engine as the single-use journeys (computeSFHMetrics for houses, computeHRAMetrics for BTR/PBSA), so the numbers reconcile; the deal’s residual land value is the SUM of what each parcel can pay, shown with a per-parcel breakdown (units, exit value, dev cost, land supported) and a blended total (GDV, dev cost, RLV, headroom vs the guide price, margin after land). JOINT VENTURES get an indicative static waterfall — Cassidy’s equity share of the profit PLUS a promote (carried interest) over the fund’s preferred return, with the fund’s share shown alongside (a full period-by-period IRR waterfall is a later refinement). Purely additive: it’s its own stage and store (data.mixed.parcels); every existing single-use deal and screen is completely unchanged. New engine: computeMixedUse() / jvSplit() / defaultParcel(); new screen screen-MixedUse.js. This is the foundation — surfacing the blended mixed-use appraisal on the board documents is the next step."},
@@ -4067,19 +4068,83 @@ function computeTenureMetrics(data){
 //              exit:{ route:'plot'|'ha_bulk'|'forward_fund'|'jv', haBulkDiscountPct?,
 //                     cassidyEquityPct?, promotePct?, prefRate?, jvPartner? } }
 
-// jvSplit — an INDICATIVE static JV waterfall for the appraisal. The fund provides the equity;
-// Cassidy takes an equity share of the profit PLUS a promote (carried interest) on the profit
-// above the fund's preferred return. Editable and clearly labelled indicative — a full
-// period-by-period IRR waterfall is a later refinement.
+// irr — internal rate of return of a stream of ANNUAL cashflows (cashflows[0] at t0), by bisection.
+// Returns the annual rate, or null when there's no sign change (no meaningful IRR).
+function irr(cashflows){
+  cashflows = cashflows || [];
+  function npv(rate){ var v = 0; for(var t = 0; t < cashflows.length; t++){ v += num(cashflows[t]) / Math.pow(1 + rate, t); } return v; }
+  var lo = -0.95, hi = 5.0, nlo = npv(lo), nhi = npv(hi);
+  if(!(isFinite(nlo) && isFinite(nhi)) || nlo === 0) { return nlo === 0 ? lo : null; }
+  if(nlo * nhi > 0) return null;                    // same sign at both ends → no root in range
+  for(var i = 0; i < 100; i++){
+    var mid = (lo + hi) / 2, nm = npv(mid);
+    if(Math.abs(nm) < 1 || (hi - lo) < 1e-7) return mid;
+    if(nlo * nm < 0){ hi = mid; } else { lo = mid; nlo = nm; }
+  }
+  return (lo + hi) / 2;
+}
+
+// jvWaterfall — a proper European-style development-JV waterfall with period-by-period IRRs.
+// The JV deploys the total equity (development cost + its share of the land) at the start, builds
+// over `holdYears`, and realises the exit value at completion (a forward-fund / sale). Distribution
+// order on the exit proceeds: (1) return of each partner's capital, (2) the FUND's preferred return
+// (its capital compounded at prefRate over the hold), (3) Cassidy's promote / carried interest on the
+// profit above the pref, (4) the residual split by equity share. Returns each partner's capital,
+// distribution, profit share, IRR and equity multiple. Equity-only (no debt) — a transparent,
+// defensible development-JV model; note it as such on the report.
+function jvWaterfall(exitValue, devCost, landShare, jv, holdYears){
+  jv = jv || {};
+  var ce = Math.max(0, Math.min(1, numOr(jv.cassidyEquityPct, 20) / 100));  // Cassidy's equity share
+  var fe = 1 - ce;                                                          // fund's equity share
+  var promote = Math.max(0, numOr(jv.promotePct, 20) / 100);               // carried interest %
+  var prefRate = Math.max(0, numOr(jv.prefRate, 8) / 100);                 // fund preferred return
+  var hold = num(holdYears) > 0 ? num(holdYears) : 2.5;
+  var capital = Math.max(0, num(devCost) + num(landShare));               // total equity deployed
+  var cassidyCapital = capital * ce, fundCapital = capital * fe;
+  var proceeds = Math.max(0, num(exitValue));
+  var cassidyDist, fundDist, prefPaid = 0, promotePaid = 0, residual = 0;
+  if(proceeds <= capital){
+    // loss (or capital not fully returned): share the shortfall pro-rata to capital, no pref/promote
+    cassidyDist = proceeds * ce; fundDist = proceeds * fe;
+  } else {
+    var afterCapital = proceeds - capital;                                 // the profit pool
+    var pref = fundCapital * (Math.pow(1 + prefRate, hold) - 1);           // fund's compounded pref
+    prefPaid = Math.min(afterCapital, pref);
+    var afterPref = afterCapital - prefPaid;
+    promotePaid = afterPref * promote;                                     // Cassidy's carry
+    residual = afterPref - promotePaid;
+    cassidyDist = cassidyCapital + promotePaid + residual * ce;
+    fundDist = fundCapital + prefPaid + residual * fe;
+  }
+  var hi = Math.round(hold);                                               // integer periods for the IRR stream
+  if(hi < 1) hi = 1;
+  function stream(cap, dist){ var a = [-cap]; for(var t = 1; t < hi; t++) a.push(0); a.push(dist); return a; }
+  var cassidyIrr = cassidyCapital > 0 ? irr(stream(cassidyCapital, cassidyDist)) : null;
+  var fundIrr = fundCapital > 0 ? irr(stream(fundCapital, fundDist)) : null;
+  return {
+    holdYears: hold, capital: capital, cassidyEquityPct: ce * 100, fundEquityPct: fe * 100,
+    promotePct: promote * 100, prefRate: prefRate * 100,
+    cassidyCapital: cassidyCapital, fundCapital: fundCapital,
+    cassidyDist: cassidyDist, fundDist: fundDist,
+    cassidyShare: cassidyDist - cassidyCapital, fundShare: fundDist - fundCapital,   // profit to each
+    schemeProfit: proceeds - capital,
+    prefPaid: prefPaid, promotePaid: promotePaid,
+    cassidyIrr: cassidyIrr, fundIrr: fundIrr,
+    cassidyMultiple: cassidyCapital > 0 ? cassidyDist / cassidyCapital : 0,
+    fundMultiple: fundCapital > 0 ? fundDist / fundCapital : 0
+  };
+}
+
+// jvSplit — legacy static profit split (kept for compatibility). Prefer jvWaterfall (with IRRs).
 function jvSplit(schemeProfit, jv){
   jv = jv || {};
-  var eq = numOr(jv.cassidyEquityPct, 20) / 100;    // Cassidy's equity share of the profit
-  var promote = numOr(jv.promotePct, 20) / 100;     // carried interest on profit above the pref
-  var prefRate = numOr(jv.prefRate, 8) / 100;       // the fund's preferred return on its equity
+  var eq = numOr(jv.cassidyEquityPct, 20) / 100;
+  var promote = numOr(jv.promotePct, 20) / 100;
+  var prefRate = numOr(jv.prefRate, 8) / 100;
   var p = num(schemeProfit);
-  var pref = Math.max(0, p) * (1 - eq) * prefRate;  // fund's preferred slice (static proxy)
+  var pref = Math.max(0, p) * (1 - eq) * prefRate;
   var abovePref = Math.max(0, p - pref);
-  var cassidy = p * eq + abovePref * promote;       // pro-rata equity share + promote on the excess
+  var cassidy = p * eq + abovePref * promote;
   return { schemeProfit:p, cassidyEquityPct:eq * 100, promotePct:promote * 100, prefRate:prefRate * 100,
     cassidyShare:cassidy, fundShare:p - cassidy };
 }
@@ -4109,7 +4174,8 @@ function defaultParcel(use, acres, city){
   var salePsf = (mk && mk.build) ? Math.max(260, Math.round((mk.build) * 1.5)) : 340;
   var buildPsf = (mk && mk.build) || 210;
   return { id:id, use:"sfh", acres:acres, label:"Houses — " + acres + " ac",
-    exit:{ route:"plot", haBulkDiscountPct:5 },
+    exit:{ route:"plot", haBulkDiscountPct:5, cassidyEquityPct:25, promotePct:20, prefRate:8, jvPartner:"pension_fund" },
+    capitalise:{ targetYield:5.0 },   // for an HA / pension forward-fund exit (houses let as an investment)
     sfh:{ basePsf:salePsf, buildPsf:buildPsf, avgSqft:900,
       mix:[ { type:"3-bed semi", count:homes, sqft:900, psf:salePsf, tenure:"private" } ] } };
 }
@@ -4132,38 +4198,53 @@ function computeMixedUse(data){
       grants: data.grants || {},
       capitalise: p.capitalise || data.capitalise || {}
     };
-    var salesValue, invValue, devCost, plotRlv, capRlv, units;
+    var salesValue, invValue, devCost, plotRlv, capRlv, units, capYield, capNetRentPa, progYears;
     if(isApt){
       slice.hra = p.hra || {};
       var H = computeHRAMetrics(slice);
       salesValue = num(H.salesGdv); invValue = num(H.investmentValue);
       devCost = num(H.devCost); plotRlv = num(H.rlv); capRlv = num(H.investmentRlv); units = num(H.units);
+      capYield = num(H.yield); capNetRentPa = num(H.annualRentNet);
+      progYears = Math.max(2, Math.min(5, 2 + units / 200));   // apartment build ≈ 2–5 yrs by scale
     } else {
       slice.sfh = p.sfh || {};
       var S = computeSFHMetrics(slice);
       salesValue = num(S.gdv); invValue = num(S.capInvestmentValue);
       devCost = num(S.devCost); plotRlv = num(S.rlv); capRlv = num(S.capRlv); units = num(S.totalUnits);
+      capYield = num(S.capYield); capNetRentPa = num(S.capNetRentPa);
+      progYears = num(S.financeProgYears) || 3;
     }
+    var holdYears = numOr(p.exit && p.exit.holdYears, progYears);
     var pPct = numOr(isApt ? (p.hra && p.hra.profitPct) : (p.sfh && p.sfh.profitPct), 17.5) / 100;
     var bulkDisc = numOr(p.exit && p.exit.haBulkDiscountPct, 5) / 100;
     var bulkGdv = salesValue * (1 - bulkDisc);
     var haBulkRlv = bulkGdv * (1 - pPct) - devCost;
 
     var route = (p.exit && p.exit.route) || (isApt ? "forward_fund" : "plot");
-    var exitValue, exitRlv, exitLabel;
+    // partner label (HA vs pension / operator …) for the yield/forward-fund routes
+    var PARTNER = { pension_fund:"pension fund", sovereign:"sovereign fund", btr_operator:"BTR / PBSA operator",
+      family_office:"family office", ha:"housing association", homes_england:"Homes England" };
+    var partner = PARTNER[(p.exit && p.exit.jvPartner) || ""] || "";
+    var yPct = capYield > 0 ? (Math.round(capYield * 1000) / 10) + "%" : "";
+    var exitValue, exitRlv, exitLabel, exitBasis;
     if(route === "forward_fund" || route === "jv" || route === "capitalised"){
-      exitValue = invValue; exitRlv = capRlv;
-      exitLabel = route === "jv" ? "Joint venture (forward-fund basis)" : "Institutional forward-fund";
+      // yield capitalisation — rent ÷ net initial yield (applies to SFH as an HA/pension let just as
+      // it does to apartments), so an SFH parcel sold to an HA / pension scheme is valued on its yield.
+      exitValue = invValue; exitRlv = capRlv; exitBasis = "capitalised";
+      exitLabel = (route === "jv" ? "Joint venture — forward-fund" : ("Forward-fund" + (partner ? " (" + partner + ")" : "")))
+        + (yPct ? " @ " + yPct + " yield" : "");
     } else if(route === "ha_bulk"){
-      exitValue = bulkGdv; exitRlv = haBulkRlv; exitLabel = "Bulk sale to a HA / fund";
+      exitValue = bulkGdv; exitRlv = haBulkRlv; exitBasis = "ha_bulk";
+      exitLabel = "Bulk sale to a HA / fund (" + Math.round(bulkDisc * 100) + "% discount)";
     } else {
-      exitValue = salesValue; exitRlv = plotRlv;
+      exitValue = salesValue; exitRlv = plotRlv; exitBasis = "plot";
       exitLabel = isApt ? "Sell the completed units" : "Open-market plot sales";
     }
     return { id:p.id || ("parcel_" + i), label:p.label || (use.toUpperCase() + " — " + num(p.acres) + " ac"),
       use:use, acres:num(p.acres), units:units, salesValue:salesValue, investmentValue:invValue,
       devCost:devCost, plotRlv:plotRlv, capRlv:capRlv, haBulkRlv:haBulkRlv,
-      route:route, exitValue:exitValue, exitRlv:exitRlv, exitLabel:exitLabel, jvCfg:(p.exit || {}) };
+      capYield:capYield, capNetRentPa:capNetRentPa, holdYears:holdYears, partner:partner,
+      route:route, exitValue:exitValue, exitRlv:exitRlv, exitLabel:exitLabel, exitBasis:exitBasis, jvCfg:(p.exit || {}) };
   });
   var totalRLV = rows.reduce(function(a, r){ return a + num(r.exitRlv); }, 0);
   var totalAcres = rows.reduce(function(a, r){ return a + num(r.acres); }, 0);
@@ -4173,8 +4254,7 @@ function computeMixedUse(data){
   rows.forEach(function(r){
     if(r.route !== "jv") return;
     var landShare = (totalAcres > 0 && dealLandPrice > 0) ? dealLandPrice * (num(r.acres) / totalAcres) : 0;
-    var schemeProfit = num(r.exitValue) - num(r.devCost) - landShare;
-    r.jv = jvSplit(schemeProfit, r.jvCfg);
+    r.jv = jvWaterfall(num(r.exitValue), num(r.devCost), landShare, r.jvCfg, num(r.holdYears));
     r.jv.landShare = landShare;
   });
   var totalGDV = rows.reduce(function(a, r){ return a + num(r.exitValue); }, 0);
