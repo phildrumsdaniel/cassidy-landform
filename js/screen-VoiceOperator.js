@@ -542,6 +542,12 @@ function VoiceOperator(props){
     if(/\b(forget everything|clear (your )?memory|wipe (your )?memory)\b/.test(low)) return { type:"clearmemory" };
     // 1) one-page appraisal (optionally printed)
     if(onePager || (wantsPrint && /\bappraisal\b/.test(t))) return { type:"onepager", print:wantsPrint };
+    // 1b) WEB LOOKUP — research verbs (explicit so ordinary chat isn't sent to search).
+    var lookM = low.match(/^(?:ronald[,\s]+|ok(?:ay)?[,\s]+|hey[,\s]+|please\s+|can you\s+|could you\s+|would you\s+)*(?:look up|look into|search(?: the web)?(?: for)?|find out(?: about| what)?|google|check online(?: for)?|what'?s the latest on|latest on|any (?:updates?|news) on)\s+(.+)/);
+    if(lookM && lookM[1]){
+      var lix = low.indexOf(lookM[1]); var q = (lix >= 0 ? orig.slice(lix) : lookM[1]).replace(/[.!?]+\s*$/, "").trim();
+      if(q) return { type:"lookup", query:q };
+    }
     // 2) build the scheme
     if(/\bbuild (it|the scheme|the deal|this|it out|the appraisal|it now)\b/.test(t) || /\b(build|crunch|run) the (scheme|deal|numbers|appraisal)\b/.test(t)) return { type:"build" };
     // 3) navigate to a named page (needs an intent verb so ordinary chat isn't hijacked)
@@ -572,6 +578,40 @@ function VoiceOperator(props){
     setThinking(false);
     speak(reply, function(){ if(resume !== false && hfRef.current) (listenRef.current || startHFListen)(); });
   }
+  // Ask the backend to search the live web (action web_search). Returns the parsed response or null if
+  // the action isn't deployed / fails — the caller then falls back to answering from knowledge.
+  function webLookup(query){
+    try{
+      if(typeof WEBHOOK === "undefined") return Promise.resolve(null);
+      return fetch(WEBHOOK, { method:"POST", headers:{ "Content-Type":"text/plain;charset=utf-8" },
+        body:JSON.stringify({ action:"web_search", token:(typeof WEBHOOK_TOKEN !== "undefined" ? WEBHOOK_TOKEN : ""), query:query, user:(user && user.name) || "" }) })
+        .then(function(r){ return r.json(); })
+        .then(function(d){ if(d && d.status === "ok" && (d.results || d.result)) return d; return null; })
+        .catch(function(){ return null; });
+    }catch(e){ return Promise.resolve(null); }
+  }
+  async function runLookup(query){
+    setThinking(true);
+    var web = null; try{ web = await webLookup(query); }catch(e){}
+    var sys, prompt;
+    if(web && (web.results || web.result)){
+      var ctx = web.result || (web.results || []).map(function(x, i){ return (i + 1) + ". " + (x.title || "") + " — " + (x.snippet || x.text || "") + (x.url ? " [" + x.url + "]" : ""); }).join("\n");
+      sys = "You are Ronald, a candid UK land & development advisor. Using the WEB RESULTS, tell the developer the current position on their question — what it is, what changed if anything, and the practical implication for UK appraisals / planning. 2 to 4 spoken sentences. If the results are thin or conflicting, say so plainly. Don't invent sources or figures.";
+      prompt = "Question: " + query + "\n\nWEB RESULTS:\n" + ctx.substring(0, 6000) + "\n\nAnswer concisely, spoken-friendly.";
+    } else {
+      sys = "You are Ronald, a candid UK land & development advisor. Answer the question from your own knowledge, but be EXPLICIT that you couldn't fetch live web sources right now, so for anything recent they should verify against the official source (gov.uk, the LPA, or the regulator). 2 to 4 spoken sentences.";
+      prompt = "Question: " + query + "\n\n(No live web results were available.) Answer concisely and include the verify-live caveat.";
+    }
+    try{
+      var res = await callAI(user, "keystone", sys, prompt);
+      var reply = ((res || "").trim()) || "I couldn't find a clear answer on that.";
+      respondSpoken(reply);
+      // If we actually reached the web, keep the finding in memory so Ronald "learns" it for next time.
+      if(web) addMemory("On “" + query + "”: " + reply, "web");
+    }catch(e){
+      respondSpoken("I couldn't reach the research service just now — try again in a moment.");
+    }
+  }
   function executeCommand(cmd){
     if(cmd.type === "remember"){
       addMemory(cmd.text, "you");
@@ -587,6 +627,11 @@ function VoiceOperator(props){
     if(cmd.type === "clearmemory"){
       setMemory([]); persistMemory([]);
       respondSpoken("Done — I've cleared everything from memory.");
+      return;
+    }
+    if(cmd.type === "lookup"){
+      respondSpoken("Let me check the latest on that — one moment.", false);
+      setTimeout(function(){ runLookup(cmd.query); }, 200);
       return;
     }
     if(cmd.type === "onepager"){
