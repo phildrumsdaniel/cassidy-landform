@@ -64,7 +64,7 @@ var ALL_STAGES = [
   {id:"quick",           label:"Quick Appraisal",    icon:"⚡", group:"0. Start", journeys:["all","land","property","sfh","btr","pbsa","recovery","asset"]},
   {id:"keystone",        label:"Keystone — Deal Builder", icon:"🪨", group:"0. Start", journeys:["all","land","property","sfh","btr","pbsa","recovery","asset"]},
   {id:"navigator",       label:"Process Navigator",  icon:"🧭", group:"0. Start",    journeys:["all","land","property","sfh","btr","pbsa","recovery","asset"]},
-  {id:"voice",           label:"Voice Operator",     icon:"🎙", group:"0. Start",    journeys:["all","land","property","sfh","btr","pbsa","recovery","asset"]},
+  {id:"voice",           label:"Ronald (Voice)",      icon:"🎙", group:"0. Start",    journeys:["all","land","property","sfh","btr","pbsa","recovery","asset"]},
   {id:"assetOptimiser",  label:"Asset Exit Optimiser", icon:"🏛", group:"0. Start",    journeys:["asset","all"]},
   // ── 1. FIND ──────────────────────────────────────────────────────────────
   {id:"placona",     label:"Placona Agent",         icon:"🤖", group:"1. Find",     journeys:["land","sfh","btr","pbsa","all"]},
@@ -2225,7 +2225,7 @@ function loadSiteIntoDeal(site){
           // intake is one tap from anywhere rather than hidden in the stage list.
           e("button",{key:"talk",
             onClick:function(){ navTo("voice"); },
-            title:"Talk to Landform — voice operator (conversation or guided interview)",
+            title:"Talk to Ronald — Landform voice operator (conversation or guided interview)",
             style:{padding:isMobile?"8px 10px":"6px 14px",background:stage==="voice"?"#3A3D6A":"#4A4BAE",border:"none",color:"#fff",borderRadius:5,fontSize:isMobile?16:11,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(74,75,174,0.3)",minHeight:36,flexShrink:0}},
             isMobile?"🎙":"🎙 Talk"
           ),
