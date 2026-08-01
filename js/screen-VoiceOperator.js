@@ -46,7 +46,9 @@ function VoiceOperator(props){
   var vnS = useState(function(){ try{ return localStorage.getItem("cassidy_voice_name") || ""; }catch(e){ return ""; } });
   var voiceName = vnS[0], setVoiceName = vnS[1];
   var tkS = useState(0);       var voicesTick = tkS[0], setVoicesTick = tkS[1];      // bumped when the browser's voices load
+  var hfS = useState(false);   var handsFree = hfS[0], setHandsFree = hfS[1];        // continuous hands-free conversation
   var recRef = React.useRef(null);
+  var hfRef = React.useRef(false);   // live handsFree flag for async callbacks
 
   // Browser voices load asynchronously — re-render when they arrive so the picker + best-voice work.
   useEffect(function(){
@@ -56,6 +58,8 @@ function VoiceOperator(props){
     try{ window.speechSynthesis.getVoices(); }catch(e){}   // prime it
     return function(){ try{ window.speechSynthesis.onvoiceschanged = null; }catch(e){} };
   }, []);
+  // stop Ronald talking/listening when you leave the screen (unmount)
+  useEffect(function(){ return function(){ hfRef.current = false; try{ recRef.current && recRef.current.stop(); }catch(e){} try{ if(window.speechSynthesis) window.speechSynthesis.cancel(); }catch(e){} }; }, []);
   function allVoices(){ try{ return (window.speechSynthesis.getVoices() || []).filter(function(v){ return /^en/i.test(v.lang || ""); }); }catch(e){ return []; } }
   // pick the most natural available voice — prefer en-GB, then neural/natural/Google/premium, then a
   // male-leaning name (Ronald is a chap). Browser TTS quality is capped by the installed voices; the
@@ -124,7 +128,26 @@ function VoiceOperator(props){
   var L = data.land || {};
   var accent = "#4A4BAE";
 
-  function speak(text){ if(!voiceOn || !synth) return; try{ synth.cancel(); var u = new SpeechSynthesisUtterance(text); var vc = currentVoice(); if(vc){ u.voice = vc; u.lang = vc.lang || "en-GB"; } else { u.lang = "en-GB"; } u.rate = 0.97; u.pitch = 1.0; synth.speak(u); }catch(e){} }
+  function speak(text, onDone){
+    if(!voiceOn || !synth){ if(onDone) setTimeout(onDone, 60); return; }
+    try{ synth.cancel(); var u = new SpeechSynthesisUtterance(text); var vc = currentVoice(); if(vc){ u.voice = vc; u.lang = vc.lang || "en-GB"; } else { u.lang = "en-GB"; }
+      u.rate = 0.97; u.pitch = 1.0; if(onDone) u.onend = function(){ try{ onDone(); }catch(e){} };
+      synth.speak(u);
+    }catch(e){ if(onDone) setTimeout(onDone, 60); }
+  }
+  // HANDS-FREE: after Ronald finishes speaking, listen; when you stop talking, auto-send; repeat.
+  function startHFListen(){
+    if(!SR || !hfRef.current) return;
+    try{ if(synth && synth.speaking) return; }catch(e){}
+    var rec; try{ rec = new SR(); }catch(e){ return; }
+    rec.lang = "en-GB"; rec.interimResults = false; rec.continuous = false; var got = false;
+    rec.onresult = function(ev){ var t = ""; for(var i = ev.resultIndex; i < ev.results.length; i++){ if(ev.results[i].isFinal) t += ev.results[i][0].transcript; } t = t.trim(); if(t){ got = true; setListening(false); sendMessage(t); } };
+    rec.onerror = function(){ setListening(false); };
+    rec.onend = function(){ setListening(false); if(hfRef.current && !got){ setTimeout(function(){ if(hfRef.current && !(synth && synth.speaking)) startHFListen(); }, 350); } };
+    recRef.current = rec; try{ rec.start(); setListening(true); }catch(e){ setListening(false); }
+  }
+  function startHands(){ setHandsFree(true); hfRef.current = true; if(!messages.length){ startConversation(); } else { stopSpeak(); startHFListen(); } }
+  function stopHands(){ setHandsFree(false); hfRef.current = false; stopListen(); stopSpeak(); }
   function stopSpeak(){ try{ synth && synth.cancel(); }catch(e){} }
   function setAns(key, text){ setAnswers(function(a){ var n = Object.assign({}, a); n[key] = text; return n; }); }
   function appendAns(key, text){ setAnswers(function(a){ var n = Object.assign({}, a); n[key] = ((n[key] || "") + " " + text).trim(); return n; }); }
@@ -267,7 +290,8 @@ function VoiceOperator(props){
     setPhase("converse");
     var opener = "Hello, I'm Ronald, your Landform land advisor. Tell me about this site — what's your thinking, and what would you like to do with it?";
     setMessages([{ role:"assistant", text:opener }]);
-    setTimeout(function(){ speak(opener); }, 350);
+    if(SR){ setHandsFree(true); hfRef.current = true; }   // hands-free: just talk, no Send button
+    setTimeout(function(){ speak(opener, function(){ if(hfRef.current) startHFListen(); }); }, 350);
   }
   async function sendMessage(text){
     text = (text || "").trim(); if(!text || thinking) return;
@@ -298,10 +322,11 @@ function VoiceOperator(props){
         "Conversation so far:\n" + convoText + "\n\nReply as the Operator now — natural, concise, spoken-friendly. Quote the live figures above when they're relevant to what they just said.");
       var reply = ((res || "").trim()) || "Understood.";
       setMessages(function(m){ return m.concat([{ role:"assistant", text:reply }]); });
-      setThinking(false); speak(reply);
+      setThinking(false); speak(reply, function(){ if(hfRef.current) startHFListen(); });   // hands-free: listen again after Ronald replies
     }catch(err){
       setThinking(false);
       setMessages(function(m){ return m.concat([{ role:"assistant", text:"Sorry — I didn't catch that (connection issue). Say it again?" }]); });
+      if(hfRef.current) setTimeout(function(){ if(hfRef.current) startHFListen(); }, 500);
     }
   }
   // mic for the conversation: dictate into the draft, ready to send
@@ -382,21 +407,27 @@ function VoiceOperator(props){
         e("span", { style:{ fontSize:12, color:"#2E2F8A" } }, (figures.hasAsk ? "Margin " : "Target ") + Math.round(figures.marginPct) + "%"),
         figures.ahPct > 0 && e("span", { style:{ fontSize:12, color:"#7278A0" } }, Math.round(figures.ahPct) + "% affordable"),
         e("span", { style:{ fontSize:9.5, color:"#9298BC", fontStyle:"italic" } }, "indicative — firms up as you talk")),
-      // input row
+      // ── HANDS-FREE bar — just talk; Ronald listens, replies aloud, then listens again ──
+      micSupported && e("div", { style:{ display:"flex", gap:12, alignItems:"center", flexWrap:"wrap", marginBottom:10, padding:"11px 14px", borderRadius:10, background:handsFree ? (listening ? "rgba(45,122,101,0.10)" : "rgba(74,75,174,0.07)") : "#F7F8FC", border:"1px solid " + (handsFree ? (listening ? "#2D7A65" : "#C5C8E0") : "#DDE0ED") } },
+        handsFree
+          ? e("button", { onClick:stopHands, style:{ padding:"11px 18px", background:"#B05A35", border:"none", color:"#fff", borderRadius:8, fontSize:14, fontWeight:800, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "⏸ Pause")
+          : e("button", { onClick:startHands, style:{ padding:"12px 22px", background:"#2D7A65", border:"none", color:"#fff", borderRadius:8, fontSize:15, fontWeight:800, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "🎤 Start talking"),
+        e("span", { style:{ fontSize:13, fontWeight:800, color:handsFree ? (listening ? "#1B7A54" : thinking ? "#9298BC" : "#4A4BAE") : "#7278A0" } },
+          handsFree ? (listening ? "🎤 Listening — just talk, no need to press anything" : thinking ? "🎙 Ronald is thinking…" : "🎙 Ronald is speaking…")
+                    : "Hands-free: Ronald listens, answers aloud, then listens again — no Send button.")),
+      // typing fallback
       e("div", { style:{ display:"flex", gap:8, alignItems:"flex-end", flexWrap:"wrap" } },
-        micSupported && e("button", { onClick:toggleConvoListen, title:listening ? "Stop" : "Speak",
-          style:{ padding:"11px 16px", background:listening ? "#B05A35" : "#2D7A65", border:"none", color:"#fff", borderRadius:8, fontSize:14, fontWeight:800, cursor:"pointer", fontFamily:"DM Sans,sans-serif", whiteSpace:"nowrap" } }, listening ? "⏹ Stop" : "🎤 Speak"),
         e("textarea", { value:draft, onChange:function(ev){ setDraft(ev.target.value); },
           onKeyDown:function(ev){ if(ev.key === "Enter" && !ev.shiftKey){ ev.preventDefault(); sendMessage(draft); } },
-          placeholder:listening ? "Listening — speak your point or question…" : "Speak, or type here. Ask anything, share your thinking, add a request…",
-          style:{ flex:"1 1 260px", minHeight:46, padding:"10px 13px", border:"1px solid #C5C8E0", borderRadius:8, fontSize:14, color:"#2E2F8A", fontFamily:"DM Sans,sans-serif", boxSizing:"border-box", resize:"vertical" } }),
+          placeholder:"…or type here instead",
+          style:{ flex:"1 1 260px", minHeight:42, padding:"10px 13px", border:"1px solid #C5C8E0", borderRadius:8, fontSize:14, color:"#2E2F8A", fontFamily:"DM Sans,sans-serif", boxSizing:"border-box", resize:"vertical" } }),
         e("button", { onClick:function(){ sendMessage(draft); }, disabled:thinking || !(draft || "").trim(),
-          style:{ padding:"11px 20px", background:(thinking || !(draft || "").trim()) ? "#AAB" : accent, border:"none", color:"#fff", borderRadius:8, fontSize:14, fontWeight:800, cursor:(thinking || !(draft || "").trim()) ? "not-allowed" : "pointer", fontFamily:"DM Sans,sans-serif" } }, "Send →")),
+          style:{ padding:"10px 18px", background:(thinking || !(draft || "").trim()) ? "#AAB" : accent, border:"none", color:"#fff", borderRadius:8, fontSize:13, fontWeight:800, cursor:(thinking || !(draft || "").trim()) ? "not-allowed" : "pointer", fontFamily:"DM Sans,sans-serif" } }, "Send →")),
       // build / actions
       e("div", { style:{ display:"flex", gap:10, marginTop:14, flexWrap:"wrap", alignItems:"center" } },
-        e("button", { onClick:buildFromConversation, disabled:messages.filter(function(m){ return m.role === "user"; }).length === 0,
+        e("button", { onClick:function(){ stopHands(); buildFromConversation(); }, disabled:messages.filter(function(m){ return m.role === "user"; }).length === 0,
           style:{ padding:"12px 22px", background:"#2D7A65", border:"none", color:"#fff", borderRadius:8, fontSize:14, fontWeight:800, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "🏗 Build the scheme from this"),
-        e("button", { onClick:function(){ stopSpeak(); stopListen(); setPhase("idle"); }, style:{ padding:"12px 16px", background:"transparent", border:"1px solid #DDE0ED", color:"#7278A0", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "← Back"),
+        e("button", { onClick:function(){ stopHands(); setPhase("idle"); }, style:{ padding:"12px 16px", background:"transparent", border:"1px solid #DDE0ED", color:"#7278A0", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "← Back"),
         e("span", { style:{ fontSize:11, color:"#9298BC" } }, "Talk as long as you like — everything you say is folded into the scheme when you build.")));
   }
 
