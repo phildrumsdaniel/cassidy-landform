@@ -51,20 +51,59 @@ function handleCompaniesHouse(data) {
   }
 }
 
-// ── Land Registry proprietor — STUB. No free API exists. Wire your provider here:
-//   • HM Land Registry Business Gateway (order the title register B2B), or
-//   • a commercial aggregator API (Searchland / LandInsight / Nimbus / Orbital Witness).
-// Return { status:"ok", proprietor, address, type, titleNumber } on success.
+// ── Land Registry proprietor via LANDINSIGHT (LandTech) ──────────────────────────────────────
+// LandInsight/LandTech consolidates HM Land Registry + Companies House ownership behind an API for
+// its API customers. Their API reference is provided with your API credentials (it isn't public), so
+// the ENDPOINT PATH and RESPONSE FIELD NAMES below are the standard pattern — confirm them against
+// your LandTech API reference and adjust the two marked spots if they differ.
+//
+// SETUP (once):
+//   1. Get API access + a key from your LandTech / LandInsight account manager (land.tech/api).
+//   2. Project Settings ▸ Script properties, add:
+//        LANDTECH_API_KEY   = <your key / token>
+//        LANDTECH_API_BASE  = <the base URL from their API reference, e.g. https://api.land.tech>
+//   3. Paste this handler + the doPost line, re-deploy.
+//
+// Returns { status:"ok", proprietor, name, address, type, titleNumber } — the app records it and
+// pushes the owner + address into the Approach-Landowner stage.
 function handleLandRegistry(data) {
-  var provider = PropertiesService.getScriptProperties().getProperty("LR_PROVIDER_URL");
-  if (!provider) {
-    return { status: "error", message: "no ownership provider configured — buy the title register at search-property-information.service.gov.uk (the app links you there), or wire an aggregator API here." };
+  var props = PropertiesService.getScriptProperties();
+  var key = props.getProperty("LANDTECH_API_KEY");
+  var base = props.getProperty("LANDTECH_API_BASE") || "https://api.land.tech";
+  if (!key) return { status: "error", message: "LANDTECH_API_KEY not set — add it in Script properties (see docs/landowner-identify.gs)." };
+  var address = String((data && data.address) || "").trim();
+  var postcode = String((data && data.postcode) || "").trim();
+  var title = String((data && data.titleNumber) || "").trim();
+  if (!address && !postcode && !title) return { status: "error", message: "need an address, postcode or title number" };
+  try {
+    // ── SPOT 1: the ownership endpoint. Confirm the path + query params in your LandTech API reference.
+    var qs = title ? ("titleNumber=" + encodeURIComponent(title))
+                   : ("address=" + encodeURIComponent(address) + "&postcode=" + encodeURIComponent(postcode));
+    var url = base.replace(/\/+$/, "") + "/v1/ownership?" + qs;
+    var res = UrlFetchApp.fetch(url, {
+      method: "get",
+      headers: { Authorization: "Bearer " + key, Accept: "application/json" },
+      muteHttpExceptions: true
+    });
+    var code = res.getResponseCode();
+    if (code >= 400) return { status: "error", message: "LandTech API " + code + ": " + String(res.getContentText()).slice(0, 300) };
+    var j = JSON.parse(res.getContentText() || "{}");
+    return mapLandTechOwnership_(j);
+  } catch (err) {
+    return { status: "error", message: String(err) };
   }
-  // Example shape once you have a provider (adjust to their API):
-  // var res = UrlFetchApp.fetch(provider + "?postcode=" + encodeURIComponent(data.postcode) +
-  //   "&address=" + encodeURIComponent(data.address),
-  //   { headers: { Authorization: "Bearer " + PropertiesService.getScriptProperties().getProperty("LR_API_KEY") }, muteHttpExceptions: true });
-  // var j = JSON.parse(res.getContentText() || "{}");
-  // return { status:"ok", proprietor:j.owner_name, address:j.owner_address, type:j.owner_type, titleNumber:j.title_no };
-  return { status: "error", message: "land_registry provider stub — add your provider call in handleLandRegistry()" };
+}
+
+// ── SPOT 2: map LandTech's response to Landform's shape. Tries several common field names; adjust to
+// match your API reference exactly (the ownership record may be nested under a different key).
+function mapLandTechOwnership_(j) {
+  var rec = (j && (j.ownership || (j.ownerships && j.ownerships[0]) || (j.results && j.results[0]) || (j.data && (j.data.ownership || j.data)))) || j || {};
+  function first(v) { return Array.isArray(v) ? (v[0] || "") : (v || ""); }
+  var p = first(rec.proprietors) || rec.proprietor || rec.owner || rec.ownerName || rec.registeredProprietor || "";
+  var proprietor = (p && typeof p === "object") ? (p.name || p.proprietorName || "") : String(p || "");
+  var address = rec.proprietorAddress || rec.ownerAddress || rec.correspondenceAddress ||
+                ((p && typeof p === "object") ? (p.address || "") : "") || rec.address || "";
+  var titleNo = rec.titleNumber || rec.title_no || rec.title || "";
+  if (!proprietor && !titleNo) return { status: "ok", proprietor: "", message: "no ownership match returned" };
+  return { status: "ok", type: rec.ownerType || rec.tenure || "", proprietor: proprietor, name: proprietor, address: address, titleNumber: titleNo };
 }
