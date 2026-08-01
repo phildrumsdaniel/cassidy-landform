@@ -2221,6 +2221,14 @@ function loadSiteIntoDeal(site){
             isMobile?"📎":"📎 Upload Files",
             e("input",{type:"file",accept:".xlsx,.xls,.csv,.txt,.pdf,.doc,.docx,.json",multiple:true,onChange:function(ev){handleFileUpload(ev);},style:{display:"none"}})
           ),
+          // v10.215 — always-visible "Talk to Landform" (Voice Operator) button, so the voice
+          // intake is one tap from anywhere rather than hidden in the stage list.
+          e("button",{key:"talk",
+            onClick:function(){ navTo("voice"); },
+            title:"Talk to Landform — voice operator (conversation or guided interview)",
+            style:{padding:isMobile?"8px 10px":"6px 14px",background:stage==="voice"?"#3A3D6A":"#4A4BAE",border:"none",color:"#fff",borderRadius:5,fontSize:isMobile?16:11,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(74,75,174,0.3)",minHeight:36,flexShrink:0}},
+            isMobile?"🎙":"🎙 Talk"
+          ),
           e("button",{
             onClick:doMasterAnalyse,
             disabled:data.masterLoading,
