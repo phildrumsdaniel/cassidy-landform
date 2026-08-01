@@ -59,6 +59,34 @@ var VOICE_NAV_TARGETS = [
 var VOICE_STATE_KEY = "cassidy_voice_state";
 function loadVoiceState(){ try{ return JSON.parse(localStorage.getItem(VOICE_STATE_KEY) || "null") || {}; }catch(e){ return {}; } }
 
+// v10.223 — RONALD'S MEMORY. Things you tell him to remember (standing facts, regulations, preferences)
+// are kept per-user and fed into every future conversation, so he learns as you go. Stored locally now;
+// synced across devices via the backend (ronald_mem_save / ronald_mem_load) once that action is deployed
+// (see docs/ronald-memory-sync.gs). Each item: { id, text, ts, source }  (source: "you" | "web").
+var RONALD_MEM_KEY = "cassidy_ronald_memory";
+function ronaldMemKey(user){ return RONALD_MEM_KEY + "_" + ((user && user.userId) || "local"); }
+function loadRonaldMemory(user){ try{ return JSON.parse(localStorage.getItem(ronaldMemKey(user)) || "[]") || []; }catch(e){ return []; } }
+function saveRonaldMemoryLocal(user, items){ try{ localStorage.setItem(ronaldMemKey(user), JSON.stringify(items || [])); }catch(e){} }
+// Best-effort cross-device sync — mirrors the Placona CRM pattern; silently no-ops if the backend
+// action isn't deployed yet, so the per-device memory always works regardless.
+function ronaldMemCloudSave(user, items){
+  try{
+    if(typeof WEBHOOK === "undefined" || !(user && user.userId)) return;
+    fetch(WEBHOOK, { method:"POST", headers:{ "Content-Type":"text/plain;charset=utf-8" },
+      body:JSON.stringify({ action:"ronald_mem_save", token:(typeof WEBHOOK_TOKEN !== "undefined" ? WEBHOOK_TOKEN : ""), userId:user.userId, payload:JSON.stringify(items || []) }) }).catch(function(){});
+  }catch(e){}
+}
+function ronaldMemCloudLoad(user){
+  try{
+    if(typeof WEBHOOK === "undefined" || !(user && user.userId)) return Promise.resolve(null);
+    return fetch(WEBHOOK, { method:"POST", headers:{ "Content-Type":"text/plain;charset=utf-8" },
+      body:JSON.stringify({ action:"ronald_mem_load", token:(typeof WEBHOOK_TOKEN !== "undefined" ? WEBHOOK_TOKEN : ""), userId:user.userId }) })
+      .then(function(r){ return r.json(); })
+      .then(function(d){ if(d && d.status === "ok" && d.payload){ try{ return JSON.parse(d.payload); }catch(e){ return null; } } return null; })
+      .catch(function(){ return null; });
+  }catch(e){ return Promise.resolve(null); }
+}
+
 function VoiceOperator(props){
   var data = props.data, setData = props.setData, navTo = props.navTo, user = props.user;
   var docked = !!props.docked, dockOpen = !!props.open, onClose = props.onClose;   // floating-assistant mode
@@ -78,6 +106,9 @@ function VoiceOperator(props){
   var voiceName = vnS[0], setVoiceName = vnS[1];
   var tkS = useState(0);       var voicesTick = tkS[0], setVoicesTick = tkS[1];      // bumped when the browser's voices load
   var hfS = useState(false);   var handsFree = hfS[0], setHandsFree = hfS[1];        // continuous hands-free conversation
+  var memInitS = useState(function(){ return loadRonaldMemory(user); });   var memory = memInitS[0], setMemory = memInitS[1];   // standing things to remember
+  var memPanelS = useState(false);   var memPanelOpen = memPanelS[0], setMemPanelOpen = memPanelS[1];
+  var memDraftS = useState("");      var memDraft = memDraftS[0], setMemDraft = memDraftS[1];
   var recRef = React.useRef(null);
   var hfRef = React.useRef(false);   // live handsFree flag for async callbacks
   var uttRef = React.useRef(null);   // retain the utterance so Chrome doesn't GC it (else onend never fires)
@@ -94,6 +125,32 @@ function VoiceOperator(props){
   }, []);
   // stop Ronald talking/listening when you leave the screen (unmount)
   useEffect(function(){ return function(){ hfRef.current = false; try{ recRef.current && recRef.current.stop(); }catch(e){} try{ if(window.speechSynthesis) window.speechSynthesis.cancel(); }catch(e){} }; }, []);
+  // Pull any cloud-synced memory on mount and merge with what's local (union by id, newest kept).
+  useEffect(function(){
+    var p = ronaldMemCloudLoad(user); if(!p || !p.then) return;
+    p.then(function(cloud){
+      if(!cloud || !cloud.length) return;
+      setMemory(function(cur){
+        var byId = {}; (cur || []).concat(cloud).forEach(function(m){ if(m && m.id){ var e0 = byId[m.id]; if(!e0 || (m.ts || 0) >= (e0.ts || 0)) byId[m.id] = m; } });
+        var merged = Object.keys(byId).map(function(k){ return byId[k]; }).sort(function(a, b){ return (b.ts || 0) - (a.ts || 0); });
+        saveRonaldMemoryLocal(user, merged); return merged;
+      });
+    });
+  }, []);
+  function persistMemory(items){ saveRonaldMemoryLocal(user, items); ronaldMemCloudSave(user, items); }
+  function addMemory(text, source){
+    var t = (text || "").trim(); if(!t) return;
+    var ts = (new Date()).getTime();
+    setMemory(function(cur){
+      // skip a near-duplicate (same text) so repeated "remember" doesn't pile up
+      if((cur || []).some(function(m){ return (m.text || "").toLowerCase() === t.toLowerCase(); })) return cur;
+      var item = { id:"m" + ts + "-" + (cur ? cur.length : 0), text:t, ts:ts, source:source || "you" };
+      var next = [item].concat(cur || []);
+      persistMemory(next); return next;
+    });
+  }
+  function removeMemory(id){ setMemory(function(cur){ var next = (cur || []).filter(function(m){ return m.id !== id; }); persistMemory(next); return next; }); }
+  function memoryLines(){ return (memory || []).map(function(m){ return "- " + m.text + (m.source === "web" ? " (from a web check)" : ""); }).join("\n"); }
   function allVoices(){ try{ return (window.speechSynthesis.getVoices() || []).filter(function(v){ return /^en/i.test(v.lang || ""); }); }catch(e){ return []; } }
   // pick the most natural available voice — prefer en-GB, then neural/natural/Google/premium, then a
   // male-leaning name (Ronald is a chap). Browser TTS quality is capped by the installed voices; the
@@ -440,6 +497,8 @@ function VoiceOperator(props){
     var read = liveReadLine(fig);
     if(read) s += " LIVE ENGINE READ — Landform has already computed these from the facts so far, so QUOTE THEM when relevant (rounded, as indicative and firming up as you talk); do NOT invent different numbers: " + read + ".";
     else s += " No figures yet — once the homes/acres and location are roughly known, Landform computes the residual live and you should quote it.";
+    var mem = memoryLines();
+    if(mem) s += " STANDING MEMORY — things this operator has told you to remember across sessions; honour and apply them (they override generic assumptions), and mention them when relevant:\n" + mem;
     return s;
   }
   function startConversation(){
@@ -467,10 +526,20 @@ function VoiceOperator(props){
   // one-page appraisal, or build the scheme. Commands run instantly (no AI round-trip) and he keeps
   // talking, so he behaves like a virtual assistant floating over the app.
   function parseCommand(raw){
-    var t = " " + (raw || "").toLowerCase().replace(/[.,!?]/g, " ") + " ";
+    var orig = (raw || "").trim();
+    var low = orig.toLowerCase();
+    var t = " " + low.replace(/[.,!?]/g, " ") + " ";
     var wantsPrint = /\b(print|save (it |this )?as pdf|pdf it|print it|print out|printed|printout)\b/.test(t);
     var navVerb = /\b(show me|show|open|open up|go to|goto|take me to|bring up|pull up|navigate to|jump to|switch to|move to|let'?s see|can i see|i want to see)\b/.test(t);
     var onePager = /\bone[\s-]?pager\b|\bone[\s-]?page\b|\b1[\s-]?page\b|one page appraisal|one-page appraisal/.test(t);
+    // 0) MEMORY — "remember (that) X" / "note that X" / "keep in mind X" → save it for good.
+    var remM = low.match(/^(?:ronald[,\s]+|ok(?:ay)?[,\s]+|hey[,\s]+|please\s+|can you\s+|could you\s+|would you\s+)*(?:remember|make a note(?: that| of)?|note that|keep in mind|don'?t forget)(?:\s+that|\s+this)?\s+(.+)/);
+    if(remM && remM[1]){
+      var ix = low.indexOf(remM[1]); var txt = (ix >= 0 ? orig.slice(ix) : remM[1]).replace(/[.!?]+\s*$/, "").trim();
+      if(txt) return { type:"remember", text:txt };
+    }
+    if(/\b(what do you remember|show (me )?(your )?memory|what have you remembered|open (your )?memory)\b/.test(low)) return { type:"showmemory" };
+    if(/\b(forget everything|clear (your )?memory|wipe (your )?memory)\b/.test(low)) return { type:"clearmemory" };
     // 1) one-page appraisal (optionally printed)
     if(onePager || (wantsPrint && /\bappraisal\b/.test(t))) return { type:"onepager", print:wantsPrint };
     // 2) build the scheme
@@ -504,6 +573,22 @@ function VoiceOperator(props){
     speak(reply, function(){ if(resume !== false && hfRef.current) (listenRef.current || startHFListen)(); });
   }
   function executeCommand(cmd){
+    if(cmd.type === "remember"){
+      addMemory(cmd.text, "you");
+      respondSpoken("Got it — I'll remember that: " + cmd.text + ". It'll carry into every future conversation.");
+      return;
+    }
+    if(cmd.type === "showmemory"){
+      setMemPanelOpen(true);
+      var n = (memory || []).length;
+      respondSpoken(n ? ("I'm holding " + n + " thing" + (n === 1 ? "" : "s") + " in memory — I've opened the list for you.") : "Nothing in memory yet. Tell me to remember something and I'll keep it.");
+      return;
+    }
+    if(cmd.type === "clearmemory"){
+      setMemory([]); persistMemory([]);
+      respondSpoken("Done — I've cleared everything from memory.");
+      return;
+    }
     if(cmd.type === "onepager"){
       var ok = showOnePager(cmd.print);
       if(ok) respondSpoken(cmd.print ? "Here's the one-page appraisal — I've opened the print dialog. If it doesn't print, tap Print or New tab / PDF at the top." : "Here's the one-page appraisal. Tap Print or New tab / PDF at the top to save it.");
@@ -608,6 +693,26 @@ function VoiceOperator(props){
         })));
   }
 
+  // Ronald's standing memory — things you've told him to keep. Managed here; also editable by voice.
+  function memoryPanel(){
+    if(!memPanelOpen) return null;
+    return e("div", { style:{ background:"#FFFDF5", border:"1px solid #E7DFC0", borderRadius:10, padding:"12px 14px", marginBottom:12 } },
+      e("div", { style:{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 } },
+        e("div", { style:{ fontSize:10.5, fontWeight:800, color:"#9A7B3E", textTransform:"uppercase", letterSpacing:".07em" } }, "🧠 Ronald's memory — carried into every chat"),
+        e("button", { onClick:function(){ setMemPanelOpen(false); }, style:{ background:"none", border:"none", color:"#9A7B3E", fontSize:15, cursor:"pointer", fontWeight:800 } }, "×")),
+      (memory && memory.length)
+        ? e("div", { style:{ display:"flex", flexDirection:"column", gap:6, marginBottom:8, maxHeight:170, overflowY:"auto" } },
+            memory.map(function(m){ return e("div", { key:m.id, style:{ display:"flex", gap:8, alignItems:"flex-start", fontSize:12, color:"#2E2F8A" } },
+              e("span", { style:{ flex:1, lineHeight:1.4 } }, m.text, m.source === "web" ? e("span", { style:{ color:"#9298BC", fontSize:10 } }, "  · from a web check") : null),
+              e("button", { onClick:function(){ removeMemory(m.id); }, title:"Forget this", style:{ background:"none", border:"none", color:"#B05A35", cursor:"pointer", fontSize:12, fontWeight:800 } }, "✕")); }))
+        : e("div", { style:{ fontSize:11.5, color:"#9298BC", marginBottom:8 } }, "Nothing yet. Say “remember …” or add a note below — it sticks across every conversation."),
+      e("div", { style:{ display:"flex", gap:6 } },
+        e("input", { value:memDraft, onChange:function(ev){ setMemDraft(ev.target.value); }, onKeyDown:function(ev){ if(ev.key === "Enter"){ ev.preventDefault(); if(memDraft.trim()){ addMemory(memDraft.trim(), "you"); setMemDraft(""); } } }, placeholder:"Add something to remember…", style:{ flex:1, padding:"7px 10px", border:"1px solid #E7DFC0", borderRadius:7, fontSize:12, color:"#2E2F8A", fontFamily:"DM Sans,sans-serif", boxSizing:"border-box" } }),
+        e("button", { onClick:function(){ if(memDraft.trim()){ addMemory(memDraft.trim(), "you"); setMemDraft(""); } }, style:{ padding:"7px 12px", background:"#9A7B3E", border:"none", color:"#fff", borderRadius:7, fontSize:12, fontWeight:800, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "Save")));
+  }
+  function memBtn(dark){ var n = (memory || []).length; return e("button", { onClick:function(){ setMemPanelOpen(!memPanelOpen); }, title:"Ronald's memory — things he carries across chats",
+    style:{ padding:"4px 8px", background:dark ? "rgba(255,255,255,0.18)" : "#FBF6E7", border:dark ? "none" : "1px solid #E7DFC0", borderRadius:6, fontSize:11, fontWeight:700, color:dark ? "#fff" : "#9A7B3E", cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "🧠" + (n ? " " + n : "")); }
+
   // ── FLOATING DOCK (virtual assistant) ───────────────────────────────────────
   // When mounted docked at the app level, Ronald is a small floating panel that stays alive across page
   // changes, so he keeps talking while he navigates and runs commands for you.
@@ -670,8 +775,10 @@ function VoiceOperator(props){
           e("span", { style:{ fontSize:15, fontWeight:800 } }, "🎙 Ronald"),
           e("span", { style:{ fontSize:10, opacity:0.85, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" } }, "your Landform assistant")),
         e("div", { style:{ display:"flex", gap:6, alignItems:"center", flex:"0 0 auto" } },
+          memBtn(true),
           voiceSupported && e("button", { onClick:function(){ setVoiceOn(!voiceOn); }, title:"Toggle voice", style:{ padding:"4px 8px", background:"rgba(255,255,255,0.18)", border:"none", borderRadius:6, fontSize:11, fontWeight:700, color:"#fff", cursor:"pointer" } }, voiceOn ? "🔊" : "🔇"),
           e("button", { onClick:function(){ stopHands(); onClose && onClose(); }, title:"Close", style:{ padding:"4px 9px", background:"rgba(255,255,255,0.18)", border:"none", borderRadius:6, fontSize:12, fontWeight:800, color:"#fff", cursor:"pointer" } }, "✕"))),
+      memPanelOpen && e("div", { style:{ padding:"10px 12px 0" } }, memoryPanel()),
       body);
   }
   if(docked){ return dockOpen ? renderDock() : null; }
