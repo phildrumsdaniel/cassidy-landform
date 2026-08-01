@@ -144,11 +144,13 @@ function renderMixedUse(data, up, user, navTo){
         // JV fields
         (ex.route === "jv") && e("div", { style:{ background:"rgba(154,123,62,0.06)", border:"1px solid rgba(154,123,62,0.25)", borderRadius:8, padding:"10px 12px", marginBottom:12 } },
           e("div", { style:{ fontSize:11, fontWeight:800, color:"#9A7B3E", marginBottom:8 } }, "🤝 Joint-venture waterfall"),
-          e("div", { style:{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:10 } },
+          e("div", { style:{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))", gap:10 } },
             e(Sel, { label:"Partner", value:ex.jvPartner || "pension_fund", onChange:function(v){ patchExit(i, { jvPartner:v }); }, options:PARTNER_OPTS }),
-            e(Inp, { label:"Cassidy equity %", type:"number", value:ex.cassidyEquityPct, onChange:function(v){ patchExit(i, { cassidyEquityPct:v }); }, placeholder:"25" }),
-            e(Inp, { label:"Promote / carry %", type:"number", value:ex.promotePct, onChange:function(v){ patchExit(i, { promotePct:v }); }, placeholder:"20" }),
-            e(Inp, { label:"Fund pref return %", type:"number", value:ex.prefRate, onChange:function(v){ patchExit(i, { prefRate:v }); }, placeholder:"8" }),
+            e(Inp, { label:"Cassidy co-invest %", type:"number", value:ex.cassidyEquityPct, onChange:function(v){ patchExit(i, { cassidyEquityPct:v }); }, placeholder:"10" }),
+            e(Inp, { label:"Fund pref % (hurdle 1)", type:"number", value:ex.prefRate, onChange:function(v){ patchExit(i, { prefRate:v }); }, placeholder:"8" }),
+            e(Inp, { label:"Promote tier 1 %", type:"number", value:ex.promotePct, onChange:function(v){ patchExit(i, { promotePct:v }); }, placeholder:"20" }),
+            e(Inp, { label:"Hurdle 2 %", type:"number", value:ex.hurdle2Rate, onChange:function(v){ patchExit(i, { hurdle2Rate:v }); }, placeholder:"14" }),
+            e(Inp, { label:"Promote tier 2 %", type:"number", value:ex.promote2Pct, onChange:function(v){ patchExit(i, { promote2Pct:v }); }, placeholder:"40" }),
             e(Inp, { label:"Hold / build (yrs)", type:"number", value:ex.holdYears, onChange:function(v){ patchExit(i, { holdYears:v }); }, placeholder:r ? String(r.holdYears) : "3" })
           ),
           // live waterfall readout (IRRs, multiples, pref, promote)
@@ -163,7 +165,9 @@ function renderMixedUse(data, up, user, navTo){
               e("div", { style:{ fontSize:10, color:"#7278A0", marginTop:2 } }, "profit " + money(r.jv.fundShare) + " · pref " + money(r.jv.prefPaid) + " + promote paid " + money(r.jv.promotePaid)))
           ),
           e("div", { style:{ marginTop:6, fontSize:9.5, color:"#9298BC", lineHeight:1.5 } },
-            "Equity-only development JV: both partners fund equity pro-rata to their %, build over the hold, and split the exit proceeds — return of capital → fund's compounded preferred return → Cassidy's promote → residual by equity share. Set Cassidy equity % low for a classic developer-promote structure.")
+            "Institutional two-tier promote (default 90% fund / 10% Cassidy co-invest): return of capital → pari-passu to the "
+            + (num(ex.prefRate) || 8) + "% pref (hurdle 1) → promote tier 1 (" + (num(ex.promotePct) || 20) + "% to Cassidy) up to the "
+            + (num(ex.hurdle2Rate) || 14) + "% hurdle 2 → promote tier 2 (" + (num(ex.promote2Pct) || 40) + "% to Cassidy) above it. The small co-invest plus carry gives Cassidy an outsized share of a strong deal, while the fund's pref is protected first.")
         ),
 
         // live per-parcel result

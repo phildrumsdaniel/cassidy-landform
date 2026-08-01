@@ -106,8 +106,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.202";
+var CURRENT_VERSION = "10.203";
 var VERSION_HISTORY = [
+  {v:"10.203", date:"Aug 2026", headline:"The mixed-use JV is now a full INSTITUTIONAL TWO-TIER PROMOTE waterfall on a 90/10 fund/developer default. The fund provides most of the equity (default 90%) and Cassidy CO-INVESTS the rest (default 10%) plus develops for a promote. Exit proceeds distribute: return of capital → pari-passu to the preferred return (hurdle 1, default 8%) → PROMOTE TIER 1 (default 20% to Cassidy) up to a second hurdle (default 14%) → PROMOTE TIER 2 (default 40% to Cassidy) above it. Because the promote is carved from the fund's slice, Cassidy's small co-invest earns an OUTSIZED share of a strong deal (e.g. a 10% co-invest returning ~50% IRR / ~3.4× where the fund makes ~18%), while the fund's pref is protected first and a thin deal splits pari-passu (no promote until the pref clears). The JV panel now exposes co-invest %, pref % (hurdle 1), promote tier 1 %, hurdle 2 %, promote tier 2 % and the hold years, and shows each partner's IRR and equity multiple live. Engine: jvWaterfall() rebuilt with the two-tier bands (prefBand / promoteTier1Band / promoteTier2Band); back-compatible (a config with a single promotePct reads as tier 1). No change to single-use deals."},
   {v:"10.202", date:"Aug 2026", headline:"Mixed-use deepened: a proper JV IRR waterfall, and houses valued on a yield for an HA / pension exit. (1) JOINT VENTURES now run a period-by-period EQUITY WATERFALL instead of a static split: both partners fund equity pro-rata to their %, build over the hold period, and split the exit proceeds in order — return of capital → the fund's COMPOUNDED preferred return → Cassidy's promote (carried interest) → residual by equity share. Each JV parcel shows CASSIDY'S IRR and equity multiple and the FUND'S IRR and multiple, plus the pref and promote paid; set Cassidy's equity % low for a classic developer-promote structure. New engine irr() (bisection) + jvWaterfall(); the JV panel, the parcel result line, the Dashboard and the board one-pager all show the IRRs. (2) HOUSES ON A RENTED EXIT: an SFH parcel taken to an HA or pension forward-fund (or a JV) is now valued by CAPITALISATION — rent ÷ the net initial yield — exactly like the apartment parcels, with a per-parcel yield input and a buyer/fund selector (pension / sovereign / operator / housing association / Homes England / family office). So a houses parcel let to an HA or pension scheme reads on its yield, not plot sales, and the exit label shows the buyer and the yield (e.g. ‘Forward-fund (pension fund) @ 4.75% yield’). A ‘hold / build (yrs)’ input drives the IRR timeline. No change to single-use deals."},
   {v:"10.201", date:"Aug 2026", headline:"Mixed-use schemes now PRINT on the one-page board appraisal — so a multi-parcel deal produces a board-ready document, not just an on-screen view. When the deal has parcels (data.mixed.parcels), the one-pager (shared by the Quick Appraisal and the Board Proposal) adds a ‘Mixed-use scheme’ table: each parcel with its size, units, its OWN exit route, its exit value, the land it supports, and any JV share — then a blended-total row (acres, units, total exit value / GDV, total land supported, margin after land, Cassidy’s JV share) tested against the guide price. Each parcel is priced through the same engine as the single-use appraisal, so the figures reconcile. Nothing prints for a single-use deal (computeMixedUse returns null). This makes the mixed-use journey end-to-end: build it on the Mixed-Use Scheme stage → see the blend on the Dashboard → print it on the board one-pager. Completes the v10.199/200 mixed-use foundation."},
   {v:"10.200", date:"Aug 2026", headline:"Mixed-use schemes now surface on the DEAL DASHBOARD, so a multi-parcel scheme isn't siloed on its own stage. When a deal has parcels (data.mixed.parcels), the Dashboard leads with a blended mixed-use panel — parcels / acres / units, blended GDV, development cost, land supported (RLV), headroom vs the guide price, margin after land and Cassidy's JV profit share — plus a per-parcel chip row (each parcel's use, acreage, its own exit and the land it supports) and an ‘Open Mixed-Use Scheme →’ button. Hidden entirely for a normal single-use deal (the panel only appears when computeMixedUse returns parcels), so nothing changes for existing deals. Follows v10.199 (the Mixed-Use Scheme builder + engine); surfacing the blended appraisal on the printed board documents is the next step."},
@@ -4084,51 +4085,61 @@ function irr(cashflows){
   return (lo + hi) / 2;
 }
 
-// jvWaterfall — a proper European-style development-JV waterfall with period-by-period IRRs.
-// The JV deploys the total equity (development cost + its share of the land) at the start, builds
-// over `holdYears`, and realises the exit value at completion (a forward-fund / sale). Distribution
-// order on the exit proceeds: (1) return of each partner's capital, (2) the FUND's preferred return
-// (its capital compounded at prefRate over the hold), (3) Cassidy's promote / carried interest on the
-// profit above the pref, (4) the residual split by equity share. Returns each partner's capital,
-// distribution, profit share, IRR and equity multiple. Equity-only (no debt) — a transparent,
-// defensible development-JV model; note it as such on the report.
+// jvWaterfall — a proper institutional development-JV waterfall with a TWO-TIER PROMOTE and
+// period-by-period IRRs. Standard structure: the fund provides most of the equity (default 90%) and
+// Cassidy co-invests the rest (default 10%) plus develops for a promote / carried interest. On exit:
+//   1. Return of capital (both partners).
+//   2. PREFERRED RETURN (hurdle 1, prefRate): the profit is split pari-passu to capital until the
+//      partners have earned the pref IRR — no promote in this band.
+//   3. PROMOTE TIER 1 (pref → hurdle 2): above the pref up to a second hurdle, Cassidy takes a
+//      promote (promote1Pct) carved out of the fund's share; the rest is pari-passu.
+//   4. PROMOTE TIER 2 (above hurdle 2): a higher promote (promote2Pct) to Cassidy on the excess.
+// Hurdles are compounded returns on the TOTAL equity over the hold (avoids circular IRR-solving);
+// the promote is carved from the LP/fund's slice, so a small co-invest earns an outsized share of a
+// strong deal — the classic developer-promote. Equity-only, indicative — label it as such.
+// Back-compat: a config with only `promotePct` is read as promote tier 1.
 function jvWaterfall(exitValue, devCost, landShare, jv, holdYears){
   jv = jv || {};
-  var ce = Math.max(0, Math.min(1, numOr(jv.cassidyEquityPct, 20) / 100));  // Cassidy's equity share
+  var ce = Math.max(0, Math.min(1, numOr(jv.cassidyEquityPct, 10) / 100));  // Cassidy's co-invest share
   var fe = 1 - ce;                                                          // fund's equity share
-  var promote = Math.max(0, numOr(jv.promotePct, 20) / 100);               // carried interest %
-  var prefRate = Math.max(0, numOr(jv.prefRate, 8) / 100);                 // fund preferred return
+  var r1 = Math.max(0, numOr(jv.prefRate, 8) / 100);                        // hurdle 1 — preferred return
+  var r2 = Math.max(r1, numOr(jv.hurdle2Rate, 14) / 100);                   // hurdle 2 — promote step-up
+  var q1 = Math.max(0, Math.min(1, numOr(jv.promotePct, 20) / 100));        // promote tier 1 (pref → h2)
+  var q2 = Math.max(q1, Math.min(1, numOr(jv.promote2Pct, 40) / 100));      // promote tier 2 (above h2)
   var hold = num(holdYears) > 0 ? num(holdYears) : 2.5;
   var capital = Math.max(0, num(devCost) + num(landShare));               // total equity deployed
   var cassidyCapital = capital * ce, fundCapital = capital * fe;
   var proceeds = Math.max(0, num(exitValue));
-  var cassidyDist, fundDist, prefPaid = 0, promotePaid = 0, residual = 0;
+  var cassidyDist, fundDist, promotePaid = 0, t1 = 0, t2 = 0, t3 = 0;
   if(proceeds <= capital){
     // loss (or capital not fully returned): share the shortfall pro-rata to capital, no pref/promote
     cassidyDist = proceeds * ce; fundDist = proceeds * fe;
   } else {
-    var afterCapital = proceeds - capital;                                 // the profit pool
-    var pref = fundCapital * (Math.pow(1 + prefRate, hold) - 1);           // fund's compounded pref
-    prefPaid = Math.min(afterCapital, pref);
-    var afterPref = afterCapital - prefPaid;
-    promotePaid = afterPref * promote;                                     // Cassidy's carry
-    residual = afterPref - promotePaid;
-    cassidyDist = cassidyCapital + promotePaid + residual * ce;
-    fundDist = fundCapital + prefPaid + residual * fe;
+    var P = proceeds - capital;                                            // the profit pool
+    var h1 = capital * (Math.pow(1 + r1, hold) - 1);                       // profit to reach the pref IRR
+    var h2 = capital * (Math.pow(1 + r2, hold) - 1);                       // profit to reach hurdle 2
+    t1 = Math.min(P, h1);                                                  // pref band — pari-passu
+    t2 = Math.min(Math.max(0, P - t1), Math.max(0, h2 - h1));              // promote tier-1 band
+    t3 = Math.max(0, P - t1 - t2);                                         // promote tier-2 band
+    // each band splits pari-passu (ce/fe); Cassidy additionally takes the promote out of the fund's slice
+    var cassidyProfit = t1 * ce + t2 * (ce + fe * q1) + t3 * (ce + fe * q2);
+    var fundProfit    = t1 * fe + t2 * fe * (1 - q1) + t3 * fe * (1 - q2);
+    promotePaid = t2 * fe * q1 + t3 * fe * q2;
+    cassidyDist = cassidyCapital + cassidyProfit;
+    fundDist = fundCapital + fundProfit;
   }
-  var hi = Math.round(hold);                                               // integer periods for the IRR stream
-  if(hi < 1) hi = 1;
+  var hi = Math.round(hold); if(hi < 1) hi = 1;
   function stream(cap, dist){ var a = [-cap]; for(var t = 1; t < hi; t++) a.push(0); a.push(dist); return a; }
   var cassidyIrr = cassidyCapital > 0 ? irr(stream(cassidyCapital, cassidyDist)) : null;
   var fundIrr = fundCapital > 0 ? irr(stream(fundCapital, fundDist)) : null;
   return {
     holdYears: hold, capital: capital, cassidyEquityPct: ce * 100, fundEquityPct: fe * 100,
-    promotePct: promote * 100, prefRate: prefRate * 100,
+    promote1Pct: q1 * 100, promote2Pct: q2 * 100, prefRate: r1 * 100, hurdle2Rate: r2 * 100,
     cassidyCapital: cassidyCapital, fundCapital: fundCapital,
     cassidyDist: cassidyDist, fundDist: fundDist,
     cassidyShare: cassidyDist - cassidyCapital, fundShare: fundDist - fundCapital,   // profit to each
-    schemeProfit: proceeds - capital,
-    prefPaid: prefPaid, promotePaid: promotePaid,
+    schemeProfit: proceeds - capital, promotePaid: promotePaid,
+    prefBand: t1, promoteTier1Band: t2, promoteTier2Band: t3,
     cassidyIrr: cassidyIrr, fundIrr: fundIrr,
     cassidyMultiple: cassidyCapital > 0 ? cassidyDist / cassidyCapital : 0,
     fundMultiple: fundCapital > 0 ? fundDist / fundCapital : 0
@@ -4162,7 +4173,7 @@ function defaultParcel(use, acres, city){
     var isStudent = use === "pbsa";
     return { id:id, use:use, acres:acres,
       label:(isStudent ? "Student (PBSA) — " : "Build-to-Rent — ") + acres + " ac",
-      exit:{ route: isStudent ? "jv" : "forward_fund", cassidyEquityPct:25, promotePct:20, prefRate:8, jvPartner:"pension_fund" },
+      exit:{ route: isStudent ? "jv" : "forward_fund", cassidyEquityPct:10, promotePct:20, prefRate:8, hurdle2Rate:14, promote2Pct:40, jvPartner:"pension_fund" },
       capitalise:{ targetYield: isStudent ? 5.25 : 4.75 },
       hra:{ storeys:6, fp: Math.max(4000, Math.round(acres * 8000)), eff: isStudent ? 82 : 80,
         ss: isStudent ? 70 : 20, os: isStudent ? 20 : 50, ts: isStudent ? 10 : 30,
@@ -4174,7 +4185,7 @@ function defaultParcel(use, acres, city){
   var salePsf = (mk && mk.build) ? Math.max(260, Math.round((mk.build) * 1.5)) : 340;
   var buildPsf = (mk && mk.build) || 210;
   return { id:id, use:"sfh", acres:acres, label:"Houses — " + acres + " ac",
-    exit:{ route:"plot", haBulkDiscountPct:5, cassidyEquityPct:25, promotePct:20, prefRate:8, jvPartner:"pension_fund" },
+    exit:{ route:"plot", haBulkDiscountPct:5, cassidyEquityPct:10, promotePct:20, prefRate:8, hurdle2Rate:14, promote2Pct:40, jvPartner:"pension_fund" },
     capitalise:{ targetYield:5.0 },   // for an HA / pension forward-fund exit (houses let as an investment)
     sfh:{ basePsf:salePsf, buildPsf:buildPsf, avgSqft:900,
       mix:[ { type:"3-bed semi", count:homes, sqft:900, psf:salePsf, tenure:"private" } ] } };
