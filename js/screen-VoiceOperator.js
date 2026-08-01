@@ -25,12 +25,43 @@ function renderVoiceOperator(data, setData, navTo, user){
   return e(VoiceOperator, { data:data, setData:setData, navTo:navTo, user:user });
 }
 
+// v10.222 — spoken navigation targets. Ronald matches a page you name to a Landform stage id and takes
+// you there while he keeps talking. Order matters (more specific phrases first). Keep phrases lowercase.
+var VOICE_NAV_TARGETS = [
+  { id:"dashboard",  label:"Deal Dashboard",       words:["deal dashboard","dashboard"] },
+  { id:"portfolio",  label:"Deal Portfolio",       words:["portfolio","my deals","pipeline of deals"] },
+  { id:"quick",      label:"Quick Appraisal",      words:["quick appraisal"] },
+  { id:"reports",    label:"Reports",              words:["reports hub","reports"] },
+  { id:"proposal",   label:"Board Proposal",       words:["board proposal","board paper","board pack"] },
+  { id:"exit",       label:"Exit Strategy",        words:["exit strategy","exit"] },
+  { id:"sfh",        label:"SFH House Mix",         words:["house mix","housing mix","sfh"] },
+  { id:"hra",        label:"BTR / PBSA Block",      words:["btr block","pbsa","student block","apartment block","block"] },
+  { id:"capitalise", label:"Capitalisation",       words:["capitalisation","capitalise","forward fund","forward funding"] },
+  { id:"grants",     label:"Grant & Funding",      words:["grants","grant funding","funding"] },
+  { id:"planning",   label:"Planning & Viability", words:["planning and viability","planning"] },
+  { id:"fin",        label:"Financial Modelling",  words:["financial modelling","cashflow","cash flow","finance model"] },
+  { id:"viability",  label:"Detailed Appraisal",   words:["detailed appraisal","viability"] },
+  { id:"dd",         label:"Due Diligence",        words:["due diligence","diligence"] },
+  { id:"risks",      label:"Risk Register",        words:["risk register","risks"] },
+  { id:"land",       label:"Land Appraisal",       words:["land appraisal"] },
+  { id:"rlv",        label:"Land Valuation",       words:["residual land","land valuation","rlv"] },
+  { id:"mixed",      label:"Mixed-Use Scheme",     words:["mixed use","mixed-use"] },
+  { id:"placona",    label:"Placona Agent",        words:["placona","land finder"] },
+  { id:"outreach",   label:"Approach Landowner",   words:["approach landowner","outreach","landowner approach"] },
+  { id:"identifier", label:"Landowner Identifier", words:["landowner identifier","who owns"] },
+  { id:"keystone",   label:"Keystone Deal Builder",words:["keystone","deal builder"] },
+  { id:"constraint", label:"Constraint Check",     words:["constraint check","constraints"] },
+  { id:"meetings",   label:"Meeting Transcripts",  words:["meeting transcripts","meetings"] },
+  { id:"grants",     label:"Grant & Funding",      words:["grant"] }
+];
+
 // v10.216 — persist the conversation so switching tabs / an auto-reload doesn't lose it.
 var VOICE_STATE_KEY = "cassidy_voice_state";
 function loadVoiceState(){ try{ return JSON.parse(localStorage.getItem(VOICE_STATE_KEY) || "null") || {}; }catch(e){ return {}; } }
 
 function VoiceOperator(props){
   var data = props.data, setData = props.setData, navTo = props.navTo, user = props.user;
+  var docked = !!props.docked, dockOpen = !!props.open, onClose = props.onClose;   // floating-assistant mode
   var _saved = loadVoiceState();
   var pS = useState(function(){ var v = _saved.phase; return (v === "converse" || v === "review") ? v : "idle"; });   var phase = pS[0], setPhase = pS[1];      // idle | interviewing | review | building | done
   var iS = useState(function(){ return _saved.idx || 0; });        var idx = iS[0], setIdx = iS[1];
@@ -431,11 +462,76 @@ function VoiceOperator(props){
     if(SR){ setHandsFree(true); hfRef.current = true; }   // hands-free: just talk, no Send button
     setTimeout(function(){ speak(opener, function(){ if(hfRef.current) (listenRef.current || startHFListen)(); }); }, 350);
   }
+  // ── VOICE COMMANDS ───────────────────────────────────────────────────────────
+  // Before Ronald reasons over a turn, check if you've told him to DO something — open a page, print the
+  // one-page appraisal, or build the scheme. Commands run instantly (no AI round-trip) and he keeps
+  // talking, so he behaves like a virtual assistant floating over the app.
+  function parseCommand(raw){
+    var t = " " + (raw || "").toLowerCase().replace(/[.,!?]/g, " ") + " ";
+    var wantsPrint = /\b(print|save (it |this )?as pdf|pdf it|print it|print out|printed|printout)\b/.test(t);
+    var navVerb = /\b(show me|show|open|open up|go to|goto|take me to|bring up|pull up|navigate to|jump to|switch to|move to|let'?s see|can i see|i want to see)\b/.test(t);
+    var onePager = /\bone[\s-]?pager\b|\bone[\s-]?page\b|\b1[\s-]?page\b|one page appraisal|one-page appraisal/.test(t);
+    // 1) one-page appraisal (optionally printed)
+    if(onePager || (wantsPrint && /\bappraisal\b/.test(t))) return { type:"onepager", print:wantsPrint };
+    // 2) build the scheme
+    if(/\bbuild (it|the scheme|the deal|this|it out|the appraisal|it now)\b/.test(t) || /\b(build|crunch|run) the (scheme|deal|numbers|appraisal)\b/.test(t)) return { type:"build" };
+    // 3) navigate to a named page (needs an intent verb so ordinary chat isn't hijacked)
+    if(navVerb){
+      for(var i = 0; i < VOICE_NAV_TARGETS.length; i++){
+        var tgt = VOICE_NAV_TARGETS[i];
+        for(var j = 0; j < tgt.words.length; j++){ if(t.indexOf(" " + tgt.words[j]) >= 0 || t.indexOf(tgt.words[j] + " ") >= 0) return { type:"nav", id:tgt.id, label:tgt.label, print:wantsPrint }; }
+      }
+    }
+    return null;
+  }
+  function showOnePager(doPrint){
+    try{
+      if(typeof buildLandOnePager !== "function") return false;
+      var html = buildLandOnePager(data, (L.city || ""));
+      if(!html) return false;
+      if(typeof showReportOverlay === "function"){
+        showReportOverlay(html, "One-page appraisal — " + (L.address || data.dealName || "site"));
+        if(doPrint){ setTimeout(function(){ try{ var ifr = document.querySelector("#lf-report-overlay iframe"); if(ifr && ifr.contentWindow){ ifr.contentWindow.focus(); ifr.contentWindow.print(); } }catch(e){} }, 1100); }
+        return true;
+      }
+      if(typeof openReportBlob === "function"){ openReportBlob(html); return true; }
+    }catch(e){}
+    return false;
+  }
+  function respondSpoken(reply, resume){
+    setMessages(function(m){ return m.concat([{ role:"assistant", text:reply }]); });
+    setThinking(false);
+    speak(reply, function(){ if(resume !== false && hfRef.current) (listenRef.current || startHFListen)(); });
+  }
+  function executeCommand(cmd){
+    if(cmd.type === "onepager"){
+      var ok = showOnePager(cmd.print);
+      if(ok) respondSpoken(cmd.print ? "Here's the one-page appraisal — I've opened the print dialog. If it doesn't print, tap Print or New tab / PDF at the top." : "Here's the one-page appraisal. Tap Print or New tab / PDF at the top to save it.");
+      else if(navTo){ navTo("proposal"); respondSpoken("I've taken you to the Board Proposal — the one-page appraisal is there."); }
+      else respondSpoken("I couldn't open the appraisal from here — open the Reports section for it.");
+      return;
+    }
+    if(cmd.type === "build"){
+      respondSpoken("Right — building the scheme now.", false);
+      setTimeout(function(){ if(typeof buildFromConversation === "function") buildFromConversation(); }, 400);
+      return;
+    }
+    if(cmd.type === "nav"){
+      if(navTo){ navTo(cmd.id); respondSpoken("Opening the " + cmd.label + " for you." + (cmd.print ? " Use the print button on the page to save it." : "")); }
+      else respondSpoken("I can't switch pages from here.");
+      return;
+    }
+  }
+
   async function sendMessage(text){
     text = (text || "").trim(); if(!text || thinking) return;
     stopListen();
     var hist = messages.concat([{ role:"user", text:text }]);
-    setMessages(hist); setDraft(""); setThinking(true);
+    setMessages(hist); setDraft("");
+    // COMMAND FIRST — if it's an instruction, act on it instantly and skip the AI round-trip.
+    var cmd = parseCommand(text);
+    if(cmd){ setThinking(false); executeCommand(cmd); return; }
+    setThinking(true);
     var facts = assembleSiteFacts().join("; ");
     var convoText = hist.map(function(m){ return (m.role === "assistant" ? "Operator" : "Developer") + ": " + m.text; }).join("\n");
     // SPEED: fire the reply and the brief-extraction IN PARALLEL. The reply used to wait for the
@@ -511,6 +607,74 @@ function VoiceOperator(props){
             e("span", { style:{ fontWeight:700 } }, f.value));
         })));
   }
+
+  // ── FLOATING DOCK (virtual assistant) ───────────────────────────────────────
+  // When mounted docked at the app level, Ronald is a small floating panel that stays alive across page
+  // changes, so he keeps talking while he navigates and runs commands for you.
+  function dockBtn(bg, big){ return { padding:big ? "12px 18px" : "9px 14px", background:bg, border:"none", color:"#fff", borderRadius:8, fontSize:big ? 15 : 13, fontWeight:800, cursor:"pointer", fontFamily:"DM Sans,sans-serif", width:big ? "100%" : "auto" }; }
+  var dockBtnOutline = { padding:"9px 14px", background:"#fff", border:"1px solid #4A4BAE", color:"#4A4BAE", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" };
+  var dockBtnGhost = { padding:"9px 12px", background:"transparent", border:"1px solid #DDE0ED", color:"#7278A0", borderRadius:8, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" };
+  function dockMini(bg){ return { padding:"8px 12px", background:bg, border:"none", color:"#fff", borderRadius:7, fontSize:13, fontWeight:800, cursor:"pointer", fontFamily:"DM Sans,sans-serif" }; }
+  function renderDock(){
+    var body;
+    if(phase === "building"){
+      body = e("div", { style:{ padding:"30px 18px", textAlign:"center" } },
+        e("div", { style:{ fontSize:30, marginBottom:10 } }, "🏗"),
+        e("div", { style:{ fontSize:14, fontWeight:800, color:accent, marginBottom:6 } }, "Building your scheme…"),
+        e("div", { style:{ fontSize:12, color:"#7278A0" } }, buildMsg || "Working…"));
+    } else if(phase === "done"){
+      body = e("div", { style:{ padding:"20px 16px" } },
+        e("div", { style:{ fontSize:26, marginBottom:8 } }, "✅"),
+        e("div", { style:{ fontSize:15, fontWeight:800, color:"#1B7A54", marginBottom:6 } }, "Scheme built"),
+        e("p", { style:{ fontSize:12, color:"#5A5F86", lineHeight:1.5, marginBottom:12 } }, "Priced the mix and added the due diligence it could. Say “open the reports” or tap below."),
+        e("div", { style:{ display:"flex", gap:8, flexWrap:"wrap" } },
+          e("button", { onClick:function(){ navTo && navTo("reports"); }, style:dockBtn("#2D7A65") }, "📑 Reports →"),
+          e("button", { onClick:function(){ navTo && navTo("dashboard"); }, style:dockBtnOutline }, "Dashboard →"),
+          e("button", { onClick:function(){ setPhase("converse"); }, style:dockBtnGhost }, "↩ Keep talking")));
+    } else if(!messages.length){
+      body = e("div", { style:{ padding:"18px 16px", overflowY:"auto" } },
+        e("p", { style:{ fontSize:12.5, color:"#5A5F86", lineHeight:1.6, marginBottom:12 } }, "Hit start and just talk — I'll appraise as we go. You can tell me to open any page, print the one-page appraisal, or build the scheme."),
+        placonaPanel(),
+        e("button", { onClick:startConversation, style:dockBtn(accent, true) }, "💬 Start a conversation"),
+        !micSupported && e("div", { style:{ fontSize:11, color:"#9A7B3E", marginTop:8 } }, "No mic in this browser — you can type instead."));
+    } else {
+      body = e("div", { style:{ display:"flex", flexDirection:"column", minHeight:0, flex:1 } },
+        (figures && figures.gdv > 0) && e("div", { style:{ display:"flex", gap:6, flexWrap:"wrap", alignItems:"center", padding:"7px 10px", background:"rgba(45,122,101,0.06)", borderBottom:"1px solid rgba(45,122,101,0.2)" } },
+          e("span", { style:{ fontSize:9, fontWeight:800, color:"#1B7A54", textTransform:"uppercase" } }, "Live"),
+          figures.units > 0 && e("span", { style:{ fontSize:11, color:"#2E2F8A" } }, Math.round(figures.units) + "u"),
+          e("span", { style:{ fontSize:11, color:"#2E2F8A" } }, "GDV £" + fmtM(figures.gdv)),
+          e("span", { style:{ fontSize:11, fontWeight:800, color:figures.rlv >= 0 ? "#1B7A54" : "#B05A35" } }, "RLV £" + (figures.rlv < 0 ? "−" + fmtM(-figures.rlv) : fmtM(figures.rlv))),
+          e("span", { style:{ fontSize:11, color:"#2E2F8A" } }, (figures.hasAsk ? "Margin " : "Target ") + Math.round(figures.marginPct) + "%")),
+        e("div", { style:{ flex:1, overflowY:"auto", padding:"10px 12px", display:"flex", flexDirection:"column", gap:8, minHeight:80 } },
+          messages.map(function(m, mi){ var isA = m.role === "assistant"; return e("div", { key:mi, style:{ alignSelf:isA ? "flex-start" : "flex-end", maxWidth:"88%" } },
+            e("div", { style:{ fontSize:8.5, fontWeight:800, color:isA ? "#4A4BAE" : "#2D7A65", marginBottom:2, textTransform:"uppercase", textAlign:isA ? "left" : "right" } }, isA ? "🎙 Ronald" : "You"),
+            e("div", { style:{ fontSize:13, lineHeight:1.45, color:"#2E2F8A", background:isA ? "#F4F5FF" : "#EAF4EF", border:"1px solid " + (isA ? "#E0E2EC" : "#CDE7DB"), borderRadius:9, padding:"7px 10px" } }, m.text)); }),
+          thinking && e("div", { style:{ alignSelf:"flex-start", fontSize:11, color:"#9298BC", fontStyle:"italic" } }, "🎙 Ronald is thinking…")),
+        e("div", { style:{ borderTop:"1px solid #E7E9F4", padding:"8px 10px", display:"flex", flexDirection:"column", gap:7 } },
+          micSupported && e("div", { style:{ display:"flex", gap:8, alignItems:"center" } },
+            handsFree
+              ? e("button", { onClick:stopHands, style:dockMini("#B05A35") }, "⏸ Pause")
+              : e("button", { onClick:startHands, style:dockMini("#2D7A65") }, "🎤 Start talking"),
+            e("span", { style:{ fontSize:11, fontWeight:700, color:handsFree ? (listening ? "#1B7A54" : thinking ? "#9298BC" : "#4A4BAE") : "#7278A0" } },
+              handsFree ? (listening ? "🎤 Listening…" : thinking ? "thinking…" : "speaking…") : "Tap to talk hands-free")),
+          e("div", { style:{ display:"flex", gap:6, alignItems:"flex-end" } },
+            e("textarea", { value:draft, onChange:function(ev){ setDraft(ev.target.value); }, onKeyDown:function(ev){ if(ev.key === "Enter" && !ev.shiftKey){ ev.preventDefault(); sendMessage(draft); } }, placeholder:"…or type", style:{ flex:1, minHeight:36, padding:"7px 10px", border:"1px solid #C5C8E0", borderRadius:7, fontSize:13, color:"#2E2F8A", fontFamily:"DM Sans,sans-serif", boxSizing:"border-box", resize:"none" } }),
+            e("button", { onClick:function(){ sendMessage(draft); }, disabled:thinking || !(draft || "").trim(), style:dockMini((thinking || !(draft || "").trim()) ? "#AAB" : accent) }, "→")),
+          e("div", { style:{ display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" } },
+            e("button", { onClick:function(){ buildFromConversation(); }, disabled:messages.filter(function(m){ return m.role === "user"; }).length === 0, style:dockMini("#2D7A65") }, "🏗 Build"),
+            e("span", { style:{ fontSize:10, color:"#9298BC" } }, "Say “open the dashboard”, “print the one-page appraisal”, or “build it”."))));
+    }
+    return e("div", { style:{ position:"fixed", right:"16px", bottom:"16px", width:"min(410px,94vw)", maxHeight:"80vh", background:"#fff", borderRadius:14, boxShadow:"0 12px 40px rgba(20,21,60,0.28)", border:"1px solid #D3D6F0", display:"flex", flexDirection:"column", overflow:"hidden", zIndex:9000, fontFamily:"DM Sans,sans-serif" } },
+      e("div", { style:{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, padding:"10px 12px", background:"linear-gradient(135deg,#4A4BAE,#2D7A65)", color:"#fff", flex:"0 0 auto" } },
+        e("div", { style:{ display:"flex", alignItems:"center", gap:8, minWidth:0 } },
+          e("span", { style:{ fontSize:15, fontWeight:800 } }, "🎙 Ronald"),
+          e("span", { style:{ fontSize:10, opacity:0.85, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" } }, "your Landform assistant")),
+        e("div", { style:{ display:"flex", gap:6, alignItems:"center", flex:"0 0 auto" } },
+          voiceSupported && e("button", { onClick:function(){ setVoiceOn(!voiceOn); }, title:"Toggle voice", style:{ padding:"4px 8px", background:"rgba(255,255,255,0.18)", border:"none", borderRadius:6, fontSize:11, fontWeight:700, color:"#fff", cursor:"pointer" } }, voiceOn ? "🔊" : "🔇"),
+          e("button", { onClick:function(){ stopHands(); onClose && onClose(); }, title:"Close", style:{ padding:"4px 9px", background:"rgba(255,255,255,0.18)", border:"none", borderRadius:6, fontSize:12, fontWeight:800, color:"#fff", cursor:"pointer" } }, "✕"))),
+      body);
+  }
+  if(docked){ return dockOpen ? renderDock() : null; }
 
   // ── IDLE ──
   if(phase === "idle"){
