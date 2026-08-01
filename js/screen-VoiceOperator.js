@@ -158,6 +158,20 @@ function VoiceOperator(props){
       }
     }catch(e){ finish(); }
   }
+  // iOS/Safari only allow speech that starts INSIDE a tap. Ronald speaks a beat later (on a timer, and
+  // again after the AI replies), which iOS blocks as "not a user action" → no audio. Speaking a silent
+  // primer utterance synchronously inside the tap unlocks speech for the rest of the session so every
+  // later line is allowed. Call this from every Start/tap handler.
+  function primeVoice(){
+    if(!synth) return;
+    try{
+      if(synth.paused){ try{ synth.resume(); }catch(e){} }
+      var u = new SpeechSynthesisUtterance(" ");
+      var vc = currentVoice(); if(vc){ u.voice = vc; u.lang = vc.lang || "en-GB"; }
+      u.volume = 0; u.rate = 1;
+      synth.speak(u);   // unlocks iOS; harmless elsewhere
+    }catch(e){}
+  }
   // HANDS-FREE: after Ronald finishes speaking, listen; when you stop talking, auto-send; repeat.
   function startHFListen(){
     if(!SR || !hfRef.current) return;
@@ -170,13 +184,13 @@ function VoiceOperator(props){
     rec.onend = function(){ setListening(false); if(hfRef.current && !got){ setTimeout(function(){ if(hfRef.current && !(synth && synth.speaking)) (listenRef.current || startHFListen)(); }, 350); } };
     recRef.current = rec; try{ rec.start(); setListening(true); }catch(e){ setListening(false); }
   }
-  function startHands(){ setHandsFree(true); hfRef.current = true; if(!messages.length){ startConversation(); } else { stopSpeak(); startHFListen(); } }
+  function startHands(){ primeVoice(); setHandsFree(true); hfRef.current = true; if(!messages.length){ startConversation(); } else { stopSpeak(); startHFListen(); } }
   function stopHands(){ setHandsFree(false); hfRef.current = false; stopListen(); stopSpeak(); }
   function stopSpeak(){ try{ synth && synth.cancel(); }catch(e){} }
   function setAns(key, text){ setAnswers(function(a){ var n = Object.assign({}, a); n[key] = text; return n; }); }
   function appendAns(key, text){ setAnswers(function(a){ var n = Object.assign({}, a); n[key] = ((n[key] || "") + " " + text).trim(); return n; }); }
 
-  function startInterview(){ setPhase("interviewing"); setIdx(0); setAnswers({}); setTimeout(function(){ speak(VOICE_QS[0].q); }, 350); }
+  function startInterview(){ primeVoice(); setPhase("interviewing"); setIdx(0); setAnswers({}); setTimeout(function(){ speak(VOICE_QS[0].q); }, 350); }
 
   function stopListen(){ try{ recRef.current && recRef.current.stop(); }catch(e){} setListening(false); }
   function toggleListen(){
@@ -311,6 +325,7 @@ function VoiceOperator(props){
     return s;
   }
   function startConversation(){
+    primeVoice();   // unlock speech inside the tap (iOS/Safari), so the opener + replies can speak
     setPhase("converse");
     var opener = "Hello, I'm Ronald, your Landform land advisor. Tell me about this site — what's your thinking, and what would you like to do with it?";
     setMessages([{ role:"assistant", text:opener }]);
