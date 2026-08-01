@@ -72,6 +72,7 @@ var ALL_STAGES = [
   {id:"constraint",  label:"Constraint Check",     icon:"⚠",  group:"1. Find",     journeys:["land","sfh","btr","pbsa","all"]},
   {id:"scraper",     label:"Land Finder",          icon:"🔍", group:"1. Find",     journeys:["land","sfh","btr","pbsa","all"]},
   {id:"land",        label:"Land Appraisal",       icon:"⬟",  group:"1. Find",     journeys:["land","sfh","btr","pbsa","all"]},
+  {id:"identifier",  label:"Landowner Identifier", icon:"🕵", group:"1. Find",     journeys:["land","sfh","btr","pbsa","all"]},
   {id:"epe",         label:"Property Evaluator",   icon:"🏠", group:"1. Find",     journeys:["property","all"]},
   // ── 2. VALUE ────────────────────────────────────────────────────────────
   {id:"rlv",         label:"Land Valuation (RLV)", icon:"◆",  group:"2. Value",    journeys:["land","sfh","btr","pbsa","property","all"]},
@@ -1999,6 +2000,7 @@ function loadSiteIntoDeal(site){
     if(stage==="keystone")return renderKeystone(data, setData, up, navTo, user);
     if(stage==="voice")return renderVoiceOperator(data, setData, navTo, user);
     if(stage==="outreach")return renderLandownerOutreach(data, up, user);
+    if(stage==="identifier")return renderLandownerIdentifier(data, up, navTo, user);
     if(stage==="navigator")return renderProcessNavigator(ALL_STAGES, data, exitUnlocksStage, exits, isExitOn, isSchemeOn, navTo, schemes, setFlowAssetType, setSchemes, toggleExit, up);
     if(stage==="assetOptimiser")return renderAssetOptimiser(data, up, user);
     if(stage==="investor")return renderInvestorSuite(data, navTo, saveDeal, up, user);
