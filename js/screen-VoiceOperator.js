@@ -212,14 +212,101 @@ function VoiceOperator(props){
   function next(){ stopListen(); if(idx < VOICE_QS.length - 1) goTo(idx + 1); else { stopSpeak(); setPhase("review"); } }
   function prev(){ if(idx > 0) goTo(idx - 1); }
 
+  // ── READ WHAT PLACONA ALREADY CAPTURED ───────────────────────────────────────
+  // The Placona land-search agent picks up a lot per site — units, planning status, LPA, guide price,
+  // constraints, the recommended action, its own score, plus your CRM contact & follow-ups. That detail
+  // is stashed on the deal (data._raw.placonaSite) and in the pipeline store, but Ronald was ignoring it
+  // and re-asking from scratch. These helpers pull it all in so Ronald starts from what's known, seeds the
+  // live figures, and reports it back — rather than going straight to a blank build.
+  function pOk(v){ return v != null && (""+v).trim() && (""+v).trim() !== "Not found" && (""+v) !== "N/A" && (""+v) !== "Unknown"; }
+  function placonaSeed(){
+    var site = (data._raw && data._raw.placonaSite) || null;
+    var P = data.planning || {};
+    var brief = {};
+    try{ if(site && typeof keystoneBriefFromPlaconaSite === "function") brief = keystoneBriefFromPlaconaSite(site) || {}; }catch(e){}
+    // overlay the cleaned/parsed values loadSiteIntoDeal already put on the deal (these win when present)
+    if(!brief.address && L.address) brief.address = L.address;
+    if(!brief.postcode && L.postcode) brief.postcode = L.postcode;
+    if(!brief.town && L.city) brief.town = cityName(L.city);
+    if(!(num(brief.acres) > 0) && num(L.acres) > 0) brief.acres = num(L.acres);
+    if(!(num(brief.askingPrice) > 0) && num(L.price) > 0) brief.askingPrice = num(L.price);
+    if(!(num(brief.units) > 0) && num(P.units) > 0) brief.units = num(P.units);
+    if(!brief.planningStatus && (L.planningStatus || P.status)) brief.planningStatus = L.planningStatus || P.status;
+    if(!brief.lpa && (L.localAuthority || P.lpa)) brief.lpa = L.localAuthority || P.lpa;
+    // CRM record for this exact site (same key Placona uses: postcode | name/address)
+    var note = null;
+    try{
+      if(site && typeof loadPlaconaWS === "function"){
+        var ws = loadPlaconaWS();
+        var key = (((site.postcode || "") + "").trim().toUpperCase()) + "|" + (((site.site_name || site.address_or_location || "") + "").trim().toLowerCase());
+        note = (ws && ws.notes && ws.notes[key]) || null;
+      }
+    }catch(e){}
+    return { site:site, brief:brief, note:note };
+  }
+  function placonaFacts(){
+    var seed = placonaSeed(), site = seed.site, b = seed.brief, note = seed.note, out = [];
+    function add(label, val){ if(pOk(val)) out.push({ label:label, value:("" + val).trim() }); }
+    if(num(b.units) > 0)       add("Units (est.)", Math.round(num(b.units)));
+    if(num(b.acres) > 0)       add("Site area", num(b.acres) + " acres");
+    if(num(b.askingPrice) > 0) add("Guide price", "£" + num(b.askingPrice).toLocaleString());
+    add("Planning status", b.planningStatus);
+    add("LPA", b.lpa);
+    if(site){
+      add("County", site.county);
+      if(!L.city) add("Town", site.town);
+      if(pOk(site.placona_score)) add("Placona score", site.placona_score + (pOk(site.placona_category) ? (" · " + site.placona_category) : ""));
+      add("Recommended", site.recommended_action);
+      add("Constraints", site.constraints_summary);
+      add("Scheme hint", site.scheme_type || site.site_type);
+      add("Land agent", site.agent_contact);
+      add("Source", site.source_url);
+    } else {
+      add("Land agent", L.agent);
+      add("Constraints", L.constraintSummary);
+    }
+    if(note){
+      if(pOk(note.status) && note.status !== "none") add("Pipeline stage", note.status);
+      if(note.contact){ var c = note.contact; add("Contact", [c.name, c.company].filter(Boolean).join(", ")); add("Phone", c.phone); add("Email", c.email); }
+      if(note.activity && note.activity.length) add("Last note", note.activity[0].text);
+      var fu = note.followups && note.followups.filter(function(f){ return !f.done && (f.text || "").trim(); })[0];
+      if(fu) add("Next follow-up", (fu.date ? fu.date + " — " : "") + fu.text);
+    }
+    return out;
+  }
+  function figSpoken(fig){
+    if(!fig || !(fig.gdv > 0)) return "";
+    var p = "I've run the numbers: GDV about £" + fmtM(fig.gdv) + ", residual land about £" + fmtM(fig.rlv);
+    if(fig.hasAsk) p += ", which at the guide leaves roughly a " + Math.round(fig.marginPct) + " percent margin";
+    return p + ". ";
+  }
+  function placonaReadback(fig){
+    var seed = placonaSeed(), site = seed.site, b = seed.brief, note = seed.note;
+    var facts = placonaFacts();
+    if(!site && facts.length === 0) return "";
+    var name = b.address || (site && (site.site_name || site.address_or_location)) || L.address || "this site";
+    var bits = [];
+    if(num(b.acres) > 0)       bits.push(num(b.acres) + (num(b.acres) === 1 ? " acre" : " acres"));
+    if(num(b.units) > 0)       bits.push("room for about " + Math.round(num(b.units)) + " homes");
+    if(pOk(b.planningStatus))  bits.push("planning " + b.planningStatus);
+    if(pOk(b.lpa))             bits.push(b.lpa);
+    if(num(b.askingPrice) > 0) bits.push("guide around £" + fmtM(b.askingPrice));
+    var s = "Right — I've pulled up " + name + " from the Placona search. ";
+    if(bits.length) s += "Here's what's on file: " + bits.join(", ") + ". ";
+    var contact = (note && note.contact && (note.contact.name || note.contact.company)) ? (note.contact.name || note.contact.company)
+                : (site && pOk(site.agent_contact) ? site.agent_contact : (pOk(L.agent) ? L.agent : ""));
+    if(contact) s += "Your contact is " + contact + ". ";
+    return s;
+  }
+
   function assembleSiteFacts(){
-    var existing = [];
-    if(L.address) existing.push("Site: " + L.address);
-    if(L.city) existing.push("Location: " + cityName(L.city));
-    if(L.postcode) existing.push("Postcode: " + L.postcode);
-    if(num(L.acres) > 0) existing.push("Site area: " + L.acres + " acres");
-    if(num(L.price) > 0) existing.push("Asking / guide price: £" + num(L.price).toLocaleString());
-    return existing;
+    var out = [];
+    if(L.address) out.push("Site: " + L.address);
+    if(L.city) out.push("Location: " + cityName(L.city));
+    if(L.postcode) out.push("Postcode: " + L.postcode);
+    // everything Placona captured (units, planning, LPA, guide price, constraints, agent, CRM contact…)
+    placonaFacts().forEach(function(f){ out.push(f.label + ": " + f.value); });
+    return out;
   }
 
   // Scripted interview → build
@@ -327,7 +414,19 @@ function VoiceOperator(props){
   function startConversation(){
     primeVoice();   // unlock speech inside the tap (iOS/Safari), so the opener + replies can speak
     setPhase("converse");
-    var opener = "Hello, I'm Ronald, your Landform land advisor. Tell me about this site — what's your thinking, and what would you like to do with it?";
+    // Start from what Placona already captured: seed the running brief, run the engine so the live
+    // figures are there from the first breath, and open by reporting it back rather than a blank ask.
+    var seed = placonaSeed();
+    var fig = null;
+    if(seed.brief && (num(seed.brief.acres) > 0 || num(seed.brief.units) > 0 || seed.brief.postcode)){
+      setRunningBrief(seed.brief);
+      fig = computeLiveFigures(seed.brief);
+      if(fig) setFigures(fig);
+    }
+    var pre = placonaReadback(fig);
+    var opener = pre
+      ? (pre + figSpoken(fig) + "Shall we work these up as they stand, or change the approach?")
+      : "Hello, I'm Ronald, your Landform land advisor. Tell me about this site — what's your thinking, and what would you like to do with it?";
     setMessages([{ role:"assistant", text:opener }]);
     if(SR){ setHandsFree(true); hfRef.current = true; }   // hands-free: just talk, no Send button
     setTimeout(function(){ speak(opener, function(){ if(hfRef.current) (listenRef.current || startHFListen)(); }); }, 350);
@@ -394,6 +493,18 @@ function VoiceOperator(props){
   // ── shared bits ──
   var micSupported = !!SR, voiceSupported = !!synth;
   function pill(txt, col){ return e("span", { style:{ fontSize:10, fontWeight:800, color:col, background:col + "14", border:"1px solid " + col + "44", borderRadius:20, padding:"3px 10px" } }, txt); }
+  // What Ronald read from the Placona agent — shown so you can see he's picked it up, not started blank.
+  function placonaPanel(){
+    var facts = placonaFacts(); if(!facts.length) return null;
+    return e("div", { style:{ background:"#F4F5FF", border:"1px solid #D3D6F0", borderRadius:10, padding:"12px 14px", marginBottom:12 } },
+      e("div", { style:{ fontSize:10.5, fontWeight:800, color:"#4A4BAE", marginBottom:8, textTransform:"uppercase", letterSpacing:".07em" } }, "📋 Read from the Placona agent"),
+      e("div", { style:{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(170px,1fr))", gap:"6px 14px" } },
+        facts.map(function(f, i){
+          return e("div", { key:i, style:{ fontSize:11.5, color:"#2E2F8A", lineHeight:1.4 } },
+            e("span", { style:{ color:"#7278A0" } }, f.label + ": "),
+            e("span", { style:{ fontWeight:700 } }, f.value));
+        })));
+  }
 
   // ── IDLE ──
   if(phase === "idle"){
@@ -410,6 +521,7 @@ function VoiceOperator(props){
           voiceSupported ? pill("🔊 Landform will speak", "#2D7A65") : pill("🔇 Speech output not available — questions shown as text", "#9A7B3E"),
           micSupported ? pill("🎤 Voice answers on", "#2D7A65") : pill("⌨ No mic in this browser — type answers", "#9A7B3E"))
       ),
+      placonaPanel(),
       e("div", { style:{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap", marginBottom:10 } },
         e("button", { onClick:startConversation, style:{ padding:"14px 26px", background:accent, border:"none", color:"#fff", borderRadius:10, fontSize:16, fontWeight:800, cursor:"pointer", fontFamily:"DM Sans,sans-serif", boxShadow:"0 4px 14px rgba(74,75,174,0.3)" } }, "💬  Start a conversation"),
         e("button", { onClick:startInterview, style:{ padding:"14px 24px", background:"#fff", border:"1px solid #C5C8E0", color:accent, borderRadius:10, fontSize:15, fontWeight:800, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "▶  Quick guided interview"),
@@ -433,6 +545,7 @@ function VoiceOperator(props){
             style:{ padding:"4px 9px", background:voiceOn ? "#EDEEF9" : "#F7F8FC", border:"1px solid #DDE0ED", borderRadius:6, fontSize:11, fontWeight:700, color:"#4A4BAE", cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, voiceOn ? "🔊 Speaking" : "🔇 Muted"),
           e("button", { onClick:function(){ stopSpeak(); stopListen(); setMessages([]); setFigures(null); setRunningBrief({}); try{ localStorage.removeItem("cassidy_voice_state"); }catch(e){} startConversation(); }, title:"Start a fresh conversation",
             style:{ padding:"4px 9px", background:"#F7F8FC", border:"1px solid #DDE0ED", borderRadius:6, fontSize:11, fontWeight:700, color:"#7278A0", cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "↺ New"))),
+      placonaPanel(),
       // message thread
       e("div", { style:{ border:"1px solid #DDE0ED", borderRadius:12, background:"#FAFBFF", padding:"14px 14px", marginBottom:12, maxHeight:"46vh", overflowY:"auto", display:"flex", flexDirection:"column", gap:10 } },
         messages.map(function(m, mi){
