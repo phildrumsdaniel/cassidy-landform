@@ -160,11 +160,16 @@ function VoiceOperator(props){
     function score(v){
       var n = (v.name || "").toLowerCase(), lang = (v.lang || "").toLowerCase(), s = 0;
       if(lang.indexOf("en-gb") === 0) s += 40; else if(lang.indexOf("en") === 0) s += 18;
-      if(/natural|neural|premium|enhanced/.test(n)) s += 34;
+      // the genuinely natural engines (device-dependent): Google's Natural/WaveNet/Studio, Apple's
+      // Enhanced/Premium Siri voices, Microsoft's Neural/Online voices. Weight these heavily.
+      if(/neural|wavenet|studio|natural/.test(n)) s += 42;
+      if(/enhanced|premium/.test(n)) s += 40;   // Apple's higher-quality downloadable voices
+      if(/\bonline\b|multilingual|\bhd\b/.test(n)) s += 24;   // Microsoft Edge online neural voices
       if(/google/.test(n)) s += 22;
+      if(/siri|serena|sonia|libby|jenny|ryan|aria/.test(n)) s += 8;
       if(/\b(daniel|arthur|george|ryan|oliver|male)\b/.test(n)) s += 16;   // male-leaning for "Ronald"
-      if(/siri|serena|sonia|libby|ryan/.test(n)) s += 6;
-      if(/compact|espeak|robot/.test(n)) s -= 30;
+      // demote the tinny/robotic fallbacks hard so they're only ever a last resort
+      if(/compact|espeak|robot|eloquence|novelty|fred|albert|zarvox|organ|bells|trinoids/.test(n)) s -= 40;
       return s;
     }
     return vs.slice().sort(function(a, b){ return score(b) - score(a); })[0] || vs[0];
