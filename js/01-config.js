@@ -106,8 +106,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.198";
+var CURRENT_VERSION = "10.199";
 var VERSION_HISTORY = [
+  {v:"10.199", date:"Aug 2026", headline:"NEW: MIXED-USE SCHEMES — one site can now be several use-parcels, each taken to its OWN exit, and summed into one deal. A new ‘🧩 Mixed-Use Scheme’ stage (2. Value) lets you build a scheme out of Houses (SFH), Build-to-Rent and Student (PBSA) parcels — e.g. 3 acres of houses + 1 acre BTR + 1 acre PBSA — and give EACH its own exit route: open-market/plot sales, bulk sale to a Housing Association, an institutional forward-fund, or a JOINT VENTURE with a fund (pension / sovereign / operator / family office). A parcel’s mixed OUTCOME within a use — e.g. 40% of the houses sold to an HA, 60% private — is set with its Affordable %, which splits the house mix by tenure. Every parcel is priced through the SAME engine as the single-use journeys (computeSFHMetrics for houses, computeHRAMetrics for BTR/PBSA), so the numbers reconcile; the deal’s residual land value is the SUM of what each parcel can pay, shown with a per-parcel breakdown (units, exit value, dev cost, land supported) and a blended total (GDV, dev cost, RLV, headroom vs the guide price, margin after land). JOINT VENTURES get an indicative static waterfall — Cassidy’s equity share of the profit PLUS a promote (carried interest) over the fund’s preferred return, with the fund’s share shown alongside (a full period-by-period IRR waterfall is a later refinement). Purely additive: it’s its own stage and store (data.mixed.parcels); every existing single-use deal and screen is completely unchanged. New engine: computeMixedUse() / jvSplit() / defaultParcel(); new screen screen-MixedUse.js. This is the foundation — surfacing the blended mixed-use appraisal on the board documents is the next step."},
   {v:"10.198", date:"Aug 2026", headline:"The in-app Deal Dashboard and Financial Modelling now show the developer margin on the SAME all-in basis as the board documents — profit after the land price AND its purchase costs (SDLT + agent), via the shared afterLandMargin() helper. Before, the Dashboard/Financial-Modelling margin came off the engine's actualProfit, which only deducts acquisition costs when the RLV 'net-to-vendor' toggle is on (and folds grant into the base), so the in-app screens could show a higher margin than the Board Proposal / one-page appraisal for the same deal. Now, whenever a guide/asking price is entered, all four read one figure. On Financial Modelling the acquisition cost is charged whenever a land price is set (not only when the toggle is on), it appears as its own 'Acquisition (SDLT + agent)' line in the cost table, and Total Dev Cost = the engine's dev cost + land + that line, so the appraisal still foots exactly. Grant is still shown as a separate '· X% w/ grant' upside, not folded into the base. With no land price entered the screens are unchanged (they still show the pre-land position, clearly labelled). No residual-engine value change."},
   {v:"10.197", date:"Jul 2026", headline:"Audit part 2 — the board-facing documents now show the SAME figures for the same deal. (1) The full Board Proposal and the one-page appraisal could print DIFFERENT developer margins after land — the one-pager always deducts the guide price's purchase costs (SDLT + agent), while the Board Proposal used the engine's figure, which only deducts them when the RLV 'net-to-vendor' toggle is on (and folded grant into the base). Both now use ONE shared basis (afterLandMargin): profit after the guide price AND its acquisition costs, with the AHP grant shown as a separate '→ X% with grant' upside — so the two board documents can't disagree. (2) The Exit Strategy buyer cards recomputed each buyer's land bid with hard-coded margins (National Housebuilder 17.5%, BTR fund 8%) and a flat cost proxy that OMITTED contingency, S106, roads, infrastructure and marketing — so 'a housebuilder will pay £X for the land' overstated the engine's own residual sitting right beside it. The Housebuilder card now reads the engine's open-market plot-sales residual and the BTR/forward-fund card reads the engine's capitalised residual (the same full cost stack as every other screen), for any scheme with a house mix. The Registered Provider (affordable transfer price), PBSA and pension long-income cards are genuinely different bases and are unchanged. (3) Reviewed the Capitalisation 'Forward Funding Stack' — it deliberately has its own editable cost sliders and a labelled 'profit on cost' basis as an advanced rental-hold what-if, and its forward-fund VALUE already matches the engine, so it's left as-is by design. No change to the residual land value engine — this makes the board/exit screens read the one engine consistently. New helpers landAcqCostsFor() / afterLandMargin()."},
   {v:"10.196", date:"Jul 2026", headline:"Full-tool calculation & propagation audit — a batch of correctness fixes (engine values verified to reconcile to the penny). PROPAGATION: the apartment/high-rise (HRA) path now shares three DEAL-LEVEL assumptions it was wrongly excluded from — Developer profit %, Finance rate % and S106/CIL per unit — so editing any of them on Financial Modelling / SFH / RLV now reaches the HRA stage too (the app's own Propagation Audit already treated them as siblings, so the stages could silently disagree). ENGINE: (1) the forward-fund / capitalised residual now carries the AHP grant on the same basis as the plot-sales and HA-bulk routes — under the 'competitive land bid' grant treatment it was understated by exactly the grant. (2) A scheme typed 'land' / 'property' / 'recovery' that carries a house mix now shows its forward-fund value (it was computed then discarded as £0). (3) The generic (BTR / no-mix) residual now honours a user-entered 0% (0% profit/fees/etc. was silently reverting to the default). (4) AHP grant now counts affordable homes defined by per-row tenure when no overall affordable % is set (was reading 0 affordable → £0 grant). SFH HOUSE MIX screen: site infrastructure (£53k/acre) is now charged on the NET DEVELOPABLE area, matching the engine — it was charging the whole title, so a site with surplus land showed an RLV below the one-pager / Dashboard for the same deal. Plus: removed a stale '4.5% institutional floor' note (the floor was retired in v10.119; the yield you set is respected, clamped 3.5–7%) and fixed a Propagation Audit row that tracked a non-existent HRA build field. No change to a correctly-set-up SFH deal's headline residual — these close edge cases and cross-stage drift. (Three cross-screen basis questions — the board-proposal vs one-pager after-land margin, the Exit buyer cards, and the Capitalisation forward-fund stack — are flagged separately for a decision, as they change board-facing figures.)"},
@@ -4048,6 +4049,150 @@ function computeTenureMetrics(data){
   var pureMarketGdv = totalSchemeUnits * omsUnitPrice;
   return {rows:rows,totalUnits:rows.reduce(function(a,r){return a+r.units;},0),blendedGdv:blendedGdv,annualIncome:annualIncome,pureMarketGdv:pureMarketGdv,discountPct:pureMarketGdv>0?(1-blendedGdv/pureMarketGdv)*100:0};
 }
+
+// ── MIXED-USE / MULTI-PARCEL SCHEMES (v10.199) ──────────────────────────────
+// One deal can be several USE-PARCELS on a single site — e.g. 3 ac of houses (SFH),
+// 1 ac of build-to-rent (BTR) and 1 ac of student (PBSA) — each carried to its OWN
+// exit (open-market/plot sales, bulk sale to an HA, an institutional forward-fund, or a
+// JOINT VENTURE with a fund), then summed into one deal. Purely additive: a deal with no
+// `parcels` array behaves exactly as before (single-use calcDealMetrics is untouched).
+// Mixed OUTCOMES *within* a use — e.g. 40% of the houses sold to an HA, 60% private — are
+// the per-row tenure blend computeSFHMetrics already does, so each SFH parcel carries its own
+// house mix (with per-row tenures) and this layer aggregates the parcels.
+//
+//   parcel = { id, label, use:'sfh'|'btr'|'pbsa', acres,
+//              sfh?:{...} | hra?:{...}, capitalise?:{...},
+//              exit:{ route:'plot'|'ha_bulk'|'forward_fund'|'jv', haBulkDiscountPct?,
+//                     cassidyEquityPct?, promotePct?, prefRate?, jvPartner? } }
+
+// jvSplit — an INDICATIVE static JV waterfall for the appraisal. The fund provides the equity;
+// Cassidy takes an equity share of the profit PLUS a promote (carried interest) on the profit
+// above the fund's preferred return. Editable and clearly labelled indicative — a full
+// period-by-period IRR waterfall is a later refinement.
+function jvSplit(schemeProfit, jv){
+  jv = jv || {};
+  var eq = numOr(jv.cassidyEquityPct, 20) / 100;    // Cassidy's equity share of the profit
+  var promote = numOr(jv.promotePct, 20) / 100;     // carried interest on profit above the pref
+  var prefRate = numOr(jv.prefRate, 8) / 100;       // the fund's preferred return on its equity
+  var p = num(schemeProfit);
+  var pref = Math.max(0, p) * (1 - eq) * prefRate;  // fund's preferred slice (static proxy)
+  var abovePref = Math.max(0, p - pref);
+  var cassidy = p * eq + abovePref * promote;       // pro-rata equity share + promote on the excess
+  return { schemeProfit:p, cassidyEquityPct:eq * 100, promotePct:promote * 100, prefRate:prefRate * 100,
+    cassidyShare:cassidy, fundShare:p - cassidy };
+}
+
+// A sensible starter parcel so a newly-added use computes immediately from just its acreage —
+// the user then refines the mix / block on the parcel. SFH: ~net-density homes at the area sale/build
+// rate. BTR/PBSA: an apartment block sized to the plot (a nominal floorplate × storeys), student
+// unit-split for PBSA. All values are editable per parcel.
+function defaultParcel(use, acres, city){
+  use = (use || "sfh").toString().toLowerCase();
+  acres = num(acres) > 0 ? num(acres) : 1;
+  var mk = (typeof MKT !== "undefined" && MKT[(city || "").toString().toLowerCase()]) || (typeof MKT !== "undefined" ? MKT.manchester : null);
+  var id = "parcel_" + Math.round(acres * 1000) + "_" + use;
+  if(use === "btr" || use === "pbsa"){
+    var isStudent = use === "pbsa";
+    return { id:id, use:use, acres:acres,
+      label:(isStudent ? "Student (PBSA) — " : "Build-to-Rent — ") + acres + " ac",
+      exit:{ route: isStudent ? "jv" : "forward_fund", cassidyEquityPct:25, promotePct:20, prefRate:8, jvPartner:"pension_fund" },
+      capitalise:{ targetYield: isStudent ? 5.25 : 4.75 },
+      hra:{ storeys:6, fp: Math.max(4000, Math.round(acres * 8000)), eff: isStudent ? 82 : 80,
+        ss: isStudent ? 70 : 20, os: isStudent ? 20 : 50, ts: isStudent ? 10 : 30,
+        ssqft: isStudent ? 300 : 400, osqft: isStudent ? 420 : 550, tsqft: isStudent ? 600 : 780,
+        bcp: isStudent ? 255 : 235, profitPct: isStudent ? 15 : 17.5 } };
+  }
+  // SFH — a house mix sized to the acreage at ~20 homes/developable acre
+  var homes = Math.max(1, Math.round(acres * 20));
+  var salePsf = (mk && mk.build) ? Math.max(260, Math.round((mk.build) * 1.5)) : 340;
+  var buildPsf = (mk && mk.build) || 210;
+  return { id:id, use:"sfh", acres:acres, label:"Houses — " + acres + " ac",
+    exit:{ route:"plot", haBulkDiscountPct:5 },
+    sfh:{ basePsf:salePsf, buildPsf:buildPsf, avgSqft:900,
+      mix:[ { type:"3-bed semi", count:homes, sqft:900, psf:salePsf, tenure:"private" } ] } };
+}
+
+function computeMixedUse(data){
+  data = data || {};
+  var src = (data.mixed && Array.isArray(data.mixed.parcels)) ? data.mixed.parcels
+    : (Array.isArray(data.parcels) ? data.parcels : []);
+  var list = src.filter(function(p){ return p && num(p.acres) > 0 && (p.use || "").toString().trim(); });
+  if(!list.length) return null;   // not a mixed-use deal → callers fall back to the single-use engine
+  var dealLandPrice = num(data.land && data.land.price);
+  var rows = list.map(function(p, i){
+    var use = (p.use || "sfh").toString().toLowerCase();
+    var isApt = (use === "btr" || use === "pbsa");
+    // per-parcel data slice — its own use section + acreage, sharing the site's city/planning/grants
+    var slice = {
+      assetType: use,
+      land: Object.assign({}, data.land || {}, { acres: num(p.acres) }),
+      planning: data.planning || {},
+      grants: data.grants || {},
+      capitalise: p.capitalise || data.capitalise || {}
+    };
+    var salesValue, invValue, devCost, plotRlv, capRlv, units;
+    if(isApt){
+      slice.hra = p.hra || {};
+      var H = computeHRAMetrics(slice);
+      salesValue = num(H.salesGdv); invValue = num(H.investmentValue);
+      devCost = num(H.devCost); plotRlv = num(H.rlv); capRlv = num(H.investmentRlv); units = num(H.units);
+    } else {
+      slice.sfh = p.sfh || {};
+      var S = computeSFHMetrics(slice);
+      salesValue = num(S.gdv); invValue = num(S.capInvestmentValue);
+      devCost = num(S.devCost); plotRlv = num(S.rlv); capRlv = num(S.capRlv); units = num(S.totalUnits);
+    }
+    var pPct = numOr(isApt ? (p.hra && p.hra.profitPct) : (p.sfh && p.sfh.profitPct), 17.5) / 100;
+    var bulkDisc = numOr(p.exit && p.exit.haBulkDiscountPct, 5) / 100;
+    var bulkGdv = salesValue * (1 - bulkDisc);
+    var haBulkRlv = bulkGdv * (1 - pPct) - devCost;
+
+    var route = (p.exit && p.exit.route) || (isApt ? "forward_fund" : "plot");
+    var exitValue, exitRlv, exitLabel;
+    if(route === "forward_fund" || route === "jv" || route === "capitalised"){
+      exitValue = invValue; exitRlv = capRlv;
+      exitLabel = route === "jv" ? "Joint venture (forward-fund basis)" : "Institutional forward-fund";
+    } else if(route === "ha_bulk"){
+      exitValue = bulkGdv; exitRlv = haBulkRlv; exitLabel = "Bulk sale to a HA / fund";
+    } else {
+      exitValue = salesValue; exitRlv = plotRlv;
+      exitLabel = isApt ? "Sell the completed units" : "Open-market plot sales";
+    }
+    return { id:p.id || ("parcel_" + i), label:p.label || (use.toUpperCase() + " — " + num(p.acres) + " ac"),
+      use:use, acres:num(p.acres), units:units, salesValue:salesValue, investmentValue:invValue,
+      devCost:devCost, plotRlv:plotRlv, capRlv:capRlv, haBulkRlv:haBulkRlv,
+      route:route, exitValue:exitValue, exitRlv:exitRlv, exitLabel:exitLabel, jvCfg:(p.exit || {}) };
+  });
+  var totalRLV = rows.reduce(function(a, r){ return a + num(r.exitRlv); }, 0);
+  var totalAcres = rows.reduce(function(a, r){ return a + num(r.acres); }, 0);
+  // JV split per parcel — profit measured after the parcel's share of the deal land price. The land
+  // price is allocated by ACREAGE (robust and intuitive for a land purchase — RLV-weighting breaks
+  // when parcel residuals are mixed-sign), so each JV parcel's profit reflects its slice of the site.
+  rows.forEach(function(r){
+    if(r.route !== "jv") return;
+    var landShare = (totalAcres > 0 && dealLandPrice > 0) ? dealLandPrice * (num(r.acres) / totalAcres) : 0;
+    var schemeProfit = num(r.exitValue) - num(r.devCost) - landShare;
+    r.jv = jvSplit(schemeProfit, r.jvCfg);
+    r.jv.landShare = landShare;
+  });
+  var totalGDV = rows.reduce(function(a, r){ return a + num(r.exitValue); }, 0);
+  var totalDevCost = rows.reduce(function(a, r){ return a + num(r.devCost); }, 0);
+  var totalUnits = rows.reduce(function(a, r){ return a + num(r.units); }, 0);
+  var acqTotal = (typeof landAcqCostsFor === "function" && dealLandPrice > 0) ? num(landAcqCostsFor(dealLandPrice).total) : 0;
+  var afterLandProfit = dealLandPrice > 0 ? (totalGDV - totalDevCost - dealLandPrice - acqTotal)
+    : (totalRLV > 0 ? (totalGDV - totalDevCost - totalRLV) : 0);
+  var cassidyJvShare = rows.reduce(function(a, r){ return a + (r.jv ? num(r.jv.cassidyShare) : 0); }, 0);
+  return {
+    parcels: rows, count: rows.length,
+    totalGDV: totalGDV, totalDevCost: totalDevCost, totalRLV: totalRLV,
+    totalAcres: totalAcres, totalUnits: totalUnits,
+    landPrice: dealLandPrice, headroom: totalRLV - dealLandPrice,
+    afterLandProfit: afterLandProfit, afterLandMarginPct: totalGDV > 0 ? (afterLandProfit / totalGDV) * 100 : 0,
+    hasJv: cassidyJvShare !== 0, cassidyJvShare: cassidyJvShare,
+    uses: rows.map(function(r){ return r.use; })
+  };
+}
+
 function calcDealMetrics(data){
   data = data || {};
   var l = data.land || {};
