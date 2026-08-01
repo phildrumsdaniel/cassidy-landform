@@ -245,6 +245,15 @@ function renderPortfolio(data, logMigration, navTo, saveDeal, setData, user){
               e("span",null,"By: ",e("strong",{style:{color:role==="owner"?"#4A4BAE":"#7278A0"}},creatorLabel)),
               e("span",null,relTime(deal.lastModified))
             ),
+            // v10.211 — landowner outreach status (shown when the backend summary carries it; needs the
+            // list_deals enhancement in docs/portfolio-outreach-summary.gs). Graceful when absent.
+            (deal.outreachLast || deal.outreachFollowUp) && (function(){
+              var overdue = false; if(deal.outreachFollowUp){ try{ overdue = new Date(deal.outreachFollowUp) < new Date((new Date()).toDateString()); }catch(e){} }
+              return e("div",{style:{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",fontSize:9.5,marginBottom:10,padding:"5px 8px",background:overdue?"rgba(176,90,53,0.07)":"rgba(74,75,174,0.05)",border:"1px solid "+(overdue?"rgba(176,90,53,0.3)":"rgba(74,75,174,0.18)"),borderRadius:6}},
+                e("span",{style:{fontWeight:800,color:"#4A4BAE"}},"📬"),
+                deal.outreachLast && e("span",{style:{color:"#5A5F86"}},"Contacted "+relTime(deal.outreachLast)+(deal.outreachChannel?" ("+deal.outreachChannel+")":"")),
+                deal.outreachFollowUp && e("span",{style:{fontWeight:700,color:overdue?"#B05A35":"#9A7B3E"}},(overdue?"⏰ ":"")+"Follow-up "+deal.outreachFollowUp));
+            })(),
             // Actions — delete + share hidden if user can't edit
             e("div",{style:{display:"flex",gap:6}},
               e("button",{onClick:function(){loadCloudDeal(deal.dealId);},style:{flex:1,padding:"7px 10px",background:"#4A4BAE",border:"none",borderRadius:5,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},

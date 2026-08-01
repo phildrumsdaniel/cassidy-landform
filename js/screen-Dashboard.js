@@ -83,6 +83,21 @@ function renderDashboard(ALL_STAGES, JOURNEYS, at, city, data, effUnits, ey, gdv
           )
         );
       })(),
+      // v10.211 — LANDOWNER OUTREACH status: last contacted + next follow-up, so the deal's home
+      // view shows where the approach stands. Only shows once there's been an approach or a follow-up.
+      (function(){
+        if(typeof outreachStatus!=="function") return null;
+        var os=outreachStatus(data);
+        if(!os.contacted && !os.followUpDate) return null;
+        function rel(ts){ try{ var s=Math.round((Date.now()-ts)/86400000); return s<=0?"today":s===1?"yesterday":s<30?s+" days ago":new Date(ts).toLocaleDateString("en-GB",{day:"numeric",month:"short"}); }catch(e){ return ""; } }
+        var chLabel={email:"email",letter:"letter",call:"call"}[os.lastChannel]||os.lastChannel;
+        var fuCol=os.followUpOverdue?"#B05A35":"#9A7B3E";
+        return e("div",{style:{display:"flex",gap:14,alignItems:"center",flexWrap:"wrap",margin:"0 0 12px",padding:"9px 14px",background:os.followUpOverdue?"rgba(176,90,53,0.07)":"rgba(74,75,174,0.06)",border:"1px solid "+(os.followUpOverdue?"rgba(176,90,53,0.3)":"rgba(74,75,174,0.2)"),borderRadius:8}},
+          e("span",{style:{fontSize:11,fontWeight:800,color:"#4A4BAE",textTransform:"uppercase",letterSpacing:".05em"}},"📬 Landowner"),
+          os.contacted?e("span",{style:{fontSize:12,color:"#3A3D6A"}},"Last contacted ",e("b",null,rel(os.lastTs)),chLabel?" ("+chLabel+")":""):e("span",{style:{fontSize:12,color:"#7278A0"}},"Not yet contacted"),
+          os.followUpDate&&e("span",{style:{fontSize:12,fontWeight:700,color:fuCol}},(os.followUpOverdue?"⏰ Follow-up overdue: ":"Next follow-up: ")+os.followUpDate+(os.followUpNote?" — "+os.followUpNote:"")),
+          e("button",{onClick:function(){navTo("outreach");},style:{marginLeft:"auto",padding:"6px 12px",background:"#4A4BAE",border:"none",color:"#fff",borderRadius:6,fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Outreach →"));
+      })(),
       e("p",{style:{fontSize:12,color:"#7278A0",marginBottom:data.masterReport?8:12}},"Live overview — fill in the stages to see metrics update"),
       // v10.5 — Assumption Mode entry point (present as consented/DD-clear for stakeholders)
       (typeof AssumptionModeCard==="function")&&AssumptionModeCard(data, up),
