@@ -33,6 +33,9 @@ function VoiceOperator(props){
   var lS = useState(false);    var listening = lS[0], setListening = lS[1];
   var vS = useState(true);     var voiceOn = vS[0], setVoiceOn = vS[1];
   var mS = useState("");       var buildMsg = mS[0], setBuildMsg = mS[1];
+  var cS = useState([]);       var messages = cS[0], setMessages = cS[1];   // free-conversation thread [{role,text}]
+  var thS = useState(false);   var thinking = thS[0], setThinking = thS[1];
+  var dS = useState("");       var draft = dS[0], setDraft = dS[1];
   var recRef = React.useRef(null);
 
   var SR = (typeof window !== "undefined") && (window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -67,16 +70,26 @@ function VoiceOperator(props){
   function next(){ stopListen(); if(idx < VOICE_QS.length - 1) goTo(idx + 1); else { stopSpeak(); setPhase("review"); } }
   function prev(){ if(idx > 0) goTo(idx - 1); }
 
-  async function buildFromVoice(){
-    setPhase("building"); setBuildMsg("Assembling the brief from your answers…");
+  function assembleSiteFacts(){
     var existing = [];
     if(L.address) existing.push("Site: " + L.address);
     if(L.city) existing.push("Location: " + cityName(L.city));
     if(L.postcode) existing.push("Postcode: " + L.postcode);
     if(num(L.acres) > 0) existing.push("Site area: " + L.acres + " acres");
     if(num(L.price) > 0) existing.push("Asking / guide price: £" + num(L.price).toLocaleString());
+    return existing;
+  }
+
+  // Scripted interview → build
+  function buildFromVoice(){
     var qa = VOICE_QS.map(function(q){ return "Q: " + q.q + "\nA: " + ((answers[q.key] || "").trim() || "(no answer given)"); }).join("\n\n");
-    var source = "=== VOICE INTAKE — spoken interview with the Landform operator ===\n" + (existing.length ? existing.join("\n") + "\n\n" : "") + qa;
+    var facts = assembleSiteFacts();
+    runBuildFromSource("=== VOICE INTAKE — spoken interview with the Landform operator ===\n" + (facts.length ? facts.join("\n") + "\n\n" : "") + qa);
+  }
+
+  // Shared build pipeline — extract → build → price → DD → commit — from any transcript source.
+  async function runBuildFromSource(source){
+    setPhase("building"); setBuildMsg("Assembling the brief from your answers…");
     // 1) keep the transcript in Keystone's source, appended (never destroys existing source)
     setData(function(d){ return Object.assign({}, d, { keystone:Object.assign({}, d.keystone || {}, { source:((d.keystone && d.keystone.source) ? d.keystone.source + "\n\n" : "") + source }) }); });
     try{
@@ -140,6 +153,62 @@ function VoiceOperator(props){
     }
   }
 
+  // ── FREE CONVERSATION MODE ──────────────────────────────────────────────────
+  // A real back-and-forth: the operator answers questions, gives a candid view on the user's thinking,
+  // draws out what it needs, and folds every point/request into the transcript that builds the scheme.
+  function convoSystem(facts){
+    return "You are the Landform Operator — a sharp, candid UK land & development advisor for Cassidy Group, " +
+      "having a SPOKEN conversation with a developer about a specific site. Be natural and concise — 2 to 4 short " +
+      "sentences, because your reply is read aloud. As it flows, do three things: (1) ANSWER their questions with " +
+      "practical, numerate UK planning / development / finance knowledge; (2) give a STRAIGHT view on their thinking — " +
+      "name the risk and the upside, don't just agree; (3) DRAW OUT what's needed to appraise and build the scheme " +
+      "(intention, planning status, size & mix, constraints, ownership, land agent, price, exit, affordable %), " +
+      "conversationally — a point or two at a time, never a checklist. Acknowledge any request they make so it's built " +
+      "in. If they ask for a figure you can't know exactly, give a sensible range and say it'll firm up when the scheme " +
+      "is built. When they're ready or say 'build it', tell them you'll build the scheme now. " +
+      "Known site facts: " + (facts || "none entered yet") + ".";
+  }
+  function startConversation(){
+    setPhase("converse");
+    var opener = "Right — tell me about this site. What's your thinking, and what would you like to do with it?";
+    setMessages([{ role:"assistant", text:opener }]);
+    setTimeout(function(){ speak(opener); }, 350);
+  }
+  async function sendMessage(text){
+    text = (text || "").trim(); if(!text || thinking) return;
+    stopListen();
+    var hist = messages.concat([{ role:"user", text:text }]);
+    setMessages(hist); setDraft(""); setThinking(true);
+    try{
+      var facts = assembleSiteFacts().join("; ");
+      var convoText = hist.map(function(m){ return (m.role === "assistant" ? "Operator" : "Developer") + ": " + m.text; }).join("\n");
+      var res = await callAI(user, "keystone", convoSystem(facts), "Conversation so far:\n" + convoText + "\n\nReply as the Operator now — natural, concise, spoken-friendly.");
+      var reply = ((res || "").trim()) || "Understood.";
+      setMessages(function(m){ return m.concat([{ role:"assistant", text:reply }]); });
+      setThinking(false); speak(reply);
+    }catch(err){
+      setThinking(false);
+      setMessages(function(m){ return m.concat([{ role:"assistant", text:"Sorry — I didn't catch that (connection issue). Say it again?" }]); });
+    }
+  }
+  // mic for the conversation: dictate into the draft, ready to send
+  function toggleConvoListen(){
+    if(!SR) return;
+    if(listening){ stopListen(); return; }
+    var rec; try{ rec = new SR(); }catch(e){ return; }
+    rec.lang = "en-GB"; rec.interimResults = false; rec.continuous = true;
+    rec.onresult = function(ev){ var t = ""; for(var i = ev.resultIndex; i < ev.results.length; i++){ if(ev.results[i].isFinal) t += ev.results[i][0].transcript; } if(t) setDraft(function(d){ return ((d || "") + " " + t.trim()).trim(); }); };
+    rec.onend = function(){ setListening(false); };
+    rec.onerror = function(){ setListening(false); };
+    recRef.current = rec;
+    try{ stopSpeak(); rec.start(); setListening(true); }catch(e){ setListening(false); }
+  }
+  function buildFromConversation(){
+    var facts = assembleSiteFacts();
+    var convo = messages.map(function(m){ return (m.role === "assistant" ? "Operator" : "Developer") + ": " + m.text; }).join("\n");
+    runBuildFromSource("=== VOICE INTAKE — free conversation with the Landform operator ===\n" + (facts.length ? facts.join("\n") + "\n\n" : "") + convo);
+  }
+
   // ── shared bits ──
   var micSupported = !!SR, voiceSupported = !!synth;
   function pill(txt, col){ return e("span", { style:{ fontSize:10, fontWeight:800, color:col, background:col + "14", border:"1px solid " + col + "44", borderRadius:20, padding:"3px 10px" } }, txt); }
@@ -149,7 +218,7 @@ function VoiceOperator(props){
     return e("div", null,
       e("h2", { style:{ fontSize:24, fontWeight:800, color:accent, marginBottom:4 } }, "🎙 Voice Operator — talk to Landform"),
       e("p", { style:{ fontSize:12, color:"#7278A0", marginBottom:16, lineHeight:1.6, maxWidth:720 } },
-        "Press Start and Landform will ask you a series of questions out loud — your intention for the land, its current status, constraints, ownership, the land agent, the scheme and the exit. Answer by speaking; Landform captures it, then Keystone builds the whole scheme, ready to complete the due diligence and print the marketing, stakeholder and approach reports."),
+        "Talk to Landform out loud, then it builds, prices and due-diligences the whole scheme. Two ways: have a FREE CONVERSATION — think aloud, ask questions, throw in points and requests and the operator answers, gives its view and folds it all in — or a quick GUIDED interview of set questions. Either way it ends with a finished scheme ready for the board, marketing, stakeholder and approach documents."),
       e("div", { style:{ background:"#F7F8FC", border:"1px solid #DDE0ED", borderRadius:10, padding:"16px 18px", marginBottom:16 } },
         e("div", { style:{ fontSize:11, fontWeight:800, color:accent, marginBottom:8, textTransform:"uppercase", letterSpacing:".08em" } }, "This site"),
         e("div", { style:{ fontSize:13, color:"#2E2F8A", fontWeight:700 } }, (L.address || data.dealName || (L.city ? cityName(L.city) : "New site — nothing entered yet"))),
@@ -159,11 +228,50 @@ function VoiceOperator(props){
           voiceSupported ? pill("🔊 Landform will speak", "#2D7A65") : pill("🔇 Speech output not available — questions shown as text", "#9A7B3E"),
           micSupported ? pill("🎤 Voice answers on", "#2D7A65") : pill("⌨ No mic in this browser — type answers", "#9A7B3E"))
       ),
-      e("div", { style:{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap" } },
-        e("button", { onClick:startInterview, style:{ padding:"14px 28px", background:accent, border:"none", color:"#fff", borderRadius:10, fontSize:16, fontWeight:800, cursor:"pointer", fontFamily:"DM Sans,sans-serif", boxShadow:"0 4px 14px rgba(74,75,174,0.3)" } }, "▶  Start the interview"),
+      e("div", { style:{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap", marginBottom:10 } },
+        e("button", { onClick:startConversation, style:{ padding:"14px 26px", background:accent, border:"none", color:"#fff", borderRadius:10, fontSize:16, fontWeight:800, cursor:"pointer", fontFamily:"DM Sans,sans-serif", boxShadow:"0 4px 14px rgba(74,75,174,0.3)" } }, "💬  Start a conversation"),
+        e("button", { onClick:startInterview, style:{ padding:"14px 24px", background:"#fff", border:"1px solid #C5C8E0", color:accent, borderRadius:10, fontSize:15, fontWeight:800, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "▶  Quick guided interview"),
         voiceSupported && e("label", { style:{ display:"flex", alignItems:"center", gap:6, fontSize:12, color:"#7278A0", cursor:"pointer" } },
-          e("input", { type:"checkbox", checked:voiceOn, onChange:function(ev){ setVoiceOn(ev.target.checked); }, style:{ width:15, height:15, cursor:"pointer" } }), "Read questions aloud"))
+          e("input", { type:"checkbox", checked:voiceOn, onChange:function(ev){ setVoiceOn(ev.target.checked); }, style:{ width:15, height:15, cursor:"pointer" } }), "Read replies aloud")),
+      e("div", { style:{ fontSize:11, color:"#9298BC", lineHeight:1.5, maxWidth:660 } },
+        e("b", null, "Conversation"), " is the natural one — talk freely, ask it anything, and it answers, evaluates and captures every point. ",
+        e("b", null, "Guided"), " walks a fixed set of questions if you'd rather be led.")
     );
+  }
+
+  // ── CONVERSATION ──
+  if(phase === "converse"){
+    return e("div", null,
+      e("div", { style:{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10, flexWrap:"wrap", gap:8 } },
+        e("h2", { style:{ fontSize:20, fontWeight:800, color:accent, margin:0 } }, "💬 Talking to the Landform operator"),
+        e("div", { style:{ display:"flex", gap:8, alignItems:"center" } },
+          voiceSupported && e("button", { onClick:function(){ setVoiceOn(!voiceOn); }, title:"Toggle spoken replies",
+            style:{ padding:"4px 9px", background:voiceOn ? "#EDEEF9" : "#F7F8FC", border:"1px solid #DDE0ED", borderRadius:6, fontSize:11, fontWeight:700, color:"#4A4BAE", cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, voiceOn ? "🔊 Speaking" : "🔇 Muted"))),
+      // message thread
+      e("div", { style:{ border:"1px solid #DDE0ED", borderRadius:12, background:"#FAFBFF", padding:"14px 14px", marginBottom:12, maxHeight:"46vh", overflowY:"auto", display:"flex", flexDirection:"column", gap:10 } },
+        messages.map(function(m, mi){
+          var isA = m.role === "assistant";
+          return e("div", { key:mi, style:{ alignSelf:isA ? "flex-start" : "flex-end", maxWidth:"82%" } },
+            e("div", { style:{ fontSize:9, fontWeight:800, color:isA ? "#4A4BAE" : "#2D7A65", marginBottom:2, textTransform:"uppercase", letterSpacing:".06em", textAlign:isA ? "left" : "right" } }, isA ? "🎙 Operator" : "You"),
+            e("div", { style:{ fontSize:14, lineHeight:1.5, color:"#2E2F8A", background:isA ? "#fff" : "#EAF4EF", border:"1px solid " + (isA ? "#E0E2EC" : "#CDE7DB"), borderRadius:10, padding:"9px 13px" } }, m.text));
+        }),
+        thinking && e("div", { style:{ alignSelf:"flex-start", fontSize:12, color:"#9298BC", fontStyle:"italic", padding:"4px 6px" } }, "🎙 Operator is thinking…")),
+      // input row
+      e("div", { style:{ display:"flex", gap:8, alignItems:"flex-end", flexWrap:"wrap" } },
+        micSupported && e("button", { onClick:toggleConvoListen, title:listening ? "Stop" : "Speak",
+          style:{ padding:"11px 16px", background:listening ? "#B05A35" : "#2D7A65", border:"none", color:"#fff", borderRadius:8, fontSize:14, fontWeight:800, cursor:"pointer", fontFamily:"DM Sans,sans-serif", whiteSpace:"nowrap" } }, listening ? "⏹ Stop" : "🎤 Speak"),
+        e("textarea", { value:draft, onChange:function(ev){ setDraft(ev.target.value); },
+          onKeyDown:function(ev){ if(ev.key === "Enter" && !ev.shiftKey){ ev.preventDefault(); sendMessage(draft); } },
+          placeholder:listening ? "Listening — speak your point or question…" : "Speak, or type here. Ask anything, share your thinking, add a request…",
+          style:{ flex:"1 1 260px", minHeight:46, padding:"10px 13px", border:"1px solid #C5C8E0", borderRadius:8, fontSize:14, color:"#2E2F8A", fontFamily:"DM Sans,sans-serif", boxSizing:"border-box", resize:"vertical" } }),
+        e("button", { onClick:function(){ sendMessage(draft); }, disabled:thinking || !(draft || "").trim(),
+          style:{ padding:"11px 20px", background:(thinking || !(draft || "").trim()) ? "#AAB" : accent, border:"none", color:"#fff", borderRadius:8, fontSize:14, fontWeight:800, cursor:(thinking || !(draft || "").trim()) ? "not-allowed" : "pointer", fontFamily:"DM Sans,sans-serif" } }, "Send →")),
+      // build / actions
+      e("div", { style:{ display:"flex", gap:10, marginTop:14, flexWrap:"wrap", alignItems:"center" } },
+        e("button", { onClick:buildFromConversation, disabled:messages.filter(function(m){ return m.role === "user"; }).length === 0,
+          style:{ padding:"12px 22px", background:"#2D7A65", border:"none", color:"#fff", borderRadius:8, fontSize:14, fontWeight:800, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "🏗 Build the scheme from this"),
+        e("button", { onClick:function(){ stopSpeak(); stopListen(); setPhase("idle"); }, style:{ padding:"12px 16px", background:"transparent", border:"1px solid #DDE0ED", color:"#7278A0", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "← Back"),
+        e("span", { style:{ fontSize:11, color:"#9298BC" } }, "Talk as long as you like — everything you say is folded into the scheme when you build.")));
   }
 
   // ── BUILDING ──
