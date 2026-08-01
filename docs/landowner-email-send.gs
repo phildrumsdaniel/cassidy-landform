@@ -1,30 +1,35 @@
 /**
- * Landowner Outreach — send email  (v10.209)
+ * Landowner Outreach — send email  (v10.210)
  * ──────────────────────────────────────────────────────────────────────────
  * Adds a `send_email` action to the "Cassidy Landform Backend" Apps Script so the
- * "📬 Approach Landowner" stage can send a REVIEWED email straight from Landform.
+ * "📬 Approach Landowner" stage can send a REVIEWED email straight from Landform —
+ * and send it FROM YOUR COMPANY ADDRESS (e.g. phil.daniel@cassidygroupltd.com).
  *
- * The email is sent by Google's MailApp FROM the account that owns/deploys this
- * script (i.e. your Cassidy Google account), with the Reply-To set to the sender's
- * address so replies come back to them. The user reviews and confirms every send in
- * the app first — this only ever sends ONE email, to one address, on an explicit click.
+ * HOW "FROM YOUR COMPANY ADDRESS" WORKS
+ * Apps Script sends as the Google account that owns/deploys this script. To make the
+ * email come FROM phil.daniel@cassidygroupltd.com instead, that address must be a
+ * verified "Send mail as" alias on THAT Google account. One-time Gmail setup:
+ *   Gmail ▸ ⚙ Settings ▸ "Accounts and Import" ▸ "Send mail as" ▸ "Add another email
+ *   address" ▸ enter phil.daniel@cassidygroupltd.com ▸ verify via the confirmation
+ *   email. (If cassidygroupltd.com is itself the Google Workspace account that owns
+ *   the script, it's already the primary sender — nothing to set up.)
+ * The app passes the chosen "from" address; the handler uses it ONLY if it's the
+ * account's primary address or a verified alias, otherwise it falls back to the
+ * account's own address and tells you which it used (returned as sentFrom).
  *
- * Written to match your backend's conventions (respond / getOrCreateSheet / handleX).
- * TWO steps, ~2 minutes:
- *
+ * SETUP — TWO steps, ~2 minutes:
  *   STEP 1 — paste handleSendEmail() below into Code.gs (e.g. under handleSaveDeal).
- *
  *   STEP 2 — add ONE line to doPost(e), next to the other POST actions:
  *
  *              if (data.action === "send_email") return respond(handleSendEmail(data));
  *
- *   Then RE-DEPLOY: Deploy ▸ Manage deployments ▸ (your Web App) ▸ Edit ▸
- *   Version: New version ▸ Deploy. The first send will ask you to authorise the
- *   Gmail/MailApp scope — accept it.
+ *   Then RE-DEPLOY (Deploy ▸ Manage deployments ▸ Edit ▸ New version). The FIRST send
+ *   asks you to authorise the Gmail scope — accept it. (GmailApp needs Gmail access;
+ *   the plain MailApp used elsewhere does not, which is why this uses GmailApp — only
+ *   GmailApp can send from an alias.)
  *
- * The app POSTs: { action:"send_email", token, to, subject, body, replyTo, fromName }.
- * QUOTA: MailApp sends ~100 emails/day on a consumer Gmail account, ~1,500/day on a
- * Google Workspace account. That's ample for one-to-one landowner approaches.
+ * The app POSTs: { action:"send_email", token, to, subject, body, from, replyTo, fromName }.
+ * QUOTA: ~100 emails/day on a consumer Gmail account, ~1,500/day on Google Workspace.
  */
 
 function handleSendEmail(data) {
@@ -40,19 +45,31 @@ function handleSendEmail(data) {
   var fromName = String((data && data.fromName) || "").trim();
   if (fromName) options.name = fromName;
 
+  // Send FROM the requested company address if it's this account's primary or a verified alias.
+  var sentFrom = "";
   try {
-    MailApp.sendEmail(to, subject || "(no subject)", body, options);
+    var primary = "";
+    try { primary = Session.getActiveUser().getEmail(); } catch (e) {}
+    var aliases = [];
+    try { aliases = GmailApp.getAliases(); } catch (e) {}
+    var fromReq = String((data && data.from) || "").trim();
+    if (fromReq && (fromReq === primary || aliases.indexOf(fromReq) >= 0)) {
+      options.from = fromReq; sentFrom = fromReq;
+    } else {
+      sentFrom = primary || "(the backend account)";   // requested alias not set up → send from primary
+    }
+    GmailApp.sendEmail(to, subject || "(no subject)", body, options);
   } catch (err) {
     return { status: "error", message: String(err) };
   }
 
   // Optional audit log — one row per send. Delete this block if you don't want it.
   try {
-    var sh = getOrCreateSheet("SentEmails", ["timestamp", "userId", "to", "subject", "replyTo"]);
-    sh.appendRow([new Date(), String((data && data.userId) || ""), to, subject, replyTo]);
+    var sh = getOrCreateSheet("SentEmails", ["timestamp", "userId", "to", "subject", "from", "replyTo"]);
+    sh.appendRow([new Date(), String((data && data.userId) || ""), to, subject, sentFrom, replyTo]);
   } catch (e) { /* logging is best-effort */ }
 
-  return { status: "ok", sentTo: to };
+  return { status: "ok", sentTo: to, sentFrom: sentFrom };
 }
 
 /* ── WIRING (add to your existing doPost router) ─────────────────────────────
