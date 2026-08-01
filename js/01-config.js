@@ -60,6 +60,32 @@ function outreachStatus(data){
     followUpDate:fuDate, followUpNote:(o.followUpNote || ""), followUpOverdue:fuOverdue, followUpDue:fuDue };
 }
 
+// ── v10.212 — LANDOWNER-OUTREACH follow-ups reminder store. Per-deal follow-ups (data.outreach.
+// followUpDate) are mirrored to a small global store so opening Landform can remind you which land
+// deals are due to chase — even without opening that deal. Per-device (like the early Placona store).
+var OUTREACH_FU_KEY = "cassidy_outreach_followups";
+function loadOutreachFollowups(){ try{ var o = JSON.parse(localStorage.getItem(OUTREACH_FU_KEY) || "null"); return (o && typeof o === "object") ? o : {}; }catch(e){ return {}; } }
+function saveOutreachFollowup(dealKey, entry){
+  if(!dealKey) return; var o = loadOutreachFollowups();
+  if(entry && entry.date){ o[String(dealKey)] = entry; } else { delete o[String(dealKey)]; }
+  try{ localStorage.setItem(OUTREACH_FU_KEY, JSON.stringify(o)); }catch(e){}
+}
+function dealKeyFor(data){ data = data || {}; return (data._cloudDealId || data._localDealId || (data.land && data.land.address) || data.dealName || "") + ""; }
+function outreachDueFollowups(){
+  var out = { dueCount:0, overdue:0, items:[] };
+  var store = loadOutreachFollowups();
+  var d0; try{ d0 = new Date((new Date()).toDateString()); }catch(e){ d0 = new Date(); }
+  var today; { var n = new Date(); today = n.getFullYear() + "-" + ("0" + (n.getMonth() + 1)).slice(-2) + "-" + ("0" + n.getDate()).slice(-2); }
+  Object.keys(store).forEach(function(k){
+    var en = store[k] || {}; if(!en.date) return;
+    var overdue = false, due = false;
+    try{ var fd = new Date(en.date); if(fd < d0){ overdue = true; due = true; } else if(en.date === today){ due = true; } }catch(e){ due = true; }
+    if(due){ out.dueCount++; if(overdue) out.overdue++; out.items.push({ dealKey:k, dealName:en.dealName || en.owner || "A land deal", owner:en.owner || "", date:en.date, note:en.note || "", overdue:overdue }); }
+  });
+  out.items.sort(function(a, b){ var A = a.date || "0", B = b.date || "0"; return A < B ? -1 : A > B ? 1 : 0; });
+  return out;
+}
+
 // ── v10.194 — REMINDERS: open follow-ups from the Placona pipeline (cassidy_placona_ws) that need
 // actioning — overdue, due today, or undated — surfaced app-wide so opening Landform reminds you what
 // to chase (e.g. an enquiry to follow up). Reads the global pipeline store directly (no deal needed).
@@ -121,8 +147,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.211";
+var CURRENT_VERSION = "10.212";
 var VERSION_HISTORY = [
+  {v:"10.212", date:"Aug 2026", headline:"Opening Landform now REMINDS YOU of landowner follow-ups that are due — like the Placona enquiry reminder, but for the land deals you're chasing. Set a ‘Next follow-up’ on the Approach-Landowner stage and it's mirrored to a follow-ups store; when you open Landform, a ‘📬 N landowner follow-up(s) due’ banner lists the soonest few (deal + note, overdue ones flagged ⏰ in red and counted) with an ‘Open a deal to action →’ jump to the portfolio, so nothing goes cold even if you don't open that specific deal. New helpers saveOutreachFollowup() / outreachDueFollowups(); the Approach-Landowner ‘Next follow-up’ writes to the store (and clears it when you clear the date). Per-device for now (a cross-device version is the same backend step as the pipeline sync). No engine change."},
   {v:"10.211", date:"Aug 2026", headline:"Landowner OUTREACH STATUS now shows at a glance — on the Deal Dashboard and the portfolio cards. Set a ‘Next follow-up’ date + note on the Approach-Landowner stage, and the Dashboard leads with a ‘📬 Landowner’ strip: last contacted (how long ago + by email / letter / call, from the outreach log) and the next follow-up (flagged ⏰ overdue in red), with an ‘Outreach →’ jump. The same status appears on each My-Portfolio card so your whole pipeline shows who's been contacted and who's due — no more chasing twice or letting one go cold. New helper outreachStatus(). The Dashboard reads it live (no backend needed); the portfolio cards need the list_deals summary to carry three fields (a ~1-minute backend add — snippet in docs/portfolio-outreach-summary.gs) and degrade gracefully until it's deployed. No engine change."},
   {v:"10.210", date:"Aug 2026", headline:"Approach Landowner: an OUTREACH LOG, and send the email FROM YOUR COMPANY ADDRESS. (1) Every approach is now recorded on the deal in a ‘🗒 Outreach log’ — each email sent, letter prepared for post, and call is timestamped with who it was to and a note; a ‘📞 Log call / note’ box lets you jot the outcome of a phone call (‘open to an option, wants £X, call back in 2 wks’). It's the audit trail so nothing gets chased twice or forgotten. (2) The email now sends FROM your company address — set ‘Send from’ to e.g. phil.daniel@cassidygroupltd.com and the send goes out from it with replies coming back to it. Technically this needs that address to be a verified ‘Send mail as’ alias on the Google account your backend runs on (a one-time Gmail setting), so the backend snippet is upgraded to use GmailApp with the alias (docs/landowner-email-send.gs updated with the setup steps); it uses your company address when it's a valid alias/primary and otherwise falls back to the backend account and tells you which it sent from. No engine change."},
   {v:"10.209", date:"Aug 2026", headline:"The Approach-Landowner email can now be SENT straight from Landform. When the recipient's email is filled in, a ‘📤 Send email now’ button sends the reviewed draft directly through your backend — no copy-paste, no switching apps. It sends FROM your Landform (Google) account with replies routed to your own address, you confirm the send first (it can't be un-sent), and it marks the deal ‘✓ Sent’ with the address and time. REQUIRES a one-time backend step — add the ‘send_email’ action to your Google Apps Script (a ready-to-paste snippet ships in docs/landowner-email-send.gs; the first send authorises the Gmail scope, then it's the same ~2-minute deploy as the deal sync). Until that's deployed, ‘Send email now’ says so and you use ‘Open in email app’ (which drops the pre-filled draft into your own mail client) as before. Sends one email to one landowner on an explicit click — a genuine one-to-one approach, reviewed by you, not a mailshot. No engine change."},

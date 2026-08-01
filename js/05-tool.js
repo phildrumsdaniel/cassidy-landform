@@ -252,6 +252,7 @@ var JOURNEYS = {
   var showMoreMenuS=useState(false); var showMoreMenu=showMoreMenuS[0]; var setShowMoreMenu=showMoreMenuS[1];
   // v10.194 — follow-ups reminder: dismissed for this session only, so it re-appears next time you open.
   var fuRemS=useState(false); var fuReminderDismissed=fuRemS[0]; var setFuReminderDismissed=fuRemS[1];
+  var orRemS=useState(false); var outreachRemDismissed=orRemS[0]; var setOutreachRemDismissed=orRemS[1];
   // v10.180 — in-app "name this…" modal, replacing native window.prompt() for the Save / Save As /
   // Import name step. prompt() is an OS-level dialog that BLOCKS the whole tab and cannot be driven by
   // an automated / CDP browser session (the click hangs until a human types). This is a normal DOM
@@ -2344,6 +2345,19 @@ function loadSiteIntoDeal(site){
             ),
             e("button",{onClick:function(){ up("placona","view","notes"); navTo("placona"); },style:{padding:"8px 16px",background:"#4A4BAE",border:"none",borderRadius:6,color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"View follow-ups →"),
             e("button",{onClick:function(){ setFuReminderDismissed(true); },title:"Dismiss until next time you open Landform",style:{padding:"7px 11px",background:"none",border:"1px solid #DDE0ED",borderRadius:6,color:"#7278A0",fontSize:12,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Dismiss")
+          );
+        })() : null,
+        // v10.212 — LANDOWNER OUTREACH follow-ups due (across deals, from the outreach follow-up store)
+        (!outreachRemDismissed && typeof outreachDueFollowups==="function") ? (function(){
+          var du=outreachDueFollowups(); if(!du.dueCount) return null;
+          var top=du.items.slice(0,3);
+          return e("div",{style:{margin:"0 0 16px",padding:"12px 16px",borderRadius:10,background:du.overdue>0?"rgba(176,90,53,0.08)":"rgba(45,122,101,0.07)",border:"1px solid "+(du.overdue>0?"rgba(176,90,53,0.4)":"rgba(45,122,101,0.35)"),display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}},
+            e("div",{style:{flex:1,minWidth:220}},
+              e("div",{style:{fontSize:13,fontWeight:800,color:du.overdue>0?"#B05A35":"#1B7A54",marginBottom:2}},"📬 "+du.dueCount+" landowner follow-up"+(du.dueCount!==1?"s":"")+" due"+(du.overdue>0?" · "+du.overdue+" overdue":"")),
+              e("div",{style:{fontSize:11,color:"#5A5F86",lineHeight:1.5}}, top.map(function(it){ return (it.overdue?"⏰ ":"")+(it.date?it.date+" — ":"")+it.dealName+(it.note?": "+it.note:""); }).join("   ·   ")+(du.dueCount>top.length?"   · +"+(du.dueCount-top.length)+" more":""))
+            ),
+            e("button",{onClick:function(){ navTo("portfolio"); },style:{padding:"8px 16px",background:"#2D7A65",border:"none",borderRadius:6,color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap"}},"Open a deal to action →"),
+            e("button",{onClick:function(){ setOutreachRemDismissed(true); },title:"Dismiss until next time you open Landform",style:{padding:"7px 11px",background:"none",border:"1px solid #DDE0ED",borderRadius:6,color:"#7278A0",fontSize:12,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Dismiss")
           );
         })() : null,
         (typeof AssumptionBanner==="function")&&AssumptionBanner(data, up),
