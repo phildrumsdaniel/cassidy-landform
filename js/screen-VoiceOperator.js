@@ -49,6 +49,9 @@ function VoiceOperator(props){
   var hfS = useState(false);   var handsFree = hfS[0], setHandsFree = hfS[1];        // continuous hands-free conversation
   var recRef = React.useRef(null);
   var hfRef = React.useRef(false);   // live handsFree flag for async callbacks
+  var uttRef = React.useRef(null);   // retain the utterance so Chrome doesn't GC it (else onend never fires)
+  var sendRef = React.useRef(null);  // latest sendMessage — async speech callbacks must not use a stale closure
+  var listenRef = React.useRef(null);// latest startHFListen, same reason
 
   // Browser voices load asynchronously — re-render when they arrive so the picker + best-voice work.
   useEffect(function(){
@@ -130,20 +133,41 @@ function VoiceOperator(props){
 
   function speak(text, onDone){
     if(!voiceOn || !synth){ if(onDone) setTimeout(onDone, 60); return; }
-    try{ synth.cancel(); var u = new SpeechSynthesisUtterance(text); var vc = currentVoice(); if(vc){ u.voice = vc; u.lang = vc.lang || "en-GB"; } else { u.lang = "en-GB"; }
-      u.rate = 0.97; u.pitch = 1.0; if(onDone) u.onend = function(){ try{ onDone(); }catch(e){} };
+    var done = false;
+    function finish(){ if(done) return; done = true; if(onDone){ try{ onDone(); }catch(e){} } }
+    try{
+      synth.cancel();
+      var u = new SpeechSynthesisUtterance(text);
+      var vc = currentVoice(); if(vc){ u.voice = vc; u.lang = vc.lang || "en-GB"; } else { u.lang = "en-GB"; }
+      u.rate = 0.97; u.pitch = 1.0;
+      u.onend = finish; u.onerror = finish;
+      uttRef.current = u;   // keep a live reference — Chrome GCs utterances and then onend never fires
       synth.speak(u);
-    }catch(e){ if(onDone) setTimeout(onDone, 60); }
+      // Watchdog: onend is unreliable in several browsers. Poll speaking-state so the callback
+      // (which reopens the mic in hands-free mode) ALWAYS runs — otherwise the loop freezes.
+      if(onDone){
+        var started = false, waited = 0;
+        var iv = setInterval(function(){
+          if(done){ clearInterval(iv); return; }
+          waited += 300;
+          var sp = false; try{ sp = synth.speaking; }catch(e){}
+          if(sp) started = true;
+          // finish when: it spoke and has now stopped · it never started within 2.5s (utterance dropped) · hard cap
+          if((started && !sp) || (!started && waited >= 2500) || waited > 90000){ clearInterval(iv); finish(); }
+        }, 300);
+      }
+    }catch(e){ finish(); }
   }
   // HANDS-FREE: after Ronald finishes speaking, listen; when you stop talking, auto-send; repeat.
   function startHFListen(){
     if(!SR || !hfRef.current) return;
-    try{ if(synth && synth.speaking) return; }catch(e){}
+    // If Ronald is still talking, don't dead-end — wait and try again so the loop never stalls.
+    try{ if(synth && synth.speaking){ setTimeout(function(){ if(hfRef.current) (listenRef.current || startHFListen)(); }, 300); return; } }catch(e){}
     var rec; try{ rec = new SR(); }catch(e){ return; }
     rec.lang = "en-GB"; rec.interimResults = false; rec.continuous = false; var got = false;
-    rec.onresult = function(ev){ var t = ""; for(var i = ev.resultIndex; i < ev.results.length; i++){ if(ev.results[i].isFinal) t += ev.results[i][0].transcript; } t = t.trim(); if(t){ got = true; setListening(false); sendMessage(t); } };
+    rec.onresult = function(ev){ var t = ""; for(var i = ev.resultIndex; i < ev.results.length; i++){ if(ev.results[i].isFinal) t += ev.results[i][0].transcript; } t = t.trim(); if(t){ got = true; setListening(false); (sendRef.current || sendMessage)(t); } };
     rec.onerror = function(){ setListening(false); };
-    rec.onend = function(){ setListening(false); if(hfRef.current && !got){ setTimeout(function(){ if(hfRef.current && !(synth && synth.speaking)) startHFListen(); }, 350); } };
+    rec.onend = function(){ setListening(false); if(hfRef.current && !got){ setTimeout(function(){ if(hfRef.current && !(synth && synth.speaking)) (listenRef.current || startHFListen)(); }, 350); } };
     recRef.current = rec; try{ rec.start(); setListening(true); }catch(e){ setListening(false); }
   }
   function startHands(){ setHandsFree(true); hfRef.current = true; if(!messages.length){ startConversation(); } else { stopSpeak(); startHFListen(); } }
@@ -291,7 +315,7 @@ function VoiceOperator(props){
     var opener = "Hello, I'm Ronald, your Landform land advisor. Tell me about this site — what's your thinking, and what would you like to do with it?";
     setMessages([{ role:"assistant", text:opener }]);
     if(SR){ setHandsFree(true); hfRef.current = true; }   // hands-free: just talk, no Send button
-    setTimeout(function(){ speak(opener, function(){ if(hfRef.current) startHFListen(); }); }, 350);
+    setTimeout(function(){ speak(opener, function(){ if(hfRef.current) (listenRef.current || startHFListen)(); }); }, 350);
   }
   async function sendMessage(text){
     text = (text || "").trim(); if(!text || thinking) return;
@@ -322,11 +346,11 @@ function VoiceOperator(props){
         "Conversation so far:\n" + convoText + "\n\nReply as the Operator now — natural, concise, spoken-friendly. Quote the live figures above when they're relevant to what they just said.");
       var reply = ((res || "").trim()) || "Understood.";
       setMessages(function(m){ return m.concat([{ role:"assistant", text:reply }]); });
-      setThinking(false); speak(reply, function(){ if(hfRef.current) startHFListen(); });   // hands-free: listen again after Ronald replies
+      setThinking(false); speak(reply, function(){ if(hfRef.current) (listenRef.current || startHFListen)(); });   // hands-free: listen again after Ronald replies
     }catch(err){
       setThinking(false);
       setMessages(function(m){ return m.concat([{ role:"assistant", text:"Sorry — I didn't catch that (connection issue). Say it again?" }]); });
-      if(hfRef.current) setTimeout(function(){ if(hfRef.current) startHFListen(); }, 500);
+      if(hfRef.current) setTimeout(function(){ if(hfRef.current) (listenRef.current || startHFListen)(); }, 500);
     }
   }
   // mic for the conversation: dictate into the draft, ready to send
@@ -346,6 +370,11 @@ function VoiceOperator(props){
     var convo = messages.map(function(m){ return (m.role === "assistant" ? "Operator" : "Developer") + ": " + m.text; }).join("\n");
     runBuildFromSource("=== VOICE INTAKE — free conversation with the Landform operator ===\n" + (facts.length ? facts.join("\n") + "\n\n" : "") + convo);
   }
+
+  // Keep the refs pointing at THIS render's closures, so async speech/recognition callbacks
+  // always see the current messages/thinking/figures rather than the render they were created in.
+  sendRef.current = sendMessage;
+  listenRef.current = startHFListen;
 
   // ── shared bits ──
   var micSupported = !!SR, voiceSupported = !!synth;
