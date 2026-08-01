@@ -251,6 +251,7 @@ var JOURNEYS = {
   })()); var history=histS[0]; var setHistory=histS[1];
   var showHistS=useState(false); var showHist=showHistS[0]; var setShowHist=showHistS[1];
   var showMoreMenuS=useState(false); var showMoreMenu=showMoreMenuS[0]; var setShowMoreMenu=showMoreMenuS[1];
+  var ronaldS=useState(false); var ronaldOpen=ronaldS[0]; var setRonaldOpen=ronaldS[1];   // v10.222 — floating Ronald dock
   // v10.194 — follow-ups reminder: dismissed for this session only, so it re-appears next time you open.
   var fuRemS=useState(false); var fuReminderDismissed=fuRemS[0]; var setFuReminderDismissed=fuRemS[1];
   var orRemS=useState(false); var outreachRemDismissed=orRemS[0]; var setOutreachRemDismissed=orRemS[1];
@@ -1998,7 +1999,10 @@ function loadSiteIntoDeal(site){
     if(stage==="scorecard")return renderScorecard(city, data, gdv, lc, up, user);
     if(stage==="placona")return renderPlacona(data, loadSiteIntoDeal, up, user, navTo);
     if(stage==="keystone")return renderKeystone(data, setData, up, navTo, user);
-    if(stage==="voice")return renderVoiceOperator(data, setData, navTo, user);
+    if(stage==="voice")return e("div",{style:{maxWidth:640,padding:"10px 4px"}},
+      e("h2",{style:{fontSize:24,fontWeight:800,color:"#4A4BAE",marginBottom:6}},"🎙 Ronald — your Landform assistant"),
+      e("p",{style:{fontSize:13,color:"#5A5F86",lineHeight:1.6,marginBottom:16}},"Ronald is now a floating assistant — he opens over any page, keeps talking as you move around, and takes commands: “show me the one-page appraisal and print it”, “open the dashboard”, “build the scheme”. Tap below (or the 🎙 Talk button in the top bar) to open him from anywhere."),
+      e("button",{onClick:function(){ setRonaldOpen(true); },style:{padding:"14px 26px",background:"#4A4BAE",border:"none",color:"#fff",borderRadius:10,fontSize:16,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",boxShadow:"0 4px 14px rgba(74,75,174,0.3)"}},"💬  Open Ronald"));
     if(stage==="outreach")return renderLandownerOutreach(data, up, user);
     if(stage==="identifier")return renderLandownerIdentifier(data, up, navTo, user);
     if(stage==="navigator")return renderProcessNavigator(ALL_STAGES, data, exitUnlocksStage, exits, isExitOn, isSchemeOn, navTo, schemes, setFlowAssetType, setSchemes, toggleExit, up);
@@ -2224,9 +2228,9 @@ function loadSiteIntoDeal(site){
           // v10.215 — always-visible "Talk to Landform" (Voice Operator) button, so the voice
           // intake is one tap from anywhere rather than hidden in the stage list.
           e("button",{key:"talk",
-            onClick:function(){ navTo("voice"); },
-            title:"Talk to Ronald — Landform voice operator (conversation or guided interview)",
-            style:{padding:isMobile?"8px 10px":"6px 14px",background:stage==="voice"?"#3A3D6A":"#4A4BAE",border:"none",color:"#fff",borderRadius:5,fontSize:isMobile?16:11,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(74,75,174,0.3)",minHeight:36,flexShrink:0}},
+            onClick:function(){ setRonaldOpen(true); },
+            title:"Talk to Ronald — your floating Landform assistant (talks, navigates, prints, builds)",
+            style:{padding:isMobile?"8px 10px":"6px 14px",background:ronaldOpen?"#3A3D6A":"#4A4BAE",border:"none",color:"#fff",borderRadius:5,fontSize:isMobile?16:11,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(74,75,174,0.3)",minHeight:36,flexShrink:0}},
             isMobile?"🎙":"🎙 Talk"
           ),
           e("button",{
@@ -2389,6 +2393,10 @@ function loadSiteIntoDeal(site){
       )
     )
     ,
+    // ── RONALD — floating voice assistant, mounted at Tool level so it survives page changes and keeps
+    //    talking while it navigates / prints / builds. Always mounted (renders null when closed) so the
+    //    conversation and speech loop persist across stages. v10.222.
+    e(VoiceOperator,{ docked:true, open:ronaldOpen, onClose:function(){ setRonaldOpen(false); }, data:data, setData:setData, navTo:navTo, user:user }),
     // ── FILE UPLOAD RESULTS MODAL ────────────────────────────────────────
     (showFileUpload||fileProcessing)&&e("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(15,15,30,0.65)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20}},
       e("div",{style:{background:"#fff",borderRadius:14,width:"100%",maxWidth:760,maxHeight:"85vh",display:"flex",flexDirection:"column",boxShadow:"0 30px 60px rgba(15,15,30,0.3)"}},
