@@ -151,7 +151,14 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
     var finCost=(totalBuild+fees)*(sfPeakDebtPct/100)*(sFin/100)*sfProgYears*0.6;
     var s106Total=totalUnits*s106Pu;
     var roadsTotal=buildInclusive ? 0 : totalUnits*roads;
-    var infra=buildInclusive ? 0 : sAcres*53000;
+    // v10.196 — site infra is charged on the NET DEVELOPABLE area (min(site, homes ÷ net density)),
+    // mirroring computeSFHMetrics (v10.102) exactly. Before, this screen charged £53k × the WHOLE
+    // title, so on a site with surplus land it over-costed infra and showed an RLV BELOW the one-pager
+    // / Dashboard / Quick Appraisal (all of which read the engine's net-developable figure).
+    var sfNetDensity=num(s.netDensity)>0?num(s.netDensity):20;
+    var sfImpliedDevAcres=(sfNetDensity>0&&totalUnits>0)?totalUnits/sfNetDensity:0;
+    var sfNetDevAcres=sAcres>0?Math.min(sAcres,sfImpliedDevAcres||sAcres):sfImpliedDevAcres;
+    var infra=buildInclusive ? 0 : sfNetDevAcres*53000;
     // v9.96 — disposal/marketing (agent+marketing+legal, % of GDV) so this screen's RLV
     // reconciles with the engine (computeSFHMetrics/calcDealMetrics both include it).
     var sMarketing=totalGdv*(numOr(s.marketingPct, 0)/100);
@@ -336,7 +343,9 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
         var totSqft = houseCalcs.reduce(function(a,h){return a+h.sqft*h.count;},0);
         var avgSqft = totSqft>0 ? totSqft/totalUnits : 0;
         var infraPerAcre = 53000;
-        var infraPerPlot = sAcres>0 ? (sAcres*infraPerAcre)/totalUnits : 0;
+        // v10.196 — cost infra on the NET DEVELOPABLE area (sfNetDevAcres), matching the cost stack
+        // and the engine — not the whole title, which mislabelled gross acres as "developable".
+        var infraPerPlot = sfNetDevAcres>0 ? (sfNetDevAcres*infraPerAcre)/totalUnits : 0;
         var svcPerPlot = roads + infraPerPlot;                          // roads/sewers + drainage/SuDS/infra
         var svcPsf = avgSqft>0 ? svcPerPlot/avgSqft : 0;
         var feeContPsf = sBuild*((sFeesPct+sCont)/100);                 // pro fees + contingency, per sqft
@@ -346,8 +355,8 @@ function renderSFH(LiveMarketBanner, city, data, navTo, setData, up, user){
         // A rate marked all-in but sitting at/below the construction-only benchmark isn't really
         // all-in — the services & fees are being zeroed with nothing standing in for them.
         var understated = buildInclusive && sBuild <= benchPsf + 12 && svcPsf > 0;
-        var acreBit = sAcres>0
-          ? "£"+infraPerAcre.toLocaleString()+"/developable acre × "+sAcres+" ac = £"+Math.round(sAcres*infraPerAcre).toLocaleString()
+        var acreBit = sfNetDevAcres>0
+          ? "£"+infraPerAcre.toLocaleString()+"/developable acre × "+(Math.round(sfNetDevAcres*10)/10)+" developable ac"+(sAcres>sfNetDevAcres+0.1?" (of "+sAcres+" ac title)":"")+" = £"+Math.round(sfNetDevAcres*infraPerAcre).toLocaleString()
           : "£"+infraPerAcre.toLocaleString()+"/developable acre (enter Site Area to resolve)";
         return e("div",{style:{margin:"-8px 0 14px",padding:"12px 14px",background:"rgba(243,244,248,0.6)",border:"1px solid #E0E2EC",borderRadius:6,fontSize:11,color:"#3A3D6A",lineHeight:1.6}},
           e("div",{style:{fontWeight:700,marginBottom:4,fontSize:12}},"🚧 Services & externals — costed by acreage"),
