@@ -128,17 +128,23 @@ function LandownerIdentifier(props){
         "The title register (~£3) gives the registered proprietor's name and address — the address you'd write to. For company- or overseas-owned land, CCOD/OCOD list the proprietor for free. INSPIRE shows the parcel boundary (no names). Not all land is registered — very long-held estates and some farmland may be unregistered, in which case local enquiry, the planning history and adjoining owners are the route.")),
 
     // OPTIONAL AUTOMATED LOOKUP
-    card("Automated lookup (optional)", "Wire a provider once and identify from within Landform. Free for companies (Companies House API); the definitive title lookup needs an HMLR Business Gateway account or an aggregator (Searchland / LandInsight / Nimbus).",
+    card("Automated lookup", "Identify from within Landform once a provider is wired. Company lookup is free (Companies House API key). The title / proprietor lookup uses LandInsight (LandTech) — needs your LandTech API key; see docs/landowner-identify.gs.",
       e("div", { style:{ display:"flex", gap:10, flexWrap:"wrap", alignItems:"center" } },
         e("button", { onClick:function(){ backendLookup("companies_house_lookup", { query:idn.suspectedCompany || research && research.suspectedCompany || idn.ownerName || "" }); }, disabled:lookup && lookup.status === "loading",
           style:{ padding:"9px 16px", background:"#4A4BAE", border:"none", color:"#fff", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "🏢 Look up the company"),
-        e("button", { onClick:function(){ backendLookup("land_registry_lookup", { address:address, postcode:postcode, titleNumber:idn.titleNumber || "" }); }, disabled:lookup && lookup.status === "loading",
-          style:{ padding:"9px 16px", background:"#2D7A65", border:"none", color:"#fff", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "📜 Look up the title / proprietor"),
+        e("button", { onClick:function(){ backendLookup("land_registry_lookup", { address:address, postcode:postcode, titleNumber:idn.titleNumber || "" }); }, disabled:(lookup && lookup.status === "loading") || !(address || postcode || idn.titleNumber),
+          title:(address || postcode || idn.titleNumber) ? "" : "Add an address, postcode or title number first",
+          style:{ padding:"9px 16px", background:(lookup && lookup.status === "loading") || !(address || postcode || idn.titleNumber) ? "#8CA79B" : "#2D7A65", border:"none", color:"#fff", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "📜 LandInsight — look up the title & owner"),
         lookup && lookup.status === "loading" && e("span", { style:{ fontSize:12, color:"#7278A0" } }, "Looking up…")),
       lookup && lookup.status === "ok" && e("div", { style:{ marginTop:10, background:"#F1FBF6", border:"1px solid #CDE7DB", borderRadius:8, padding:"10px 12px", fontSize:12.5, color:"#1B5E4A" } },
         e("div", { style:{ fontWeight:800, marginBottom:4 } }, "Result"),
         e("pre", { style:{ whiteSpace:"pre-wrap", fontSize:12, fontFamily:"DM Mono,monospace", margin:0, color:"#2E2F8A" } }, JSON.stringify(lookup.data, null, 2)),
-        (lookup.data && (lookup.data.proprietor || lookup.data.companyName || lookup.data.name)) && e("button", { onClick:function(){ recordOwner(lookup.data.proprietor || lookup.data.companyName || lookup.data.name, lookup.data.address || lookup.data.registeredOffice || "", lookup.data.type || "", lookup.kind); }, style:{ marginTop:8, padding:"7px 14px", background:"#2D7A65", border:"none", color:"#fff", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "✓ Use this owner")),
+        (lookup.data && (lookup.data.proprietor || lookup.data.companyName || lookup.data.name)) && e("button", { onClick:function(){
+            var d = lookup.data;
+            var src = lookup.kind === "land_registry_lookup" ? ("LandInsight" + (d.titleNumber ? " · title " + d.titleNumber : "")) : ("Companies House" + (d.companyNumber ? " · " + d.companyNumber : ""));
+            if(d.titleNumber) setI("titleNumber", d.titleNumber);
+            recordOwner(d.proprietor || d.companyName || d.name, d.address || d.registeredOffice || "", d.type || "", src);
+          }, style:{ marginTop:8, padding:"7px 14px", background:"#2D7A65", border:"none", color:"#fff", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" } }, "✓ Use this owner")),
       lookup && lookup.status === "error" && e("div", { style:{ marginTop:10, fontSize:11.5, color:"#9A7B3E", lineHeight:1.5 } },
         "That lookup isn't wired to a provider yet. Add a ‘" + lookup.kind + "’ action to your backend (a ready starter — Companies House is free — is in docs/landowner-identify.gs). Until then, use the official links above.")),
 
