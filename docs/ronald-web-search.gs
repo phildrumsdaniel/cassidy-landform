@@ -1,65 +1,84 @@
 /**
- * Ronald — live WEB SEARCH (so he can look up new regulations)
+ * Ronald — live WEB SEARCH via the Claude (Anthropic) API you ALREADY have
  * ------------------------------------------------------------------------
  * Ronald can already reason from what he knows, but he has a knowledge cut-off and can't
- * browse the web by himself. Deploy this handler and he can actually LOOK THINGS UP — say
- * "look up the latest BNG rules" or "search for the new NPPF changes" and he fetches current
- * results, summarises them for a UK developer, and remembers the finding.
+ * browse the web by himself. This handler lets him actually LOOK THINGS UP — say
+ * "look up next year's RPI forecast", "search for the new NPPF changes", "what's the latest
+ * on nutrient neutrality" — and it uses the SAME Anthropic API key that already powers the
+ * rest of Landform (Script Property ANTHROPIC_KEY). No new account, no second API key: Claude's
+ * built-in web-search tool does the searching, then summarises for a UK developer.
  *
  * The client calls: { action:"web_search", query:"…" } and expects back
- *   { status:"ok", results:[ { title, snippet, url }, … ] }
- * (or { status:"ok", result:"<plain text>" }). Anything else → Ronald falls back to
- * answering from his own knowledge with a "verify live" caveat, so this is optional.
+ *   { status:"ok", result:"<plain-text answer>" }
+ * Anything else (or an old/невalid deployment) → Ronald falls back to answering from his own
+ * knowledge with a "verify live" caveat, so this stays optional.
  *
- * ── OPTION A (recommended): Google Programmable Search (free tier ~100 queries/day) ──
- *   1. Create a Programmable Search Engine at https://programmablesearchengine.google.com
- *      (set it to "Search the entire web"). Copy its Search engine ID (cx).
- *   2. Get an API key at https://developers.google.com/custom-search/v1/overview (enable
- *      "Custom Search API" in Google Cloud).
- *   3. In Apps Script: Project Settings → Script properties → add
- *         GOOGLE_CSE_KEY = <your api key>
- *         GOOGLE_CSE_CX  = <your search engine id>
- *   4. Paste the handler below into your project, and add to doPost's router:
- *         if (action === "web_search") return ronaldWebSearch_(data);
- *   5. Deploy → New version.
+ * ── DEPLOY ──
+ *   1. Open your Landform Apps Script project (the one that already has ANTHROPIC_KEY set —
+ *      the web-search tool bills to that same key/account).
+ *   2. Paste the handler below into the project (e.g. next to handleAI).
+ *   3. In BOTH routers add the line:
+ *          if (action === "web_search") return respond(handleWebSearch(e.parameter));   // doGet
+ *          if (data.action === "web_search") return respond(handleWebSearch(data));      // doPost
+ *      (If you deployed docs/backend-all-in-one.gs, add the same two lines there.)
+ *   4. Deploy → Manage deployments → edit → New version → Deploy.
  *
- * ── OPTION B: Bing Web Search / SerpAPI / Brave ── swap the fetch URL + auth in the marked
- *   spot for your provider and map its JSON into the same {title,snippet,url} shape.
- *
- * Nothing here needs extra OAuth scopes beyond UrlFetch (external requests).
+ * Notes:
+ *   • Web search is billed per search on top of normal token cost — a few pence per lookup.
+ *   • Uses the tool version web_search_20250305, which works on every current Claude model
+ *     (including your CLAUDE_MODEL = claude-sonnet-4-6). Nothing else to configure.
+ *   • Requires the UrlFetch scope you already grant for handleAI — no new permissions.
  */
 
-function ronaldWebSearch_(data) {
+function handleWebSearch(data) {
   try {
     var query = (data && data.query ? String(data.query) : "").trim();
-    if (!query) return respond({ status: "error", message: "missing query" });
+    if (!query) return { status: "error", message: "missing query" };
 
-    var props = PropertiesService.getScriptProperties();
-    var key = props.getProperty("GOOGLE_CSE_KEY");
-    var cx  = props.getProperty("GOOGLE_CSE_CX");
-    if (!key || !cx) {
-      return respond({ status: "error", message: "web_search not configured (set GOOGLE_CSE_KEY and GOOGLE_CSE_CX)" });
-    }
+    var key = (typeof ANTHROPIC_KEY !== "undefined" && ANTHROPIC_KEY)
+      || PropertiesService.getScriptProperties().getProperty("ANTHROPIC_KEY") || "";
+    if (!key) return { status: "error", message: "ANTHROPIC_KEY not set in Script Properties" };
 
-    // Bias towards recent, authoritative UK sources for planning/development questions.
-    var q = query + " UK planning development 2026";
-    // ── PROVIDER CALL (Option A: Google Programmable Search). Swap this block for Option B. ──
-    var url = "https://www.googleapis.com/customsearch/v1"
-            + "?key=" + encodeURIComponent(key)
-            + "&cx="  + encodeURIComponent(cx)
-            + "&num=6&safe=off&gl=uk&hl=en"
-            + "&q="   + encodeURIComponent(q);
-    var resp = UrlFetchApp.fetch(url, { method: "get", muteHttpExceptions: true });
-    if (resp.getResponseCode() !== 200) {
-      return respond({ status: "error", message: "search provider " + resp.getResponseCode() });
-    }
-    var body = JSON.parse(resp.getContentText() || "{}");
-    var items = body.items || [];
-    var results = items.map(function (it) {
-      return { title: it.title || "", snippet: it.snippet || "", url: it.link || "" };
+    var model = (typeof CLAUDE_MODEL !== "undefined" && CLAUDE_MODEL) || "claude-sonnet-4-6";
+
+    var body = {
+      model: model,
+      max_tokens: 1024,
+      system: "You are Ronald, a sharp, candid UK land & development advisor for Cassidy Group. "
+        + "Use web search to answer the developer's question with the CURRENT position: what it is, "
+        + "what has changed if anything, and the practical implication for UK residential appraisals, "
+        + "build costs, planning or funding. Reply in 2 to 4 plain sentences, spoken-friendly (it is read "
+        + "aloud). Prefer authoritative UK sources (gov.uk, ONS, BCIS, the LPA, the relevant regulator). "
+        + "If results are thin or conflicting, say so plainly. Do not invent figures or sources.",
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }],
+      messages: [{ role: "user", content: query }]
+    };
+
+    var response = UrlFetchApp.fetch("https://api.anthropic.com/v1/messages", {
+      method: "post",
+      contentType: "application/json",
+      headers: { "x-api-key": key, "anthropic-version": "2023-06-01" },
+      payload: JSON.stringify(body),
+      muteHttpExceptions: true
     });
-    return respond({ status: "ok", results: results });
+
+    var code = response.getResponseCode();
+    var json = {};
+    try { json = JSON.parse(response.getContentText() || "{}"); } catch (e) {}
+    if (code !== 200) {
+      return { status: "error", message: "anthropic " + code + (json && json.error ? (": " + (json.error.message || "")) : "") };
+    }
+
+    // Concatenate the assistant's TEXT blocks (skip server_tool_use / web_search_tool_result).
+    var out = "";
+    var blocks = json.content || [];
+    for (var i = 0; i < blocks.length; i++) {
+      if (blocks[i] && blocks[i].type === "text" && blocks[i].text) out += (out ? " " : "") + blocks[i].text;
+    }
+    out = out.trim();
+    if (!out) return { status: "error", message: "no answer returned" };
+    return { status: "ok", result: out };
   } catch (err) {
-    return respond({ status: "error", message: String(err) });
+    return { status: "error", message: String(err) };
   }
 }

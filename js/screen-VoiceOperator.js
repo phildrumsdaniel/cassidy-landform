@@ -593,21 +593,28 @@ function VoiceOperator(props){
   async function runLookup(query){
     setThinking(true);
     var web = null; try{ web = await webLookup(query); }catch(e){}
+    // (A) Backend returned Claude's already-searched answer (web_search tool) → speak it directly.
+    if(web && web.result && ("" + web.result).trim()){
+      var direct = ("" + web.result).trim();
+      respondSpoken(direct);
+      addMemory("On “" + query + "”: " + direct, "web");
+      return;
+    }
+    // (B) Backend returned raw results → summarise them. (C) No web → answer from knowledge + caveat.
     var sys, prompt;
-    if(web && (web.results || web.result)){
-      var ctx = web.result || (web.results || []).map(function(x, i){ return (i + 1) + ". " + (x.title || "") + " — " + (x.snippet || x.text || "") + (x.url ? " [" + x.url + "]" : ""); }).join("\n");
-      sys = "You are Ronald, a candid UK land & development advisor. Using the WEB RESULTS, tell the developer the current position on their question — what it is, what changed if anything, and the practical implication for UK appraisals / planning. 2 to 4 spoken sentences. If the results are thin or conflicting, say so plainly. Don't invent sources or figures.";
+    if(web && web.results && web.results.length){
+      var ctx = web.results.map(function(x, i){ return (i + 1) + ". " + (x.title || "") + " — " + (x.snippet || x.text || "") + (x.url ? " [" + x.url + "]" : ""); }).join("\n");
+      sys = "You are Ronald, a candid UK land & development advisor. Using the WEB RESULTS, tell the developer the current position on their question — what it is, what changed if anything, and the practical implication for UK appraisals / build costs / planning. 2 to 4 spoken sentences. If the results are thin or conflicting, say so plainly. Don't invent sources or figures.";
       prompt = "Question: " + query + "\n\nWEB RESULTS:\n" + ctx.substring(0, 6000) + "\n\nAnswer concisely, spoken-friendly.";
     } else {
-      sys = "You are Ronald, a candid UK land & development advisor. Answer the question from your own knowledge, but be EXPLICIT that you couldn't fetch live web sources right now, so for anything recent they should verify against the official source (gov.uk, the LPA, or the regulator). 2 to 4 spoken sentences.";
+      sys = "You are Ronald, a candid UK land & development advisor. Answer the question from your own knowledge, but be EXPLICIT that you couldn't fetch live web sources right now, so for anything recent they should verify against the official source (gov.uk, ONS/BCIS for costs, the LPA, or the regulator). 2 to 4 spoken sentences.";
       prompt = "Question: " + query + "\n\n(No live web results were available.) Answer concisely and include the verify-live caveat.";
     }
     try{
       var res = await callAI(user, "keystone", sys, prompt);
       var reply = ((res || "").trim()) || "I couldn't find a clear answer on that.";
       respondSpoken(reply);
-      // If we actually reached the web, keep the finding in memory so Ronald "learns" it for next time.
-      if(web) addMemory("On “" + query + "”: " + reply, "web");
+      if(web && web.results) addMemory("On “" + query + "”: " + reply, "web");
     }catch(e){
       respondSpoken("I couldn't reach the research service just now — try again in a moment.");
     }
