@@ -518,6 +518,41 @@ function buildLandOnePager(data, cityHint){
               : '<div class="kpi"><div class="l">Residual land value · exit not yet decided</div><div class="v" style="color:'+(num(EX.rangeHi)>0?"#1B7A54":"#B05A35")+'">'+(EX.rangeIsSpan?fmt(EX.rangeLo)+' – '+fmt(EX.rangeHi):fmt(EX.rangeHi))+'</div></div>'))+
           '<div class="kpi"><div class="l">'+(askL>0?"Margin (all-in)":"Target profit")+'</div><div class="v" style="color:'+(askL>0?(marginAllIn>=15?"#1B7A54":marginAllIn>=12?"#9A7B3E":"#B05A35"):"#1B1D46")+'">'+(askL>0?pct(marginAllIn):(Math.round(oProfitPct*10)/10)+"%")+' / '+fmt(askL>0?profitAllIn:oProfit)+'</div>'+(_grantShow?'<div style="font-size:7px;color:#1B7A54;margin-top:1px">'+pct((askL>0?marginAllIn:oProfitPct)+_grantPts)+' with AHP grant</div>':'')+'</div>'+
         '</div>'+
+        // v10.201 — MIXED-USE scheme table: when the deal is several use-parcels (data.mixed.parcels),
+        // the one-pager prints each parcel with its OWN exit and the land it supports, then the blended
+        // total — so a mixed SFH+BTR+PBSA deal produces a board-ready appraisal. Nothing prints for a
+        // single-use deal (computeMixedUse returns null).
+        (function(){
+          var MU=(typeof computeMixedUse==="function")?computeMixedUse(data):null;
+          if(!MU||!MU.count) return '';
+          var th='style="font-size:7.2px;letter-spacing:.04em;text-transform:uppercase;color:#8A90B4;font-weight:800;padding:3px 5px;text-align:left;border-bottom:1px solid #E0E2EC"';
+          var body=MU.parcels.map(function(r){
+            var rc=r.exitRlv>=0?"#1B7A54":"#B05A35";
+            return '<tr style="border-bottom:1px solid #F0F1FA">'+
+              '<td style="padding:3px 5px;font-weight:700;color:#1B1D46">'+esc(r.label)+'</td>'+
+              '<td style="padding:3px 5px;color:#5A5F86">'+r.acres+' ac · '+(r.units||0)+'u</td>'+
+              '<td style="padding:3px 5px;color:#5A5F86">'+esc(r.exitLabel)+'</td>'+
+              '<td style="padding:3px 5px;text-align:right;font-family:Georgia,serif">'+fmt(r.exitValue)+'</td>'+
+              '<td style="padding:3px 5px;text-align:right;font-family:Georgia,serif;color:'+rc+'">'+(r.exitRlv<0?'−':'')+fmt(Math.abs(r.exitRlv))+'</td>'+
+              '<td style="padding:3px 5px;text-align:right;color:#9A7B3E;font-size:7.4px">'+(r.jv?('Cassidy '+fmt(r.jv.cassidyShare)):'—')+'</td>'+
+            '</tr>';
+          }).join('');
+          var lp=num(data.land&&data.land.price), rlvc=MU.totalRLV>=0?"#1B7A54":"#B05A35";
+          return '<div style="margin:3px 0 4px"><div class="ct" style="margin-bottom:3px">Mixed-use scheme — '+MU.count+' parcels, each to its own exit</div>'+
+            '<table style="width:100%;border-collapse:collapse;font-size:8px">'+
+            '<thead><tr><th '+th+'>Parcel</th><th '+th+'>Size</th><th '+th+'>Exit route</th>'+
+            '<th '+th+' style="text-align:right">Exit value</th><th '+th+' style="text-align:right">Land supported</th><th '+th+' style="text-align:right">JV share</th></tr></thead>'+
+            '<tbody>'+body+'</tbody>'+
+            '<tfoot><tr style="border-top:2px solid #2E2F8A"><td style="padding:4px 5px;font-weight:800;color:#2E2F8A">Blended total</td>'+
+            '<td style="padding:4px 5px;color:#5A5F86">'+(Math.round(MU.totalAcres*10)/10)+' ac · '+(MU.totalUnits||0)+'u</td>'+
+            '<td style="padding:4px 5px;color:#5A5F86">'+(lp>0?('margin after land '+(Math.round(MU.afterLandMarginPct*10)/10)+'%'):'')+'</td>'+
+            '<td style="padding:4px 5px;text-align:right;font-weight:800;font-family:Georgia,serif;color:#1B1D46">'+fmt(MU.totalGDV)+'</td>'+
+            '<td style="padding:4px 5px;text-align:right;font-weight:800;font-family:Georgia,serif;color:'+rlvc+'">'+(MU.totalRLV<0?'−':'')+fmt(Math.abs(MU.totalRLV))+'</td>'+
+            '<td style="padding:4px 5px;text-align:right;color:#9A7B3E">'+(MU.hasJv?fmt(MU.cassidyJvShare):'—')+'</td></tr></tfoot>'+
+            '</table>'+
+            '<div style="font-size:7px;color:#9298BC;margin-top:2px;line-height:1.4">Each parcel priced through the same engine as the single-use appraisal; the land value is the sum of what each parcel supports'+(lp>0?(', tested against the '+fmt(lp)+' guide price'):'')+'. JV = Cassidy\'s indicative profit share (equity + promote over the fund\'s preferred return).</div>'+
+            '</div>';
+        })()+
         // v10.183 — compact GRANT INTELLIGENCE line (shared one-pager template, so it prints on every
         // deal with affordable housing): AHP grant per home + total, and the raw → grant-assisted margin
         // side by side, from the same engine as the Grant & Funding stage. Shows if grant closes the gap.
