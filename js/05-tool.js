@@ -97,6 +97,7 @@ var ALL_STAGES = [
   // paper →" link). Executive Summary is RETIRED — its completion tracker duplicated the
   // Dashboard and its document is superseded by the Board Proposal's Manager Summary.
   {id:"reports",     label:"Reports",              icon:"📑", group:"5. Report",   journeys:["land","sfh","btr","pbsa","property","recovery","asset","all"]},
+  {id:"outreach",    label:"Approach Landowner",   icon:"📬", group:"5. Report",   journeys:["land","sfh","btr","pbsa","property","all"]},
   // ── 6. RECORDS ───────────────────────────────────────────────────────────
   {id:"meetings",    label:"Meeting Transcripts",  icon:"📝", group:"6. Records",  journeys:["all"]},
   {id:"portfolio",   label:"Deal Portfolio",       icon:"📊", group:"6. Records",  journeys:["all"]},
@@ -1996,6 +1997,7 @@ function loadSiteIntoDeal(site){
     if(stage==="placona")return renderPlacona(data, loadSiteIntoDeal, up, user, navTo);
     if(stage==="keystone")return renderKeystone(data, setData, up, navTo, user);
     if(stage==="voice")return renderVoiceOperator(data, setData, navTo, user);
+    if(stage==="outreach")return renderLandownerOutreach(data, up, user);
     if(stage==="navigator")return renderProcessNavigator(ALL_STAGES, data, exitUnlocksStage, exits, isExitOn, isSchemeOn, navTo, schemes, setFlowAssetType, setSchemes, toggleExit, up);
     if(stage==="assetOptimiser")return renderAssetOptimiser(data, up, user);
     if(stage==="investor")return renderInvestorSuite(data, navTo, saveDeal, up, user);
