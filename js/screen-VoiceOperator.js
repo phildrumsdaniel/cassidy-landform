@@ -36,7 +36,33 @@ function VoiceOperator(props){
   var cS = useState([]);       var messages = cS[0], setMessages = cS[1];   // free-conversation thread [{role,text}]
   var thS = useState(false);   var thinking = thS[0], setThinking = thS[1];
   var dS = useState("");       var draft = dS[0], setDraft = dS[1];
+  var brS = useState({});      var runningBrief = brS[0], setRunningBrief = brS[1];   // accumulates as the chat goes
+  var fgS = useState(null);    var figures = fgS[0], setFigures = fgS[1];            // live engine read
   var recRef = React.useRef(null);
+
+  function parseJson(res){ var a = res.indexOf("{"), b = res.lastIndexOf("}"); return JSON.parse((a >= 0 && b > a) ? res.substring(a, b + 1) : res); }
+  function fmtM(n){ return (typeof fmtCompact === "function") ? fmtCompact(num(n)) : String(Math.round(num(n))); }
+  // Run the SAME engine as the rest of Landform on the facts gathered so far, so the operator can quote
+  // live figures mid-conversation (residual land value, GDV, margin, land by exit) that update as you talk.
+  function computeLiveFigures(brief){
+    try{
+      if(typeof buildDealFromBrief !== "function" || typeof calcDealMetrics !== "function") return null;
+      var deal = buildDealFromBrief(brief || {});
+      var M = calcDealMetrics(deal);
+      if(!(num(M.gdv) > 0)) return null;
+      var EX = (typeof dealExit === "function") ? dealExit(deal) : {};
+      var al = (typeof afterLandMargin === "function") ? afterLandMargin(deal) : null;
+      var lp = num(deal.land && deal.land.price);
+      return {
+        assetType:deal.assetType, units:num(M.units), gdv:num(M.gdv), devCost:num(M.devCost),
+        rlv:num(EX.chosenRlv) || num(M.rlv), plotRlv:num(EX.plotRlv), haBulkRlv:num(EX.haBulkRlv), capRlv:num(EX.capRlv),
+        landPrice:lp, hasAsk:lp > 0,
+        marginPct:(al && al.hasAsk) ? num(al.marginPct) : num(M.profitPctTarget),
+        afterLandProfit:(al && al.hasAsk) ? num(al.profit) : num(M.profit),
+        ahPct:num(deal.planning && deal.planning.ahPct) || num(brief && brief.affordablePct) || 0
+      };
+    }catch(e){ return null; }
+  }
 
   var SR = (typeof window !== "undefined") && (window.SpeechRecognition || window.webkitSpeechRecognition);
   var synth = (typeof window !== "undefined") && window.speechSynthesis;
@@ -112,7 +138,6 @@ function VoiceOperator(props){
       //    reads a live deal, not stale React state — we commit once at the end)
       setBuildMsg("Building the scheme through the engine…");
       var deal = buildDealFromBrief(brief);
-      var parseJson = function(res){ var a = res.indexOf("{"), b = res.lastIndexOf("}"); return JSON.parse((a >= 0 && b > a) ? res.substring(a, b + 1) : res); };
 
       // 5) KEYSTONE COMPLETION — price & optimise the house mix from current market listings
       if(deal.sfh && deal.sfh.mix && deal.sfh.mix.length && typeof applyMarketPricesAndOptimise === "function"){
@@ -156,17 +181,32 @@ function VoiceOperator(props){
   // ── FREE CONVERSATION MODE ──────────────────────────────────────────────────
   // A real back-and-forth: the operator answers questions, gives a candid view on the user's thinking,
   // draws out what it needs, and folds every point/request into the transcript that builds the scheme.
-  function convoSystem(facts){
-    return "You are the Landform Operator — a sharp, candid UK land & development advisor for Cassidy Group, " +
+  function liveReadLine(fig){
+    if(!fig || !(fig.gdv > 0)) return "";
+    var parts = [];
+    if(fig.units > 0) parts.push("~" + Math.round(fig.units) + " units");
+    parts.push("GDV ~£" + fmtM(fig.gdv));
+    parts.push("residual land value ~£" + fmtM(fig.rlv));
+    if(fig.ahPct > 0) parts.push(Math.round(fig.ahPct) + "% affordable");
+    if(fig.hasAsk) parts.push("at the £" + fmtM(fig.landPrice) + " guide the developer margin is ~" + Math.round(fig.marginPct) + "%");
+    else parts.push("target margin " + Math.round(fig.marginPct) + "%");
+    if(fig.plotRlv || fig.haBulkRlv || fig.capRlv) parts.push("land by exit — open-market plot sales £" + fmtM(fig.plotRlv) + ", bulk sale to an HA £" + fmtM(fig.haBulkRlv) + ", forward-fund £" + fmtM(fig.capRlv));
+    return parts.join("; ");
+  }
+  function convoSystem(facts, fig){
+    var s = "You are the Landform Operator — a sharp, candid UK land & development advisor for Cassidy Group, " +
       "having a SPOKEN conversation with a developer about a specific site. Be natural and concise — 2 to 4 short " +
       "sentences, because your reply is read aloud. As it flows, do three things: (1) ANSWER their questions with " +
       "practical, numerate UK planning / development / finance knowledge; (2) give a STRAIGHT view on their thinking — " +
       "name the risk and the upside, don't just agree; (3) DRAW OUT what's needed to appraise and build the scheme " +
       "(intention, planning status, size & mix, constraints, ownership, land agent, price, exit, affordable %), " +
       "conversationally — a point or two at a time, never a checklist. Acknowledge any request they make so it's built " +
-      "in. If they ask for a figure you can't know exactly, give a sensible range and say it'll firm up when the scheme " +
-      "is built. When they're ready or say 'build it', tell them you'll build the scheme now. " +
+      "in. When they're ready or say 'build it', tell them you'll build the scheme now. " +
       "Known site facts: " + (facts || "none entered yet") + ".";
+    var read = liveReadLine(fig);
+    if(read) s += " LIVE ENGINE READ — Landform has already computed these from the facts so far, so QUOTE THEM when relevant (rounded, as indicative and firming up as you talk); do NOT invent different numbers: " + read + ".";
+    else s += " No figures yet — once the homes/acres and location are roughly known, Landform computes the residual live and you should quote it.";
+    return s;
   }
   function startConversation(){
     setPhase("converse");
@@ -179,10 +219,28 @@ function VoiceOperator(props){
     stopListen();
     var hist = messages.concat([{ role:"user", text:text }]);
     setMessages(hist); setDraft(""); setThinking(true);
+    var facts = assembleSiteFacts().join("; ");
+    var convoText = hist.map(function(m){ return (m.role === "assistant" ? "Operator" : "Developer") + ": " + m.text; }).join("\n");
+    // 1) update the running brief from the whole conversation, then run the engine → live figures
+    var fig = figures;
     try{
-      var facts = assembleSiteFacts().join("; ");
-      var convoText = hist.map(function(m){ return (m.role === "assistant" ? "Operator" : "Developer") + ": " + m.text; }).join("\n");
-      var res = await callAI(user, "keystone", convoSystem(facts), "Conversation so far:\n" + convoText + "\n\nReply as the Operator now — natural, concise, spoken-friendly.");
+      var schemaKeys = Object.keys(KEYSTONE_BRIEF_SCHEMA).map(function(f){ return f + ": " + KEYSTONE_BRIEF_SCHEMA[f]; }).join("\n");
+      var exSys = "You extract a UK residential development brief as STRICT JSON. Only facts stated or clearly implied in the conversation; numbers as numbers (no £ or commas); omit anything unknown; infer the postcode outcode from any named place.";
+      var exPrompt = "Known site facts: " + (facts || "none") + "\n\nConversation:\n" + convoText + "\n\nProduce ONE JSON object using these fields (omit unknowns):\n" + schemaKeys + "\nJSON only.";
+      var exRes = await callAI(user, "keystone", exSys, exPrompt);
+      var merged = Object.assign({}, runningBrief, parseJson(exRes));   // accumulate across turns
+      if(!merged.acres && num(L.acres) > 0) merged.acres = num(L.acres);
+      if(!merged.askingPrice && num(L.price) > 0) merged.askingPrice = num(L.price);
+      if(!merged.postcode && L.postcode) merged.postcode = L.postcode;
+      if(!merged.address && (L.address || data.dealName)) merged.address = L.address || data.dealName;
+      setRunningBrief(merged);
+      var f2 = computeLiveFigures(merged);
+      if(f2){ fig = f2; setFigures(f2); }
+    }catch(e){ /* keep whatever figures we already had */ }
+    // 2) conversational reply, WITH the live figures in context so the operator quotes them
+    try{
+      var res = await callAI(user, "keystone", convoSystem(facts, fig),
+        "Conversation so far:\n" + convoText + "\n\nReply as the Operator now — natural, concise, spoken-friendly. Quote the live figures above when they're relevant to what they just said.");
       var reply = ((res || "").trim()) || "Understood.";
       setMessages(function(m){ return m.concat([{ role:"assistant", text:reply }]); });
       setThinking(false); speak(reply);
@@ -256,6 +314,15 @@ function VoiceOperator(props){
             e("div", { style:{ fontSize:14, lineHeight:1.5, color:"#2E2F8A", background:isA ? "#fff" : "#EAF4EF", border:"1px solid " + (isA ? "#E0E2EC" : "#CDE7DB"), borderRadius:10, padding:"9px 13px" } }, m.text));
         }),
         thinking && e("div", { style:{ alignSelf:"flex-start", fontSize:12, color:"#9298BC", fontStyle:"italic", padding:"4px 6px" } }, "🎙 Operator is thinking…")),
+      // ── LIVE NUMBERS — the engine run on the facts so far, updating as you talk ──
+      (figures && figures.gdv > 0) && e("div", { style:{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center", marginBottom:10, padding:"8px 10px", background:"rgba(45,122,101,0.06)", border:"1px solid rgba(45,122,101,0.28)", borderRadius:8 } },
+        e("span", { style:{ fontSize:9.5, fontWeight:800, color:"#1B7A54", textTransform:"uppercase", letterSpacing:".06em" } }, "Live figures"),
+        figures.units > 0 && e("span", { style:{ fontSize:12, color:"#2E2F8A" } }, Math.round(figures.units) + " units"),
+        e("span", { style:{ fontSize:12, color:"#2E2F8A" } }, "GDV £" + fmtM(figures.gdv)),
+        e("span", { style:{ fontSize:12, fontWeight:800, color:figures.rlv >= 0 ? "#1B7A54" : "#B05A35" } }, "Residual land £" + (figures.rlv < 0 ? "−" + fmtM(-figures.rlv) : fmtM(figures.rlv))),
+        e("span", { style:{ fontSize:12, color:"#2E2F8A" } }, (figures.hasAsk ? "Margin " : "Target ") + Math.round(figures.marginPct) + "%"),
+        figures.ahPct > 0 && e("span", { style:{ fontSize:12, color:"#7278A0" } }, Math.round(figures.ahPct) + "% affordable"),
+        e("span", { style:{ fontSize:9.5, color:"#9298BC", fontStyle:"italic" } }, "indicative — firms up as you talk")),
       // input row
       e("div", { style:{ display:"flex", gap:8, alignItems:"flex-end", flexWrap:"wrap" } },
         micSupported && e("button", { onClick:toggleConvoListen, title:listening ? "Stop" : "Speak",
