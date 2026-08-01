@@ -95,7 +95,7 @@ function LandownerOutreach(props){
   async function doSendEmail(to){
     setSendState("sending");
     try{
-      var fromAddr = (o.senderEmail || "").trim();   // the company address to send FROM (a verified send-as alias on the backend account)
+      var fromAddr = (o.senderEmail || "phil.daniel@cassidygroupltd.com").trim();   // the company address to send FROM (a verified send-as alias on the backend account)
       var res = await fetch(WEBHOOK, { method:"POST", headers:{ "Content-Type":"text/plain;charset=utf-8" },
         body:JSON.stringify({ action:"send_email", token:(typeof WEBHOOK_TOKEN !== "undefined" ? WEBHOOK_TOKEN : ""),
           userId:(user && user.userId) || "", to:to, subject:(gen.email && gen.email.subject) || "",
