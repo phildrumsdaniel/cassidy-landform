@@ -254,13 +254,18 @@ function VoiceOperator(props){
       var EX = (typeof dealExit === "function") ? dealExit(deal) : {};
       var al = (typeof afterLandMargin === "function") ? afterLandMargin(deal) : null;
       var lp = num(deal.land && deal.land.price);
+      var totalSqft = num(M.units) * num(M.avgSqft);
       return {
         assetType:deal.assetType, units:num(M.units), gdv:num(M.gdv), devCost:num(M.devCost),
         rlv:num(EX.chosenRlv) || num(M.rlv), plotRlv:num(EX.plotRlv), haBulkRlv:num(EX.haBulkRlv), capRlv:num(EX.capRlv),
         landPrice:lp, hasAsk:lp > 0,
         marginPct:(al && al.hasAsk) ? num(al.marginPct) : num(M.profitPctTarget),
         afterLandProfit:(al && al.hasAsk) ? num(al.profit) : num(M.profit),
-        ahPct:num(deal.planning && deal.planning.ahPct) || num(brief && brief.affordablePct) || 0
+        ahPct:num(deal.planning && deal.planning.ahPct) || num(brief && brief.affordablePct) || 0,
+        // per-square-foot & per-unit detail, so Ronald can answer specific questions ("£/sqft?")
+        salePsf:num(M.salePsf), buildPsf:num(M.buildPsf), avgSqft:num(M.avgSqft), totalSqft:totalSqft,
+        gdvPerUnit:num(M.units) > 0 ? num(M.gdv) / num(M.units) : 0,
+        buildCostPerUnit:num(M.units) > 0 ? num(M.devCost) / num(M.units) : 0
       };
     }catch(e){ return null; }
   }
@@ -533,21 +538,30 @@ function VoiceOperator(props){
     if(fig.hasAsk) parts.push("at the £" + fmtM(fig.landPrice) + " guide the developer margin is ~" + Math.round(fig.marginPct) + "%");
     else parts.push("target margin " + Math.round(fig.marginPct) + "%");
     if(fig.plotRlv || fig.haBulkRlv || fig.capRlv) parts.push("land by exit — open-market plot sales £" + fmtM(fig.plotRlv) + ", bulk sale to an HA £" + fmtM(fig.haBulkRlv) + ", forward-fund £" + fmtM(fig.capRlv));
+    if(fig.salePsf > 0 || fig.buildPsf > 0) parts.push("sale ~£" + Math.round(fig.salePsf) + "/sqft, build ~£" + Math.round(fig.buildPsf) + "/sqft, average home ~" + Math.round(fig.avgSqft) + " sqft");
+    if(fig.gdvPerUnit > 0) parts.push("~£" + fmtM(fig.gdvPerUnit) + " sale value per home, ~£" + fmtM(fig.buildCostPerUnit) + " build cost per home");
     return parts.join("; ");
   }
   function convoSystem(facts, fig){
     var s = "You are Ronald, the Landform voice operator — a sharp, candid UK land & development advisor for Cassidy Group, " +
       "having a SPOKEN conversation with a developer about a specific site. Be natural and concise — 2 to 4 short " +
-      "sentences, because your reply is read aloud. As it flows, do three things: (1) ANSWER their questions with " +
-      "practical, numerate UK planning / development / finance knowledge; (2) give a STRAIGHT view on their thinking — " +
-      "name the risk and the upside, don't just agree; (3) DRAW OUT what's needed to appraise and build the scheme " +
-      "(intention, planning status, size & mix, constraints, ownership, land agent, price, exit, affordable %), " +
-      "conversationally — a point or two at a time, never a checklist. Acknowledge any request they make so it's built " +
-      "in. When they're ready or say 'build it', tell them you'll build the scheme now. " +
+      "sentences, because your reply is read aloud.\n" +
+      "MOST IMPORTANT RULE — ANSWER THE ACTUAL QUESTION ASKED. If they ask a SPECIFIC question (e.g. 'what's the £ per " +
+      "square foot', 'what's the build cost per home', 'what's the yield', 'how big are the units'), answer THAT precise " +
+      "question in your first sentence with the single relevant number, then stop. Do NOT read back the whole scheme's " +
+      "figures — quote only the one or two numbers that answer what they asked. Give a full figures round-up ONLY when " +
+      "they explicitly ask for one ('run me the numbers', 'summarise the scheme', 'remind me of the figures'). If a mid-" +
+      "conversation question is a side-track, answer it, then in one short line pick the previous thread back up (e.g. " +
+      "'…anyway, back to the exit — were you leaning HA or open-market?').\n" +
+      "Beyond that, as it flows: (1) answer questions with practical, numerate UK planning / development / finance " +
+      "knowledge; (2) give a STRAIGHT view — name the risk and the upside, don't just agree; (3) DRAW OUT what's needed " +
+      "to build the scheme (intention, planning status, size & mix, constraints, ownership, land agent, price, exit, " +
+      "affordable %) a point or two at a time, never a checklist. Acknowledge any request so it's built in. When they say " +
+      "'build it', tell them you'll build now. " +
       "Known site facts: " + (facts || "none entered yet") + ".";
     var read = liveReadLine(fig);
-    if(read) s += " LIVE ENGINE READ — Landform has already computed these from the facts so far, so QUOTE THEM when relevant (rounded, as indicative and firming up as you talk); do NOT invent different numbers: " + read + ".";
-    else s += " No figures yet — once the homes/acres and location are roughly known, Landform computes the residual live and you should quote it.";
+    if(read) s += " LIVE ENGINE READ — a REFERENCE SHEET Landform has already computed; pull the ONE relevant figure from it to answer a question, rounded and indicative. Do NOT recite this whole line back unless they ask for a full summary, and never invent different numbers: " + read + ".";
+    else s += " No figures yet — once the homes/acres and location are roughly known, Landform computes them live and you can quote the specific one asked for.";
     var mem = memoryLines();
     if(mem) s += " STANDING MEMORY — things this operator has told you to remember across sessions; honour and apply them (they override generic assumptions), and mention them when relevant:\n" + mem;
     return s;
@@ -727,7 +741,7 @@ function VoiceOperator(props){
     // as you talk) and returns as soon as the reply itself is ready. Extraction refreshes the figures
     // in the background for the panel and the next turn.
     var replyP = callAI(user, "keystone", convoSystem(facts, figures),
-      "Conversation so far:\n" + convoText + "\n\nReply as the Operator now — natural, concise, spoken-friendly. Quote the live figures above when they're relevant to what they just said.");
+      "Conversation so far:\n" + convoText + "\n\nReply as the Operator now — natural, concise, spoken-friendly. Answer their LAST message directly; if it's a specific question, give just the figure(s) that answer it, not the whole scheme.");
     (function(){
       var schemaKeys = Object.keys(KEYSTONE_BRIEF_SCHEMA).map(function(f){ return f + ": " + KEYSTONE_BRIEF_SCHEMA[f]; }).join("\n");
       var exSys = "You extract a UK residential development brief as STRICT JSON. Only facts stated or clearly implied in the conversation; numbers as numbers (no £ or commas); omit anything unknown; infer the postcode outcode from any named place.";
