@@ -58,6 +58,20 @@ var VOICE_NAV_TARGETS = [
 // v10.216 — persist the conversation so switching tabs / an auto-reload doesn't lose it.
 var VOICE_STATE_KEY = "cassidy_voice_state";
 function loadVoiceState(){ try{ return JSON.parse(localStorage.getItem(VOICE_STATE_KEY) || "null") || {}; }catch(e){ return {}; } }
+// v10.227 — a stable signature for WHICH PROJECT is loaded, so Ronald's saved chat is scoped to the deal
+// and a newly-uploaded project starts a FRESH conversation instead of inheriting the previous one.
+// Keyed on the physical SITE (address + postcode) — that doesn't change while Ronald builds a scheme, so
+// his own work never trips a reset; only loading a genuinely different project does. Falls back to the
+// deal name, then a saved id, then "@new" for a blank site.
+function voiceDealSig(d){
+  d = d || {}; var L = d.land || {};
+  var addr = ((L.address || "") + " " + (L.postcode || "")).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  if(addr) return "@" + addr;
+  var nm = ((d.dealName || "") + "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  if(nm) return "~" + nm;
+  var id = d._cloudDealId || d._localDealId;
+  return id ? ("#" + id) : "@new";
+}
 
 // v10.223 — RONALD'S MEMORY. Things you tell him to remember (standing facts, regulations, preferences)
 // are kept per-user and fed into every future conversation, so he learns as you go. Stored locally now;
@@ -91,6 +105,10 @@ function VoiceOperator(props){
   var data = props.data, setData = props.setData, navTo = props.navTo, user = props.user;
   var docked = !!props.docked, dockOpen = !!props.open, onClose = props.onClose;   // floating-assistant mode
   var _saved = loadVoiceState();
+  // Only restore the saved chat if it belongs to the CURRENTLY-loaded project — otherwise a new upload
+  // would inherit the previous project's conversation.
+  var _restore = _saved && _saved.dealSig && (_saved.dealSig === voiceDealSig(data));
+  if(!_restore) _saved = {};
   var pS = useState(function(){ var v = _saved.phase; return (v === "converse" || v === "review") ? v : "idle"; });   var phase = pS[0], setPhase = pS[1];      // idle | interviewing | review | building | done
   var iS = useState(function(){ return _saved.idx || 0; });        var idx = iS[0], setIdx = iS[1];
   var aS = useState(function(){ return _saved.answers || {}; });   var answers = aS[0], setAnswers = aS[1];
@@ -114,6 +132,7 @@ function VoiceOperator(props){
   var uttRef = React.useRef(null);   // retain the utterance so Chrome doesn't GC it (else onend never fires)
   var sendRef = React.useRef(null);  // latest sendMessage — async speech callbacks must not use a stale closure
   var listenRef = React.useRef(null);// latest startHFListen, same reason
+  var dealSigRef = React.useRef(voiceDealSig(data));   // which project Ronald is currently talking about
 
   // Browser voices load asynchronously — re-render when they arrive so the picker + best-voice work.
   useEffect(function(){
@@ -137,6 +156,33 @@ function VoiceOperator(props){
       });
     });
   }, []);
+  // Wipe the CONVERSATION (not the standing memory) and go back to a clean start — used when a different
+  // project is loaded so Ronald doesn't carry the previous project's chat.
+  function resetConversation(){
+    try{ hfRef.current = false; }catch(e){}
+    try{ recRef.current && recRef.current.stop(); }catch(e){}
+    try{ if(synth) synth.cancel(); }catch(e){}
+    setHandsFree(false); setListening(false); setThinking(false);
+    setMessages([]); setFigures(null); setRunningBrief({}); setAnswers({}); setDraft(""); setIdx(0);
+    setMemPanelOpen(false); setBuildMsg("");
+    setPhase("idle");
+    try{ localStorage.removeItem(VOICE_STATE_KEY); }catch(e){}
+  }
+  // The floating dock stays mounted across the whole app, so loading a new project changes `data` WITHOUT
+  // remounting Ronald. Watch the project signature and reset the conversation the moment it becomes a
+  // genuinely different project (site changes) — Ronald's own scheme-build keeps the same site, so it
+  // never triggers this.
+  useEffect(function(){
+    var cur = voiceDealSig(data), prev = dealSigRef.current;
+    if(cur !== prev){
+      dealSigRef.current = cur;
+      // Reset when we were on a REAL project and it changed (to a different project OR a new blank deal).
+      // Don't reset when merely gaining detail on a blank/new site ("@new"/"~name" → a real address) —
+      // that's the same conversation filling in, and Ronald's own build preserves a real site's address.
+      var wasBlank = (prev === "@new" || prev.charAt(0) === "~");
+      if(!wasBlank) resetConversation();
+    }
+  }, [voiceDealSig(data)]);
   function persistMemory(items){ saveRonaldMemoryLocal(user, items); ronaldMemCloudSave(user, items); }
   function addMemory(text, source){
     var t = (text || "").trim(); if(!t) return;
@@ -191,7 +237,7 @@ function VoiceOperator(props){
     try{
       if(phase === "done"){ localStorage.removeItem(VOICE_STATE_KEY); return; }
       var ph = (phase === "building") ? "converse" : phase;
-      localStorage.setItem(VOICE_STATE_KEY, JSON.stringify({ phase:ph, messages:messages, figures:figures, runningBrief:runningBrief, answers:answers, idx:idx }));
+      localStorage.setItem(VOICE_STATE_KEY, JSON.stringify({ phase:ph, messages:messages, figures:figures, runningBrief:runningBrief, answers:answers, idx:idx, dealSig:voiceDealSig(data) }));
     }catch(e){}
   }, [phase, messages, figures, runningBrief, answers, idx]);
 
