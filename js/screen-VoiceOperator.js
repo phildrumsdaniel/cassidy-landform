@@ -133,6 +133,8 @@ function VoiceOperator(props){
   var sendRef = React.useRef(null);  // latest sendMessage — async speech callbacks must not use a stale closure
   var listenRef = React.useRef(null);// latest startHFListen, same reason
   var dealSigRef = React.useRef(voiceDealSig(data));   // which project Ronald is currently talking about
+  var lastSpokenRef = React.useRef("");   // what Ronald last said aloud — to reject the mic hearing his own voice
+  var resumeRef = React.useRef(null);     // latest resumeListen (delayed mic re-open after Ronald speaks)
 
   // Browser voices load asynchronously — re-render when they arrive so the picker + best-voice work.
   useEffect(function(){
@@ -275,7 +277,19 @@ function VoiceOperator(props){
   var L = data.land || {};
   var accent = "#4A4BAE";
 
+  // Normalise to a bag of words for cheap overlap checks (echo / duplicate detection).
+  function _words(s){ return (("" + (s || "")).toLowerCase().replace(/[^a-z0-9 ]+/g, " ").split(/\s+/).filter(Boolean)); }
+  // Is the mic transcript really Ronald's own voice bleeding back in? True if it heavily overlaps what he
+  // just said (word-overlap ratio), so hands-free doesn't answer itself in a loop.
+  function isEchoOfRonald(t){
+    var a = _words(t); if(a.length < 2) return false;
+    var b = _words(lastSpokenRef.current); if(b.length < 3) return false;
+    var set = {}; b.forEach(function(w){ set[w] = 1; });
+    var hit = 0; a.forEach(function(w){ if(set[w]) hit++; });
+    return (hit / a.length) >= 0.6;   // 60%+ of the heard words were in Ronald's last line → echo
+  }
   function speak(text, onDone){
+    lastSpokenRef.current = text || "";   // remember it so the mic can reject hearing it back
     if(!voiceOn || !synth){ if(onDone) setTimeout(onDone, 60); return; }
     var done = false;
     function finish(){ if(done) return; done = true; if(onDone){ try{ onDone(); }catch(e){} } }
@@ -323,11 +337,22 @@ function VoiceOperator(props){
     try{ if(synth && synth.speaking){ setTimeout(function(){ if(hfRef.current) (listenRef.current || startHFListen)(); }, 300); return; } }catch(e){}
     var rec; try{ rec = new SR(); }catch(e){ return; }
     rec.lang = "en-GB"; rec.interimResults = false; rec.continuous = false; var got = false;
-    rec.onresult = function(ev){ var t = ""; for(var i = ev.resultIndex; i < ev.results.length; i++){ if(ev.results[i].isFinal) t += ev.results[i][0].transcript; } t = t.trim(); if(t){ got = true; setListening(false); (sendRef.current || sendMessage)(t); } };
+    rec.onresult = function(ev){
+      var t = ""; for(var i = ev.resultIndex; i < ev.results.length; i++){ if(ev.results[i].isFinal) t += ev.results[i][0].transcript; } t = t.trim();
+      if(!t) return;
+      // Reject the mic hearing Ronald's OWN voice bleeding back (phone speakers) — that's what makes him
+      // loop on his last line. Leave `got` false so onend re-opens the mic for the real answer. Genuine
+      // re-asks of the same question are always allowed through.
+      if(isEchoOfRonald(t)) return;
+      got = true; setListening(false); (sendRef.current || sendMessage)(t);
+    };
     rec.onerror = function(){ setListening(false); };
     rec.onend = function(){ setListening(false); if(hfRef.current && !got){ setTimeout(function(){ if(hfRef.current && !(synth && synth.speaking)) (listenRef.current || startHFListen)(); }, 350); } };
     recRef.current = rec; try{ rec.start(); setListening(true); }catch(e){ setListening(false); }
   }
+  // After Ronald finishes speaking, wait a beat before opening the mic so the speaker audio fully clears
+  // (stops the mic catching the tail of his own voice on phone speakers).
+  function resumeListen(){ if(!hfRef.current) return; setTimeout(function(){ if(hfRef.current && !(synth && synth.speaking)) (listenRef.current || startHFListen)(); }, 550); }
   function startHands(){ primeVoice(); setHandsFree(true); hfRef.current = true; if(!messages.length){ startConversation(); } else { stopSpeak(); startHFListen(); } }
   function stopHands(){ setHandsFree(false); hfRef.current = false; stopListen(); stopSpeak(); }
   function stopSpeak(){ try{ synth && synth.cancel(); }catch(e){} }
@@ -558,6 +583,9 @@ function VoiceOperator(props){
       "to build the scheme (intention, planning status, size & mix, constraints, ownership, land agent, price, exit, " +
       "affordable %) a point or two at a time, never a checklist. Acknowledge any request so it's built in. When they say " +
       "'build it', tell them you'll build now. " +
+      "NEVER just repeat your previous message — always move the conversation forward with a direct answer or a new point. " +
+      "If the developer's last line looks garbled, empty, or like it echoes your own words, don't answer it — briefly say " +
+      "you didn't catch that and ask them to say it again. " +
       "Known site facts: " + (facts || "none entered yet") + ".";
     var read = liveReadLine(fig);
     if(read) s += " LIVE ENGINE READ — a REFERENCE SHEET Landform has already computed; pull the ONE relevant figure from it to answer a question, rounded and indicative. Do NOT recite this whole line back unless they ask for a full summary, and never invent different numbers: " + read + ".";
@@ -584,7 +612,7 @@ function VoiceOperator(props){
       : "Hello, I'm Ronald, your Landform land advisor. Tell me about this site — what's your thinking, and what would you like to do with it?";
     setMessages([{ role:"assistant", text:opener }]);
     if(SR){ setHandsFree(true); hfRef.current = true; }   // hands-free: just talk, no Send button
-    setTimeout(function(){ speak(opener, function(){ if(hfRef.current) (listenRef.current || startHFListen)(); }); }, 350);
+    setTimeout(function(){ speak(opener, function(){ if(hfRef.current) (resumeRef.current || startHFListen)(); }); }, 350);
   }
   // ── VOICE COMMANDS ───────────────────────────────────────────────────────────
   // Before Ronald reasons over a turn, check if you've told him to DO something — open a page, print the
@@ -641,7 +669,7 @@ function VoiceOperator(props){
   function respondSpoken(reply, resume){
     setMessages(function(m){ return m.concat([{ role:"assistant", text:reply }]); });
     setThinking(false);
-    speak(reply, function(){ if(resume !== false && hfRef.current) (listenRef.current || startHFListen)(); });
+    speak(reply, function(){ if(resume !== false && hfRef.current) (resumeRef.current || startHFListen)(); });
   }
   // Ask the backend to search the live web (action web_search). Returns the parsed response or null if
   // the action isn't deployed / fails — the caller then falls back to answering from knowledge.
@@ -764,11 +792,11 @@ function VoiceOperator(props){
       var res = await replyP;
       var reply = ((res || "").trim()) || "Understood.";
       setMessages(function(m){ return m.concat([{ role:"assistant", text:reply }]); });
-      setThinking(false); speak(reply, function(){ if(hfRef.current) (listenRef.current || startHFListen)(); });   // hands-free: listen again after Ronald replies
+      setThinking(false); speak(reply, function(){ if(hfRef.current) (resumeRef.current || startHFListen)(); });   // hands-free: listen again after Ronald replies
     }catch(err){
       setThinking(false);
       setMessages(function(m){ return m.concat([{ role:"assistant", text:"Sorry — I didn't catch that (connection issue). Say it again?" }]); });
-      if(hfRef.current) setTimeout(function(){ if(hfRef.current) (listenRef.current || startHFListen)(); }, 500);
+      if(hfRef.current) (resumeRef.current || startHFListen)();
     }
   }
   // mic for the conversation: dictate into the draft, ready to send
@@ -793,6 +821,7 @@ function VoiceOperator(props){
   // always see the current messages/thinking/figures rather than the render they were created in.
   sendRef.current = sendMessage;
   listenRef.current = startHFListen;
+  resumeRef.current = resumeListen;
 
   // ── shared bits ──
   var micSupported = !!SR, voiceSupported = !!synth;
