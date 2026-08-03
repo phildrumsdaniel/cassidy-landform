@@ -325,7 +325,9 @@ console.log("Landform engine consistency tests\n");
   ok("timeline: build-out reflects scale (~10yrs for 1800, v10.127 recalibration)", t.buildYears >= 9 && t.buildYears <= 12);
   // v10.83 — unconsented cold-start default is a ~7-year promotion (research-grounded), not months
   ok("timeline: unconsented site defaults to a ~7-year promotion", t.planningMonths >= 72);
-  ok("timeline: total = planning + build", Math.abs(t.totalYears - (t.planningYears + t.buildYears)) < 0.15);
+  // v10.178 — a large phased site overlaps consent & build (build early parcels while later parcels are
+  // still in reserved matters), so total = planning + build − overlap, not a straight sum.
+  ok("timeline: total = planning + build − phased overlap", Math.abs(t.totalYears - (t.planningYears + t.buildYears - t.overlapYears)) < 0.15);
   var withOutline = JSON.parse(JSON.stringify(big)); withOutline.planning = { status:"outline" };
   ok("timeline: outline consent shortens the planning clock", projectTimeline(withOutline).planningMonths < t.planningMonths);
   // strategic-site uplift: a large ALLOCATED site takes longer than a small one (S106 + full determination)
