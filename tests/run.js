@@ -1994,6 +1994,25 @@ console.log("Landform engine consistency tests\n");
   }
 })();
 
+// ── v10.230: forward-fund (capitalised) exit uses its OWN cost stack ──────────────
+(function(){
+  if(typeof computeSFHMetrics !== "function") return;
+  var d = sfhDeal({ sfh:{ ahPct:100, marketingPct:3 } });
+  d.capitalise = { targetYield:4.75 }; d.exit = { strategy:"forward_fund" };   // sfhDeal() only merges sfh/rlv
+  var SF = computeSFHMetrics(d);
+  if(!(num(SF.capNetRentPa) > 0)) return;   // needs a rent to capitalise
+  ok("fwd-fund cost stack drops sales & marketing", num(SF.capMarketing) === 0);
+  ok("fwd-fund uses a funder's return, lower than plot dev finance", num(SF.capFunderReturn) > 0 && num(SF.capFunderReturn) < num(SF.finance));
+  ok("fwd-fund capDevCost excludes marketing (< plot devCost)", num(SF.capDevCost) < num(SF.devCost));
+  var g = num(SF.grantToRlv);
+  ok("capRlv = capInvestmentValue − capDevCost − capProfit (+grant)", Math.abs(num(SF.capRlv) - (num(SF.capInvestmentValue) - num(SF.capDevCost) - num(SF.capProfit) + g)) < 2);
+  if(typeof dealExit === "function") ok("committed forward-fund exit → chosenRlv == capRlv", Math.abs(num(dealExit(d).chosenRlv) - num(SF.capRlv)) < 2);
+  // plot path untouched: with no committed exit, plot rlv still includes marketing + full finance
+  var dp = sfhDeal({ sfh:{ marketingPct:3 } });
+  var SFp = computeSFHMetrics(dp);
+  ok("plot rlv unchanged (still carries marketing + full finance)", num(SFp.marketing) > 0 && num(SFp.devCost) === num(SFp.buildCost)+num(SFp.fees)+num(SFp.contingency)+num(SFp.finance)+num(SFp.s106)+num(SFp.roads)+num(SFp.infra)+num(SFp.marketing));
+})();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log("\n" + passes + " passed, " + failures + " failed.");
 process.exit(failures > 0 ? 1 : 0);
