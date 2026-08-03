@@ -255,6 +255,22 @@ function buildLandOnePager(data, cityHint){
     var headlineRlv=num(EX.chosenRlv);          // the chosen exit's land value — drives the headline KPI & verdict
     var headlineIsCap=EX.basis==="capitalised";
     var headlineIsPlot=EX.basis==="plot";
+    // v10.230 — EXIT-ROUTE-AWARE cost table. When a FORWARD-FUND exit is committed, the report shows only
+    // the costs that deal actually incurs: the funder draws down the build (a funder's return replaces the
+    // plot development-finance carry) and buys the finished scheme (no home-by-home sales & marketing), the
+    // value is the capitalised net rent, profit is on that value, and the residual is the capitalised
+    // residual — so the breakdown foots to the exit you're actually taking. Plot / HA-bulk unchanged.
+    var oFinLabel="Finance ("+(num(sf.financeProgYears)||"?")+"yr · peak "+(num(sf.financePeakDebtPct)||"?")+"% · S-curve)";
+    var exitCostNote="";
+    if(headlineIsCap){
+      oGdv=num(sf.capInvestmentValue)||oGdv; oRetail=oGdv;
+      oFin=num(sf.capFunderReturn); oFinLabel="Funder's return during construction (~50% avg drawn)";
+      oMkt=0;
+      oProfit=num(sf.capProfit)||oProfit;
+      oDev=num(sf.capDevCost)||(oBuild+oFees+oCont+oFin+oS106+oRoads+oInfra);
+      oRlv=num(EX.capRlv);
+      exitCostNote="Forward-funded exit basis — the funder draws down the build cost (no development-finance carry) and buys the finished scheme (no home-by-home sales &amp; marketing). Value is the capitalised net rent; developer profit is taken on that value.";
+    }
     // v10.145 — board-safety (deal-audit finding): on an UNCONSENTED site the residual is the land
     // value AT consent (a ceiling), not today. The hero KPI now leads with the pre-consent /
     // risk-adjusted value and shows the consented residual as the ceiling beneath it.
@@ -617,7 +633,7 @@ function buildLandOnePager(data, cityHint){
               cRow("Build ("+ (oAvgSqft&&oUnits?Math.round(oAvgSqft*oUnits).toLocaleString()+" sqft @ £"+oBuildPsf:"")+")",fmt(oBuild),true,false)+
               (oFees>0?cRow("Professional fees",fmt(oFees),true,false):'')+
               (oCont>0?cRow("Contingency",fmt(oCont),true,false):'')+
-              cRow("Finance ("+(num(sf.financeProgYears)||"?")+"yr · peak "+(num(sf.financePeakDebtPct)||"?")+"% · S-curve)",fmt(oFin),true,false)+
+              cRow(oFinLabel,fmt(oFin),true,false)+
               cRow("S106 / CIL"+(oUnits>0?" (£"+fmtN(Math.round(oS106/oUnits))+"/plot)":""),fmt(oS106),true,false)+
               (oRoads>0?cRow("Roads &amp; sewers",fmt(oRoads),true,false):'')+
               (oInfra>0?cRow("Infrastructure &amp; SuDS",fmt(oInfra),true,false):'')+
@@ -625,10 +641,11 @@ function buildLandOnePager(data, cityHint){
               cRow("Developer profit ("+(Math.round(oProfitPct*10)/10)+"%)",fmt(oProfit),true,false)+
               (oGrantToRlv>0?'<tr><td style="color:#1B7A54">+ Affordable-housing grant (AHP) — competitive land bid</td><td class="n" style="color:#1B7A54">+'+fmt(oGrantToRlv)+'</td></tr>':'')+
               cRow("Residual land value"+(oGrantToRlv>0?" (incl. grant)":""),(oRlv<0?"−":"")+fmt(Math.abs(oRlv)),false,true)+
+              (exitCostNote?'<tr><td colspan="2" style="font-size:7px;color:#4A4BAE;padding-top:2px">'+exitCostNote+'</td></tr>':'')+
               (oGrantIncome>0&&oGrantToRlv<=0?'<tr><td colspan="2" style="font-size:7px;color:#1B7A54;padding-top:2px">'+(oGrantMode==="rp"?"AHP grant "+fmt(oGrantIncome)+" passed to a Registered Provider to fund the affordable homes — neutral to land value and margin.":"AHP grant "+fmt(oGrantIncome)+" treated as developer-margin upside — land priced without it, not capitalised into the land.")+'</td></tr>':'')+
             '</table>'+
             '<div class="two">'+
-              '<div class="box"><div class="l">Max land @ target profit'+(!headlineIsPlot?' · plot sales':'')+'</div><div class="v">'+(oRlv?((oRlv<0?"−":"")+fmt(Math.abs(oRlv))):"—")+'</div>'+(!headlineIsPlot?'<div style="font-size:7px;color:#9298BC;margin-top:1px">chosen exit ('+esc(EX.basisLabel)+'): '+fmt(num(EX.chosenRlv))+'</div>':'')+'</div>'+
+              '<div class="box"><div class="l">Max land @ target profit'+((!headlineIsPlot&&!headlineIsCap)?' · plot sales':'')+'</div><div class="v">'+(oRlv?((oRlv<0?"−":"")+fmt(Math.abs(oRlv))):"—")+'</div>'+((!headlineIsPlot&&!headlineIsCap)?'<div style="font-size:7px;color:#9298BC;margin-top:1px">chosen exit ('+esc(EX.basisLabel)+'): '+fmt(num(EX.chosenRlv))+'</div>':'')+'</div>'+
               '<div class="box"><div class="l">'+(askL>0?"Headroom vs asking":"Per plot")+'</div><div class="v" style="color:'+(askL>0?(headroom>=0?"#1B7A54":"#B05A35"):"#1B1D46")+'">'+(askL>0?((headroom<0?"−":"+")+fmt(Math.abs(headroom))):fmt(rlvPerPlot))+'</div></div>'+
             '</div>'+
             '<div class="rr" style="margin-top:5px"><span>Per plot'+(oNetDevAcres>0&&oSurplusAcres>0.5?' / per developable acre':' / per acre')+'</span><b>'+fmt(rlvPerPlot)+' · '+(oNetDevAcres>0&&oSurplusAcres>0.5?fmt(rlvPerDevAcre)+'/dev ac':(acres>0?fmt(rlvPerAcre):"—"))+'</b></div>'+

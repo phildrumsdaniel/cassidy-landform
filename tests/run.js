@@ -325,7 +325,9 @@ console.log("Landform engine consistency tests\n");
   ok("timeline: build-out reflects scale (~10yrs for 1800, v10.127 recalibration)", t.buildYears >= 9 && t.buildYears <= 12);
   // v10.83 — unconsented cold-start default is a ~7-year promotion (research-grounded), not months
   ok("timeline: unconsented site defaults to a ~7-year promotion", t.planningMonths >= 72);
-  ok("timeline: total = planning + build", Math.abs(t.totalYears - (t.planningYears + t.buildYears)) < 0.15);
+  // v10.178 — a large phased site overlaps consent & build (build early parcels while later parcels are
+  // still in reserved matters), so total = planning + build − overlap, not a straight sum.
+  ok("timeline: total = planning + build − phased overlap", Math.abs(t.totalYears - (t.planningYears + t.buildYears - t.overlapYears)) < 0.15);
   var withOutline = JSON.parse(JSON.stringify(big)); withOutline.planning = { status:"outline" };
   ok("timeline: outline consent shortens the planning clock", projectTimeline(withOutline).planningMonths < t.planningMonths);
   // strategic-site uplift: a large ALLOCATED site takes longer than a small one (S106 + full determination)
@@ -1990,6 +1992,25 @@ console.log("Landform engine consistency tests\n");
     ok("enrich returns an optimisation result when it materially helps", res.optimised && res.optimised.surplus > res.optimised.current);
     ok("empty AI prices ⇒ no change (safe)", applyMarketPricesAndOptimise(d2, [], {}).applied === 0);
   }
+})();
+
+// ── v10.230: forward-fund (capitalised) exit uses its OWN cost stack ──────────────
+(function(){
+  if(typeof computeSFHMetrics !== "function") return;
+  var d = sfhDeal({ sfh:{ ahPct:100, marketingPct:3 } });
+  d.capitalise = { targetYield:4.75 }; d.exit = { strategy:"forward_fund" };   // sfhDeal() only merges sfh/rlv
+  var SF = computeSFHMetrics(d);
+  if(!(num(SF.capNetRentPa) > 0)) return;   // needs a rent to capitalise
+  ok("fwd-fund cost stack drops sales & marketing", num(SF.capMarketing) === 0);
+  ok("fwd-fund uses a funder's return, lower than plot dev finance", num(SF.capFunderReturn) > 0 && num(SF.capFunderReturn) < num(SF.finance));
+  ok("fwd-fund capDevCost excludes marketing (< plot devCost)", num(SF.capDevCost) < num(SF.devCost));
+  var g = num(SF.grantToRlv);
+  ok("capRlv = capInvestmentValue − capDevCost − capProfit (+grant)", Math.abs(num(SF.capRlv) - (num(SF.capInvestmentValue) - num(SF.capDevCost) - num(SF.capProfit) + g)) < 2);
+  if(typeof dealExit === "function") ok("committed forward-fund exit → chosenRlv == capRlv", Math.abs(num(dealExit(d).chosenRlv) - num(SF.capRlv)) < 2);
+  // plot path untouched: with no committed exit, plot rlv still includes marketing + full finance
+  var dp = sfhDeal({ sfh:{ marketingPct:3 } });
+  var SFp = computeSFHMetrics(dp);
+  ok("plot rlv unchanged (still carries marketing + full finance)", num(SFp.marketing) > 0 && num(SFp.devCost) === num(SFp.buildCost)+num(SFp.fees)+num(SFp.contingency)+num(SFp.finance)+num(SFp.s106)+num(SFp.roads)+num(SFp.infra)+num(SFp.marketing));
 })();
 
 // ── Report ───────────────────────────────────────────────────────────────────

@@ -147,8 +147,9 @@ var WEBHOOK_TOKEN = "lf_m4p9x2k7q1w8n3r6t5y0";
 // When loaded, we compare to CURRENT_VERSION and surface a migration banner
 // if breaking calc changes happened in between.
 // ──────────────────────────────────────────────────────────────────────────
-var CURRENT_VERSION = "10.229";
+var CURRENT_VERSION = "10.230";
 var VERSION_HISTORY = [
+  {v:"10.230", date:"Aug 2026", headline:"Reports now TAILOR THE COST STACK TO THE COMMITTED EXIT ROUTE — so a forward-fund appraisal only shows the costs that deal actually carries. When you set the exit to an institutional/HA FORWARD-FUND on the Exit Strategy stage, the one-page appraisal (and Board Proposal) now: (1) drops the home-by-home SALES & MARKETING line (the funder buys the finished scheme — there's no retail disposal); (2) replaces the plot-sales DEVELOPMENT-FINANCE carry with a FUNDER'S RETURN during construction (the funder draws down, so you're not carrying peak build-and-sell debt); (3) values the scheme on the CAPITALISED net rent and takes profit on that value; and (4) foots to the capitalised residual land value. Open-market plot-sales and bulk-HA exits are unchanged. Under the bonnet the forward-fund residual (capRlv) now uses its own cost basis (no marketing; funder's return in place of plot finance) — kept separate from the plot-sales stack, so the plot residual and every existing figure are untouched. The Quick Appraisal already reads this same capitalised residual, so the two stay in lockstep. 6 new engine tests lock it; full suite 587/587 green. This is the ‘reports only show what's needed to get to the exit route’ change."},
   {v:"10.229", date:"Aug 2026", headline:"FIX — Ronald was talking to HIMSELF (repeating his last line, ignoring your questions). On hands-free with the phone speaker, the mic was re-opening the instant he finished and catching the tail of his OWN voice, transcribing it as your ‘answer’ — so he'd reply to himself and loop on his last comment while your real questions got buried. Now: (1) he waits a beat after speaking before the mic re-opens, so the speaker audio clears first; (2) an echo filter rejects anything the mic hears that heavily matches what he just said, so his own voice can never become your input — it just keeps listening for you; (3) his instructions now forbid repeating his previous message, and tell him to ask you to say it again if a line looks garbled. If you're on a phone, a headset/earbuds also stops the speaker feeding the mic entirely. No engine change."},
   {v:"10.228", date:"Aug 2026", headline:"FIX — Ronald now ANSWERS THE ACTUAL QUESTION and can be interrupted mid-flow. Ask him something specific — “what's the £ per square foot?”, “what's the build cost per home?”, “how big are the units?” — and he gives you THAT number and stops, instead of reciting the whole scheme's figures again. He only reads out the full round-up when you actually ask for one (“run me the numbers”, “summarise the scheme”); a one-off question gets a direct answer, then he picks the previous thread back up so you can carry on where you were. Two parts: (1) his instructions now put ‘answer the exact question asked, quote only the relevant figure’ first; (2) he's now given the per-square-foot and per-home numbers (sale £/sqft, build £/sqft, average home size, sale value & build cost per home) — before, £/sqft wasn't in his live figures at all, so he couldn't answer it and fell back to repeating the totals. No engine change — the £/sqft comes straight from the same appraisal engine."},
   {v:"10.227", date:"Aug 2026", headline:"FIX — Ronald now starts a FRESH conversation on a new project. Because Ronald floats over the whole app, his chat used to carry over when you loaded or uploaded a different project — so you'd open him on a new site and find the previous site's conversation still there. Now his conversation is TIED TO THE SITE: load or upload a different project (a different address) and Ronald automatically clears the chat and starts clean for it; come back to the same project and the chat is still there. His build of a scheme keeps the same site, so his own work never wipes the chat, and your saved standing 🧠 memory (facts/regulations you told him to remember) is untouched — that's meant to carry across every project. The ‘↺ New’ button still starts a fresh chat by hand any time. No engine change."},
@@ -3546,6 +3547,16 @@ function computeSFHMetrics(data){
   var sfhMarketing = effectiveBlended * (numOr(sfh.marketingPct, 0) / 100);
   var sfhProfit = effectiveBlended * (numOr(sfh.profitPct, 17.5) / 100);
   var sfhDevCost = buildCost + sfhFees + sfhContingency + sfhFinance + sfhS106 + sfhRoads + sfhInfra + sfhMarketing;
+  // v10.230 — FORWARD-FUND cost basis (kept SEPARATE from sfhDevCost so the plot-sales rlv + its tests are
+  // untouched). When the whole scheme is forward-funded / sold to an institution there are NO home-by-home
+  // sales, so disposal/marketing drops out; and the developer isn't carrying peak build-and-sell debt — the
+  // funder draws down and pays a return on the average drawn cost over the build period. So the capitalised
+  // residual uses build/fees/contingency/S106/roads/infra + a funder's return, MINUS marketing and MINUS the
+  // plot-sales development finance. This is what an exit-to-a-fund report should show.
+  var capFunderBase = buildCost + sfhFees + sfhContingency + sfhS106 + sfhRoads + sfhInfra;   // drawn cost, ex-finance/marketing
+  var capFunderReturn = capFunderBase * 0.5 * (numOr(sfh.finRate, 7.5) / 100) * finProgYears;   // return on ~50% avg drawn
+  var capMarketing = 0;                                                                          // funder buys the scheme — no retail disposal
+  var capDevCost = capFunderBase + capFunderReturn;
   // v10.90 — AFFORDABLE-HOUSING GRANT (Homes England AHP / SAHP). Grant per affordable home is
   // public subsidy that closes a viability gap on the affordable units. It flows straight to the
   // RESIDUAL (what you can pay for the land) — not to developer profit or marketing — so it can
@@ -3616,18 +3627,19 @@ function computeSFHMetrics(data){
   var capYield = num(cap.targetYield); capYield = capYield > 1 ? capYield / 100 : capYield;
   capYield = capYield || (capMk && capMk.yield) || 0.05;
   var capInvestmentValue = (capYield > 0 && capNetRentPa > 0) ? capNetRentPa / capYield : 0;
-  // Same development cost stack; developer profit taken on the investment value.
+  // Developer profit taken on the investment value; costs on the FORWARD-FUND basis (capDevCost).
   var capProfit = capInvestmentValue * (numOr(sfh.profitPct, 17.5) / 100);
   // v10.196 — the capitalised/forward-fund residual now carries grantToRlv too, so it is on the SAME
   // basis as the plot-sales (sfhGrossRlv, above) and HA-bulk (dealExit.haBulkRlv) routes. Before, only
   // the plot and HA-bulk routes added the grant, so under the 'land' (competitive-bid) treatment the
   // forward-fund exit understated supportable land by exactly the grant — a cross-route inconsistency.
-  var capRlv = capInvestmentValue > 0 ? capInvestmentValue - sfhDevCost - capProfit + grantToRlv : 0;
+  // v10.230 — costs on the forward-fund basis (no marketing; funder's return in place of plot finance).
+  var capRlv = capInvestmentValue > 0 ? capInvestmentValue - capDevCost - capProfit + grantToRlv : 0;
 
   return {rows:rows,totalUnits:totalUnits,avgSqft:totalUnits>0?totalSqft/totalUnits:0,retailGdv:retailGdv,blendedGdv:effectiveBlended,gdv:effectiveBlended,ahFactor:ahFactor,buildCost:buildCost,hasNonPrivate:hasNonPrivate,basePsf:basePsf,buildPsf:buildPsf,
     acres:sfhAcres,netDensity:netDensity,netDevelopableAcres:netDevelopableAcres,surplusAcres:surplusAcres,buildInclusive:buildInclusive,fees:sfhFees,contingency:sfhContingency,finance:sfhFinance,s106:sfhS106,roads:sfhRoads,infra:sfhInfra,marketing:sfhMarketing,profit:sfhProfit,devCost:sfhDevCost,rlv:sfhGrossRlv,
     financeProgYears:finProgYears,financePeakDebtPct:finPeakDebtPct,financePhases:finPhases,financeSCurve:FIN_SCURVE,
-    capMarketRentPerUnitPa:mktRentPerUnitPa,capRentFromResearch:capRentFromResearch,capTenureBlind:_capTenureBlind,capGrossRentPa:capGrossRentPa,capNetRentPa:capNetRentPa,capNetDeductionPct:capNetDeductionPct,capYield:capYield,capInvestmentValue:capInvestmentValue,capProfit:capProfit,capRlv:capRlv,ahPctResolved:ahPctR,
+    capMarketRentPerUnitPa:mktRentPerUnitPa,capRentFromResearch:capRentFromResearch,capTenureBlind:_capTenureBlind,capGrossRentPa:capGrossRentPa,capNetRentPa:capNetRentPa,capNetDeductionPct:capNetDeductionPct,capYield:capYield,capInvestmentValue:capInvestmentValue,capProfit:capProfit,capRlv:capRlv,capDevCost:capDevCost,capFunderReturn:capFunderReturn,capMarketing:capMarketing,ahPctResolved:ahPctR,
     affordableHomes:affordableHomes,grantEligibleHomes:grantEligibleHomes,grantPerAffHome:grantPerAffHome,grantIncome:grantIncome,grantMode:grantMode,grantToRlv:grantToRlv,grantToProfit:grantToProfitAmt(data,grantIncome),rlvBeforeGrant:sfhGrossRlv-grantToRlv};
 }
 
