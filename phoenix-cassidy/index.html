@@ -392,6 +392,7 @@ const SEED = [
 
 /* ============================ STATE ============================ */
 const LS_DATA="cvp_emails_v1", LS_MODEL="cvp_model_v1", LS_OVR="cvp_overrides_v1";
+const OPEN=new Set();   // ids of expanded evidence cards (persist across re-render)
 let MODEL = load(LS_MODEL) || {bias:1.3, adm:1.5, issueW:Object.fromEntries(ISSUES.map(i=>[i.id,i.w]))};
 let OVERRIDES = load(LS_OVR) || {};   // id -> {stance,score}
 let EMAILS = load(LS_DATA);
@@ -499,7 +500,7 @@ function renderEvidence(){
     const {stance,score,overridden}=effective(e); const c=cis(e);
     const sy = stance==="support"?"✓":stance==="adverse"?"✕":"–";
     const sl = stance==="support"?"FOR":stance==="adverse"?"AGAINST":"NEUTRAL";
-    return `<div class="ev" data-id="${e.id}">
+    return `<div class="ev ${OPEN.has(e.id)?'open':''}" data-id="${e.id}">
       <div class="head">
         <div class="stance ${stance}">${sy}<small>${sl}</small></div>
         <div>
@@ -530,7 +531,10 @@ function renderEvidence(){
   }).join("") || '<div class="card mini">No emails match these filters.</div>';
   // wire rows
   $$("#evlist .head").forEach(h=>h.onclick=e=>{
-    if(e.target.closest(".override"))return; h.parentElement.classList.toggle("open");});
+    if(e.target.closest(".override"))return;
+    const card=h.parentElement, id=card.dataset.id;
+    if(OPEN.has(id)){OPEN.delete(id);card.classList.remove("open");}
+    else{OPEN.add(id);card.classList.add("open");}});
   $$(".ovStance").forEach(s=>s.onchange=e=>setOverride(e.target.dataset.id,{stance:e.target.value}));
   $$(".ovScore").forEach(s=>s.onchange=e=>setOverride(e.target.dataset.id,{score:+e.target.value}));
   $$(".ovReset").forEach(s=>s.onclick=e=>{delete OVERRIDES[e.target.dataset.id];save(LS_OVR,OVERRIDES);refresh();});
