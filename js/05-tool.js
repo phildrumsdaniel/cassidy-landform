@@ -2054,6 +2054,29 @@ function loadSiteIntoDeal(site){
           e("img",{src:cassidyLogoSrc(),alt:"Cassidy Group Ltd",style:{width:"100%",maxWidth:172,height:"auto",display:"block"}})
         )
       ),
+      // v10.232 — MOBILE: the deal actions (Save / Import / Export / New Deal …) live here in the
+      // drawer too. On a phone the top-bar strip only shows a couple of emoji buttons before the
+      // rest scroll off the right edge (hidden scrollbar), so people kept "losing" Import/New Deal.
+      // Tapping the hamburger now always shows the full set. Desktop is unaffected (top bar fits).
+      isMobile&&(function(){
+        var mb=function(bg,bd,col){return {padding:"10px 8px",background:bg||"rgba(255,255,255,0.08)",border:"1px solid "+(bd||"rgba(255,255,255,0.2)"),color:col||"#fff",borderRadius:6,fontSize:12.5,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",textAlign:"center",minHeight:40,display:"flex",alignItems:"center",justifyContent:"center",gap:4};};
+        return e("div",{style:{padding:"10px 12px 6px",borderBottom:"1px solid rgba(255,255,255,0.1)"}},
+          e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:".12em",fontWeight:700,marginBottom:7}},"Deal actions"),
+          e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}},
+            e("label",{title:"Upload Relevant Files — Excel, CSV, PDF or text",style:mb()},
+              "📎 Upload",
+              e("input",{type:"file",accept:".xlsx,.xls,.csv,.txt,.pdf,.doc,.docx,.json",multiple:true,onChange:function(ev){handleFileUpload(ev);closeMobile();},style:{display:"none"}})
+            ),
+            e("button",{onClick:function(){setRonaldOpen(true);closeMobile();},style:mb("#4A4BAE","#4A4BAE")},"🎙 Talk"),
+            e("button",{onClick:function(){doMasterAnalyse();closeMobile();},disabled:data.masterLoading,style:mb("#2D7A65","#2D7A65")},data.masterLoading?"⏳ Analysing":"🧠 Analyse"),
+            e("button",{onClick:function(){ if(data._userRole==="viewer"){notify("You have view-only access to this deal.\n\nTo edit, ask the deal owner ("+(data._dealCreator||"the creator")+") to add you as an editor.");} else {saveDeal();} closeMobile(); },style:mb()},data._userRole==="viewer"?"🔒 View only":"💾 Save"),
+            e("button",{onClick:function(){saveDealAs();closeMobile();},style:mb()},"🔀 Save As"),
+            e("button",{onClick:function(){importDeal();closeMobile();},style:mb()},"⬆ Import"),
+            e("button",{onClick:function(){exportDeal();closeMobile();},style:mb()},"⬇ Export"),
+            e("button",{onClick:function(){clearDeal();closeMobile();},style:mb("rgba(176,90,53,0.25)","#B05A35")},"✕ New Deal")
+          )
+        );
+      })(),
       // v10.46 — Simple mode toggle: collapse the menu to Find → Quick Appraisal → Report.
       e("div",{style:{padding:"8px 12px 0"}},
         e("button",{onClick:function(){ var next=!simpleMode; setSimpleMode(next); if(next && SIMPLE_MODE_STAGES.indexOf(stage)<0) setStage("quick"); },
