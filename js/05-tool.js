@@ -2220,7 +2220,7 @@ function loadSiteIntoDeal(site){
         e("div",{className:"lf-topbar-actions",style:{display:"flex",alignItems:"center",gap:8,minWidth:0,flex:"1 1 auto",overflowX:"auto",overflowY:"hidden"}},
           e("label",{
             title:"Upload Relevant Files — Excel, CSV, PDF or text files are analysed and extracted into your deal",
-            style:{padding:isMobile?"8px 10px":"6px 14px",background:"#F0F1FA",border:"1px solid #DDE0ED",color:"#2E2F8A",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,display:"inline-flex",alignItems:"center",gap:5,flexShrink:0}
+            style:{padding:isMobile?"8px 10px":"6px 14px",background:"#F0F1FA",border:"1px solid #DDE0ED",color:"#2E2F8A",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,display:"inline-flex",alignItems:"center",gap:5,flexShrink:0,order:-1}
           },
             isMobile?"📎":"📎 Upload Files",
             e("input",{type:"file",accept:".xlsx,.xls,.csv,.txt,.pdf,.doc,.docx,.json",multiple:true,onChange:function(ev){handleFileUpload(ev);},style:{display:"none"}})
@@ -2230,14 +2230,14 @@ function loadSiteIntoDeal(site){
           e("button",{key:"talk",
             onClick:function(){ setRonaldOpen(true); },
             title:"Talk to Ronald — your floating Landform assistant (talks, navigates, prints, builds)",
-            style:{padding:isMobile?"8px 10px":"6px 14px",background:ronaldOpen?"#3A3D6A":"#4A4BAE",border:"none",color:"#fff",borderRadius:5,fontSize:isMobile?16:11,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(74,75,174,0.3)",minHeight:36,flexShrink:0}},
+            style:{padding:isMobile?"8px 10px":"6px 14px",background:ronaldOpen?"#3A3D6A":"#4A4BAE",border:"none",color:"#fff",borderRadius:5,fontSize:isMobile?16:11,fontWeight:800,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(74,75,174,0.3)",minHeight:36,flexShrink:0,order:-1}},
             isMobile?"🎙":"🎙 Talk"
           ),
           e("button",{
             onClick:doMasterAnalyse,
             disabled:data.masterLoading,
             title:"Analyse Deal — populate all stages with AI",
-            style:{padding:isMobile?"8px 10px":"6px 14px",background:data.masterLoading?"#8889C8":"linear-gradient(135deg,#2D7A65,#4A4BAE)",border:"none",color:"#fff",borderRadius:5,fontSize:isMobile?16:11,fontWeight:800,cursor:data.masterLoading?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(74,75,174,0.3)",minHeight:36,flexShrink:0}},
+            style:{padding:isMobile?"8px 10px":"6px 14px",background:data.masterLoading?"#8889C8":"linear-gradient(135deg,#2D7A65,#4A4BAE)",border:"none",color:"#fff",borderRadius:5,fontSize:isMobile?16:11,fontWeight:800,cursor:data.masterLoading?"not-allowed":"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(74,75,174,0.3)",minHeight:36,flexShrink:0,order:-1}},
             data.masterLoading?"⏳":(isMobile?"🧠":"🧠 Analyse Deal")
           ),
           e("button",{key:"flow",onClick:function(){
@@ -2264,26 +2264,26 @@ function loadSiteIntoDeal(site){
               notify("You have view-only access to this deal.\n\nTo edit, ask the deal owner ("+(data._dealCreator||"the creator")+") to add you to the editors list in the Access sheet.");
             } : saveDeal,
             title: data._userRole==="viewer" ? "View-only — contact owner to be added as editor" : "Save Deal — updates the current deal in place",
-            style:{padding:isMobile?"8px 10px":"6px 12px",background:data._userRole==="viewer"?"#F4F5FB":"#F7F8FC",border:"1px solid "+(data._userRole==="viewer"?"#E0C5A0":"#DDE0ED"),color:data._userRole==="viewer"?"#9A7B3E":"#3A3D6A",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0,opacity:data._userRole==="viewer"?0.7:1}},
+            style:{padding:isMobile?"8px 10px":"6px 12px",background:data._userRole==="viewer"?"#F4F5FB":"#F7F8FC",border:"1px solid "+(data._userRole==="viewer"?"#E0C5A0":"#DDE0ED"),color:data._userRole==="viewer"?"#9A7B3E":"#3A3D6A",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0,order:-1,opacity:data._userRole==="viewer"?0.7:1}},
             data._userRole==="viewer" ? (isMobile?"🔒":"🔒 View only") : (isMobile?"💾":"💾 Save Deal")
           ),
           // Save As — creates a duplicate with a new name (e.g. for testing different schemes on same site)
           e("button",{key:"saveas",onClick:saveDealAs,title:"Save as new deal — duplicates current deal under a new name (e.g. test SFH vs PBSA on same site)",
-            style:{padding:isMobile?"8px 10px":"6px 12px",background:"#F4F5FB",border:"1px solid #C5C8E0",color:"#4A4BAE",borderRadius:5,fontSize:isMobile?14:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
+            style:{padding:isMobile?"8px 10px":"6px 12px",background:"#F4F5FB",border:"1px solid #C5C8E0",color:"#4A4BAE",borderRadius:5,fontSize:isMobile?14:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0,order:-1}},
             isMobile?"🔀":"🔀 Save As"
           ),
           // v9.22 — Export deal to JSON file (for moving between accounts / sharing with team)
           e("button",{key:"export",onClick:exportDeal,title:"Export this deal as a JSON file — download to share with a teammate or transfer to another Landform account",
-            style:{padding:isMobile?"8px 10px":"6px 12px",background:"#F4F5FB",border:"1px solid #C5C8E0",color:"#2D7A65",borderRadius:5,fontSize:isMobile?14:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
+            style:{padding:isMobile?"8px 10px":"6px 12px",background:"#F4F5FB",border:"1px solid #C5C8E0",color:"#2D7A65",borderRadius:5,fontSize:isMobile?14:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0,order:-1}},
             isMobile?"⬇":"⬇ Export"
           ),
           // v9.22 — Import deal from JSON file (from another account / teammate)
           e("button",{key:"import",onClick:importDeal,title:"Import a deal from a JSON file — load a deal exported from another Landform account",
-            style:{padding:isMobile?"8px 10px":"6px 12px",background:"#F4F5FB",border:"1px solid #C5C8E0",color:"#2D7A65",borderRadius:5,fontSize:isMobile?14:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
+            style:{padding:isMobile?"8px 10px":"6px 12px",background:"#F4F5FB",border:"1px solid #C5C8E0",color:"#2D7A65",borderRadius:5,fontSize:isMobile?14:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0,order:-1}},
             isMobile?"⬆":"⬆ Import"
           ),
           e("button",{key:"new",onClick:clearDeal,title:"New Deal — clears current data",
-            style:{padding:isMobile?"8px 10px":"6px 12px",background:"#FFF5F0",border:"1px solid #E8C4B0",color:"#B05A35",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0}},
+            style:{padding:isMobile?"8px 10px":"6px 12px",background:"#FFF5F0",border:"1px solid #E8C4B0",color:"#B05A35",borderRadius:5,fontSize:isMobile?16:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",whiteSpace:"nowrap",minHeight:36,flexShrink:0,order:-1}},
             isMobile?"✕":"✕ New Deal"
           ),
           e("button",{key:"logout",onClick:function(){
