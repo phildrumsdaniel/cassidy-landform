@@ -27,7 +27,11 @@
   h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.2px}
   .sub{color:var(--muted);font-size:12.5px;margin-top:2px}
   .pill{margin-left:auto;background:rgba(237,232,74,.12);border:1px solid rgba(237,232,74,.4);
-    color:var(--gold);padding:5px 11px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap}
+    color:var(--gold);padding:6px 13px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap;
+    cursor:pointer;font-family:inherit;transition:.12s}
+  .pill:hover{background:rgba(237,232,74,.24)}
+  .pill:active{transform:scale(.97)}
+  .pill.off{background:rgba(138,142,163,.15);border-color:var(--neutral);color:var(--muted)}
   nav.tabs{display:flex;gap:4px;padding:10px 16px 0;flex-wrap:wrap;background:var(--navy);
     border-bottom:1px solid var(--line);position:sticky;top:78px;z-index:29}
   nav.tabs button{background:transparent;border:0;color:var(--muted);padding:10px 15px;
@@ -129,7 +133,7 @@
       <h1>Cassidy v Phoenix — Email Evidence Scorer</h1>
       <div class="sub">Project Lock · 829-bed student scheme, Stafford Street, Wolverhampton · <b>CC-2023-BHM-000029</b></div>
     </div>
-    <div class="pill">Biased toward Cassidy ⚖️</div>
+    <button class="pill" id="biasPill" title="Click to toggle the Cassidy bias on/off">⚖️ Biased toward Cassidy · 1.30×</button>
   </div>
 </header>
 
@@ -403,6 +407,9 @@ function load(k){ try{return JSON.parse(localStorage.getItem(k));}catch(e){retur
 function save(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
 
 /* ===================== SCORING ENGINE ===================== */
+// When the bias is toggled off (neutral view), bias and admission bonus fall back to 1.0.
+function biasVal(){ return MODEL.biasOn===false ? 1 : MODEL.bias; }
+function admVal(){ return MODEL.biasOn===false ? 1 : MODEL.adm; }
 function effective(e){
   const o = OVERRIDES[e.id]||{};
   const stance = o.stance || e.stance || "neutral";
@@ -414,12 +421,12 @@ function cis(e){
   const sign = stance==="support"?1: stance==="adverse"?-1:0;
   if(sign===0) return 0;
   let base = sign*score;
-  base = sign>0 ? base*MODEL.bias : base/MODEL.bias;
+  base = sign>0 ? base*biasVal() : base/biasVal();
   // strongest issue weight among tagged issues
   let iw=1; (e.issue||[]).forEach(id=>{ iw=Math.max(iw, MODEL.issueW[id]||1); });
   // admission bonus: Phoenix-side sender whose email helps Cassidy
   let adm=1;
-  if(sign>0 && sideOf(e.from)==="phoenix") adm=MODEL.adm;
+  if(sign>0 && sideOf(e.from)==="phoenix") adm=admVal();
   return base*iw*adm;
 }
 function totals(list){
@@ -449,9 +456,10 @@ function renderDash(){
   const fp=Math.round(t.sf/denom*100), ap=100-fp;
   $("#strengthbar").innerHTML =
     `<div class="f" style="width:${fp}%">${fp}%</div><div class="a" style="width:${ap}%">${ap}%</div>`;
+  const bshow = MODEL.biasOn===false ? "a neutral (1.00×) view" : `Cassidy Bias ${MODEL.bias.toFixed(2)}×`;
   $("#strengthnote").textContent =
-    `Weighted evidence points ${fp}% for Cassidy / ${ap}% against, at Cassidy Bias ${MODEL.bias.toFixed(2)}× `
-    + `(${t.sf.toFixed(1)} for vs ${t.sa.toFixed(1)} against). Adjust the bias and issue weights on the Scoring Model tab.`;
+    `Weighted evidence points ${fp}% for Cassidy / ${ap}% against, at ${bshow} `
+    + `(${t.sf.toFixed(1)} for vs ${t.sa.toFixed(1)} against). Click the “Biased toward Cassidy” badge to flip between the biased and neutral view, or tune the weights on the Scoring Model tab.`;
   // issue bars
   $("#issuebars").innerHTML = ISSUES.map(is=>{
     let f=0,a=0;
@@ -560,6 +568,13 @@ function renderModel(){
 function renderBrief(){
   $("#issuelist").innerHTML=ISSUES.map(i=>`<li><b>Issue ${i.id} — ${i.name}:</b> ${i.def}</li>`).join("");
 }
+function renderPill(){
+  const on = MODEL.biasOn!==false, el=$("#biasPill");
+  el.classList.toggle("off",!on);
+  el.textContent = on ? `⚖️ Biased toward Cassidy · ${MODEL.bias.toFixed(2)}×` : `⚖️ Neutral view · 1.00×`;
+  el.title = on ? "Cassidy bias ON — click for a neutral, objective view"
+                : "Neutral view — click to apply the Cassidy bias";
+}
 
 function refresh(){ renderDash(); if($("#evidence").classList.contains("active"))renderEvidence();
   $("#datastat").textContent=`${EMAILS.length} emails in workspace · ${Object.keys(OVERRIDES).length} manual re-scores.`; }
@@ -656,10 +671,16 @@ $("#tabs").onclick=e=>{const b=e.target.closest("button");if(!b)return;
 ["q","fIssue","fStance","fSide","sort"].forEach(id=>$("#"+id).oninput=renderEvidence);
 $("#fIssue").innerHTML='<option value="">All issues</option>'+ISSUES.map(i=>`<option value="${i.id}">Issue ${i.id} — ${i.name}</option>`).join("");
 
-$("#sBias").oninput=e=>{MODEL.bias=+e.target.value;$("#vBias").textContent=MODEL.bias.toFixed(2)+"×";save(LS_MODEL,MODEL);renderDash();};
-$("#sAdm").oninput=e=>{MODEL.adm=+e.target.value;$("#vAdm").textContent=MODEL.adm.toFixed(1)+"×";save(LS_MODEL,MODEL);renderDash();};
-$("#resetModel").onclick=()=>{MODEL={bias:1.3,adm:1.5,issueW:Object.fromEntries(ISSUES.map(i=>[i.id,i.w]))};
-  save(LS_MODEL,MODEL);renderModel();renderDash();toast("Model reset");};
+// Toggle the Cassidy bias on/off from the header badge
+$("#biasPill").onclick=()=>{
+  MODEL.biasOn = !(MODEL.biasOn!==false); save(LS_MODEL,MODEL);
+  renderPill(); renderDash(); if($("#evidence").classList.contains("active"))renderEvidence();
+  toast(MODEL.biasOn!==false ? "Cassidy bias ON" : "Neutral view — bias off");
+};
+$("#sBias").oninput=e=>{MODEL.bias=+e.target.value;MODEL.biasOn=true;$("#vBias").textContent=MODEL.bias.toFixed(2)+"×";save(LS_MODEL,MODEL);renderPill();renderDash();};
+$("#sAdm").oninput=e=>{MODEL.adm=+e.target.value;MODEL.biasOn=true;$("#vAdm").textContent=MODEL.adm.toFixed(1)+"×";save(LS_MODEL,MODEL);renderPill();renderDash();};
+$("#resetModel").onclick=()=>{MODEL={bias:1.3,adm:1.5,biasOn:true,issueW:Object.fromEntries(ISSUES.map(i=>[i.id,i.w]))};
+  save(LS_MODEL,MODEL);renderModel();renderPill();renderDash();toast("Model reset");};
 
 $("#pick").onclick=()=>$("#file").click();
 $("#file").onchange=e=>{const f=e.target.files[0];if(f)readFile(f);};
@@ -688,7 +709,7 @@ function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");cl
   toastT=setTimeout(()=>t.classList.remove("show"),2200);}
 
 /* ============================ BOOT ============================ */
-renderBrief(); renderModel(); refresh();
+renderBrief(); renderModel(); renderPill(); refresh();
 </script>
 </body>
 </html>
