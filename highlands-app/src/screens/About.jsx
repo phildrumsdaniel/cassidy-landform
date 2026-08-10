@@ -131,13 +131,18 @@ export default function About() {
                   <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                     {views.map((v, i) => (
                       <li key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '6px 0', borderTop: i ? '1px solid var(--border)' : 'none', fontSize: '0.85rem' }}>
-                        <span><strong>{v.name || 'Someone'}</strong> · {v.device} — {pageLabel(v.page)}</span>
+                        <span>
+                          <strong>{v.name || v.device || 'Someone'}</strong>
+                          {v.name && v.device ? ` · ${v.device}` : ''}
+                          {(v.city || v.country) ? ` · ${[v.city, v.country].filter(Boolean).join(', ')}` : ''}
+                          {' — '}{pageLabel(v.page)}
+                        </span>
                         <span className="muted" style={{ whiteSpace: 'nowrap' }}>{relTime(v.at)}</span>
                       </li>
                     ))}
                   </ul>
                 )}
-              <p className="muted" style={{ fontSize: '0.72rem', marginTop: 10, marginBottom: 0 }}>Best-effort: no login, so names are optional and self-entered — device &amp; time are always recorded.</p>
+              <p className="muted" style={{ fontSize: '0.72rem', marginTop: 10, marginBottom: 0 }}>Automatic &amp; best-effort — no prompts. A web link can’t read a phone’s real name or exact GPS, so this records device, browser, approximate town (from the connection) and time. Name your own phones above to recognise your visits.</p>
             </div>
           </div>
         )}
