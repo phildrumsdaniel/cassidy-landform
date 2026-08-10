@@ -6,7 +6,25 @@ import Photo from '../components/Photo.jsx'
 import { readJSON, subscribeKey } from '../lib/storage.js'
 import { cloudOn, listAllPhotos, publicUrl, thumbUrl } from '../lib/cloud.js'
 import { shareTrip, shareDay } from '../lib/share.js'
+import { logView, viewerName, setViewerName } from '../lib/views.js'
 import { VIEW_ONLY } from '../lib/viewOnly.js'
+
+// View-only viewers can add their name so Phil & Tracey know who stopped by.
+function NameBar() {
+  const [name, setName] = useState(viewerName())
+  const [saved, setSaved] = useState(!!viewerName())
+  if (!VIEW_ONLY) return null
+  if (saved) return <div className="mag-viewer container">Viewing as <strong>{viewerName()}</strong> · <button className="linkbtn" onClick={() => setSaved(false)}>change</button></div>
+  return (
+    <div className="mag-namebar container">
+      <span>👋 Add your name so Phil &amp; Tracey know who stopped by:</span>
+      <div className="mag-namerow">
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Auntie Sue" />
+        <button className="btn gold" onClick={() => { setViewerName(name); setSaved(true) }}>Save</button>
+      </div>
+    </div>
+  )
+}
 
 const dateRange = () => {
   const opts = { day: 'numeric', month: 'long' }
@@ -84,6 +102,8 @@ export default function Magazine() {
   const stops = bases.filter((b) => b.name !== 'Home')
   const single = id ? stops.find((b) => String(b.id) === String(id)) : null
 
+  useEffect(() => { logView(id ? `day:${id}` : 'journal') }, [id])
+
   useEffect(() => {
     if (!cloudOn()) return
     listAllPhotos().then((rows) => {
@@ -125,6 +145,7 @@ export default function Magazine() {
         <div className="mag-day-top container">
           <div className="mag-kicker">{TRIP.title} · {TRIP.who}</div>
         </div>
+        <NameBar />
         <StopSection b={single} shots={photosByBase[single.id] || []} note={notes[single.id]} onShareDay={onShareDay} onOpen={setLightbox} />
         <footer className="mag-foot">
           <button className="btn gold" onClick={() => nav('/magazine')}>📖 See the whole journal</button>
@@ -155,6 +176,8 @@ export default function Magazine() {
           <button className="btn gold mag-share" onClick={onShareAll}>🔗 Share this journal</button>
         </div>
       </header>
+
+      <NameBar />
 
       {!VIEW_ONLY && (
         <div className="mag-editnote container">

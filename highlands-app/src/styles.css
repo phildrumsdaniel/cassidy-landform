@@ -613,6 +613,12 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; line-height: 1.12; mar
 .mag-meta { font-size: 0.8rem; opacity: 0.8; }
 .mag-day-share { margin-top: 10px; font-size: 0.78rem; padding: 6px 12px; }
 .mag-day-top { padding-top: 16px; padding-bottom: 4px; }
+.mag-namebar { padding-top: 14px; font-size: 0.86rem; }
+.mag-namerow { display: flex; gap: 8px; margin-top: 8px; }
+.mag-namerow input { flex: 1; }
+.mag-viewer { padding-top: 12px; font-size: 0.8rem; opacity: 0.85; }
+.linkbtn { background: none; border: 0; color: var(--loch); font: inherit; text-decoration: underline; cursor: pointer; padding: 0; }
+:root[data-theme='dark'] .linkbtn { color: var(--whisky-soft); }
 .mag-hero { display: block; width: 100%; height: 240px; object-fit: cover; }
 .mag-hero .placeholder { height: 240px; }
 .mag-note { font-family: var(--serif); font-size: 1.06rem; line-height: 1.6; margin: 16px auto; white-space: pre-wrap; }
