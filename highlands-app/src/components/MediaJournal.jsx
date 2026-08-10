@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { usePersistentState } from '../lib/storage.js'
 import { addMedia, getMediaForBase, deleteMedia, requestPersistence } from '../lib/media.js'
 import { compressImage } from '../lib/img.js'
-import { cloudOn, listPhotos, publicUrl, thumbUrl, deletePhoto, uploadAllPending, SHARE_MAX } from '../lib/cloud.js'
+import { cloudOn, listPhotos, publicUrl, thumbUrl, deletePhoto, uploadAllPending, pendingCount, SHARE_MAX } from '../lib/cloud.js'
 
 // Grid image: loads the small thumbnail, falls back to the full image if the
 // thumb isn't ready, and retries a couple of times on a flaky connection.
@@ -31,13 +31,15 @@ export default function MediaJournal({ baseId }) {
   const [items, setItems] = useState([])
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
-  const [progress, setProgress] = useState(null) // {phase:'add'|'upload', done, total}
+  const [progress, setProgress] = useState(null) // {done, total} while preparing
+  const [sharing, setSharing] = useState(null)   // number left | 'done' | null
   const [lightbox, setLightbox] = useState(null)
   const urls = useRef(new Map()) // localId -> objectURL
   const photoIn = useRef(null)
   const videoIn = useRef(null)
   const libIn = useRef(null)
   const saveTimer = useRef(null)
+  const shareTimer = useRef(null)
 
   const urlFor = useCallback((localId, blob) => {
     if (!urls.current.has(localId)) urls.current.set(localId, URL.createObjectURL(blob))
@@ -63,15 +65,35 @@ export default function MediaJournal({ baseId }) {
     setItems([...byUid.values()].sort((a, b) => a.created - b.created))
   }, [baseId, urlFor])
 
+  // Keep pushing pending uploads and show how many are left, until done.
+  const startSharing = useCallback(() => {
+    if (!cloudOn()) return
+    clearInterval(shareTimer.current)
+    const tick = async () => {
+      uploadAllPending()
+      const left = await pendingCount()
+      await refresh()
+      if (left === 0) {
+        clearInterval(shareTimer.current); shareTimer.current = null
+        setSharing((prev) => (typeof prev === 'number' && prev > 0 ? 'done' : null))
+        setTimeout(() => setSharing((p) => (p === 'done' ? null : p)), 2500)
+      } else {
+        setSharing(left)
+      }
+    }
+    tick()
+    shareTimer.current = setInterval(tick, 2500)
+  }, [refresh])
+
   useEffect(() => {
     requestPersistence()
     refresh()
-    // push anything captured offline, then show the merged album
-    uploadAllPending().then(refresh)
-    const onOnline = () => uploadAllPending().then(refresh)
+    // resume any interrupted uploads (e.g. signal dropped mid-batch)
+    ;(async () => { if (cloudOn() && (await pendingCount()) > 0) startSharing() })()
+    const onOnline = () => startSharing()
     window.addEventListener('online', onOnline)
-    return () => window.removeEventListener('online', onOnline)
-  }, [refresh])
+    return () => { window.removeEventListener('online', onOnline); clearInterval(shareTimer.current) }
+  }, [refresh, startSharing])
 
   // revoke object URLs on unmount / base change
   useEffect(() => () => {
@@ -93,12 +115,13 @@ export default function MediaJournal({ baseId }) {
     setBusy(true)
     setNotice('')
 
-    // Add one at a time, surviving any single failure, yielding to the phone
-    // between each so a big batch (dozens of photos) can't lock up the tab.
+    // Save each one on-device first (surviving any single failure, yielding to
+    // the phone between each so a big batch can't lock up the tab). Uploading is
+    // handled separately by startSharing so it's resilient to signal drops.
     let added = 0, failed = 0, tooBig = 0
     for (let i = 0; i < files.length; i++) {
       const f = files[i]
-      setProgress({ phase: 'add', done: i, total: files.length })
+      setProgress({ done: i, total: files.length })
       try {
         const isVideo = (f.type || '').startsWith('video')
         const blob = isVideo ? f : await compressImage(f)
@@ -110,21 +133,16 @@ export default function MediaJournal({ baseId }) {
       }
       await new Promise((r) => setTimeout(r, 0)) // let the browser breathe
     }
-    await refresh()
-    setBusy(false)
-
-    // Then upload to the shared album, showing progress.
-    if (cloudOn() && added) {
-      setProgress({ phase: 'upload', done: 0, total: added })
-      await uploadAllPending((done, total) => setProgress({ phase: 'upload', done, total }))
-    }
     setProgress(null)
+    setBusy(false)
     await refresh()
 
     const msgs = []
     if (tooBig) msgs.push(`${tooBig} video${tooBig > 1 ? 's' : ''} over 50 MB kept on this phone only`)
     if (failed) msgs.push(`${failed} couldn’t be added (phone may be low on storage)`)
-    if (msgs.length) setNotice(`${msgs.join('; ')}.`)
+    setNotice(msgs.length ? `${msgs.join('; ')}.` : '')
+
+    if (cloudOn() && added) startSharing() // upload in the background, with a counter
   }
 
   async function remove(entry) {
@@ -176,14 +194,10 @@ export default function MediaJournal({ baseId }) {
       <input ref={videoIn} type="file" accept="video/*" capture="environment" hidden onChange={onFiles} />
       <input ref={libIn} type="file" accept="image/*,video/*" multiple hidden onChange={onFiles} />
 
-      {progress && (
-        <div className="saved">
-          {progress.phase === 'add'
-            ? `Preparing photos… ${progress.done} of ${progress.total}`
-            : `Uploading to the shared album… ${progress.done} of ${progress.total}`}
-        </div>
-      )}
+      {progress && <div className="saved">Preparing photos… {progress.done} of {progress.total}</div>}
       {busy && !progress && <div className="saved">Saving…</div>}
+      {typeof sharing === 'number' && sharing > 0 && <div className="saved">☁︎ Sharing to the album… {sharing} to go</div>}
+      {sharing === 'done' && <div className="saved">✓ All photos shared</div>}
       {notice && <div className="saved" style={{ color: 'var(--rust, #b4552d)' }}>📵 {notice}</div>}
 
       {items.length > 0 && (

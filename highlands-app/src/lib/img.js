@@ -7,11 +7,16 @@
 // createImageBitmap (decodes efficiently, and we close() it straight after) and
 // free the canvas as soon as we're done, keeping the footprint per photo small.
 
+const withTimeout = (p, ms) => Promise.race([
+  p,
+  new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))
+])
+
 async function drawToJpeg(file, max, quality) {
   let bitmap, url, src
   try {
     if (typeof createImageBitmap === 'function') {
-      bitmap = await createImageBitmap(file)
+      bitmap = await withTimeout(createImageBitmap(file), 12000)
       src = bitmap
     } else {
       url = URL.createObjectURL(file)
@@ -29,7 +34,7 @@ async function drawToJpeg(file, max, quality) {
     const canvas = document.createElement('canvas')
     canvas.width = w; canvas.height = h
     canvas.getContext('2d').drawImage(src, 0, 0, w, h)
-    const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', quality))
+    const blob = await withTimeout(new Promise((r) => canvas.toBlob(r, 'image/jpeg', quality)), 12000)
     canvas.width = 0; canvas.height = 0 // release the backing store promptly
     return { blob, scaled: scale < 1 }
   } finally {
