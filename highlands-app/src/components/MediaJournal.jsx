@@ -131,7 +131,9 @@ export default function MediaJournal({ baseId }) {
       } catch {
         failed++
       }
-      await new Promise((r) => setTimeout(r, 0)) // let the browser breathe
+      // Give the phone time to reclaim memory between photos (and a longer
+      // breather every few) so large batches don't run the tab out of memory.
+      await new Promise((r) => setTimeout(r, (i + 1) % 6 === 0 ? 500 : 60))
     }
     setProgress(null)
     setBusy(false)
