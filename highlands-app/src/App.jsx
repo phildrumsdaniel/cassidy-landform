@@ -41,6 +41,7 @@ export default function App() {
         <Route path="/base/:id" element={<BaseDetail />} />
         <Route path="/map" element={<MapScreen />} />
         <Route path="/magazine" element={<Magazine />} />
+        <Route path="/magazine/:id" element={<Magazine />} />
         {/* Costs & checklists are hidden in the public view-only link */}
         <Route path="/costs" element={VIEW_ONLY ? <Navigate to="/magazine" replace /> : <BasesCosts />} />
         <Route path="/book" element={<Book />} />

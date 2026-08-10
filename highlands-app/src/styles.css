@@ -611,6 +611,8 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; line-height: 1.12; mar
 .mag-num { text-transform: uppercase; letter-spacing: 0.22em; font-size: 0.7rem; color: var(--whisky-soft); }
 .mag-stop-head h2 { font-size: 2rem; line-height: 1.1; margin: 2px 0 4px; }
 .mag-meta { font-size: 0.8rem; opacity: 0.8; }
+.mag-day-share { margin-top: 10px; font-size: 0.78rem; padding: 6px 12px; }
+.mag-day-top { padding-top: 16px; padding-bottom: 4px; }
 .mag-hero { display: block; width: 100%; height: 240px; object-fit: cover; }
 .mag-hero .placeholder { height: 240px; }
 .mag-note { font-family: var(--serif); font-size: 1.06rem; line-height: 1.6; margin: 16px auto; white-space: pre-wrap; }

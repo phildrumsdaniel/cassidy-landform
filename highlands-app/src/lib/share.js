@@ -6,17 +6,29 @@ export function publicMagazineUrl() {
   return `${origin}${base}?view#/magazine`
 }
 
-// Share via the native share sheet; fall back to copying the link.
-export async function shareTrip() {
-  const url = publicMagazineUrl()
-  const payload = { title: 'Highlands Adventure', text: 'Follow Phil & Tracey’s Highlands trip 🏴󠁧󠁢󠁳󠁣󠁴󠁿🚐', url }
+// Link to a single day/stop of the trip.
+export function publicDayUrl(id) {
+  return `${window.location.origin}${import.meta.env.BASE_URL}?view#/magazine/${id}`
+}
+
+async function doShare(payload) {
   try {
-    if (navigator.share) { await navigator.share(payload); return { how: 'shared', url } }
-  } catch { return { how: 'cancelled', url } }
+    if (navigator.share) { await navigator.share(payload); return { how: 'shared', url: payload.url } }
+  } catch { return { how: 'cancelled', url: payload.url } }
   try {
-    await navigator.clipboard.writeText(url)
-    return { how: 'copied', url }
+    await navigator.clipboard.writeText(payload.url)
+    return { how: 'copied', url: payload.url }
   } catch {
-    return { how: 'manual', url }
+    return { how: 'manual', url: payload.url }
   }
+}
+
+// Share the whole journal via the native share sheet; fall back to copying.
+export function shareTrip() {
+  return doShare({ title: 'Highlands Adventure', text: 'Follow Phil & Tracey’s Highlands trip 🏴󠁧󠁢󠁳󠁣󠁴󠁿🚐', url: publicMagazineUrl() })
+}
+
+// Share a single day/stop.
+export function shareDay(id, name) {
+  return doShare({ title: `${name} — Highlands Adventure`, text: `${name} — from Phil & Tracey’s Highlands trip 🏴󠁧󠁢󠁳󠁣󠁴󠁿`, url: publicDayUrl(id) })
 }
