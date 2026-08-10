@@ -5,7 +5,7 @@
 // local writes to push them, and (b) apply remote changes and have the UI update
 // live. When sync is not configured, none of this changes existing behaviour.
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 const NS = 'highlands:'
 
@@ -60,11 +60,23 @@ export function applyExternal(key, value) {
 
 /** Persisted state hook backed by localStorage; live-updates on remote sync. */
 export function usePersistentState(key, initial) {
-  const [value, setValue] = useState(() => readJSON(key, initial))
+  const initialRef = useRef(initial)
+  const [value, setValue] = useState(() => readJSON(key, initialRef.current))
+  const [curKey, setCurKey] = useState(key)
+
+  // When the key changes (e.g. navigating base 1 → base 2, same component
+  // instance), reset to the NEW key's stored value during render — before the
+  // persist effect runs — so we never write the previous key's value into it.
+  if (key !== curKey) {
+    setCurKey(key)
+    setValue(readJSON(key, initialRef.current))
+  }
 
   useEffect(() => {
-    writeJSON(key, value)
-  }, [key, value])
+    if (key !== curKey) return // key just changed; wait for the reset above
+    const stored = readJSON(key, initialRef.current)
+    if (JSON.stringify(stored) !== JSON.stringify(value)) writeJSON(key, value)
+  }, [key, curKey, value])
 
   // React to external (sync-applied) changes for this key.
   useEffect(() => {
