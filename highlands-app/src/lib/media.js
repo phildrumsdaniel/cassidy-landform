@@ -50,21 +50,46 @@ export async function estimateUsage() {
   return { usage: 0, quota: 0 }
 }
 
-export async function addMedia(baseId, file) {
-  const type = (file.type || '').startsWith('video') ? 'video' : 'image'
+export function newUid() {
+  try { if (crypto && crypto.randomUUID) return crypto.randomUUID() } catch { /* */ }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+export async function addMedia(baseId, file, extra = {}) {
+  const type = extra.type || ((file.type || '').startsWith('video') ? 'video' : 'image')
   const record = {
     baseId,
     type,
     blob: file,
-    name: file.name || `${type}-${baseId}`,
+    name: extra.name || file.name || `${type}-${baseId}`,
     size: file.size || 0,
-    created: Date.now()
+    created: Date.now(),
+    uid: extra.uid || newUid(),
+    uploaded: false,
+    path: null
   }
   const store = await tx('readwrite')
   return new Promise((resolve, reject) => {
     const req = store.add(record)
     req.onsuccess = () => resolve({ ...record, id: req.result })
     req.onerror = () => reject(req.error)
+  })
+}
+
+// Patch a stored record (used to mark items uploaded to the shared album).
+export async function updateMedia(id, patch) {
+  const store = await tx('readwrite')
+  return new Promise((resolve) => {
+    const get = store.get(id)
+    get.onsuccess = () => {
+      const rec = get.result
+      if (!rec) return resolve()
+      Object.assign(rec, patch)
+      const put = store.put(rec)
+      put.onsuccess = () => resolve()
+      put.onerror = () => resolve()
+    }
+    get.onerror = () => resolve()
   })
 }
 

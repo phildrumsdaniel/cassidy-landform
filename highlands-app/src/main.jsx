@@ -3,10 +3,13 @@ import { createRoot } from 'react-dom/client'
 import { HashRouter } from 'react-router-dom'
 import App from './App.jsx'
 import { startSync } from './lib/sync.js'
+import { uploadAllPending } from './lib/cloud.js'
 import './styles.css'
 
-// Cloud sync between phones (dormant until configured in lib/syncConfig.js).
+// Cloud sync between phones + shared photo album (config in lib/syncConfig.js).
 startSync()
+uploadAllPending()
+window.addEventListener('online', uploadAllPending)
 
 // When the service worker updates (autoUpdate → skipWaiting), the new worker
 // takes control and fires `controllerchange` — reload once so the newest

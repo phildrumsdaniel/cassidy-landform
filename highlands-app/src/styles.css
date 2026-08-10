@@ -593,6 +593,8 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; line-height: 1.12; mar
 .paste-box summary { cursor: pointer; font-size: 0.82rem; font-weight: 700; color: var(--loch); list-style: none; }
 :root[data-theme='dark'] .paste-box summary { color: var(--whisky-soft); }
 .paste-box summary::-webkit-details-marker { display: none; }
+.media-thumb { position: relative; }
+.media-thumb .from-other { position: absolute; top: 4px; right: 4px; font-size: 0.7rem; background: rgba(0,0,0,0.45); color: #fff; border-radius: 6px; padding: 0 4px; line-height: 1.4; }
 
 /* ---------- backup nudge ---------- */
 .backup-banner {
