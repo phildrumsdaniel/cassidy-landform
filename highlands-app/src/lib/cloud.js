@@ -8,6 +8,7 @@ import { syncConfig } from './syncConfig.js'
 import { getAllMedia, updateMedia, newUid } from './media.js'
 
 const BUCKET = 'photos'
+export const SHARE_MAX = 50 * 1024 * 1024 // free-tier per-file limit
 export const cloudOn = () => !!syncConfig
 
 const headers = () => ({ apikey: syncConfig.anonKey, Authorization: `Bearer ${syncConfig.anonKey}` })
@@ -72,7 +73,8 @@ export async function uploadAllPending() {
   try {
     const all = await getAllMedia()
     for (const m of all) {
-      if (m.uploaded || !m.blob) continue
+      if (m.uploaded || m.localOnly || !m.blob) continue
+      if (m.blob.size > SHARE_MAX) { await updateMedia(m.id, { localOnly: true, uid: m.uid || newUid() }); continue }
       const uid = m.uid || newUid()
       const path = `${m.baseId}/${uid}.${extFor(m)}`
       try {
