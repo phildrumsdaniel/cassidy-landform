@@ -27,7 +27,11 @@ function GridImg({ thumb, full }) {
 // offline), then uploads to shared cloud storage so everyone on the trip link
 // sees the same album. Photos from the other phone appear here too.
 export default function MediaJournal({ baseId }) {
+  // Two notes per base: private (editors only, hidden from the shared link) and
+  // public (shown to everyone on the view-only link). The original `journal:`
+  // note stays the private one so existing content never leaks publicly.
   const [text, setText] = usePersistentState(`journal:${baseId}`, '')
+  const [publicNote, setPublicNote] = usePersistentState(`journalpub:${baseId}`, '')
   const [saved, setSaved] = useState(true)
   const [items, setItems] = useState([])
   const [busy, setBusy] = useState(false)
@@ -107,7 +111,7 @@ export default function MediaJournal({ baseId }) {
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => setSaved(true), 500)
     return () => clearTimeout(saveTimer.current)
-  }, [text])
+  }, [text, publicNote])
 
   async function onFiles(e) {
     const files = Array.from(e.target.files || [])
@@ -175,22 +179,30 @@ export default function MediaJournal({ baseId }) {
     } catch { /* user cancelled */ }
   }
 
-  const savedNote = cloudOn()
-    ? (text ? (saved ? '✓ Saved & shared with the trip' : 'Saving…') : 'Notes & photos are shared with everyone on the trip link.')
-    : (text ? (saved ? '✓ Saved on this device' : 'Saving…') : 'Notes & photos are kept privately on this phone.')
-
   const total = items.length
   const shared = items.filter((m) => !m.isLocal || m.uploaded).length
 
   return (
     <div className="journal">
-      <textarea
-        value={text}
-        readOnly={VIEW_ONLY}
-        onChange={(e) => setText(e.target.value)}
-        placeholder={VIEW_ONLY ? 'No notes yet.' : 'What did we see, eat and remember here?'}
-      />
-      {!VIEW_ONLY && <div className="saved">{savedNote}</div>}
+      {VIEW_ONLY ? (
+        <textarea readOnly value={publicNote} placeholder="No notes yet." />
+      ) : (
+        <>
+          <div className="note-label">🌍 Public note · shows on the shared link</div>
+          <textarea
+            value={publicNote}
+            onChange={(e) => setPublicNote(e.target.value)}
+            placeholder="Anything you're happy for everyone to see…"
+          />
+          <div className="note-label" style={{ marginTop: 10 }}>🔒 Private note · just you two · hidden from the shared link</div>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Costs, plans, anything private…"
+          />
+          <div className="saved">{saved ? (cloudOn() ? '✓ Saved & synced' : '✓ Saved on this device') : 'Saving…'}</div>
+        </>
+      )}
 
       {!VIEW_ONLY && (
         <div className="media-actions">
