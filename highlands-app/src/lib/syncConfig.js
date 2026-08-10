@@ -13,4 +13,4 @@ export const syncConfig = {
 export const TRIP_ID = 'ptdaniel-highlands-2026-8f3a1c'
 
 // Which localStorage keys sync between phones (small text only — never photos).
-export const SYNC_PREFIXES = ['booking:', 'journal:', 'checklist:']
+export const SYNC_PREFIXES = ['booking:', 'journal:', 'journalpub:', 'checklist:']
