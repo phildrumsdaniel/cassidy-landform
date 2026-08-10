@@ -15,9 +15,9 @@ function Stay({ s }) {
       <div className="stay-meta">
         {s.tel && <a className="tel" href={`tel:${s.tel}`}>☎ {s.phone}</a>}
         {s.postcode && <span className="pc">{s.postcode}</span>}
-        {s.cost != null ? <span className="cost">≈ £{s.cost}</span> : <span className="cost tbc">Confirm rate</span>}
+        {!VIEW_ONLY && (s.cost != null ? <span className="cost">≈ £{s.cost}</span> : <span className="cost tbc">Confirm rate</span>)}
       </div>
-      {s.note && <div className="stay-note">{s.note}</div>}
+      {!VIEW_ONLY && s.note && <div className="stay-note">{s.note}</div>}
       <div className="stay-links">
         {s.url && <a className="btn ghost" href={s.url} target="_blank" rel="noreferrer">Book ↗</a>}
         {s.lat != null && <a className="btn ghost" href={`https://www.google.com/maps/search/?api=1&query=${s.lat},${s.lng}`} target="_blank" rel="noreferrer">Directions ↗</a>}
@@ -76,9 +76,9 @@ export default function MyBooking({ base }) {
           <div className="stay-meta">
             {booking.phone && <a className="tel" href={`tel:${tel(booking.phone)}`}>☎ {booking.phone}</a>}
             {booking.postcode && <span className="pc">{booking.postcode}</span>}
-            {booking.cost !== '' && booking.cost != null && <span className="cost">≈ £{booking.cost}</span>}
+            {!VIEW_ONLY && booking.cost !== '' && booking.cost != null && <span className="cost">≈ £{booking.cost}</span>}
           </div>
-          {booking.note && <div className="stay-note">{booking.note}</div>}
+          {!VIEW_ONLY && booking.note && <div className="stay-note">{booking.note}</div>}
           <div className="stay-links">
             {booking.url && <a className="btn ghost" href={booking.url} target="_blank" rel="noreferrer">Booking ↗</a>}
             {(booking.postcode || booking.name) && <a className="btn ghost" href={mapsSearch(booking.postcode || `${booking.name}, ${base.region}`)} target="_blank" rel="noreferrer">Directions ↗</a>}

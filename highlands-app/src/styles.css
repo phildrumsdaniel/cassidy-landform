@@ -593,6 +593,42 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; line-height: 1.12; mar
 .paste-box summary { cursor: pointer; font-size: 0.82rem; font-weight: 700; color: var(--loch); list-style: none; }
 :root[data-theme='dark'] .paste-box summary { color: var(--whisky-soft); }
 .paste-box summary::-webkit-details-marker { display: none; }
+/* ---------- trip magazine ---------- */
+.mag-cta-row { display: flex; gap: 10px; margin: 4px 0 14px; }
+.mag { padding-bottom: 40px; }
+.mag-cover { position: relative; min-height: 62vh; display: flex; align-items: flex-end; overflow: hidden; }
+.mag-cover-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.mag-cover-img .placeholder { position: absolute; inset: 0; }
+.mag-cover-text { position: relative; z-index: 2; width: 100%; padding: 28px 20px 26px; color: #fff; background: linear-gradient(to top, rgba(8,20,26,0.92) 25%, rgba(8,20,26,0.15) 100%); }
+.mag-kicker { text-transform: uppercase; letter-spacing: 0.28em; font-size: 0.68rem; opacity: 0.9; }
+.mag-cover-text h1 { font-size: 2.6rem; line-height: 1.05; margin: 6px 0 6px; }
+.mag-sub { font-family: var(--serif); font-style: italic; opacity: 0.95; }
+.mag-dates { font-size: 0.82rem; opacity: 0.85; margin-top: 4px; }
+.mag-share { margin-top: 16px; }
+.mag-editnote { font-size: 0.8rem; opacity: 0.85; padding-top: 16px; padding-bottom: 4px; }
+.mag-stop { margin-top: 30px; }
+.mag-stop-head { margin-bottom: 12px; }
+.mag-num { text-transform: uppercase; letter-spacing: 0.22em; font-size: 0.7rem; color: var(--whisky-soft); }
+.mag-stop-head h2 { font-size: 2rem; line-height: 1.1; margin: 2px 0 4px; }
+.mag-meta { font-size: 0.8rem; opacity: 0.8; }
+.mag-hero { display: block; width: 100%; height: 240px; object-fit: cover; }
+.mag-hero .placeholder { height: 240px; }
+.mag-note { font-family: var(--serif); font-size: 1.06rem; line-height: 1.6; margin: 16px auto; white-space: pre-wrap; }
+.mag-note::first-letter { font-size: 2.6em; float: left; line-height: 0.8; padding: 4px 8px 0 0; font-weight: 700; }
+.mag-gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin: 8px 0 4px; }
+.mag-shot { padding: 0; border: 0; background: none; aspect-ratio: 1; cursor: pointer; }
+.mag-shot img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 3px; }
+.mag-section-label { text-transform: uppercase; letter-spacing: 0.18em; font-size: 0.72rem; color: var(--whisky-soft); margin: 20px 0 10px; border-top: 1px solid var(--border); padding-top: 14px; }
+.mag-pois { display: flex; flex-direction: column; gap: 14px; }
+.mag-poi { display: flex; gap: 12px; align-items: flex-start; }
+.mag-poi-img { width: 96px; height: 96px; flex: 0 0 96px; object-fit: cover; border-radius: 8px; }
+.mag-poi-img .placeholder { width: 96px; height: 96px; }
+.mag-poi-text strong { font-family: var(--serif); font-size: 1.05rem; }
+.mag-poi-text p { margin: 4px 0 0; font-size: 0.86rem; opacity: 0.88; line-height: 1.45; }
+.mag-foot { text-align: center; padding: 40px 20px 20px; opacity: 0.9; }
+.mag-foot .serif { font-family: var(--serif); font-size: 1.4rem; }
+.mag-toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); background: var(--loch, #14343f); color: #fff; padding: 10px 16px; border-radius: 20px; font-size: 0.82rem; z-index: 200; max-width: 88%; text-align: center; word-break: break-all; }
+
 .note-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.02em; color: var(--mist); margin-bottom: 4px; }
 .view-banner { position: sticky; top: 0; z-index: 50; text-align: center; font-size: 0.76rem; font-weight: 700; letter-spacing: 0.03em; padding: 6px 10px; background: var(--loch, #14343f); color: #fff; }
 .media-thumb { position: relative; }

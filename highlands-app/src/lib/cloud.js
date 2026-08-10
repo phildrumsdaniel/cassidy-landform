@@ -72,6 +72,21 @@ export async function listPhotos(baseId) {
   }
 }
 
+// The whole shared album (all bases) — used by the magazine.
+export async function listAllPhotos() {
+  if (!syncConfig) return []
+  try {
+    const res = await fetchT(
+      `${syncConfig.url}/rest/v1/photos?select=uid,base_id,path,type,name,created_at&order=created_at.asc`,
+      { headers: headers() }, 15000
+    )
+    if (!res.ok) return []
+    return await res.json()
+  } catch {
+    return []
+  }
+}
+
 export async function deletePhoto(uid, path) {
   if (!syncConfig) return
   try { await fetchT(`${syncConfig.url}/storage/v1/object/${BUCKET}/${path}`, { method: 'DELETE', headers: headers() }, 15000) } catch { /* */ }
