@@ -1,16 +1,13 @@
-// Cloud sync configuration. Sync stays OFF (app behaves exactly as before)
-// until this is filled in with a free Supabase project's details.
+// Cloud config for cross-phone sync + shared photos. Live.
 //
-// To enable: set url + anonKey to your Supabase project's values (Settings →
-// API). tripId is a shared, unguessable code both phones use for the same trip
-// — keep it as-is so both devices sync together.
-//
-// export const syncConfig = {
-//   url: 'https://xxxx.supabase.co',
-//   anonKey: 'eyJhbGciOi...'  // the public "anon" key — safe in client code
-// }
+// The anon key is the *public* client key (safe to ship in the app); row-level
+// security on the database limits it to exactly the trip tables. tripId is the
+// shared, unguessable code both phones use for the same trip.
 
-export const syncConfig = null
+export const syncConfig = {
+  url: 'https://jyjikwibvoagapioqeqe.supabase.co',
+  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5amlrd2lidm9hZ2FwaW9xZXFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzMzI5NzYsImV4cCI6MjEwMTkwODk3Nn0.-8b3hpZw_iFkKGExH-n1LLu5UenJQItrpjfmsqKnTGk'
+}
 
 // Shared row id for this trip (both phones read/write the same row).
 export const TRIP_ID = 'ptdaniel-highlands-2026-8f3a1c'

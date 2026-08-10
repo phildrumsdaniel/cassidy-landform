@@ -1,33 +1,56 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { usePersistentState } from '../lib/storage.js'
 import { addMedia, getMediaForBase, deleteMedia, requestPersistence } from '../lib/media.js'
+import { compressImage } from '../lib/img.js'
+import { cloudOn, listPhotos, publicUrl, deletePhoto, uploadAllPending } from '../lib/cloud.js'
 
-// Per-base journal: a text note (localStorage) + photos/videos (IndexedDB).
-// Capture uses the phone's native camera via a file input with `capture`, so it
-// works in an installed PWA with no extra permissions and fully offline.
+// Per-base journal: a text note (synced) + a shared photo/video album. Capture
+// uses the phone's native camera and saves on-device first (works fully
+// offline), then uploads to shared cloud storage so everyone on the trip link
+// sees the same album. Photos from the other phone appear here too.
 export default function MediaJournal({ baseId }) {
   const [text, setText] = usePersistentState(`journal:${baseId}`, '')
   const [saved, setSaved] = useState(true)
   const [items, setItems] = useState([])
   const [busy, setBusy] = useState(false)
   const [lightbox, setLightbox] = useState(null)
-  const urls = useRef(new Map())
+  const urls = useRef(new Map()) // localId -> objectURL
   const photoIn = useRef(null)
   const videoIn = useRef(null)
   const libIn = useRef(null)
   const saveTimer = useRef(null)
 
-  const urlFor = useCallback((m) => {
-    if (!urls.current.has(m.id)) urls.current.set(m.id, URL.createObjectURL(m.blob))
-    return urls.current.get(m.id)
+  const urlFor = useCallback((localId, blob) => {
+    if (!urls.current.has(localId)) urls.current.set(localId, URL.createObjectURL(blob))
+    return urls.current.get(localId)
   }, [])
 
+  // Merge on-device items (have blobs) with the shared cloud album (by uid).
   const refresh = useCallback(async () => {
-    const list = await getMediaForBase(baseId)
-    setItems(list)
-  }, [baseId])
+    const [local, remote] = await Promise.all([
+      getMediaForBase(baseId),
+      cloudOn() ? listPhotos(baseId) : Promise.resolve([])
+    ])
+    const byUid = new Map()
+    for (const r of remote) {
+      byUid.set(r.uid, { uid: r.uid, type: r.type, path: r.path, isLocal: false, src: publicUrl(r.path), created: Date.parse(r.created_at) || 0 })
+    }
+    for (const m of local) {
+      const key = m.uid || `local-${m.id}`
+      byUid.set(key, { uid: m.uid, type: m.type, path: m.path, isLocal: true, localId: m.id, blob: m.blob, src: urlFor(m.id, m.blob), created: m.created || 0 })
+    }
+    setItems([...byUid.values()].sort((a, b) => a.created - b.created))
+  }, [baseId, urlFor])
 
-  useEffect(() => { requestPersistence(); refresh() }, [refresh])
+  useEffect(() => {
+    requestPersistence()
+    refresh()
+    // push anything captured offline, then show the merged album
+    uploadAllPending().then(refresh)
+    const onOnline = () => uploadAllPending().then(refresh)
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
+  }, [refresh])
 
   // revoke object URLs on unmount / base change
   useEffect(() => () => {
@@ -48,8 +71,13 @@ export default function MediaJournal({ baseId }) {
     if (!files.length) return
     setBusy(true)
     try {
-      for (const f of files) await addMedia(baseId, f)
+      for (const f of files) {
+        const isVideo = (f.type || '').startsWith('video')
+        const blob = isVideo ? f : await compressImage(f)
+        await addMedia(baseId, blob, { type: isVideo ? 'video' : 'image', name: f.name })
+      }
       await refresh()
+      uploadAllPending().then(refresh)
     } catch (err) {
       alert('Sorry — couldn’t save that. Your phone may be low on storage.')
     } finally {
@@ -57,36 +85,45 @@ export default function MediaJournal({ baseId }) {
     }
   }
 
-  async function remove(id) {
-    if (!confirm('Delete this from your journal?')) return
-    const u = urls.current.get(id)
-    if (u) { URL.revokeObjectURL(u); urls.current.delete(id) }
-    await deleteMedia(id)
+  async function remove(entry) {
+    if (!confirm(cloudOn() ? 'Delete this for everyone on the trip?' : 'Delete this from your journal?')) return
+    if (entry.isLocal && entry.localId != null) {
+      const u = urls.current.get(entry.localId)
+      if (u) { URL.revokeObjectURL(u); urls.current.delete(entry.localId) }
+      await deleteMedia(entry.localId)
+    }
+    if (cloudOn() && entry.path) await deletePhoto(entry.uid, entry.path)
     await refresh()
     setLightbox(null)
   }
 
-  async function share(m) {
+  async function share(entry) {
+    const name = `highlands.${entry.type === 'video' ? 'mp4' : 'jpg'}`
     try {
-      const file = new File([m.blob], m.name || `highlands.${m.type === 'video' ? 'mov' : 'jpg'}`, { type: m.blob.type })
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'Highlands Adventure' })
-      } else {
-        const u = urlFor(m)
-        const a = document.createElement('a')
-        a.href = u; a.download = file.name; a.click()
+      if (entry.blob) {
+        const file = new File([entry.blob], name, { type: entry.blob.type })
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'Highlands Adventure' })
+          return
+        }
       }
+      if (navigator.share) { await navigator.share({ title: 'Highlands Adventure', url: entry.src }) }
+      else { const a = document.createElement('a'); a.href = entry.src; a.download = name; a.target = '_blank'; a.click() }
     } catch { /* user cancelled */ }
   }
+
+  const savedNote = cloudOn()
+    ? (text ? (saved ? '✓ Saved & shared with the trip' : 'Saving…') : 'Notes & photos are shared with everyone on the trip link.')
+    : (text ? (saved ? '✓ Saved on this device' : 'Saving…') : 'Notes & photos are kept privately on this phone.')
 
   return (
     <div className="journal">
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="What did we see, eat and remember here? (saved on this phone)"
+        placeholder="What did we see, eat and remember here?"
       />
-      <div className="saved">{text ? (saved ? '✓ Saved on this device' : 'Saving…') : 'Notes & photos are kept privately on this phone.'}</div>
+      <div className="saved">{savedNote}</div>
 
       <div className="media-actions">
         <button className="btn" onClick={() => photoIn.current.click()} disabled={busy}>📷 Photo</button>
@@ -97,15 +134,16 @@ export default function MediaJournal({ baseId }) {
       <input ref={videoIn} type="file" accept="video/*" capture="environment" hidden onChange={onFiles} />
       <input ref={libIn} type="file" accept="image/*,video/*" multiple hidden onChange={onFiles} />
 
-      {busy && <div className="saved">Saving media…</div>}
+      {busy && <div className="saved">Saving &amp; uploading…</div>}
 
       {items.length > 0 && (
         <div className="media-grid">
           {items.map((m) => (
-            <button className="media-thumb" key={m.id} onClick={() => setLightbox(m)}>
+            <button className="media-thumb" key={m.uid || m.localId} onClick={() => setLightbox(m)}>
               {m.type === 'video'
-                ? <><video src={urlFor(m)} preload="metadata" muted playsInline /><span className="play">▶</span></>
-                : <img src={urlFor(m)} alt="Journal photo" loading="lazy" />}
+                ? <><video src={m.src} preload="metadata" muted playsInline /><span className="play">▶</span></>
+                : <img src={m.src} alt="Journal photo" loading="lazy" />}
+              {!m.isLocal && <span className="from-other">☁︎</span>}
             </button>
           ))}
         </div>
@@ -115,12 +153,12 @@ export default function MediaJournal({ baseId }) {
         <div className="lightbox" onClick={() => setLightbox(null)}>
           <div className="lightbox-inner" onClick={(e) => e.stopPropagation()}>
             {lightbox.type === 'video'
-              ? <video src={urlFor(lightbox)} controls autoPlay playsInline />
-              : <img src={urlFor(lightbox)} alt="Journal photo" />}
+              ? <video src={lightbox.src} controls autoPlay playsInline />
+              : <img src={lightbox.src} alt="Journal photo" />}
             <div className="lightbox-bar">
               <button className="btn ghost" onClick={() => share(lightbox)}>Save / Share</button>
               <button className="btn" onClick={() => setLightbox(null)}>Close</button>
-              <button className="btn danger" onClick={() => remove(lightbox.id)}>Delete</button>
+              <button className="btn danger" onClick={() => remove(lightbox)}>Delete</button>
             </div>
           </div>
         </div>

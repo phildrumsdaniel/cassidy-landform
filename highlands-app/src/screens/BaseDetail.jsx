@@ -127,7 +127,7 @@ export default function BaseDetail() {
 
         <div>
           <div className="section-title" style={{ margin: '18px 0 10px' }}><Diamond /><h2>Journal</h2></div>
-          <p className="muted" style={{ marginTop: '-4px', fontSize: '0.82rem' }}>Notes, photos &amp; videos — saved on your phone, works offline.</p>
+          <p className="muted" style={{ marginTop: '-4px', fontSize: '0.82rem' }}>Notes &amp; photos are shared with everyone on the trip link — captured offline, uploaded when you’ve got signal.</p>
           <MediaJournal baseId={base.id} />
           <button className="btn gold" style={{ marginTop: 12 }} onClick={() => setShare(true)}>✦ Share this base</button>
         </div>
