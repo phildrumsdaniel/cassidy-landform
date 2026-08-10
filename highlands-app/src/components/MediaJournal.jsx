@@ -2,7 +2,24 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { usePersistentState } from '../lib/storage.js'
 import { addMedia, getMediaForBase, deleteMedia, requestPersistence } from '../lib/media.js'
 import { compressImage } from '../lib/img.js'
-import { cloudOn, listPhotos, publicUrl, deletePhoto, uploadAllPending, SHARE_MAX } from '../lib/cloud.js'
+import { cloudOn, listPhotos, publicUrl, thumbUrl, deletePhoto, uploadAllPending, SHARE_MAX } from '../lib/cloud.js'
+
+// Grid image: loads the small thumbnail, falls back to the full image if the
+// thumb isn't ready, and retries a couple of times on a flaky connection.
+function GridImg({ thumb, full }) {
+  const [src, setSrc] = useState(thumb || full)
+  const step = useRef(0)
+  return (
+    <img
+      src={src} alt="Journal photo" loading="lazy" decoding="async"
+      onError={() => {
+        step.current += 1
+        if (src !== full && step.current === 1) setSrc(full)
+        else if (step.current < 4) setTimeout(() => setSrc(`${full}?r=${step.current}`), 600 * step.current)
+      }}
+    />
+  )
+}
 
 // Per-base journal: a text note (synced) + a shared photo/video album. Capture
 // uses the phone's native camera and saves on-device first (works fully
@@ -34,11 +51,13 @@ export default function MediaJournal({ baseId }) {
     ])
     const byUid = new Map()
     for (const r of remote) {
-      byUid.set(r.uid, { uid: r.uid, type: r.type, path: r.path, isLocal: false, src: publicUrl(r.path), created: Date.parse(r.created_at) || 0 })
+      const full = publicUrl(r.path)
+      byUid.set(r.uid, { uid: r.uid, type: r.type, path: r.path, isLocal: false, src: r.type === 'video' ? full : thumbUrl(r.path), full, created: Date.parse(r.created_at) || 0 })
     }
     for (const m of local) {
       const key = m.uid || `local-${m.id}`
-      byUid.set(key, { uid: m.uid, type: m.type, path: m.path, isLocal: true, localId: m.id, blob: m.blob, uploaded: !!m.uploaded, localOnly: !!m.localOnly, src: urlFor(m.id, m.blob), created: m.created || 0 })
+      const blobUrl = urlFor(m.id, m.blob)
+      byUid.set(key, { uid: m.uid, type: m.type, path: m.path, isLocal: true, localId: m.id, blob: m.blob, uploaded: !!m.uploaded, localOnly: !!m.localOnly, src: blobUrl, full: blobUrl, created: m.created || 0 })
     }
     setItems([...byUid.values()].sort((a, b) => a.created - b.created))
   }, [baseId, urlFor])
@@ -112,8 +131,8 @@ export default function MediaJournal({ baseId }) {
           return
         }
       }
-      if (navigator.share) { await navigator.share({ title: 'Highlands Adventure', url: entry.src }) }
-      else { const a = document.createElement('a'); a.href = entry.src; a.download = name; a.target = '_blank'; a.click() }
+      if (navigator.share) { await navigator.share({ title: 'Highlands Adventure', url: entry.full }) }
+      else { const a = document.createElement('a'); a.href = entry.full; a.download = name; a.target = '_blank'; a.click() }
     } catch { /* user cancelled */ }
   }
 
@@ -148,7 +167,7 @@ export default function MediaJournal({ baseId }) {
             <button className="media-thumb" key={m.uid || m.localId} onClick={() => setLightbox(m)}>
               {m.type === 'video'
                 ? <><video src={m.src} preload="metadata" muted playsInline /><span className="play">▶</span></>
-                : <img src={m.src} alt="Journal photo" loading="lazy" />}
+                : <GridImg thumb={m.src} full={m.full} />}
               {!m.isLocal && <span className="from-other">☁︎</span>}
               {m.isLocal && m.localOnly && <span className="from-other" title="Too big to share — on this phone only">📵</span>}
             </button>
@@ -160,8 +179,8 @@ export default function MediaJournal({ baseId }) {
         <div className="lightbox" onClick={() => setLightbox(null)}>
           <div className="lightbox-inner" onClick={(e) => e.stopPropagation()}>
             {lightbox.type === 'video'
-              ? <video src={lightbox.src} controls autoPlay playsInline />
-              : <img src={lightbox.src} alt="Journal photo" />}
+              ? <video src={lightbox.full} controls autoPlay playsInline />
+              : <img src={lightbox.full} alt="Journal photo" />}
             <div className="lightbox-bar">
               <button className="btn ghost" onClick={() => share(lightbox)}>Save / Share</button>
               <button className="btn" onClick={() => setLightbox(null)}>Close</button>

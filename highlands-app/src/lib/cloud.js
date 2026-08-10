@@ -6,6 +6,7 @@
 
 import { syncConfig } from './syncConfig.js'
 import { getAllMedia, updateMedia, newUid } from './media.js'
+import { makeThumb } from './img.js'
 
 const BUCKET = 'photos'
 export const SHARE_MAX = 50 * 1024 * 1024 // free-tier per-file limit
@@ -16,6 +17,10 @@ const headers = () => ({ apikey: syncConfig.anonKey, Authorization: `Bearer ${sy
 export function publicUrl(path) {
   return syncConfig ? `${syncConfig.url}/storage/v1/object/public/${BUCKET}/${path}` : ''
 }
+
+// The grid loads this small version; falls back to the full image if a thumb
+// isn't generated yet (the phone that owns a photo makes its thumb).
+export const thumbUrl = (path) => publicUrl(`thumb/${path}`)
 
 function extFor(m) {
   if (m.type !== 'video') return 'jpg'
@@ -73,15 +78,31 @@ export async function uploadAllPending() {
   try {
     const all = await getAllMedia()
     for (const m of all) {
-      if (m.uploaded || m.localOnly || !m.blob) continue
-      if (m.blob.size > SHARE_MAX) { await updateMedia(m.id, { localOnly: true, uid: m.uid || newUid() }); continue }
-      const uid = m.uid || newUid()
-      const path = `${m.baseId}/${uid}.${extFor(m)}`
-      try {
-        await uploadBlob(path, m.blob)
-        await insertRow({ uid, base_id: m.baseId, path, type: m.type, name: m.name || null })
-        await updateMedia(m.id, { uploaded: true, uid, path })
-      } catch { /* leave pending for next time */ }
+      if (!m.blob) continue
+      let { uid, path } = m
+
+      // 1) Upload the full media if it isn't in the cloud yet.
+      if (!m.uploaded && !m.localOnly) {
+        if (m.blob.size > SHARE_MAX) { await updateMedia(m.id, { localOnly: true, uid: m.uid || newUid() }); continue }
+        uid = m.uid || newUid()
+        path = `${m.baseId}/${uid}.${extFor(m)}`
+        try {
+          await uploadBlob(path, m.blob)
+          await insertRow({ uid, base_id: m.baseId, path, type: m.type, name: m.name || null })
+          await updateMedia(m.id, { uploaded: true, uid, path })
+        } catch { continue /* leave pending for next time */ }
+      }
+
+      // 2) Make + upload a small grid thumbnail (backfills older full-size ones).
+      if (m.type === 'image' && !m.thumbed && path) {
+        try {
+          const thumb = await makeThumb(m.blob)
+          if (thumb) {
+            await uploadBlob(`thumb/${path}`, thumb)
+            await updateMedia(m.id, { thumbed: true })
+          }
+        } catch { /* try again next time */ }
+      }
     }
   } catch { /* */ } finally {
     uploading = false
