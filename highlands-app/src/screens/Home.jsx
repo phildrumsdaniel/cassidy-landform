@@ -8,6 +8,7 @@ import { DayPlate, Diamond, Eyebrow } from '../components/ui.jsx'
 import { IconMoon, IconSun, IconMap, IconCheck, IconList, IconInfo } from '../components/icons.jsx'
 import BackupBanner from '../components/BackupBanner.jsx'
 import SyncBadge from '../components/SyncBadge.jsx'
+import { shareTrip } from '../lib/share.js'
 
 const totalMiles = legs.reduce((s, l) => s + l.miles, 0)
 const BASE_URL = import.meta.env.BASE_URL
@@ -16,6 +17,12 @@ export default function Home() {
   const [theme, toggle] = useTheme()
   const todayId = currentBaseId()
   const until = daysUntilStart()
+
+  async function onShare() {
+    const r = await shareTrip()
+    if (r.how === 'copied') alert('View-only link copied — paste it to anyone. They can look but not edit, and won’t see costs or private notes.')
+    else if (r.how === 'manual') prompt('Copy this view-only link:', r.url)
+  }
 
   return (
     <>
@@ -70,6 +77,11 @@ export default function Home() {
 
         <BackupBanner />
         <SyncBadge />
+
+        <div className="mag-cta-row">
+          <Link className="btn gold" to="/magazine" style={{ flex: 1, textAlign: 'center' }}>📖 Trip magazine</Link>
+          <button className="btn" onClick={onShare} style={{ flex: 1 }}>🔗 Share (view-only)</button>
+        </div>
 
         <div className="quicklinks">
           <Link className="quicklink" to="/map"><IconMap /><span>Map</span></Link>
