@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
-import { TRIP } from '../data/bases.js'
+import { TRIP, bases } from '../data/bases.js'
+import { listViews, viewerName, setViewerName } from '../lib/views.js'
 import { photoSources } from '../data/photo-sources.js'
 import credits from '../data/credits.json'
 import { Eyebrow, Diamond } from '../components/ui.jsx'
@@ -15,6 +16,23 @@ function creditRows() {
 const stripHtml = (h) => (h ? h.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim() : '')
 const mb = (b) => (b / 1048576).toFixed(b > 10485760 ? 0 : 1)
 
+const baseName = (idStr) => (bases.find((b) => String(b.id) === String(idStr)) || {}).name
+function pageLabel(page) {
+  if (!page) return ''
+  if (page === 'journal') return 'the whole journal'
+  if (page.startsWith('day:')) return baseName(page.slice(4)) || 'a day'
+  return page
+}
+function relTime(iso) {
+  try {
+    const s = Math.max(0, (new Date().getTime() - new Date(iso).getTime()) / 1000)
+    if (s < 60) return 'just now'
+    if (s < 3600) return `${Math.floor(s / 60)} min ago`
+    if (s < 86400) return `${Math.floor(s / 3600)} h ago`
+    return `${Math.floor(s / 86400)} d ago`
+  } catch { return '' }
+}
+
 export default function About() {
   const navigate = useNavigate()
   const rows = creditRows()
@@ -23,10 +41,13 @@ export default function About() {
   const [status, setStatus] = useState('')
   const [usage, setUsage] = useState({ usage: 0, quota: 0 })
   const [photos, setPhotos] = useState(0)
+  const [views, setViews] = useState([])
+  const [myName, setMyName] = useState(viewerName())
 
   useEffect(() => {
     estimateUsage().then(setUsage)
     countMedia().then(setPhotos)
+    listViews().then(setViews)
   }, [status])
 
   async function doExport() {
@@ -92,6 +113,34 @@ export default function About() {
             </p>
           </div>
         </div>
+
+        {!VIEW_ONLY && (
+          <div>
+            <div className="section-title" style={{ margin: '16px 0 6px' }}><Diamond /><h2 style={{ fontSize: '1.2rem' }}>Who’s viewed</h2></div>
+            <div className="card" style={{ padding: 14 }}>
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, marginBottom: 4 }}>Name this device (so your own visits show up labelled)</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input value={myName} onChange={(e) => setMyName(e.target.value)} placeholder="e.g. Phil’s iPhone" style={{ flex: 1 }} />
+                  <button className="btn" onClick={() => { setViewerName(myName); setStatus(`named:${myName}`) }}>Save</button>
+                </div>
+              </div>
+              {views.length === 0
+                ? <p className="muted" style={{ margin: 0, fontSize: '0.82rem' }}>No views logged yet. They’ll appear here once people open your shared link.</p>
+                : (
+                  <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                    {views.map((v, i) => (
+                      <li key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '6px 0', borderTop: i ? '1px solid var(--border)' : 'none', fontSize: '0.85rem' }}>
+                        <span><strong>{v.name || 'Someone'}</strong> · {v.device} — {pageLabel(v.page)}</span>
+                        <span className="muted" style={{ whiteSpace: 'nowrap' }}>{relTime(v.at)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              <p className="muted" style={{ fontSize: '0.72rem', marginTop: 10, marginBottom: 0 }}>Best-effort: no login, so names are optional and self-entered — device &amp; time are always recorded.</p>
+            </div>
+          </div>
+        )}
 
         {/* CREDITS */}
         <div>
