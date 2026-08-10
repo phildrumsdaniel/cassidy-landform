@@ -124,7 +124,7 @@ export default function About() {
           <p className="credit-line" style={{ marginTop: 0 }}>Live map tiles © OpenStreetMap contributors (ODbL). Rendering by Leaflet.</p>
         </div>
 
-        <p className="muted center" style={{ fontSize: '0.72rem' }}>Made with love for the road. Version 2.0 · works offline.</p>
+        <p className="muted center" style={{ fontSize: '0.72rem' }}>Made with love for the road. Version 2.5 · build {typeof __BUILD_ID__ !== 'undefined' ? __BUILD_ID__ : 'dev'} · works offline.</p>
       </div>
     </>
   )

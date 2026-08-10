@@ -9,6 +9,10 @@ const base = process.env.VITE_BASE || '/cassidy-landform/highlands/'
 
 export default defineConfig({
   base,
+  // A build stamp so we can confirm a device is running the latest deploy.
+  define: {
+    __BUILD_ID__: JSON.stringify(new Date().toISOString().slice(5, 16).replace('T', ' '))
+  },
   plugins: [
     react(),
     VitePWA({
