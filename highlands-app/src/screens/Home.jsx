@@ -9,6 +9,7 @@ import { IconMoon, IconSun, IconMap, IconCheck, IconList, IconInfo } from '../co
 import BackupBanner from '../components/BackupBanner.jsx'
 import SyncBadge from '../components/SyncBadge.jsx'
 import { shareTrip } from '../lib/share.js'
+import { VIEW_ONLY } from '../lib/viewOnly.js'
 
 const totalMiles = legs.reduce((s, l) => s + l.miles, 0)
 const BASE_URL = import.meta.env.BASE_URL
@@ -80,7 +81,7 @@ export default function Home() {
 
         <div className="mag-cta-row">
           <Link className="btn gold" to="/magazine" style={{ flex: 1, textAlign: 'center' }}>📖 Trip magazine</Link>
-          <button className="btn" onClick={onShare} style={{ flex: 1 }}>🔗 Share (view-only)</button>
+          {!VIEW_ONLY && <button className="btn" onClick={onShare} style={{ flex: 1 }}>🔗 Share (view-only)</button>}
         </div>
 
         <div className="quicklinks">
