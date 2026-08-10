@@ -31,6 +31,7 @@ export default function MediaJournal({ baseId }) {
   const [items, setItems] = useState([])
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
+  const [progress, setProgress] = useState(null) // {phase:'add'|'upload', done, total}
   const [lightbox, setLightbox] = useState(null)
   const urls = useRef(new Map()) // localId -> objectURL
   const photoIn = useRef(null)
@@ -91,22 +92,39 @@ export default function MediaJournal({ baseId }) {
     if (!files.length) return
     setBusy(true)
     setNotice('')
-    try {
-      let tooBig = 0
-      for (const f of files) {
+
+    // Add one at a time, surviving any single failure, yielding to the phone
+    // between each so a big batch (dozens of photos) can't lock up the tab.
+    let added = 0, failed = 0, tooBig = 0
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i]
+      setProgress({ phase: 'add', done: i, total: files.length })
+      try {
         const isVideo = (f.type || '').startsWith('video')
         const blob = isVideo ? f : await compressImage(f)
         if (cloudOn() && blob.size > SHARE_MAX) tooBig++
         await addMedia(baseId, blob, { type: isVideo ? 'video' : 'image', name: f.name })
+        added++
+      } catch {
+        failed++
       }
-      await refresh()
-      uploadAllPending().then(refresh)
-      if (tooBig) setNotice(`${tooBig === 1 ? 'That video is' : `${tooBig} videos are`} over 50 MB, so ${tooBig === 1 ? "it's" : "they're"} kept on this phone only (too big to share). Photos and shorter clips share fine.`)
-    } catch (err) {
-      alert('Sorry — couldn’t save that. Your phone may be low on storage.')
-    } finally {
-      setBusy(false)
+      await new Promise((r) => setTimeout(r, 0)) // let the browser breathe
     }
+    await refresh()
+    setBusy(false)
+
+    // Then upload to the shared album, showing progress.
+    if (cloudOn() && added) {
+      setProgress({ phase: 'upload', done: 0, total: added })
+      await uploadAllPending((done, total) => setProgress({ phase: 'upload', done, total }))
+    }
+    setProgress(null)
+    await refresh()
+
+    const msgs = []
+    if (tooBig) msgs.push(`${tooBig} video${tooBig > 1 ? 's' : ''} over 50 MB kept on this phone only`)
+    if (failed) msgs.push(`${failed} couldn’t be added (phone may be low on storage)`)
+    if (msgs.length) setNotice(`${msgs.join('; ')}.`)
   }
 
   async function remove(entry) {
@@ -158,7 +176,14 @@ export default function MediaJournal({ baseId }) {
       <input ref={videoIn} type="file" accept="video/*" capture="environment" hidden onChange={onFiles} />
       <input ref={libIn} type="file" accept="image/*,video/*" multiple hidden onChange={onFiles} />
 
-      {busy && <div className="saved">Saving &amp; uploading…</div>}
+      {progress && (
+        <div className="saved">
+          {progress.phase === 'add'
+            ? `Preparing photos… ${progress.done} of ${progress.total}`
+            : `Uploading to the shared album… ${progress.done} of ${progress.total}`}
+        </div>
+      )}
+      {busy && !progress && <div className="saved">Saving…</div>}
       {notice && <div className="saved" style={{ color: 'var(--rust, #b4552d)' }}>📵 {notice}</div>}
 
       {items.length > 0 && (
