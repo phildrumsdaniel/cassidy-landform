@@ -69,42 +69,55 @@ export async function deletePhoto(uid, path) {
   try { await fetch(`${syncConfig.url}/rest/v1/photos?uid=eq.${encodeURIComponent(uid)}`, { method: 'DELETE', headers: headers() }) } catch { /* */ }
 }
 
-let uploading = false
+// Serialise upload runs: calls queue behind each other instead of being
+// dropped, so a fresh batch never gets skipped by an in-flight run.
+let chain = Promise.resolve()
 
-// Upload every locally-captured item that isn't in the cloud yet.
-export async function uploadAllPending() {
-  if (!syncConfig || uploading || (typeof navigator !== 'undefined' && navigator.onLine === false)) return
-  uploading = true
-  try {
-    const all = await getAllMedia()
-    for (const m of all) {
-      if (!m.blob) continue
-      let { uid, path } = m
+export function uploadAllPending(onProgress) {
+  if (!syncConfig) return Promise.resolve()
+  chain = chain.then(() => runUploads(onProgress)).catch(() => {})
+  return chain
+}
 
-      // 1) Upload the full media if it isn't in the cloud yet.
-      if (!m.uploaded && !m.localOnly) {
-        if (m.blob.size > SHARE_MAX) { await updateMedia(m.id, { localOnly: true, uid: m.uid || newUid() }); continue }
-        uid = m.uid || newUid()
-        path = `${m.baseId}/${uid}.${extFor(m)}`
-        try {
-          await uploadBlob(path, m.blob)
-          await insertRow({ uid, base_id: m.baseId, path, type: m.type, name: m.name || null })
-          await updateMedia(m.id, { uploaded: true, uid, path })
-        } catch { continue /* leave pending for next time */ }
+async function runUploads(onProgress) {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return
+  const all = await getAllMedia()
+  const pending = all.filter((m) => m.blob && (
+    (!m.uploaded && !m.localOnly) || (m.type === 'image' && !m.thumbed)
+  ))
+  const total = pending.length
+  let done = 0
+  if (onProgress) onProgress(0, total)
+  for (const m of pending) {
+    let { uid, path } = m
+
+    // 1) Upload the full media if it isn't in the cloud yet.
+    if (!m.uploaded && !m.localOnly) {
+      if (m.blob.size > SHARE_MAX) {
+        await updateMedia(m.id, { localOnly: true, uid: m.uid || newUid() })
+        done++; if (onProgress) onProgress(done, total); continue
       }
-
-      // 2) Make + upload a small grid thumbnail (backfills older full-size ones).
-      if (m.type === 'image' && !m.thumbed && path) {
-        try {
-          const thumb = await makeThumb(m.blob)
-          if (thumb) {
-            await uploadBlob(`thumb/${path}`, thumb)
-            await updateMedia(m.id, { thumbed: true })
-          }
-        } catch { /* try again next time */ }
+      uid = m.uid || newUid()
+      path = `${m.baseId}/${uid}.${extFor(m)}`
+      try {
+        await uploadBlob(path, m.blob)
+        await insertRow({ uid, base_id: m.baseId, path, type: m.type, name: m.name || null })
+        await updateMedia(m.id, { uploaded: true, uid, path })
+      } catch {
+        done++; if (onProgress) onProgress(done, total); continue // leave pending for next time
       }
     }
-  } catch { /* */ } finally {
-    uploading = false
+
+    // 2) Make + upload a small grid thumbnail (backfills older full-size ones).
+    if (m.type === 'image' && !m.thumbed && path) {
+      try {
+        const thumb = await makeThumb(m.blob)
+        if (thumb) {
+          await uploadBlob(`thumb/${path}`, thumb)
+          await updateMedia(m.id, { thumbed: true })
+        }
+      } catch { /* try again next time */ }
+    }
+    done++; if (onProgress) onProgress(done, total)
   }
 }
