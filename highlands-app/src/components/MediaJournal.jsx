@@ -3,6 +3,7 @@ import { usePersistentState } from '../lib/storage.js'
 import { addMedia, getMediaForBase, deleteMedia, requestPersistence } from '../lib/media.js'
 import { compressImage } from '../lib/img.js'
 import { cloudOn, listPhotos, publicUrl, thumbUrl, deletePhoto, uploadAllPending, pendingCount, SHARE_MAX } from '../lib/cloud.js'
+import { VIEW_ONLY } from '../lib/viewOnly.js'
 
 // Grid image: loads the small thumbnail, falls back to the full image if the
 // thumb isn't ready, and retries a couple of times on a flaky connection.
@@ -178,20 +179,26 @@ export default function MediaJournal({ baseId }) {
     ? (text ? (saved ? '✓ Saved & shared with the trip' : 'Saving…') : 'Notes & photos are shared with everyone on the trip link.')
     : (text ? (saved ? '✓ Saved on this device' : 'Saving…') : 'Notes & photos are kept privately on this phone.')
 
+  const total = items.length
+  const shared = items.filter((m) => !m.isLocal || m.uploaded).length
+
   return (
     <div className="journal">
       <textarea
         value={text}
+        readOnly={VIEW_ONLY}
         onChange={(e) => setText(e.target.value)}
-        placeholder="What did we see, eat and remember here?"
+        placeholder={VIEW_ONLY ? 'No notes yet.' : 'What did we see, eat and remember here?'}
       />
-      <div className="saved">{savedNote}</div>
+      {!VIEW_ONLY && <div className="saved">{savedNote}</div>}
 
-      <div className="media-actions">
-        <button className="btn" onClick={() => photoIn.current.click()} disabled={busy}>📷 Photo</button>
-        <button className="btn" onClick={() => videoIn.current.click()} disabled={busy}>🎥 Video</button>
-        <button className="btn ghost" onClick={() => libIn.current.click()} disabled={busy}>＋ From library</button>
-      </div>
+      {!VIEW_ONLY && (
+        <div className="media-actions">
+          <button className="btn" onClick={() => photoIn.current.click()} disabled={busy}>📷 Photo</button>
+          <button className="btn" onClick={() => videoIn.current.click()} disabled={busy}>🎥 Video</button>
+          <button className="btn ghost" onClick={() => libIn.current.click()} disabled={busy}>＋ From library</button>
+        </div>
+      )}
       <input ref={photoIn} type="file" accept="image/*" capture="environment" hidden onChange={onFiles} />
       <input ref={videoIn} type="file" accept="video/*" capture="environment" hidden onChange={onFiles} />
       <input ref={libIn} type="file" accept="image/*,video/*" multiple hidden onChange={onFiles} />
@@ -201,6 +208,9 @@ export default function MediaJournal({ baseId }) {
       {typeof sharing === 'number' && sharing > 0 && <div className="saved">☁︎ Sharing to the album… {sharing} to go</div>}
       {sharing === 'done' && <div className="saved">✓ All photos shared</div>}
       {notice && <div className="saved" style={{ color: 'var(--rust, #b4552d)' }}>📵 {notice}</div>}
+      {cloudOn() && !VIEW_ONLY && total > 0 && (
+        <div className="saved">📷 {total} here · ☁︎ {shared} shared{total > shared ? ` · ${total - shared} to upload` : ''}</div>
+      )}
 
       {items.length > 0 && (
         <div className="media-grid">
@@ -225,7 +235,7 @@ export default function MediaJournal({ baseId }) {
             <div className="lightbox-bar">
               <button className="btn ghost" onClick={() => share(lightbox)}>Save / Share</button>
               <button className="btn" onClick={() => setLightbox(null)}>Close</button>
-              <button className="btn danger" onClick={() => remove(lightbox)}>Delete</button>
+              {!VIEW_ONLY && <button className="btn danger" onClick={() => remove(lightbox)}>Delete</button>}
             </div>
           </div>
         </div>

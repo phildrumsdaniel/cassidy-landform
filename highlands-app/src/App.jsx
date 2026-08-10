@@ -9,6 +9,7 @@ import About from './screens/About.jsx'
 import Book from './screens/Book.jsx'
 import { packing, predeparture } from './data/checklists.js'
 import { IconHome, IconMap, IconCheck, IconList, IconInfo } from './components/icons.jsx'
+import { VIEW_ONLY } from './lib/viewOnly.js'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -32,6 +33,7 @@ export default function App() {
   return (
     <div className="app">
       <ScrollToTop />
+      {VIEW_ONLY && <div className="view-banner">👀 View-only — Phil &amp; Tracey’s Highlands trip</div>}
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/base/:id" element={<BaseDetail />} />
