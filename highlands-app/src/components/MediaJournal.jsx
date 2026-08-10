@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { usePersistentState } from '../lib/storage.js'
 import { addMedia, getMediaForBase, deleteMedia, requestPersistence } from '../lib/media.js'
 import { compressImage } from '../lib/img.js'
-import { cloudOn, listPhotos, publicUrl, deletePhoto, uploadAllPending } from '../lib/cloud.js'
+import { cloudOn, listPhotos, publicUrl, deletePhoto, uploadAllPending, SHARE_MAX } from '../lib/cloud.js'
 
 // Per-base journal: a text note (synced) + a shared photo/video album. Capture
 // uses the phone's native camera and saves on-device first (works fully
@@ -13,6 +13,7 @@ export default function MediaJournal({ baseId }) {
   const [saved, setSaved] = useState(true)
   const [items, setItems] = useState([])
   const [busy, setBusy] = useState(false)
+  const [notice, setNotice] = useState('')
   const [lightbox, setLightbox] = useState(null)
   const urls = useRef(new Map()) // localId -> objectURL
   const photoIn = useRef(null)
@@ -37,7 +38,7 @@ export default function MediaJournal({ baseId }) {
     }
     for (const m of local) {
       const key = m.uid || `local-${m.id}`
-      byUid.set(key, { uid: m.uid, type: m.type, path: m.path, isLocal: true, localId: m.id, blob: m.blob, src: urlFor(m.id, m.blob), created: m.created || 0 })
+      byUid.set(key, { uid: m.uid, type: m.type, path: m.path, isLocal: true, localId: m.id, blob: m.blob, uploaded: !!m.uploaded, localOnly: !!m.localOnly, src: urlFor(m.id, m.blob), created: m.created || 0 })
     }
     setItems([...byUid.values()].sort((a, b) => a.created - b.created))
   }, [baseId, urlFor])
@@ -70,14 +71,18 @@ export default function MediaJournal({ baseId }) {
     e.target.value = ''
     if (!files.length) return
     setBusy(true)
+    setNotice('')
     try {
+      let tooBig = 0
       for (const f of files) {
         const isVideo = (f.type || '').startsWith('video')
         const blob = isVideo ? f : await compressImage(f)
+        if (cloudOn() && blob.size > SHARE_MAX) tooBig++
         await addMedia(baseId, blob, { type: isVideo ? 'video' : 'image', name: f.name })
       }
       await refresh()
       uploadAllPending().then(refresh)
+      if (tooBig) setNotice(`${tooBig === 1 ? 'That video is' : `${tooBig} videos are`} over 50 MB, so ${tooBig === 1 ? "it's" : "they're"} kept on this phone only (too big to share). Photos and shorter clips share fine.`)
     } catch (err) {
       alert('Sorry — couldn’t save that. Your phone may be low on storage.')
     } finally {
@@ -135,6 +140,7 @@ export default function MediaJournal({ baseId }) {
       <input ref={libIn} type="file" accept="image/*,video/*" multiple hidden onChange={onFiles} />
 
       {busy && <div className="saved">Saving &amp; uploading…</div>}
+      {notice && <div className="saved" style={{ color: 'var(--rust, #b4552d)' }}>📵 {notice}</div>}
 
       {items.length > 0 && (
         <div className="media-grid">
@@ -144,6 +150,7 @@ export default function MediaJournal({ baseId }) {
                 ? <><video src={m.src} preload="metadata" muted playsInline /><span className="play">▶</span></>
                 : <img src={m.src} alt="Journal photo" loading="lazy" />}
               {!m.isLocal && <span className="from-other">☁︎</span>}
+              {m.isLocal && m.localOnly && <span className="from-other" title="Too big to share — on this phone only">📵</span>}
             </button>
           ))}
         </div>
