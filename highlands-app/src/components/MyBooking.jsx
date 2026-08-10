@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { usePersistentState } from '../lib/storage.js'
 import { parseBookingEmail } from '../lib/parseBooking.js'
+import { VIEW_ONLY } from '../lib/viewOnly.js'
 
 const tel = (s) => (s || '').replace(/[^0-9+]/g, '')
 const mapsSearch = (q) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`
@@ -81,11 +82,11 @@ export default function MyBooking({ base }) {
           <div className="stay-links">
             {booking.url && <a className="btn ghost" href={booking.url} target="_blank" rel="noreferrer">Booking ↗</a>}
             {(booking.postcode || booking.name) && <a className="btn ghost" href={mapsSearch(booking.postcode || `${booking.name}, ${base.region}`)} target="_blank" rel="noreferrer">Directions ↗</a>}
-            <button className="btn ghost" onClick={open}>Edit</button>
+            {!VIEW_ONLY && <button className="btn ghost" onClick={open}>Edit</button>}
           </div>
         </div>
       ) : (
-        <button className="btn gold" onClick={open} style={{ marginBottom: 4 }}>＋ Add the site you booked</button>
+        !VIEW_ONLY && <button className="btn gold" onClick={open} style={{ marginBottom: 4 }}>＋ Add the site you booked</button>
       )}
 
       {booking

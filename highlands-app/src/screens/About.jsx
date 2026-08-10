@@ -6,6 +6,7 @@ import credits from '../data/credits.json'
 import { Eyebrow, Diamond } from '../components/ui.jsx'
 import { exportTrip, importTrip } from '../lib/backup.js'
 import { estimateUsage, countMedia } from '../lib/media.js'
+import { VIEW_ONLY } from '../lib/viewOnly.js'
 
 function creditRows() {
   const byslug = Object.fromEntries(credits.map((c) => [c.slug, c]))
@@ -81,7 +82,7 @@ export default function About() {
           <div className="card" style={{ padding: 14 }}>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button className="btn" onClick={doExport}>⬇︎ Export journal &amp; photos</button>
-              <button className="btn ghost" onClick={() => importRef.current.click()}>⬆︎ Restore from backup</button>
+              {!VIEW_ONLY && <button className="btn ghost" onClick={() => importRef.current.click()}>⬆︎ Restore from backup</button>}
               <input ref={importRef} type="file" accept=".zip,application/zip" hidden onChange={doImport} />
             </div>
             {status && <p style={{ marginTop: 10, marginBottom: 0, fontSize: '0.85rem', color: 'var(--loch)' }}>{status}</p>}

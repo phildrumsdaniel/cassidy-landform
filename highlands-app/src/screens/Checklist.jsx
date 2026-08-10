@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useChecklist } from '../lib/storage.js'
 import { Eyebrow } from '../components/ui.jsx'
 import { IconCheck } from '../components/icons.jsx'
+import { VIEW_ONLY } from '../lib/viewOnly.js'
 
 export default function Checklist({ storageKey, title, eyebrow, groups }) {
   const navigate = useNavigate()
@@ -23,7 +24,7 @@ export default function Checklist({ storageKey, title, eyebrow, groups }) {
           <div className="progress-bar"><span style={{ width: `${pct}%` }} /></div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', opacity: 0.9 }}>
             <span>{doneCount} of {allItems.length} done</span>
-            {doneCount > 0 && (
+            {doneCount > 0 && !VIEW_ONLY && (
               <button
                 onClick={clear}
                 style={{ background: 'none', border: 'none', color: 'var(--whisky-soft)', font: 'inherit', cursor: 'pointer', textDecoration: 'underline' }}
@@ -45,7 +46,7 @@ export default function Checklist({ storageKey, title, eyebrow, groups }) {
               const id = `${g.group}|${it}`
               const on = !!ticked[id]
               return (
-                <div className={`check-item${on ? ' on' : ''}`} key={id} onClick={() => toggle(id)}>
+                <div className={`check-item${on ? ' on' : ''}`} key={id} onClick={() => !VIEW_ONLY && toggle(id)} style={VIEW_ONLY ? { cursor: 'default' } : undefined}>
                   <span className="box">{on && <IconCheck />}</span>
                   <span className="txt">{it}</span>
                 </div>

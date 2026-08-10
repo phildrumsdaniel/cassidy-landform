@@ -593,6 +593,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; line-height: 1.12; mar
 .paste-box summary { cursor: pointer; font-size: 0.82rem; font-weight: 700; color: var(--loch); list-style: none; }
 :root[data-theme='dark'] .paste-box summary { color: var(--whisky-soft); }
 .paste-box summary::-webkit-details-marker { display: none; }
+.view-banner { position: sticky; top: 0; z-index: 50; text-align: center; font-size: 0.76rem; font-weight: 700; letter-spacing: 0.03em; padding: 6px 10px; background: var(--loch, #14343f); color: #fff; }
 .media-thumb { position: relative; }
 .media-thumb .from-other { position: absolute; top: 4px; right: 4px; font-size: 0.7rem; background: rgba(0,0,0,0.45); color: #fff; border-radius: 6px; padding: 0 4px; line-height: 1.4; }
 
