@@ -11,6 +11,7 @@ import MediaJournal from '../components/MediaJournal.jsx'
 import ShareSheet from '../components/ShareSheet.jsx'
 import MyBooking from '../components/MyBooking.jsx'
 import { shareDay } from '../lib/share.js'
+import { VIEW_ONLY } from '../lib/viewOnly.js'
 import { useState } from 'react'
 
 export default function BaseDetail() {
@@ -131,15 +132,17 @@ export default function BaseDetail() {
           <div className="section-title" style={{ margin: '18px 0 10px' }}><Diamond /><h2>Journal</h2></div>
           <p className="muted" style={{ marginTop: '-4px', fontSize: '0.82rem' }}>Notes &amp; photos are shared with everyone on the trip link — captured offline, uploaded when you’ve got signal.</p>
           <MediaJournal baseId={base.id} />
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-            <button className="btn gold" onClick={() => setShare(true)}>✦ Share as image</button>
-            <button className="btn" onClick={async () => {
-              const r = await shareDay(base.id, base.name)
-              if (r.how === 'copied') setToast('Day link copied — anyone can view it')
-              else if (r.how === 'manual') setToast(r.url)
-              if (r.how === 'copied') setTimeout(() => setToast(''), 2500)
-            }}>🔗 Share this day</button>
-          </div>
+          {!VIEW_ONLY && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+              <button className="btn gold" onClick={() => setShare(true)}>✦ Share as image</button>
+              <button className="btn" onClick={async () => {
+                const r = await shareDay(base.id, base.name)
+                if (r.how === 'copied') setToast('Day link copied — anyone can view it')
+                else if (r.how === 'manual') setToast(r.url)
+                if (r.how === 'copied') setTimeout(() => setToast(''), 2500)
+              }}>🔗 Share this day</button>
+            </div>
+          )}
           {toast && <div className="mag-toast" onClick={() => setToast('')}>{toast}</div>}
         </div>
 

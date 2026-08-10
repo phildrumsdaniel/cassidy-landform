@@ -27,7 +27,7 @@ function StopSection({ b, shots, note, onShareDay, onOpen }) {
         <span className="mag-num">Stop {b.id}</span>
         <h2 className="serif">{b.name}</h2>
         <div className="mag-meta">{b.region} · {b.dateLabel} · {b.nights} night{b.nights > 1 ? 's' : ''}</div>
-        <button className="btn ghost mag-day-share" onClick={() => onShareDay(b)}>🔗 Share this day</button>
+        {!VIEW_ONLY && <button className="btn ghost mag-day-share" onClick={() => onShareDay(b)}>🔗 Share this day</button>}
       </div>
 
       <Photo slug={b.hero} name={b.name} className="mag-hero" />
@@ -155,7 +155,7 @@ export default function Magazine() {
           <h1 className="serif">{TRIP.title}</h1>
           <div className="mag-sub">{TRIP.subtitle} · {TRIP.who}</div>
           <div className="mag-dates">{dateRange()}</div>
-          <button className="btn gold mag-share" onClick={onShareAll}>🔗 Share this journal</button>
+          {!VIEW_ONLY && <button className="btn gold mag-share" onClick={onShareAll}>🔗 Share this journal</button>}
         </div>
       </header>
 
