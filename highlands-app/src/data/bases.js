@@ -73,7 +73,7 @@ export const bases = [
     ],
     explore: ['eilean-donan', 'torridon', 'applecross-bay', 'inverewe-garden', 'gairloch-beach'],
     goodToKnow: 'Break the drive here with Eilean Donan Castle — it’s right on the way. Skip Bealach na Bà in a big van; take the coast road.',
-    bigRig: 'The A87 in is fast; beyond Kinlochewe the Torridon/Wester Ross roads narrow to single-track with passing places. For Applecross, take the coast road via Shieldaig — never the Bealach na Bà pass in a big motorhome.',
+    bigRig: 'A87 to Eilean Donan is fast and easy. For Torridon you take the A890 (Stromeferry) then A896 — normally fine (one short single-track stretch by Stromeferry), but it occasionally shuts for rockfalls with a large-vehicle diversion limit, so check for closures; the A832 via Achnasheen is the wider fallback. Beyond Kinlochewe roads narrow with passing places. For Applecross use the coast road via Shieldaig — never the Bealach na Bà pass.',
     hero: 'torridon'
   },
   {
