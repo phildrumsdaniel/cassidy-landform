@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { TRIP, bases } from '../data/bases.js'
 import { POIS } from '../data/pois.js'
@@ -36,8 +36,8 @@ function StopSection({ b, shots, note, onShareDay, onOpen }) {
 
       {shots.length > 0 && (
         <div className="mag-gallery">
-          {shots.map((r) => (
-            <button className="mag-shot" key={r.uid} onClick={() => onOpen(publicUrl(r.path))}>
+          {shots.map((r, i) => (
+            <button className="mag-shot" key={r.uid} onClick={() => onOpen(shots, i)}>
               <img
                 src={r.type === 'video' ? publicUrl(r.path) : thumbUrl(r.path)}
                 alt="Trip photo" loading="lazy" decoding="async"
@@ -70,6 +70,42 @@ function StopSection({ b, shots, note, onShareDay, onOpen }) {
   )
 }
 
+// Full-screen photo viewer with swipe / arrow / keyboard navigation.
+function Viewer({ viewer, setViewer }) {
+  const touchX = useRef(0)
+  const nav = useCallback((d) => setViewer((v) => (v ? { ...v, idx: (v.idx + d + v.shots.length) % v.shots.length } : v)), [setViewer])
+  useEffect(() => {
+    if (!viewer) return undefined
+    const onKey = (e) => { if (e.key === 'ArrowRight') nav(1); else if (e.key === 'ArrowLeft') nav(-1); else if (e.key === 'Escape') setViewer(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [viewer, nav, setViewer])
+  if (!viewer) return null
+  const r = viewer.shots[viewer.idx]
+  const url = publicUrl(r.path)
+  return (
+    <div className="lightbox" onClick={() => setViewer(null)}>
+      <div
+        className="lightbox-inner" onClick={(e) => e.stopPropagation()}
+        onTouchStart={(e) => { touchX.current = e.changedTouches[0].clientX }}
+        onTouchEnd={(e) => { const dx = e.changedTouches[0].clientX - touchX.current; if (Math.abs(dx) > 40) nav(dx < 0 ? 1 : -1) }}
+      >
+        {r.type === 'video'
+          ? <video key={r.uid} src={url} controls autoPlay playsInline />
+          : <img key={r.uid} src={url} alt="Trip photo" />}
+        {viewer.shots.length > 1 && (
+          <>
+            <button className="lb-nav lb-prev" onClick={() => nav(-1)} aria-label="Previous">‹</button>
+            <button className="lb-nav lb-next" onClick={() => nav(1)} aria-label="Next">›</button>
+            <div className="lb-count">{viewer.idx + 1} / {viewer.shots.length}</div>
+          </>
+        )}
+        <div className="lightbox-bar"><button className="btn" onClick={() => setViewer(null)}>Close</button></div>
+      </div>
+    </div>
+  )
+}
+
 // Read-only, magazine-style telling of the trip. /magazine shows the whole
 // journal; /magazine/:id shows a single shared day.
 export default function Magazine() {
@@ -79,8 +115,9 @@ export default function Magazine() {
   const [notes, setNotes] = useState(() =>
     Object.fromEntries(bases.map((b) => [b.id, readJSON(`journalpub:${b.id}`, '')]))
   )
-  const [lightbox, setLightbox] = useState(null)
+  const [viewer, setViewer] = useState(null) // { shots, idx }
   const [toast, setToast] = useState('')
+  const openViewer = (shots, i) => setViewer({ shots, idx: i })
 
   const stops = bases.filter((b) => b.name !== 'Home')
   const single = id ? stops.find((b) => String(b.id) === String(id)) : null
@@ -128,19 +165,12 @@ export default function Magazine() {
         <div className="mag-day-top container">
           <div className="mag-kicker">{TRIP.title} · {TRIP.who}</div>
         </div>
-        <StopSection b={single} shots={photosByBase[single.id] || []} note={notes[single.id]} onShareDay={onShareDay} onOpen={setLightbox} />
+        <StopSection b={single} shots={photosByBase[single.id] || []} note={notes[single.id]} onShareDay={onShareDay} onOpen={openViewer} />
         <footer className="mag-foot">
           <button className="btn gold" onClick={() => nav('/magazine')}>📖 See the whole journal</button>
         </footer>
         {toast && <div className="mag-toast" onClick={() => setToast('')}>{toast}</div>}
-        {lightbox && (
-          <div className="lightbox" onClick={() => setLightbox(null)}>
-            <div className="lightbox-inner" onClick={(e) => e.stopPropagation()}>
-              <img src={lightbox} alt="Trip photo" />
-              <div className="lightbox-bar"><button className="btn" onClick={() => setLightbox(null)}>Close</button></div>
-            </div>
-          </div>
-        )}
+        <Viewer viewer={viewer} setViewer={setViewer} />
       </div>
     )
   }
@@ -166,7 +196,7 @@ export default function Magazine() {
       )}
 
       {stops.map((b) => (
-        <StopSection key={b.id} b={b} shots={photosByBase[b.id] || []} note={notes[b.id]} onShareDay={onShareDay} onOpen={setLightbox} />
+        <StopSection key={b.id} b={b} shots={photosByBase[b.id] || []} note={notes[b.id]} onShareDay={onShareDay} onOpen={openViewer} />
       ))}
 
       <footer className="mag-foot">
@@ -177,14 +207,7 @@ export default function Magazine() {
 
       {toast && <div className="mag-toast" onClick={() => setToast('')}>{toast}</div>}
 
-      {lightbox && (
-        <div className="lightbox" onClick={() => setLightbox(null)}>
-          <div className="lightbox-inner" onClick={(e) => e.stopPropagation()}>
-            <img src={lightbox} alt="Trip photo" />
-            <div className="lightbox-bar"><button className="btn" onClick={() => setLightbox(null)}>Close</button></div>
-          </div>
-        </div>
-      )}
+      <Viewer viewer={viewer} setViewer={setViewer} />
     </div>
   )
 }
