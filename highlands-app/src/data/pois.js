@@ -27,7 +27,7 @@ export const POIS = {
   // Wester Ross
   'eilean-donan':        { name: 'Eilean Donan Castle',   blurb: 'Scotland’s most photographed castle, on its own island where three lochs meet.', lat: 57.2740, lng: -5.5160 },
   'torridon':            { name: 'Torridon',              blurb: 'Ancient, sculpted mountains rising straight from the sea loch.', lat: 57.5470, lng: -5.5090 },
-  'applecross-bay':      { name: 'Applecross',            blurb: 'A remote, whitewashed coastal village and pink-sand bay looking to Skye.', lat: 57.4330, lng: -5.8160 },
+  'applecross-bay':      { name: 'Applecross',            blurb: 'A remote, whitewashed coastal village and pink-sand bay looking to Skye.', lat: 57.4330, lng: -5.8160, access: 'Big motorhome: DON’T take the Bealach na Bà pass — steep hairpins, officially not for large vehicles. Reach Applecross on the coast road via Shieldaig instead: longer and single-track, but fine for all vehicles.' },
   'inverewe-garden':     { name: 'Inverewe Garden',       blurb: 'A lush subtropical garden thriving on the Gulf Stream at this latitude.', lat: 57.7760, lng: -5.5980 },
   'gairloch-beach':      { name: 'Gairloch beach',        blurb: 'Golden sands with sunsets over the Minch and, often, dolphins.', lat: 57.7300, lng: -5.6900 },
 
@@ -36,8 +36,8 @@ export const POIS = {
   'ullapool':            { name: 'Ullapool',              blurb: 'A pretty white-washed fishing port on Loch Broom.', lat: 57.8960, lng: -5.1590 },
   'ardvreck-castle':     { name: 'Ardvreck Castle',       blurb: 'A romantic ruined tower on a spit into Loch Assynt beneath Quinag.', lat: 58.1690, lng: -4.9970 },
   'knockan-crag':        { name: 'Knockan Crag',          blurb: 'The birthplace of modern geology, with a walk-through interpretive trail.', lat: 58.0300, lng: -5.0800 },
-  'stac-pollaidh':       { name: 'Stac Pollaidh',         blurb: 'A miniature mountain with a giant’s profile and a superb short circuit.', lat: 58.0356, lng: -5.2075 },
-  'achmelvich':          { name: 'Achmelvich Beach',      blurb: 'A hidden cove of white sand and turquoise water near Lochinver.', lat: 58.1717, lng: -5.3050 },
+  'stac-pollaidh':       { name: 'Stac Pollaidh',         blurb: 'A miniature mountain with a giant’s profile and a superb short circuit.', lat: 58.0356, lng: -5.2075, access: 'On a single-track road with passing places off the A835 — doable slowly. The car park is small, so arrive early.' },
+  'achmelvich':          { name: 'Achmelvich Beach',      blurb: 'A hidden cove of white sand and turquoise water near Lochinver.', lat: 58.1717, lng: -5.3050, access: 'Come in to Lochinver on the A837. Avoid the narrow, twisting B869 Drumbeg loop in a big motorhome — the final lane to the beach is tight, so a smaller vehicle or quiet timing helps.' },
   'kylesku-bridge':      { name: 'Kylesku Bridge',        blurb: 'An elegant curving bridge sweeping across a Highland sea loch.', lat: 58.2570, lng: -5.0240 },
 
   // North coast
