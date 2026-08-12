@@ -38,7 +38,8 @@ export default function MediaJournal({ baseId }) {
   const [notice, setNotice] = useState('')
   const [progress, setProgress] = useState(null) // {done, total} while preparing
   const [sharing, setSharing] = useState(null)   // number left | 'done' | null
-  const [lightbox, setLightbox] = useState(null)
+  const [viewIdx, setViewIdx] = useState(null) // index into items for the photo viewer
+  const touchX = useRef(0)
   const urls = useRef(new Map()) // localId -> objectURL
   const photoIn = useRef(null)
   const videoIn = useRef(null)
@@ -113,6 +114,21 @@ export default function MediaJournal({ baseId }) {
     return () => clearTimeout(saveTimer.current)
   }, [text, publicNote])
 
+  // Photo viewer navigation (wraps around).
+  const closeView = () => setViewIdx(null)
+  const go = (d) => setViewIdx((i) => (i == null || items.length === 0 ? i : (i + d + items.length) % items.length))
+
+  useEffect(() => {
+    if (viewIdx == null) return undefined
+    const onKey = (e) => {
+      if (e.key === 'ArrowRight') go(1)
+      else if (e.key === 'ArrowLeft') go(-1)
+      else if (e.key === 'Escape') closeView()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [viewIdx, items.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
   async function onFiles(e) {
     const files = Array.from(e.target.files || [])
     e.target.value = ''
@@ -161,7 +177,7 @@ export default function MediaJournal({ baseId }) {
     }
     if (cloudOn() && entry.path) await deletePhoto(entry.uid, entry.path)
     await refresh()
-    setLightbox(null)
+    setViewIdx(null)
   }
 
   async function share(entry) {
@@ -181,6 +197,7 @@ export default function MediaJournal({ baseId }) {
 
   const total = items.length
   const shared = items.filter((m) => !m.isLocal || m.uploaded).length
+  const active = viewIdx != null && viewIdx < items.length ? items[viewIdx] : null
 
   return (
     <div className="journal">
@@ -226,8 +243,8 @@ export default function MediaJournal({ baseId }) {
 
       {items.length > 0 && (
         <div className="media-grid">
-          {items.map((m) => (
-            <button className="media-thumb" key={m.uid || m.localId} onClick={() => setLightbox(m)}>
+          {items.map((m, i) => (
+            <button className="media-thumb" key={m.uid || m.localId} onClick={() => setViewIdx(i)}>
               {m.type === 'video'
                 ? <><video src={m.src} preload="metadata" muted playsInline /><span className="play">▶</span></>
                 : <GridImg thumb={m.src} full={m.full} />}
@@ -238,16 +255,32 @@ export default function MediaJournal({ baseId }) {
         </div>
       )}
 
-      {lightbox && (
-        <div className="lightbox" onClick={() => setLightbox(null)}>
-          <div className="lightbox-inner" onClick={(e) => e.stopPropagation()}>
-            {lightbox.type === 'video'
-              ? <video src={lightbox.full} controls autoPlay playsInline />
-              : <img src={lightbox.full} alt="Journal photo" />}
+      {active && (
+        <div className="lightbox" onClick={closeView}>
+          <div
+            className="lightbox-inner" onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) => { touchX.current = e.changedTouches[0].clientX }}
+            onTouchEnd={(e) => {
+              const dx = e.changedTouches[0].clientX - touchX.current
+              if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1)
+            }}
+          >
+            {active.type === 'video'
+              ? <video key={active.uid || active.localId} src={active.full} controls autoPlay playsInline />
+              : <img key={active.uid || active.localId} src={active.full} alt="Journal photo" />}
+
+            {items.length > 1 && (
+              <>
+                <button className="lb-nav lb-prev" onClick={() => go(-1)} aria-label="Previous">‹</button>
+                <button className="lb-nav lb-next" onClick={() => go(1)} aria-label="Next">›</button>
+                <div className="lb-count">{viewIdx + 1} / {items.length}</div>
+              </>
+            )}
+
             <div className="lightbox-bar">
-              <button className="btn ghost" onClick={() => share(lightbox)}>Save / Share</button>
-              <button className="btn" onClick={() => setLightbox(null)}>Close</button>
-              {!VIEW_ONLY && <button className="btn danger" onClick={() => remove(lightbox)}>Delete</button>}
+              <button className="btn ghost" onClick={() => share(active)}>Save / Share</button>
+              <button className="btn" onClick={closeView}>Close</button>
+              {!VIEW_ONLY && <button className="btn danger" onClick={() => remove(active)}>Delete</button>}
             </div>
           </div>
         </div>
