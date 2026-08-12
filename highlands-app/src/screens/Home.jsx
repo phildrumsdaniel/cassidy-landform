@@ -76,6 +76,8 @@ export default function Home() {
           <b>The idea:</b> drive to a base and <b>stay put</b> — {twoNightBases} of the nine bases are two-night stops, so most mornings you wake up, leave the van pitched, and go exploring.
         </div>
 
+        <div className="bigrig" style={{ marginBottom: 4 }}>🚐 <span><b>Big motorhome:</b> the far west &amp; north are largely single-track with passing places — take it steady and pull in to let others by. Skip the <b>Bealach na Bà</b> (Applecross) and the <b>B869 Drumbeg</b> road. Each base has its own road note.</span></div>
+
         <BackupBanner />
         <SyncBadge />
 

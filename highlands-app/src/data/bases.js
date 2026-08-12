@@ -47,6 +47,7 @@ export const bases = [
     ],
     explore: ['loch-craignish', 'ardfern-marina', 'galley-of-lorne', 'oban', 'kilmartin-glen', 'crinan-canal'],
     goodToKnow: 'After that long drive, a proper bed at the Galley of Lorne on night one — then a full day exploring before the van pitch on night two.',
+    bigRig: 'Mostly A-roads (A82/A83/A816). The last few miles into Ardfern on the B8002 are single-track with passing places — fine taken slowly.',
     hero: 'loch-craignish'
   },
   {
@@ -59,6 +60,7 @@ export const bases = [
     ],
     explore: ['castle-stalker', 'glencoe', 'glenfinnan-viaduct', 'steall-falls', 'mallaig'],
     goodToKnow: 'A brilliant base — half of the west Highlands’ greatest hits are a short hop away.',
+    bigRig: 'Main roads here (A82, and the A830 “Road to the Isles”) are good and wide. The upper Glen Nevis road to the Steall Falls car park is narrow, twisty and busy — tight for a big motorhome, so go early or leave it.',
     hero: 'glencoe'
   },
   {
@@ -71,6 +73,7 @@ export const bases = [
     ],
     explore: ['eilean-donan', 'torridon', 'applecross-bay', 'inverewe-garden', 'gairloch-beach'],
     goodToKnow: 'Break the drive here with Eilean Donan Castle — it’s right on the way. Skip Bealach na Bà in a big van; take the coast road.',
+    bigRig: 'The A87 in is fast; beyond Kinlochewe the Torridon/Wester Ross roads narrow to single-track with passing places. For Applecross, take the coast road via Shieldaig — never the Bealach na Bà pass in a big motorhome.',
     hero: 'torridon'
   },
   {
@@ -83,6 +86,7 @@ export const bases = [
     ],
     explore: ['corrieshalloch-gorge', 'ullapool', 'ardvreck-castle', 'knockan-crag', 'stac-pollaidh', 'achmelvich', 'kylesku-bridge'],
     goodToKnow: 'Short drive in — so you’ve almost two full days for the Assynt loop. Last big town for a while: fuel, water, stock up.',
+    bigRig: 'The A835/A837 are wide, fast A-roads. On the Assynt loop, avoid the narrow, twisting B869 Drumbeg road (Lochinver–Kylesku) in a big motorhome — stick to the A837 and A894.',
     hero: 'ardvreck-castle'
   },
   {
@@ -95,6 +99,7 @@ export const bases = [
     ],
     explore: ['smoo-cave', 'balnakeil-beach', 'sandwood-bay', 'cape-wrath'],
     goodToKnow: 'A single night here is plenty — it’s a scenic pause on the way across the top.',
+    bigRig: 'The road across the top (A894 then A838) is largely single-track with passing places. Allow extra time, pull in early to let oncoming traffic and faster locals by, and never stop or park in a passing place.',
     hero: 'smoo-cave'
   },
   {
@@ -107,6 +112,7 @@ export const bases = [
     ],
     explore: ['kyle-of-tongue', 'loch-eriboll', 'duncansby-stacks', 'john-o-groats', 'dunnet-head', 'castle-of-mey'],
     goodToKnow: 'Two nights here turns “the top corner” into a proper stop, not a dash. Dunnet Head — not John o’ Groats — is the true north.',
+    bigRig: 'The north-coast A836 has single-track stretches (Kyle of Tongue, Melvich) before it widens towards Thurso — steady does it. Dunnet Head’s lighthouse lane is narrow but short.',
     hero: 'dunnet-head'
   },
   {

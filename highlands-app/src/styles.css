@@ -639,6 +639,9 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; line-height: 1.12; mar
 
 .note-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.02em; color: var(--mist); margin-bottom: 4px; }
 .view-banner { position: sticky; top: 0; z-index: 50; text-align: center; font-size: 0.76rem; font-weight: 700; letter-spacing: 0.03em; padding: 6px 10px; background: var(--loch, #14343f); color: #fff; }
+.bigrig { display: flex; gap: 8px; align-items: flex-start; margin: 8px 2px 0; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--whisky-soft, #c8a24a) 16%, transparent); border: 1px solid color-mix(in srgb, var(--whisky-soft, #c8a24a) 40%, transparent); font-size: 0.82rem; line-height: 1.45; }
+.poi-access { margin: 6px 0 0; font-size: 0.8rem; line-height: 1.4; color: var(--rust, #b4552d); font-weight: 600; }
+:root[data-theme='dark'] .poi-access { color: #e0a06a; }
 .lb-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 48px; height: 72px; border: 0; border-radius: 10px; background: rgba(0,0,0,0.35); color: #fff; font-size: 2.2rem; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 3; }
 .lb-nav:active { background: rgba(0,0,0,0.55); }
 .lb-prev { left: 6px; }

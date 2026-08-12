@@ -64,6 +64,7 @@ export default function BaseDetail() {
         <p className="muted" style={{ margin: '-4px 2px 0', fontSize: '0.85rem' }}>
           From {base.from}{base.via ? ` · via ${base.via}` : ''}
         </p>
+        {base.bigRig && <div className="bigrig">🚐 <span>{base.bigRig}</span></div>}
 
         {base.stays.length > 0 && (
           <div>
@@ -115,6 +116,7 @@ export default function BaseDetail() {
               <div className="poi-body">
                 <div className="poi-name">{p.name}</div>
                 <p className="poi-blurb">{p.blurb}</p>
+                {p.access && <p className="poi-access">🚐 {p.access}</p>}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {p.lat != null && (
                     <Link className="btn" to={`/map?lat=${p.lat}&lng=${p.lng}&name=${encodeURIComponent(p.name)}&base=${base.id}`}><IconPin /> Show on map</Link>
