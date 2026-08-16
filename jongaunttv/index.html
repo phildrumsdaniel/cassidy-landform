@@ -639,19 +639,49 @@ function showCardCompact(s){
   </div>`;
 }
 
-async function loadLatestShows(){
-  const el=document.getElementById("homeShows");
-  if(!el || !sb) return;
+async function fetchShows(){
+  if(!sb) return null;
   try{
     const { data, error } = await sb.from("shows")
-      .select("video_id,title,published_at,thumbnail_url")
+      .select("video_id,title,description,published_at,thumbnail_url")
       .order("published_at",{ascending:false}).limit(15);
     if(error) throw error;
-    if(data && data.length){
-      liveShowsCache = data;
-      el.innerHTML = data.map(showCardCompact).join("");
-    }
-  }catch(e){ /* keep the built-in fallback list already rendered */ }
+    if(data && data.length){ liveShowsCache = data; return data; }
+  }catch(e){ /* fall back to the built-in list */ }
+  return null;
+}
+async function loadLatestShows(){
+  const el=document.getElementById("homeShows");
+  if(!el) return;
+  const d=await fetchShows();
+  if(el && d) el.innerHTML = d.map(showCardCompact).join("");
+}
+async function loadEpisodes(){
+  const el=document.getElementById("epiList");
+  if(!el) return;
+  const d=await fetchShows();
+  if(el && d) el.innerHTML = d.map(showCardFull).join("");
+}
+
+function showCardFull(s){
+  const t=(s.title||"").replace(/'/g,"\\'").replace(/"/g,"&quot;");
+  const desc = s.description ? adminEsc(String(s.description).slice(0,160)) : "";
+  return `<div onclick="playVideo('${s.video_id}','${t}');" style="background:#1E2F44;border-radius:12px;border:1px solid #2E3F55;overflow:hidden;cursor:pointer;margin-bottom:12px;">
+    <div style="position:relative;background:#243B55;">
+      <img src="${showThumb(s)}" style="width:100%;aspect-ratio:16/9;object-fit:cover;display:block;" onload="ytThumbCheck(this)" onerror="this.style.opacity=0"/>
+      <div style="position:absolute;inset:0;background:rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">
+        <div style="width:54px;height:54px;border-radius:50%;background:rgba(192,57,43,0.92);display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;padding-left:4px;">▶</div>
+      </div>
+    </div>
+    <div style="padding:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="background:#243B55;color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;">Jon Gaunt TV</span>
+        <span style="color:#8B9AB0;font-size:11px;">${showDate(s.published_at)}</span>
+      </div>
+      <div style="color:#fff;font-weight:700;font-size:13px;line-height:1.3;margin-bottom:4px;">${adminEsc(s.title)}</div>
+      ${desc?`<div style="color:#8B9AB0;font-size:11px;line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${desc}…</div>`:""}
+    </div>
+  </div>`;
 }
 
 function renderHome() {
@@ -709,22 +739,20 @@ function renderHome() {
 }
 
 function renderEpisodes(filter="All") {
-  const cats = ["All","Politics","Immigration","World","Crime"];
-  const filtered = filter==="All" ? VIDEOS : VIDEOS.filter(v=>v.cat===filter);
+  const fallback = (liveShowsCache && liveShowsCache.length)
+    ? liveShowsCache.map(showCardFull)
+    : VIDEOS.slice(0,6).map(v=>videoCardFull(v));
   return `<div class="screen" style="padding:16px;">
     <div style="display:flex;gap:12px;align-items:center;background:#1E2F44;border-radius:12px;padding:14px;margin-bottom:14px;border:1px solid #2E3F55;">
       ${jonAvatar(52,"border:2px solid #C0392B;")}
       <div style="flex:1;">
         <div style="color:#fff;font-weight:800;font-size:15px;">Jon Gaunt TV</div>
-        <div style="color:#8B9AB0;font-size:11px;">All episodes — free on YouTube</div>
+        <div style="color:#8B9AB0;font-size:11px;">Latest episodes — updated automatically</div>
       </div>
       <a href="https://www.youtube.com/@JonGauntTV" target="_blank" style="background:#FF0000;color:#fff;border-radius:6px;padding:7px 12px;font-size:11px;font-weight:700;">Subscribe</a>
     </div>
-    <div class="pill" style="margin-bottom:10px;">
-      ${cats.map(c=>`<button class="filter-btn ${c===filter?'active':''}" onclick="showEpisodes('${c}')">${c}</button>`).join("")}
-    </div>
     ${adBanner()}
-    ${filtered.slice(0,4).map(v=>videoCardFull(v)).join("")}
+    <div id="epiList">${fallback.join("")}</div>
     <a href="https://www.youtube.com/@JonGauntTV/videos" target="_blank" style="display:block;background:#1E2F44;color:#8B9AB0;border:1px solid #2E3F55;border-radius:10px;padding:14px;text-align:center;font-size:13px;font-weight:600;">View all on YouTube →</a>
   </div>`;
 }
@@ -1041,7 +1069,7 @@ function showTab(tab) {
   if(tab==="admin"){ openAdmin(); return; }
   if(tab==="home"){ content.innerHTML = renderHome(); loadLatestShows(); }
   else if(tab==="shows") content.innerHTML = renderShows();
-  else if(tab==="episodes") content.innerHTML = renderEpisodes(currentFilter);
+  else if(tab==="episodes"){ content.innerHTML = renderEpisodes(currentFilter); loadEpisodes(); }
   else if(tab==="books") content.innerHTML = renderBooks();
   else if(tab==="shop") content.innerHTML = renderShop();
   else if(tab==="sendview") content.innerHTML = renderSendView("landing");
@@ -1051,6 +1079,7 @@ function showEpisodes(filter) {
   currentFilter = filter;
   adIdx = 0;
   document.getElementById("tabContent").innerHTML = renderEpisodes(filter);
+  loadEpisodes();
 }
 
 function showSendView(stage) {
