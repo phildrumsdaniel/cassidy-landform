@@ -202,7 +202,14 @@ async function initAuth(){
     sbUser = data && data.session ? data.session.user : null;
   } catch(e){ sbUser = null; }
   refreshMemberUI();
-  sb.auth.onAuthStateChange((_e, session)=>{ sbUser = session ? session.user : null; refreshMemberUI(); });
+  sb.auth.onAuthStateChange((event, session)=>{
+    sbUser = session ? session.user : null;
+    refreshMemberUI();
+    if(event === "PASSWORD_RECOVERY") openPasswordReset();
+  });
+  // Belt-and-braces: if we arrived on a recovery link, show the set-password
+  // screen even if the event fired before this handler was attached.
+  if(/type=recovery/.test(location.hash || "")) openPasswordReset();
 }
 
 function refreshMemberUI(){
@@ -257,6 +264,7 @@ function openAuth(mode){
       <div style="text-align:center;color:#8B9AB0;font-size:12px;margin-top:14px;">
         ${isReg ? `Already a member? <span onclick="openAuth('login')" style="color:#F0A500;font-weight:700;cursor:pointer;">Log in</span>` : `New here? <span onclick="openAuth('register')" style="color:#F0A500;font-weight:700;cursor:pointer;">Create a free account</span>`}
       </div>
+      ${!isReg ? `<div style="text-align:center;margin-top:10px;"><span onclick="requestPasswordReset()" style="color:#8B9AB0;font-size:12px;cursor:pointer;text-decoration:underline;">Forgot password?</span></div>` : ""}
     </div>`;
   document.getElementById("root").appendChild(o);
 }
@@ -297,6 +305,58 @@ async function submitLogin(){
   showToast("✓ Logged in — welcome back!");
 }
 
+// ── PASSWORD RESET ─────────────────────────────────────────────
+// Recovery links land back on the app and sign the user in via a temporary
+// session. We catch that (PASSWORD_RECOVERY) and let them set a new password.
+function openPasswordReset(){
+  closeRegister();
+  if(document.getElementById("pwResetOverlay")) return;
+  const o=document.createElement("div");
+  o.id="pwResetOverlay";
+  o.style.cssText="position:absolute;inset:0;background:rgba(10,15,25,0.98);z-index:330;overflow-y:auto;";
+  o.innerHTML=`
+    <div style="padding:22px 18px 30px;">
+      <div style="text-align:center;margin:6px 0 18px;">
+        <div style="width:64px;height:64px;border-radius:50%;margin:0 auto 12px;background:linear-gradient(135deg,#C0392B,#8E2A20);color:#fff;font-weight:900;font-size:22px;line-height:64px;">JG</div>
+        <div style="color:#fff;font-weight:900;font-size:20px;">Set a new password</div>
+        <div style="color:#8B9AB0;font-size:12.5px;line-height:1.6;margin-top:6px;">Choose a new password for your Jon Gaunt TV account.</div>
+      </div>
+      <div style="color:#8B9AB0;font-size:11px;font-weight:700;letter-spacing:0.08em;margin-bottom:6px;">NEW PASSWORD *</div>
+      <input id="pw_new" class="reg-input" type="password" autocomplete="new-password" placeholder="At least 6 characters"/>
+      <div style="color:#8B9AB0;font-size:11px;font-weight:700;letter-spacing:0.08em;margin-bottom:6px;">CONFIRM PASSWORD *</div>
+      <input id="pw_new2" class="reg-input" type="password" autocomplete="new-password" placeholder="Re-enter password"/>
+      <div id="pwMsg" style="color:#E74C3C;font-size:12px;margin-bottom:10px;min-height:15px;"></div>
+      <button id="pwBtn" onclick="submitPasswordReset()" style="width:100%;background:linear-gradient(90deg,#C0392B,#E74C3C);color:#fff;border:none;border-radius:10px;padding:15px;font-size:15px;font-weight:800;cursor:pointer;">Save New Password</button>
+    </div>`;
+  document.getElementById("root").appendChild(o);
+}
+async function requestPasswordReset(){
+  if(!sbReady()) return;
+  const email=(document.getElementById("reg_email").value||"").trim();
+  if(!/.+@.+\..+/.test(email)){ authMsg("Type your email above first, then tap Forgot password"); return; }
+  authMsg(""); authBusy(true,"Sending…");
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+  authBusy(false,"Log In");
+  if(error){ authMsg(error.message); return; }
+  authMsg({ ok:true, text:"Check your email for a link to reset your password." });
+}
+function pwMsg(t){ const m=document.getElementById("pwMsg"); if(m){ m.style.color=(t&&t.ok)?"#27AE60":"#E74C3C"; m.textContent=(t&&t.text)||t||""; } }
+async function submitPasswordReset(){
+  if(!sbReady()) return;
+  const p1=(document.getElementById("pw_new").value||"");
+  const p2=(document.getElementById("pw_new2").value||"");
+  if(p1.length < 6){ pwMsg("Password must be at least 6 characters"); return; }
+  if(p1 !== p2){ pwMsg("Passwords don't match"); return; }
+  const btn=document.getElementById("pwBtn");
+  if(btn){ btn.disabled=true; btn.style.opacity="0.6"; btn.textContent="Saving…"; }
+  const { error } = await sb.auth.updateUser({ password:p1 });
+  if(error){ if(btn){ btn.disabled=false; btn.style.opacity="1"; btn.textContent="Save New Password"; } pwMsg(error.message); return; }
+  const o=document.getElementById("pwResetOverlay"); if(o) o.remove();
+  try{ history.replaceState(null, "", location.pathname + location.search); }catch(e){}
+  refreshMemberUI(); showTab(currentTab);
+  showToast("✓ Password updated — you're logged in.");
+}
+
 async function showMember(){
   const m=getMember(); if(!m) return openRegister();
   if(isAdmin()){ openAdminMenu(m); return; }
@@ -310,7 +370,7 @@ async function showMember(){
 // This list only controls who SEES the review entry point. The REAL security
 // is Row Level Security in Supabase: only these accounts can actually read,
 // approve or delete submissions at the database level — the app can't override that.
-const ADMIN_EMAILS = ["phildrumsdaniel@gmail.com"];
+const ADMIN_EMAILS = ["phildrumsdaniel@gmail.com", "jon@jongaunt.com"];
 function isAdmin(){ return !!sbUser && ADMIN_EMAILS.indexOf((sbUser.email||"").toLowerCase()) !== -1; }
 
 let adminFilter = "pending";
