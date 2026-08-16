@@ -125,6 +125,7 @@ input[type=file]{display:none;}
 
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const JON = "data:image/jpeg;base64,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";
 
@@ -173,14 +174,34 @@ const ADS = [
   {bg:"linear-gradient(135deg,#1a0a00,#3d1f00)",text:"☕ Enjoying the app? Help fund its development",cta:"Support Jon →",ac:"#F0A500",url:"https://www.buymeacoffee.com/Jongaunt"},
 ];
 
-// ── MEMBERSHIP (free registration, stored on-device) ───────────
+// ── MEMBERSHIP (real accounts via Supabase) ────────────────────
 const CHANNEL_ID = "UCj8D6iM0mO27Wiz71ddNzHQ";
-function getMember(){ try { return JSON.parse(localStorage.getItem("jgtv_member")||"null"); } catch(e){ return null; } }
-function isMember(){ return !!getMember(); }
+const SB_URL = "https://rluceonhcszzigidqcyw.supabase.co";
+const SB_KEY = "sb_publishable_7QI_Dsdu6liwv3orJHSjhw_cF2_Js1t";
+const sb = (window.supabase && window.supabase.createClient) ? window.supabase.createClient(SB_URL, SB_KEY) : null;
+let sbUser = null;
+function sbReady(){ if(!sb){ alert("Still connecting — please pull down to refresh and try again."); return false; } return true; }
+
+function getMember(){
+  if(!sbUser) return null;
+  return { name: (sbUser.user_metadata && sbUser.user_metadata.name) || sbUser.email, email: sbUser.email };
+}
+function isMember(){ return !!sbUser; }
+
+async function initAuth(){
+  if(!sb){ refreshMemberUI(); return; }
+  try {
+    const { data } = await sb.auth.getSession();
+    sbUser = data && data.session ? data.session.user : null;
+  } catch(e){ sbUser = null; }
+  refreshMemberUI();
+  sb.auth.onAuthStateChange((_e, session)=>{ sbUser = session ? session.user : null; refreshMemberUI(); });
+}
+
 function refreshMemberUI(){
   const b = document.getElementById("joinBtn");
   if(!b) return;
-  if(getMember()){
+  if(isMember()){
     b.textContent = "✓ Member"; b.style.background = "transparent"; b.style.color = "#27AE60"; b.style.border = "1px solid #27AE60";
     b.setAttribute("onclick","showMember()");
   } else {
@@ -195,10 +216,15 @@ function playLive(){
   playEmbed("https://www.youtube.com/embed/live_stream?channel=" + CHANNEL_ID + "&autoplay=1", "Jon Gaunt TV — LIVE");
 }
 
-function openRegister(){
+function openRegister(){ openAuth("register"); }
+function closeRegister(){ const o=document.getElementById("regOverlay"); if(o) o.remove(); }
+
+function openAuth(mode){
+  closeRegister();
+  const isReg = mode !== "login";
   const o = document.createElement("div");
   o.id = "regOverlay";
-  o.style.cssText = "position:absolute;inset:0;background:rgba(10,15,25,0.97);z-index:320;overflow-y:auto;";
+  o.style.cssText = "position:absolute;inset:0;background:rgba(10,15,25,0.98);z-index:320;overflow-y:auto;";
   o.innerHTML = `
     <div style="padding:22px 18px 30px;">
       <div style="display:flex;justify-content:flex-end;">
@@ -206,39 +232,67 @@ function openRegister(){
       </div>
       <div style="text-align:center;margin:6px 0 18px;">
         <div style="width:64px;height:64px;border-radius:50%;margin:0 auto 12px;background:linear-gradient(135deg,#C0392B,#8E2A20);color:#fff;font-weight:900;font-size:22px;text-align:center;line-height:64px;">JG</div>
-        <div style="color:#fff;font-weight:900;font-size:20px;">Join Jon Gaunt TV — Free</div>
-        <div style="color:#8B9AB0;font-size:12.5px;line-height:1.6;margin-top:6px;">Create your free account to unlock member features — including submitting your own video to be featured on the show.</div>
+        <div style="color:#fff;font-weight:900;font-size:20px;">${isReg ? "Join Jon Gaunt TV — Free" : "Welcome back"}</div>
+        <div style="color:#8B9AB0;font-size:12.5px;line-height:1.6;margin-top:6px;">${isReg ? "Create your free account to unlock member features — including submitting your own video to be featured on the show." : "Log in to your Jon Gaunt TV account."}</div>
       </div>
-      <div style="color:#8B9AB0;font-size:11px;font-weight:700;letter-spacing:0.08em;margin-bottom:6px;">YOUR NAME *</div>
-      <input id="reg_name" class="reg-input" type="text" placeholder="e.g. Dave from Leeds"/>
+      ${isReg ? `<div style="color:#8B9AB0;font-size:11px;font-weight:700;letter-spacing:0.08em;margin-bottom:6px;">YOUR NAME *</div>
+      <input id="reg_name" class="reg-input" type="text" placeholder="e.g. Dave from Leeds"/>` : ""}
       <div style="color:#8B9AB0;font-size:11px;font-weight:700;letter-spacing:0.08em;margin-bottom:6px;">EMAIL *</div>
-      <input id="reg_email" class="reg-input" type="email" placeholder="you@example.com"/>
-      <div style="background:#1E2F44;border:1px solid #2E3F55;border-radius:10px;padding:12px;margin-bottom:16px;">
+      <input id="reg_email" class="reg-input" type="email" autocomplete="email" placeholder="you@example.com"/>
+      <div style="color:#8B9AB0;font-size:11px;font-weight:700;letter-spacing:0.08em;margin-bottom:6px;">PASSWORD *</div>
+      <input id="reg_pass" class="reg-input" type="password" placeholder="${isReg ? "At least 6 characters" : "Your password"}"/>
+      ${isReg ? `<div style="background:#1E2F44;border:1px solid #2E3F55;border-radius:10px;padding:12px;margin-bottom:16px;">
         <div style="color:#F0A500;font-weight:700;font-size:12px;margin-bottom:8px;">Membership unlocks</div>
         ${["Submit your own video for Jon to feature","Members-only show & early access","Uncensored commentary & behind the scenes"].map(x=>`<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:6px;"><span style="color:#27AE60;font-weight:700;">✓</span><span style="color:#fff;font-size:12.5px;">${x}</span></div>`).join("")}
+      </div>` : `<div style="height:8px;"></div>`}
+      <div id="authMsg" style="color:#E74C3C;font-size:12px;margin-bottom:10px;min-height:15px;"></div>
+      <button id="authBtn" onclick="${isReg ? "submitRegister()" : "submitLogin()"}" style="width:100%;background:linear-gradient(90deg,#C0392B,#E74C3C);color:#fff;border:none;border-radius:10px;padding:15px;font-size:15px;font-weight:800;cursor:pointer;">${isReg ? "Create Free Account" : "Log In"}</button>
+      <div style="text-align:center;color:#8B9AB0;font-size:12px;margin-top:14px;">
+        ${isReg ? `Already a member? <span onclick="openAuth('login')" style="color:#F0A500;font-weight:700;cursor:pointer;">Log in</span>` : `New here? <span onclick="openAuth('register')" style="color:#F0A500;font-weight:700;cursor:pointer;">Create a free account</span>`}
       </div>
-      <button onclick="submitRegister()" style="width:100%;background:linear-gradient(90deg,#C0392B,#E74C3C);color:#fff;border:none;border-radius:10px;padding:15px;font-size:15px;font-weight:800;cursor:pointer;">Create Free Account</button>
-      <div style="text-align:center;color:#8B9AB0;font-size:10.5px;margin-top:10px;">Free forever · No spam · Cancel anytime</div>
     </div>`;
   document.getElementById("root").appendChild(o);
 }
-function closeRegister(){ const o=document.getElementById("regOverlay"); if(o) o.remove(); }
-function submitRegister(){
+
+function authMsg(t){ const m=document.getElementById("authMsg"); if(m){ m.style.color = (t && t.ok) ? "#27AE60" : "#E74C3C"; m.textContent = (t && t.text) || t || ""; } }
+function authBusy(busy, txt){ const btn=document.getElementById("authBtn"); if(btn){ btn.disabled=busy; btn.style.opacity=busy?"0.6":"1"; if(txt) btn.textContent=txt; } }
+
+async function submitRegister(){
+  if(!sbReady()) return;
   const name=(document.getElementById("reg_name").value||"").trim();
   const email=(document.getElementById("reg_email").value||"").trim();
-  if(!name){ alert("Please enter your name"); return; }
-  if(!/.+@.+\..+/.test(email)){ alert("Please enter a valid email address"); return; }
-  localStorage.setItem("jgtv_member", JSON.stringify({name:name,email:email,joined:Date.now()}));
-  closeRegister();
-  refreshMemberUI();
-  showTab(currentTab);
+  const pass=(document.getElementById("reg_pass").value||"");
+  if(!name){ authMsg("Please enter your name"); return; }
+  if(!/.+@.+\..+/.test(email)){ authMsg("Please enter a valid email address"); return; }
+  if(pass.length < 6){ authMsg("Password must be at least 6 characters"); return; }
+  authMsg(""); authBusy(true,"Creating account…");
+  const { data, error } = await sb.auth.signUp({ email, password:pass, options:{ data:{ name } } });
+  if(error){ authBusy(false,"Create Free Account"); authMsg(error.message); return; }
+  if(data.session){
+    sbUser = data.user; closeRegister(); refreshMemberUI(); showTab(currentTab);
+  } else {
+    authBusy(false,"Create Free Account");
+    authMsg({ ok:true, text:"Account created — check your email to confirm, then log in." });
+  }
 }
-function showMember(){
+
+async function submitLogin(){
+  if(!sbReady()) return;
+  const email=(document.getElementById("reg_email").value||"").trim();
+  const pass=(document.getElementById("reg_pass").value||"");
+  if(!/.+@.+\..+/.test(email)){ authMsg("Please enter a valid email address"); return; }
+  if(!pass){ authMsg("Please enter your password"); return; }
+  authMsg(""); authBusy(true,"Logging in…");
+  const { data, error } = await sb.auth.signInWithPassword({ email, password:pass });
+  if(error){ authBusy(false,"Log In"); authMsg(error.message); return; }
+  sbUser = data.user; closeRegister(); refreshMemberUI(); showTab(currentTab);
+}
+
+async function showMember(){
   const m=getMember(); if(!m) return openRegister();
-  if(confirm("You're a member, " + m.name + ".\n\nTap OK to sign out.")){
-    localStorage.removeItem("jgtv_member");
-    refreshMemberUI();
-    showTab(currentTab);
+  if(confirm("You're logged in as " + m.name + ".\n\nTap OK to sign out.")){
+    await sb.auth.signOut();
+    sbUser = null; refreshMemberUI(); showTab(currentTab);
   }
 }
 
@@ -608,7 +662,7 @@ function renderSendView(stage="landing") {
       <div class="check-box ${submitAgree?"checked":""}" id="checkIcon">${submitAgree?"✓":""}</div>
       <div style="color:#8B9AB0;font-size:12px;line-height:1.5;">I confirm this is my original video and I give Jon Gaunt TV permission to broadcast it on the show, YouTube, TikTok and all platforms. I am over 18.</div>
     </div>
-    <button onclick="doSubmit()" style="width:100%;background:linear-gradient(90deg,#C0392B,#E74C3C);color:#fff;border:none;border-radius:10px;padding:16px;font-size:15px;font-weight:800;cursor:pointer;">
+    <button id="svSubmit" onclick="doSubmit()" style="width:100%;background:linear-gradient(90deg,#C0392B,#E74C3C);color:#fff;border:none;border-radius:10px;padding:16px;font-size:15px;font-weight:800;cursor:pointer;">
       Submit to Jon Gaunt TV
     </button>
   </div>`;
@@ -794,14 +848,36 @@ function handleFileChange(input) {
   if(lbl) lbl.textContent = f.name;
 }
 
-function doSubmit() {
+async function doSubmit() {
+  if(!isMember()) { openRegister(); return; }
   const nameEl = document.getElementById("sv_name");
   if(nameEl) submitName = nameEl.value.trim();
+  const locEl = document.getElementById("sv_loc");
+  const location = locEl ? locEl.value.trim() : "";
   if(!submitName) { alert("Please add your name"); return; }
   if(!submitTopic) { alert("Please select a topic"); return; }
   if(!submitFile) { alert("Please add your video"); return; }
   if(!submitAgree) { alert("Please tick the permission box"); return; }
-  showSendView("success");
+
+  const btn = document.getElementById("svSubmit");
+  const reset = () => { if(btn){ btn.disabled=false; btn.style.opacity="1"; btn.textContent="Submit to Jon Gaunt TV"; } };
+  if(btn){ btn.disabled=true; btn.style.opacity="0.7"; btn.textContent="Uploading… please wait"; }
+
+  try {
+    const safe = submitFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = sbUser.id + "/" + Date.now() + "_" + safe;
+    const up = await sb.storage.from("submissions").upload(path, submitFile, { contentType: submitFile.type || "video/mp4", upsert: false });
+    if(up.error) throw up.error;
+    const ins = await sb.from("submissions").insert({
+      user_id: sbUser.id, name: submitName, email: sbUser.email,
+      location: location, topic: submitTopic, video_path: path, status: "pending"
+    });
+    if(ins.error) throw ins.error;
+    showSendView("success");
+  } catch(e) {
+    reset();
+    alert("Sorry — the upload failed: " + (e.message || e) + "\n\nPlease check your connection and try again.");
+  }
 }
 
 // Jon Gaunt TV uploads playlist — always ordered newest-first, so embedding it
@@ -900,7 +976,7 @@ function playEmbed(src, title) {
 
 // Init
 showTab("home");
-refreshMemberUI();
+initAuth();
 </script>
 </body>
 </html>
