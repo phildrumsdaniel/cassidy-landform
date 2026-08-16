@@ -613,6 +613,47 @@ function latestHero() {
   </div>`;
 }
 
+// Live "Latest Shows" — read from public.shows, which a Supabase edge function
+// keeps in sync (hourly) from the Jon Gaunt TV YouTube RSS feed. Public read,
+// no login needed. Falls back to the built-in VIDEOS list if the fetch fails.
+let liveShowsCache = null;
+
+function showDate(iso){
+  try{ return new Date(iso).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}); }catch(e){ return ""; }
+}
+function showThumb(s){ return s.thumbnail_url || ("https://img.youtube.com/vi/"+s.video_id+"/hqdefault.jpg"); }
+
+function showCardCompact(s){
+  const t=(s.title||"").replace(/'/g,"\\'").replace(/"/g,"&quot;");
+  return `<div onclick="playVideo('${s.video_id}','${t}');" style="display:flex;gap:10px;align-items:center;background:#1E2F44;border-radius:10px;padding:10px;margin-bottom:10px;cursor:pointer;border:1px solid #2E3F55;">
+    <div style="width:80px;height:50px;border-radius:6px;overflow:hidden;flex-shrink:0;position:relative;background:#243B55;">
+      <img src="${showThumb(s)}" style="width:100%;height:100%;object-fit:cover;" onload="ytThumbCheck(this)" onerror="this.style.opacity=0"/>
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+        <div style="width:22px;height:22px;border-radius:50%;background:rgba(192,57,43,0.9);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;padding-left:2px;">▶</div>
+      </div>
+    </div>
+    <div style="flex:1;min-width:0;">
+      <div style="color:#fff;font-weight:600;font-size:12px;line-height:1.3;margin-bottom:3px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${adminEsc(s.title)}</div>
+      <div style="color:#8B9AB0;font-size:11px;">${showDate(s.published_at)}</div>
+    </div>
+  </div>`;
+}
+
+async function loadLatestShows(){
+  const el=document.getElementById("homeShows");
+  if(!el || !sb) return;
+  try{
+    const { data, error } = await sb.from("shows")
+      .select("video_id,title,published_at,thumbnail_url")
+      .order("published_at",{ascending:false}).limit(15);
+    if(error) throw error;
+    if(data && data.length){
+      liveShowsCache = data;
+      el.innerHTML = data.map(showCardCompact).join("");
+    }
+  }catch(e){ /* keep the built-in fallback list already rendered */ }
+}
+
 function renderHome() {
   return `<div class="screen" style="padding-bottom:20px;">
     <a href="https://www.buymeacoffee.com/Jongaunt" target="_blank" style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(90deg,#C0392B,#E74C3C);padding:10px 14px;text-decoration:none;">
@@ -654,8 +695,8 @@ function renderHome() {
         <div style="color:#8B9AB0;font-size:11px;font-weight:700;letter-spacing:0.1em;">LATEST SHOWS</div>
         <a href="https://www.youtube.com/@JonGauntTV/videos" target="_blank" style="color:#F0A500;font-size:11px;font-weight:700;">All on YouTube →</a>
       </div>
-      <div class="epi-scroll" style="margin-bottom:14px;">
-        ${VIDEOS.slice(0,10).map(v=>videoCardCompact(v)).join("")}
+      <div id="homeShows" class="epi-scroll" style="margin-bottom:14px;">
+        ${(liveShowsCache && liveShowsCache.length ? liveShowsCache.map(showCardCompact) : VIDEOS.slice(0,10).map(v=>videoCardCompact(v))).join("")}
       </div>
       ${adBanner()}
       <div style="display:flex;gap:8px;margin-bottom:4px;">
@@ -998,7 +1039,7 @@ function showTab(tab) {
   content.scrollTop = 0;
   adIdx = 0;
   if(tab==="admin"){ openAdmin(); return; }
-  if(tab==="home") content.innerHTML = renderHome();
+  if(tab==="home"){ content.innerHTML = renderHome(); loadLatestShows(); }
   else if(tab==="shows") content.innerHTML = renderShows();
   else if(tab==="episodes") content.innerHTML = renderEpisodes(currentFilter);
   else if(tab==="books") content.innerHTML = renderBooks();
