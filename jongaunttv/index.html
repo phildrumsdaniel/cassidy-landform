@@ -181,6 +181,13 @@ const SB_KEY = "sb_publishable_7QI_Dsdu6liwv3orJHSjhw_cF2_Js1t";
 const sb = (window.supabase && window.supabase.createClient) ? window.supabase.createClient(SB_URL, SB_KEY) : null;
 let sbUser = null;
 function sbReady(){ if(!sb){ alert("Still connecting — please pull down to refresh and try again."); return false; } return true; }
+function showToast(msg){
+  const t=document.createElement("div");
+  t.style.cssText="position:absolute;top:60px;left:50%;transform:translateX(-50%);background:#27AE60;color:#fff;font-weight:700;font-size:13px;padding:11px 18px;border-radius:22px;z-index:340;box-shadow:0 6px 20px rgba(0,0,0,0.45);max-width:88%;text-align:center;";
+  t.textContent=msg;
+  document.getElementById("root").appendChild(t);
+  setTimeout(()=>{ t.style.transition="opacity 0.4s"; t.style.opacity="0"; setTimeout(()=>t.remove(),420); }, 2800);
+}
 
 function getMember(){
   if(!sbUser) return null;
@@ -270,6 +277,7 @@ async function submitRegister(){
   if(error){ authBusy(false,"Create Free Account"); authMsg(error.message); return; }
   if(data.session){
     sbUser = data.user; closeRegister(); refreshMemberUI(); showTab(currentTab);
+    showToast("🎉 You're in — welcome, " + ((data.user.user_metadata && data.user.user_metadata.name) || "member") + "!");
   } else {
     authBusy(false,"Create Free Account");
     authMsg({ ok:true, text:"Account created — check your email to confirm, then log in." });
@@ -286,6 +294,7 @@ async function submitLogin(){
   const { data, error } = await sb.auth.signInWithPassword({ email, password:pass });
   if(error){ authBusy(false,"Log In"); authMsg(error.message); return; }
   sbUser = data.user; closeRegister(); refreshMemberUI(); showTab(currentTab);
+  showToast("✓ Logged in — welcome back!");
 }
 
 async function showMember(){
