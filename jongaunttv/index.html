@@ -299,10 +299,137 @@ async function submitLogin(){
 
 async function showMember(){
   const m=getMember(); if(!m) return openRegister();
+  if(isAdmin()){ openAdminMenu(m); return; }
   if(confirm("You're logged in as " + m.name + ".\n\nTap OK to sign out.")){
     await sb.auth.signOut();
     sbUser = null; refreshMemberUI(); showTab(currentTab);
   }
+}
+
+// ── ADMIN — Jon's private review panel ─────────────────────────
+// This list only controls who SEES the review entry point. The REAL security
+// is Row Level Security in Supabase: only these accounts can actually read,
+// approve or delete submissions at the database level — the app can't override that.
+const ADMIN_EMAILS = ["phildrumsdaniel@gmail.com"];
+function isAdmin(){ return !!sbUser && ADMIN_EMAILS.indexOf((sbUser.email||"").toLowerCase()) !== -1; }
+
+let adminFilter = "pending";
+
+function openAdminMenu(m){
+  const o=document.createElement("div");
+  o.id="adminMenu";
+  o.style.cssText="position:absolute;inset:0;background:rgba(10,15,25,0.97);z-index:320;display:flex;flex-direction:column;justify-content:center;padding:24px;";
+  o.innerHTML=`
+    <div style="text-align:center;margin-bottom:22px;">
+      <div style="width:64px;height:64px;border-radius:50%;margin:0 auto 12px;background:linear-gradient(135deg,#C0392B,#8E2A20);color:#fff;font-weight:900;font-size:22px;line-height:64px;">JG</div>
+      <div style="color:#fff;font-weight:900;font-size:18px;">${m.name}</div>
+      <div style="color:#F0A500;font-size:12px;font-weight:700;margin-top:4px;letter-spacing:0.06em;">ADMIN · REVIEW ACCESS</div>
+    </div>
+    <button onclick="document.getElementById('adminMenu').remove();openAdmin();" style="width:100%;background:linear-gradient(90deg,#C0392B,#E74C3C);color:#fff;border:none;border-radius:12px;padding:16px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:10px;">🎬 Open Review Panel</button>
+    <button onclick="adminSignOut()" style="width:100%;background:#1E2F44;color:#fff;border:1px solid #2E3F55;border-radius:12px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px;">Sign out</button>
+    <button onclick="document.getElementById('adminMenu').remove();" style="width:100%;background:transparent;color:#8B9AB0;border:none;padding:10px;font-size:13px;cursor:pointer;">Close</button>`;
+  document.getElementById("root").appendChild(o);
+}
+async function adminSignOut(){ const o=document.getElementById("adminMenu"); if(o)o.remove(); await sb.auth.signOut(); sbUser=null; refreshMemberUI(); showTab("home"); }
+
+async function openAdmin(){
+  if(!isAdmin()){ showTab("home"); return; }
+  currentTab="admin";
+  const content=document.getElementById("tabContent");
+  content.scrollTop=0;
+  content.innerHTML=`<div class="screen" style="padding:16px;">${adminHeader()}<div id="adminList" style="color:#8B9AB0;text-align:center;padding:40px 0;font-size:13px;">Loading submissions…</div></div>`;
+  await loadAdmin();
+}
+
+function adminHeader(){
+  const tabs=[["pending","Pending"],["approved","Approved"],["rejected","Rejected"],["all","All"]];
+  return `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <button onclick="showTab('home')" style="background:#1E2F44;color:#8B9AB0;border:1px solid #2E3F55;border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;">← Home</button>
+      <div style="color:#fff;font-weight:900;font-size:16px;">Review Panel</div>
+      <button onclick="openAdmin()" style="margin-left:auto;background:#1E2F44;color:#8B9AB0;border:1px solid #2E3F55;border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;">↻ Refresh</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;">
+      ${tabs.map(([k,l])=>`<button onclick="adminSetFilter('${k}')" class="filter-btn ${adminFilter===k?'active':''}">${l}</button>`).join("")}
+    </div>`;
+}
+
+function adminSetFilter(f){ adminFilter=f; openAdmin(); }
+
+async function loadAdmin(){
+  const listEl=document.getElementById("adminList");
+  if(!listEl) return;
+  if(!sb){ listEl.style.cssText=""; listEl.innerHTML='<div style="color:#8B9AB0;text-align:center;padding:40px 0;font-size:13px;">Still connecting — pull down to refresh.</div>'; return; }
+  try{
+    let q=sb.from("submissions").select("*").order("created_at",{ascending:false});
+    if(adminFilter!=="all") q=q.eq("status",adminFilter);
+    const {data,error}=await q;
+    if(error) throw error;
+    if(!data||!data.length){ listEl.style.cssText=""; listEl.innerHTML=`<div style="color:#8B9AB0;text-align:center;padding:40px 0;font-size:13px;">No ${adminFilter==='all'?'':adminFilter+' '}submissions yet.</div>`; return; }
+    const cards=await Promise.all(data.map(async r=>{
+      let url="";
+      try{ const s=await sb.storage.from("submissions").createSignedUrl(r.video_path,3600); url=(s.data&&s.data.signedUrl)||""; }catch(e){}
+      return adminCard(r,url);
+    }));
+    listEl.style.cssText="";
+    listEl.innerHTML=cards.join("");
+  }catch(e){
+    listEl.style.cssText="";
+    listEl.innerHTML=`<div style="color:#E74C3C;text-align:center;padding:30px 12px;font-size:13px;line-height:1.6;">Couldn't load submissions.<br><span style="color:#8B9AB0;font-size:11px;">${(e&&e.message)||e}</span></div>`;
+  }
+}
+
+function adminStatusPill(s){
+  const map={pending:["#F0A500","Pending"],approved:["#27AE60","Approved"],rejected:["#E74C3C","Rejected"]};
+  const c=map[s]||map.pending;
+  return `<span style="background:${c[0]}22;color:${c[0]};border:1px solid ${c[0]}55;font-size:10px;font-weight:800;letter-spacing:0.05em;padding:3px 9px;border-radius:20px;text-transform:uppercase;white-space:nowrap;">${c[1]}</span>`;
+}
+
+function adminEsc(s){ return (s==null?"":String(s)).replace(/[<>&]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[c])); }
+
+function adminCard(r,url){
+  let when="";
+  try{ const d=new Date(r.created_at); when=d.toLocaleDateString("en-GB",{day:"numeric",month:"short"})+" · "+d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}); }catch(e){}
+  const idJ=JSON.stringify(r.id), pathJ=JSON.stringify(r.video_path);
+  const video = url
+    ? `<video controls playsinline preload="metadata" style="width:100%;border-radius:10px;background:#000;margin:10px 0;max-height:300px;" src="${url}"></video>`
+    : `<div style="background:#0e1826;border:1px dashed #2E3F55;border-radius:10px;padding:20px;text-align:center;color:#8B9AB0;font-size:12px;margin:10px 0;">Video unavailable</div>`;
+  let actions="";
+  if(r.status!=="approved") actions+=`<button onclick='setStatus(${idJ},"approved")' style="flex:1;background:#27AE60;color:#fff;border:none;border-radius:8px;padding:11px;font-size:13px;font-weight:800;cursor:pointer;">✓ Approve</button>`;
+  if(r.status!=="rejected") actions+=`<button onclick='setStatus(${idJ},"rejected")' style="flex:1;background:#1E2F44;color:#E74C3C;border:1px solid #E74C3C55;border-radius:8px;padding:11px;font-size:13px;font-weight:800;cursor:pointer;">✕ Reject</button>`;
+  actions+=`<button onclick='deleteSubmission(${idJ},${pathJ})' title="Delete" style="background:#1E2F44;color:#8B9AB0;border:1px solid #2E3F55;border-radius:8px;padding:11px 13px;font-size:14px;cursor:pointer;">🗑</button>`;
+  return `<div style="background:#1A2D42;border:1px solid #2E3F55;border-radius:12px;padding:14px;margin-bottom:14px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
+      <div style="color:#fff;font-weight:800;font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${adminEsc(r.name)||"Anonymous"}</div>
+      ${adminStatusPill(r.status)}
+    </div>
+    <div style="color:#8B9AB0;font-size:12px;margin-bottom:2px;">${adminEsc(r.topic)||"—"}${r.location?" · "+adminEsc(r.location):""}</div>
+    <div style="color:#5f7089;font-size:11px;">${adminEsc(r.email)||""}${when?" · "+when:""}</div>
+    ${video}
+    <div style="display:flex;gap:8px;">${actions}</div>
+  </div>`;
+}
+
+async function setStatus(id,status){
+  if(!sb) return;
+  try{
+    const {error}=await sb.from("submissions").update({status}).eq("id",id);
+    if(error) throw error;
+    showToast(status==="approved"?"✓ Approved":"Rejected");
+    loadAdmin();
+  }catch(e){ alert("Couldn't update: "+((e&&e.message)||e)); }
+}
+
+async function deleteSubmission(id,path){
+  if(!sb) return;
+  if(!confirm("Permanently delete this submission and its video? This can't be undone.")) return;
+  try{
+    if(path){ try{ await sb.storage.from("submissions").remove([path]); }catch(e){} }
+    const {error}=await sb.from("submissions").delete().eq("id",id);
+    if(error) throw error;
+    showToast("Deleted");
+    loadAdmin();
+  }catch(e){ alert("Couldn't delete: "+((e&&e.message)||e)); }
 }
 
 // ── GREAT BRITISH MEDIA — NETWORK ─────────────────────────────
@@ -810,6 +937,7 @@ function showTab(tab) {
   const content = document.getElementById("tabContent");
   content.scrollTop = 0;
   adIdx = 0;
+  if(tab==="admin"){ openAdmin(); return; }
   if(tab==="home") content.innerHTML = renderHome();
   else if(tab==="shows") content.innerHTML = renderShows();
   else if(tab==="episodes") content.innerHTML = renderEpisodes(currentFilter);
